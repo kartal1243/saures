@@ -1,7 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CashRegister } from '../types';
 import { formatCurrency } from '../utils/formatters';
-import { Wallet, CreditCard, Banknote, ArrowDownRight, AlertCircle, TrendingUp } from 'lucide-react';
+import {
+  Wallet,
+  CreditCard,
+  Banknote,
+  ArrowDownRight,
+  AlertCircle,
+  TrendingUp,
+  ShoppingBag,
+  Target,
+  Pencil,
+  Check,
+  X,
+  Sparkles,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface CashSummaryProps {
@@ -10,130 +23,388 @@ interface CashSummaryProps {
 }
 
 export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingModal }) => {
+  // Daily Earnings Target State with localStorage persistence
+  const [dailyTarget, setDailyTarget] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('esnaf_daily_earnings_target');
+      return saved ? Number(saved) : 3000;
+    } catch {
+      return 3000;
+    }
+  });
+
+  const [isEditingTarget, setIsEditingTarget] = useState<boolean>(false);
+  const [tempTarget, setTempTarget] = useState<string>(String(dailyTarget));
+
+  // Compute progress
+  const currentEarnings = cash.todayTotalIncome;
+  const progressPercent = dailyTarget > 0 ? Math.round((currentEarnings / dailyTarget) * 100) : 0;
+  const cappedPercent = Math.min(100, Math.max(0, progressPercent));
+  const isTargetReached = currentEarnings >= dailyTarget;
+  const remaining = Math.max(0, dailyTarget - currentEarnings);
+
+  const handleSaveTarget = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const val = Number(tempTarget);
+    if (val && val > 0) {
+      setDailyTarget(val);
+      try {
+        localStorage.setItem('esnaf_daily_earnings_target', String(val));
+      } catch (err) {
+        console.error('Failed to save target to localStorage', err);
+      }
+      setIsEditingTarget(false);
+    }
+  };
+
+  const handleSetPreset = (presetVal: number) => {
+    setTempTarget(String(presetVal));
+    setDailyTarget(presetVal);
+    try {
+      localStorage.setItem('esnaf_daily_earnings_target', String(presetVal));
+    } catch (err) {
+      console.error('Failed to save target to localStorage', err);
+    }
+    setIsEditingTarget(false);
+  };
+
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      {/* 1. Bugünkü Toplam Tahsilat */}
-      <motion.div
-        key={`income-${cash.todayTotalIncome}`}
-        initial={{ scale: 0.98 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.2 }}
-        className="bg-white rounded-xl p-4 border border-stone-200 shadow-xs relative overflow-hidden flex flex-col justify-between"
-      >
-        <div className="flex items-center justify-between text-stone-500 mb-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-stone-600">Bugünkü Tahsilat</span>
-          <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <TrendingUp className="w-4 h-4" />
-          </span>
-        </div>
-        <div>
-          <div className="text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight">
-            {formatCurrency(cash.todayTotalIncome)}
-          </div>
-          <div className="flex items-center gap-2 mt-1.5 text-xs text-stone-500">
-            <span className="inline-flex items-center gap-1 font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-              <Banknote className="w-3 h-3" /> {formatCurrency(cash.todayCash)}
-            </span>
-            <span className="inline-flex items-center gap-1 font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
-              <CreditCard className="w-3 h-3" /> {formatCurrency(cash.todayCard)}
+    <div className="space-y-3 sm:space-y-4">
+      {/* 4 Core Cash Cards Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* 1. Bugünkü Ciro (Kasaya Giren Toplam) */}
+        <motion.div
+          key={`income-${cash.todayTotalIncome}`}
+          initial={{ scale: 0.98 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-2xl p-4 border border-stone-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between text-stone-500 mb-2">
+            <div>
+              <span className="text-xs font-bold text-stone-700">Bugünkü Ciro</span>
+              <span className="block text-[11px] text-stone-400">Kasaya giren para</span>
+            </div>
+            <span className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4" />
             </span>
           </div>
-        </div>
-      </motion.div>
 
-      {/* 2. Toplam Bekleyen Veresiye Alacağı */}
-      <motion.div
-        key={`receivables-${cash.totalReceivables}`}
-        initial={{ scale: 0.98 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.2 }}
-        className="bg-white rounded-xl p-4 border border-amber-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between"
-      >
-        <div className="flex items-center justify-between text-stone-500 mb-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-amber-900">Bekleyen Veresiye</span>
-          <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-            <Wallet className="w-4 h-4" />
-          </span>
-        </div>
-        <div>
-          <div className="text-xl sm:text-2xl font-extrabold text-amber-700 tracking-tight">
-            {formatCurrency(cash.totalReceivables)}
-          </div>
-          <p className="text-xs text-stone-500 mt-1">
-            Piyasada bekleyen toplam esnaf alacağı
-          </p>
-        </div>
-      </motion.div>
+          <div>
+            <div className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+              {formatCurrency(cash.todayTotalIncome)}
+            </div>
 
-      {/* 3. Kasadaki Net Nakit */}
-      <motion.div
-        key={`net-${cash.netTodayCash}`}
-        initial={{ scale: 0.98 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.2 }}
-        className="bg-white rounded-xl p-4 border border-stone-200 shadow-xs relative overflow-hidden flex flex-col justify-between"
-      >
-        <div className="flex items-center justify-between text-stone-500 mb-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-stone-600">Kasadaki Net Nakit</span>
-          <span className="w-8 h-8 rounded-lg bg-stone-100 text-stone-700 flex items-center justify-center">
-            <Banknote className="w-4 h-4" />
-          </span>
-        </div>
-        <div>
-          <div className="text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight">
-            {formatCurrency(cash.netTodayCash)}
-          </div>
-          <div className="flex items-center gap-1.5 mt-1 text-xs text-stone-500">
-            <ArrowDownRight className="w-3.5 h-3.5 text-rose-500" />
-            <span>Bugünkü Gider: {formatCurrency(cash.todayExpense)}</span>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* 4. Günü Gelen / Geciken Ödemeler */}
-      <motion.div
-        key={`due-${cash.dueTodayCount}-${cash.overdueCount}`}
-        initial={{ scale: 0.98 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.2 }}
-        onClick={onOpenUpcomingModal}
-        className={`rounded-xl p-4 border shadow-xs relative overflow-hidden flex flex-col justify-between cursor-pointer transition-all hover:shadow-md ${
-          cash.overdueCount > 0 || cash.dueTodayCount > 0
-            ? 'bg-rose-50/50 border-rose-200'
-            : 'bg-white border-stone-200'
-        }`}
-      >
-        <div className="flex items-center justify-between text-stone-500 mb-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-rose-800">Tahsilat Zamanı</span>
-          <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-            cash.overdueCount > 0 ? 'bg-rose-100 text-rose-700 animate-pulse' : 'bg-stone-100 text-stone-600'
-          }`}>
-            <AlertCircle className="w-4 h-4" />
-          </span>
-        </div>
-        <div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight">
-              {cash.dueTodayCount + cash.overdueCount} Müşteri
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-1 text-xs">
-            {cash.overdueCount > 0 && (
-              <span className="font-semibold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">
-                {cash.overdueCount} Gecikmiş
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-stone-600 flex-wrap">
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                <Banknote className="w-3 h-3" /> Nakit: {formatCurrency(cash.todayCash)}
               </span>
-            )}
-            {cash.dueTodayCount > 0 && (
-              <span className="font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
-                {cash.dueTodayCount} Bugün
+              <span className="inline-flex items-center gap-1 font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+                <CreditCard className="w-3 h-3" /> Kart: {formatCurrency(cash.todayCard)}
               </span>
-            )}
-            {cash.overdueCount === 0 && cash.dueTodayCount === 0 && (
-              <span className="text-stone-500 font-medium">Bugün acil ödeme yok</span>
+            </div>
+
+            {/* Mini target progress meter attached to Ciro card */}
+            <div className="mt-2.5 pt-2 border-t border-stone-100">
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-stone-400 font-medium">Hedef: {formatCurrency(dailyTarget)}</span>
+                <span
+                  className={`font-bold ${
+                    isTargetReached ? 'text-emerald-700' : 'text-amber-700'
+                  }`}
+                >
+                  %{progressPercent}
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    isTargetReached ? 'bg-emerald-600' : 'bg-amber-500'
+                  }`}
+                  style={{ width: `${cappedPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 2. Dışarıdaki Veresiye (Toplam Müşteri Borcu) */}
+        <motion.div
+          key={`receivables-${cash.totalReceivables}`}
+          initial={{ scale: 0.98 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-2xl p-4 border border-amber-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between text-stone-500 mb-2">
+            <div>
+              <span className="text-xs font-bold text-amber-900">Dışarıdaki Veresiye</span>
+              <span className="block text-[11px] text-stone-400">Müşterilerin toplam borcu</span>
+            </div>
+            <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+              <Wallet className="w-4 h-4" />
+            </span>
+          </div>
+          <div>
+            <div className="text-xl sm:text-2xl font-black text-amber-700 tracking-tight">
+              {formatCurrency(cash.totalReceivables)}
+            </div>
+            <p className="text-[11px] text-stone-500 mt-2">
+              Defterde yazılı toplanacak para
+            </p>
+          </div>
+        </motion.div>
+
+        {/* 3. Cepte Kalan Net Para (Ciro - Harcama) */}
+        <motion.div
+          key={`net-${cash.netTodayCash}`}
+          initial={{ scale: 0.98 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-2xl p-4 border border-stone-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between text-stone-500 mb-2">
+            <div>
+              <span className="text-xs font-bold text-stone-700">Cepte Kalan Net</span>
+              <span className="block text-[11px] text-stone-400">Cirodan masraf düşünce</span>
+            </div>
+            <span className="w-8 h-8 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4" />
+            </span>
+          </div>
+          <div>
+            <div
+              className={`text-xl sm:text-2xl font-black tracking-tight ${
+                cash.netTodayCash >= 0 ? 'text-stone-900' : 'text-rose-700'
+              }`}
+            >
+              {formatCurrency(cash.netTodayCash)}
+            </div>
+            <div className="flex items-center gap-1 mt-2 text-[11px] text-stone-500">
+              <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              <span>
+                Bugünkü Masraf: <strong className="text-rose-700">{formatCurrency(cash.todayExpense)}</strong>
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 4. Günü Gelen Düzenli Ödemeler & Aidatlar */}
+        <motion.div
+          key={`due-${cash.dueTodayCount}-${cash.overdueCount}`}
+          initial={{ scale: 0.98 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2 }}
+          onClick={onOpenUpcomingModal}
+          className={`rounded-2xl p-4 border shadow-xs relative overflow-hidden flex flex-col justify-between cursor-pointer transition-all hover:shadow-md ${
+            cash.overdueCount > 0 || cash.dueTodayCount > 0
+              ? 'bg-rose-50/50 border-rose-200'
+              : 'bg-white border-stone-200/90'
+          }`}
+        >
+          <div className="flex items-center justify-between text-stone-500 mb-2">
+            <div>
+              <span className="text-xs font-bold text-rose-900">Düzenli Ödeme Günü</span>
+              <span className="block text-[11px] text-stone-400">Aidat &amp; bakım takvimi</span>
+            </div>
+            <span
+              className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                cash.overdueCount > 0
+                  ? 'bg-rose-100 text-rose-700 animate-pulse'
+                  : 'bg-stone-100 text-stone-600'
+              }`}
+            >
+              <AlertCircle className="w-4 h-4" />
+            </span>
+          </div>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                {cash.dueTodayCount + cash.overdueCount} Müşteri
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-2 text-[11px]">
+              {cash.overdueCount > 0 && (
+                <span className="font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">
+                  {cash.overdueCount} geciken
+                </span>
+              )}
+              {cash.dueTodayCount > 0 && (
+                <span className="font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                  {cash.dueTodayCount} bugün vadesi
+                </span>
+              )}
+              {cash.dueTodayCount === 0 && cash.overdueCount === 0 && (
+                <span className="text-stone-400">Bugün vadesi gelen yok</span>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Daily Earnings Target Tracker Banner with Progress Bar */}
+      <div
+        id="card-daily-target-tracker"
+        className="bg-white rounded-2xl p-3.5 sm:p-4 border border-stone-200/90 shadow-xs"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                isTargetReached
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              <Target className="w-4 h-4" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs sm:text-sm font-bold text-stone-900">
+                  Günlük Ciro &amp; Kazanç Hedefi
+                </span>
+                {isTargetReached ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                    Hedefe Ulaşıldı!
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                    Kalan: {formatCurrency(remaining)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Target info & Edit toggle */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap justify-end">
+            <div className="text-right">
+              <span className="text-xs font-bold text-stone-900 block sm:inline">
+                {formatCurrency(currentEarnings)}{' '}
+                <span className="text-stone-400 font-normal">/ {formatCurrency(dailyTarget)}</span>
+              </span>
+              <span
+                id="text-daily-target-percentage"
+                className={`ml-2 inline-flex items-center text-xs sm:text-sm font-black px-2 py-0.5 rounded-md ${
+                  isTargetReached
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-amber-100 text-amber-900'
+                }`}
+              >
+                %{progressPercent}
+              </span>
+            </div>
+
+            {!isEditingTarget ? (
+              <button
+                id="btn-edit-daily-target"
+                type="button"
+                onClick={() => {
+                  setTempTarget(String(dailyTarget));
+                  setIsEditingTarget(true);
+                }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 transition-colors cursor-pointer border border-stone-200"
+                title="Günlük Hedefi Belirle / Değiştir"
+              >
+                <Pencil className="w-3 h-3" />
+                <span>Hedef Belirle</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditingTarget(false)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200 transition-colors cursor-pointer"
+                title="Kapat"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Kapat</span>
+              </button>
             )}
           </div>
         </div>
-      </motion.div>
+
+        {/* Small Sleek Progress Bar */}
+        <div className="relative w-full">
+          <div className="w-full h-2.5 sm:h-3 bg-stone-100 rounded-full overflow-hidden p-0.5 border border-stone-200/60">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ease-out ${
+                isTargetReached
+                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
+                  : 'bg-gradient-to-r from-amber-400 to-amber-500'
+              }`}
+              style={{ width: `${cappedPercent}%` }}
+            />
+          </div>
+
+          {/* Progress Markers (0%, 25%, 50%, 75%, 100%) */}
+          <div className="flex items-center justify-between text-[10px] text-stone-400 font-semibold mt-1 px-1">
+            <span>0₺ (%0)</span>
+            <span>{formatCurrency(dailyTarget * 0.5)} (%50)</span>
+            <span className={isTargetReached ? 'text-emerald-700 font-bold' : ''}>
+              {formatCurrency(dailyTarget)} (%100)
+            </span>
+          </div>
+        </div>
+
+        {/* Inline Target Setting Form when editing */}
+        {isEditingTarget && (
+          <form
+            onSubmit={handleSaveTarget}
+            className="mt-3 pt-3 border-t border-stone-200/80 animate-in fade-in slide-in-from-top-1 duration-150"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-stone-700 shrink-0">
+                  Yeni Günlük Ciro Hedefi:
+                </label>
+                <div className="relative w-36">
+                  <input
+                    id="input-daily-target"
+                    type="number"
+                    step="50"
+                    min="100"
+                    required
+                    value={tempTarget}
+                    onChange={(e) => setTempTarget(e.target.value)}
+                    className="w-full pl-3 pr-7 py-1.5 text-xs font-bold bg-stone-50 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs font-bold">
+                    ₺
+                  </span>
+                </div>
+                <button
+                  id="btn-save-daily-target"
+                  type="submit"
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Kaydet</span>
+                </button>
+              </div>
+
+              {/* Quick Preset Pills */}
+              <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                <span className="text-[11px] text-stone-400 mr-1">Hızlı Seçim:</span>
+                {[1500, 2500, 3500, 5000, 10000].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => handleSetPreset(preset)}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
+                      dailyTarget === preset
+                        ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold'
+                        : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                    }`}
+                  >
+                    {formatCurrency(preset)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 };

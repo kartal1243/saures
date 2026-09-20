@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Customer, BusinessType } from '../types';
 import { formatCurrency, formatPhoneNumber, getCategoryColor, getCategoryLabel } from '../utils/formatters';
-import { Search, UserCheck, MessageSquare, ArrowUpRight, ArrowDownLeft, BookOpen, Clock } from 'lucide-react';
+import { Search, MessageSquare, ArrowUpRight, ArrowDownLeft, Clock, Calendar } from 'lucide-react';
 
 interface CustomerListProps {
   customers: Customer[];
@@ -18,7 +18,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [balanceFilter, setBalanceFilter] = useState<'all' | 'has_debt' | 'zero_debt'>('all');
+  const [balanceFilter, setBalanceFilter] = useState<'all' | 'has_debt' | 'zero_debt' | 'has_subscription'>('all');
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
@@ -34,10 +34,11 @@ export const CustomerList: React.FC<CustomerListProps> = ({
       const matchesCategory =
         selectedCategory === 'all' || c.businessCategory === selectedCategory;
 
-      // 3. Balance filter
+      // 3. Balance & Subscription filter
       let matchesBalance = true;
       if (balanceFilter === 'has_debt') matchesBalance = c.balance > 0;
       if (balanceFilter === 'zero_debt') matchesBalance = c.balance <= 0;
+      if (balanceFilter === 'has_subscription') matchesBalance = !!c.subscriptionPlan?.enabled;
 
       return matchesSearch && matchesCategory && matchesBalance;
     });
@@ -50,7 +51,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-stone-900">
-              Müşteri &amp; Veresiye Kartları
+              Müşteri &amp; Veresiye Defteri
             </h2>
             <p className="text-xs text-stone-500">
               Kayıtlı {customers.length} müşteriden {filteredCustomers.length} tanesi listeleniyor
@@ -146,7 +147,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
             </button>
           </div>
 
-          {/* Balance Filter Toggle */}
+          {/* Balance & Subscription Filter Toggle */}
           <div className="flex items-center gap-1 bg-stone-200/70 p-0.5 rounded-lg">
             <button
               type="button"
@@ -164,7 +165,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                 balanceFilter === 'has_debt' ? 'bg-amber-500 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
               }`}
             >
-              Veresiyeli
+              Borcu Olanlar
             </button>
             <button
               type="button"
@@ -173,7 +174,16 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                 balanceFilter === 'zero_debt' ? 'bg-emerald-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
               }`}
             >
-              Bakiyesiz
+              Borçsuz
+            </button>
+            <button
+              type="button"
+              onClick={() => setBalanceFilter('has_subscription')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                balanceFilter === 'has_subscription' ? 'bg-indigo-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Düzenli Aidat/Bakım
             </button>
           </div>
         </div>
@@ -182,9 +192,9 @@ export const CustomerList: React.FC<CustomerListProps> = ({
       {/* Customer List Content */}
       <div className="divide-y divide-stone-100">
         {filteredCustomers.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-sm font-semibold text-stone-700">Arama kriterinize uygun müşteri bulunamadı.</p>
-            <p className="text-xs text-stone-400 mt-1">Filtreleri temizleyebilir veya yeni müşteri ekleyebilirsiniz.</p>
+          <div className="text-center py-12 px-4 text-stone-500">
+            <p className="text-sm font-semibold">Aradığınız kriterde müşteri bulunamadı.</p>
+            <p className="text-xs text-stone-400 mt-1">Arama kelimesini değiştirebilir veya filtreyi temizleyebilirsiniz.</p>
           </div>
         ) : (
           filteredCustomers.map((cust) => {
@@ -250,9 +260,9 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                     className="text-left md:text-right cursor-pointer"
                     onClick={() => onSelectCustomer(cust)}
                   >
-                    <div className="text-xs text-stone-400 font-medium">Bakiye</div>
+                    <div className="text-xs text-stone-400 font-medium">Defter Borcu</div>
                     <div
-                      className={`text-base sm:text-lg font-extrabold tracking-tight ${
+                      className={`text-base sm:text-lg font-black tracking-tight ${
                         cust.balance > 0
                           ? 'text-amber-700'
                           : cust.balance === 0
@@ -266,26 +276,28 @@ export const CustomerList: React.FC<CustomerListProps> = ({
 
                   {/* Actions */}
                   <div className="flex items-center gap-1.5">
-                    {/* Veresiye Ekle */}
+                    {/* Veresiye Borç Yaz */}
                     <button
                       id={`btn-add-debt-${cust.id}`}
                       type="button"
                       onClick={() => onOpenTransaction(cust, 'veresiye')}
-                      className="p-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                       title="Veresiye Borç Yaz"
                     >
-                      <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
+                      <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span className="hidden sm:inline">Borç Yaz</span>
                     </button>
 
-                    {/* Tahsilat Al */}
+                    {/* Para Aldım */}
                     <button
                       id={`btn-add-payment-${cust.id}`}
                       type="button"
                       onClick={() => onOpenTransaction(cust, 'tahsilat')}
-                      className="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer"
-                      title="Tahsilat Al"
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Müşteriden ödeme al, borcu düş"
                     >
-                      <ArrowDownLeft className="w-4 h-4 stroke-[2.5]" />
+                      <ArrowDownLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span className="hidden sm:inline">Para Aldım</span>
                     </button>
 
                     {/* WhatsApp */}
@@ -293,22 +305,10 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       id={`btn-whatsapp-${cust.id}`}
                       type="button"
                       onClick={() => onOpenWhatsApp(cust)}
-                      className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer"
-                      title="WhatsApp ile Hatırlat"
+                      className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer shadow-xs"
+                      title="WhatsApp ile Nazikçe Hatırlat"
                     >
                       <MessageSquare className="w-4 h-4" />
-                    </button>
-
-                    {/* Defter / Detay */}
-                    <button
-                      id={`btn-ledger-${cust.id}`}
-                      type="button"
-                      onClick={() => onSelectCustomer(cust)}
-                      className="px-2.5 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-200 transition-colors cursor-pointer flex items-center gap-1"
-                      title="Hesap Defteri"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Defter</span>
                     </button>
                   </div>
                 </div>

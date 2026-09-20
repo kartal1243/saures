@@ -18,10 +18,27 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // Initial realistic seed data for Turkish local businesses (Esnaf & KOBİ)
 function getInitialData(): AppState {
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
   const twoDaysAgo = new Date(Date.now() - 172800000).toISOString().split('T')[0];
   const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+  // Helper for rolling past days (0 = today, 1 = yesterday, etc.)
+  const getPastDate = (daysAgo: number) => {
+    const d = new Date(now.getTime() - daysAgo * 86400000);
+    return d.toISOString().split('T')[0];
+  };
+
+  // Helper for current week days (Monday = 0 to Sunday = 6)
+  const dayOfWeek = (now.getDay() + 6) % 7;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek);
+  const getWeekDate = (offset: number) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + offset);
+    return d.toISOString().split('T')[0];
+  };
 
   const customers: Customer[] = [
     {
@@ -117,6 +134,140 @@ function getInitialData(): AppState {
   ];
 
   const transactions: Transaction[] = [
+    // Past 6 days transactions to guarantee full 7-day revenue vs expense comparison
+    {
+      id: 'tx_p6_1',
+      customerId: 'cust_2',
+      customerName: 'Merve Demir',
+      type: 'tahsilat' as const,
+      amount: 1250,
+      paymentMethod: 'kart' as const,
+      description: 'Pilates paketi ödemesi (Kredi Kartı Pos)',
+      date: `${getPastDate(6)} 11:20`,
+      createdAt: `${getPastDate(6)}T11:20:00.000Z`,
+    },
+    {
+      id: 'tx_p6_2',
+      customerId: '',
+      customerName: 'Dükkan Temizlik & Çay Ocağı',
+      type: 'gider' as const,
+      amount: 320,
+      paymentMethod: 'nakit' as const,
+      description: 'Dükkan temizlik malzemesi ve çay ocağı',
+      date: `${getPastDate(6)} 15:40`,
+      createdAt: `${getPastDate(6)}T15:40:00.000Z`,
+    },
+    {
+      id: 'tx_p5_1',
+      customerId: 'cust_3',
+      customerName: 'Mehmet Ali Kaya (Veli)',
+      type: 'tahsilat' as const,
+      amount: 1800,
+      paymentMethod: 'havale' as const,
+      description: 'LGS Matematik ders paketi (Havale/IBAN)',
+      date: `${getPastDate(5)} 14:15`,
+      createdAt: `${getPastDate(5)}T14:15:00.000Z`,
+    },
+    {
+      id: 'tx_p5_2',
+      customerId: '',
+      customerName: 'Toptancı Masrafı',
+      type: 'gider' as const,
+      amount: 450,
+      paymentMethod: 'nakit' as const,
+      description: 'Toptancıdan bakliyat ve gıda sevkiyatı',
+      date: `${getPastDate(5)} 16:30`,
+      createdAt: `${getPastDate(5)}T16:30:00.000Z`,
+    },
+    {
+      id: 'tx_p4_1',
+      customerId: 'cust_4',
+      customerName: 'Canan Öztürk (Klima Servisi)',
+      type: 'tahsilat' as const,
+      amount: 1150,
+      paymentMethod: 'kart' as const,
+      description: 'Periyodik bakım ve filtre değişimi',
+      date: `${getPastDate(4)} 10:45`,
+      createdAt: `${getPastDate(4)}T10:45:00.000Z`,
+    },
+    {
+      id: 'tx_p4_2',
+      customerId: '',
+      customerName: 'Elektrik & Su Faturası',
+      type: 'gider' as const,
+      amount: 520,
+      paymentMethod: 'nakit' as const,
+      description: 'Dükkan elektrik ve su faturası ödemesi',
+      date: `${getPastDate(4)} 13:00`,
+      createdAt: `${getPastDate(4)}T13:00:00.000Z`,
+    },
+    {
+      id: 'tx_p3_1',
+      customerId: 'cust_6',
+      customerName: 'Dr. Selim Arslan',
+      type: 'tahsilat' as const,
+      amount: 2400,
+      paymentMethod: 'kart' as const,
+      description: 'Spor ve özel ders paketi peşinatı',
+      date: `${getPastDate(3)} 17:30`,
+      createdAt: `${getPastDate(3)}T17:30:00.000Z`,
+    },
+    {
+      id: 'tx_p3_2',
+      customerId: '',
+      customerName: 'Kargo & Ambalaj Gideri',
+      type: 'gider' as const,
+      amount: 380,
+      paymentMethod: 'nakit' as const,
+      description: 'Müşteri sipariş poşetleri ve ambalaj koli',
+      date: `${getPastDate(3)} 18:10`,
+      createdAt: `${getPastDate(3)}T18:10:00.000Z`,
+    },
+    {
+      id: 'tx_p2_1',
+      customerId: 'cust_1',
+      customerName: 'Ahmet Yılmaz (Marangoz Ahmet Usta)',
+      type: 'tahsilat' as const,
+      amount: 1450,
+      paymentMethod: 'nakit' as const,
+      description: 'Haftalık veresiye borcu elden kapatıldı',
+      date: `${getPastDate(2)} 12:15`,
+      createdAt: `${getPastDate(2)}T12:15:00.000Z`,
+    },
+    {
+      id: 'tx_p2_2',
+      customerId: '',
+      customerName: 'Dükkan Masrafı',
+      type: 'gider' as const,
+      amount: 550,
+      paymentMethod: 'nakit' as const,
+      description: 'Toptancıya ara ödeme ve sarf malzeme',
+      date: `${getPastDate(2)} 16:45`,
+      createdAt: `${getPastDate(2)}T16:45:00.000Z`,
+    },
+    {
+      id: 'tx_p1_1',
+      customerId: 'cust_5',
+      customerName: 'Hasan Bey (Apartman Yöneticisi)',
+      type: 'tahsilat' as const,
+      amount: 1600,
+      paymentMethod: 'havale' as const,
+      description: 'Apartman ortak gider erzak tahsilatı',
+      date: `${getPastDate(1)} 13:20`,
+      createdAt: `${getPastDate(1)}T13:20:00.000Z`,
+    },
+    {
+      id: 'tx_p1_2',
+      customerId: '',
+      customerName: 'Araç Yakıt & Lojistik',
+      type: 'gider' as const,
+      amount: 420,
+      paymentMethod: 'nakit' as const,
+      description: 'Dükkan servis aracı mazot harcaması',
+      date: `${getPastDate(1)} 17:00`,
+      createdAt: `${getPastDate(1)}T17:00:00.000Z`,
+    },
+    // Today's live transactions
     {
       id: 'tx_1',
       customerId: 'cust_1',
@@ -153,7 +304,7 @@ function getInitialData(): AppState {
     {
       id: 'tx_4',
       customerId: '',
-      customerName: 'Dükkan Genel Gider',
+      customerName: 'Toptancı & Dükkan Masrafı',
       type: 'gider',
       amount: 250,
       paymentMethod: 'nakit',
@@ -191,7 +342,10 @@ let state: AppState = (function () {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const content = fs.readFileSync(DATA_FILE, 'utf-8');
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      if (parsed && Array.isArray(parsed.transactions) && parsed.transactions.some((t: any) => t.id === 'tx_p6_1')) {
+        return parsed;
+      }
     }
   } catch (err) {
     console.error('Error reading store.json, re-initializing:', err);
@@ -461,7 +615,7 @@ async function startServer() {
       type,
       amount: parsedAmount,
       paymentMethod: paymentMethod || 'nakit',
-      description: description || (type === 'veresiye' ? 'Veresiye Alışveriş' : type === 'tahsilat' ? 'Tahsilat / Ödeme' : 'Kasa Çıkışı'),
+      description: description || (type === 'veresiye' ? 'Veresiye Borç Yazıldı' : type === 'tahsilat' ? 'Ödeme Alındı' : 'Dükkan Masrafı'),
       date: `${todayStr} ${timeStr}`,
       createdAt: now.toISOString(),
     };

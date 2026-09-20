@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Customer, Transaction, ReminderLog, CashRegister, WSEvent, TransactionType, PaymentMethod } from './types';
 import { Header } from './components/Header';
+import { RevenueVsExpensesChart } from './components/RevenueVsExpensesChart';
 import { CashSummary } from './components/CashSummary';
 import { QuickActionBar } from './components/QuickActionBar';
 import { UpcomingReminders } from './components/UpcomingReminders';
@@ -247,6 +248,9 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 flex-1 w-full">
+        {/* Revenue vs Expenses Comparison Chart & Profitability Summary (Last 7 Days) */}
+        <RevenueVsExpensesChart transactions={transactions} />
+
         {/* 2. Quick Action Bar */}
         <QuickActionBar
           onOpenTransaction={(type) => {
@@ -276,7 +280,7 @@ export default function App() {
           />
         </div>
 
-        {/* Tab switcher: Müşteri Listesi & Veresiye Defteri vs Canlı Kasa Hareketleri */}
+        {/* Tab switcher: Müşteri & Veresiye Defteri vs Canlı Kasa ve Defter Hareketleri */}
         <div className="flex items-center justify-between border-b border-stone-200 pb-2">
           <div className="flex items-center gap-2">
             <button
@@ -289,7 +293,7 @@ export default function App() {
                   : 'text-stone-500 hover:text-stone-900'
               }`}
             >
-              Müşteri &amp; Veresiye Kartları ({customers.length})
+              Müşteri &amp; Veresiye Defteri ({customers.length})
             </button>
             <button
               id="tab-view-activity"
@@ -302,7 +306,7 @@ export default function App() {
               }`}
             >
               <Activity className="w-3.5 h-3.5 text-amber-600" />
-              <span>Canlı Kasa Hareketleri ({transactions.length})</span>
+              <span>Canlı Kasa &amp; Defter Akışı ({transactions.length})</span>
             </button>
           </div>
         </div>
@@ -323,14 +327,14 @@ export default function App() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-bold text-stone-900">
-                  Canlı Kasa ve Defter Hareketleri
+                  Canlı Kasa &amp; Defter Akışı
                 </h2>
                 <p className="text-xs text-stone-500">
-                  WebSocket ile tüm cihazlardan eş zamanlı kaydedilen işlemler
+                  Dükkandaki tüm satış, ödeme alma ve masraf hareketleri
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
-                Anlık Canlı Akış
+                Canlı Eşzamanlı
               </span>
             </div>
 
@@ -363,7 +367,7 @@ export default function App() {
                       </div>
                       <div>
                         <div className="font-bold text-stone-900">
-                          {tx.customerName || 'Genel Kasa'}
+                          {tx.customerName || 'Genel Dükkan Masrafı'}
                         </div>
                         <div className="text-xs text-stone-500 mt-0.5">
                           {tx.description}
@@ -375,12 +379,12 @@ export default function App() {
                           <span>•</span>
                           <span className="font-medium text-stone-600 capitalize">
                             {tx.paymentMethod === 'nakit'
-                              ? 'Nakit'
+                              ? 'Nakit Elden'
                               : tx.paymentMethod === 'kart'
                               ? 'Kredi Kartı Pos'
                               : tx.paymentMethod === 'havale'
-                              ? 'Havale/EFT'
-                              : 'Veresiye'}
+                              ? 'Havale/IBAN'
+                              : 'Veresiye Yazıldı'}
                           </span>
                         </div>
                       </div>
@@ -403,8 +407,8 @@ export default function App() {
                         {tx.type === 'veresiye'
                           ? 'Veresiye Borç'
                           : tx.type === 'tahsilat'
-                          ? 'Tahsilat'
-                          : 'Kasa Gideri'}
+                          ? 'Ödeme Alındı'
+                          : 'Dükkan Masrafı'}
                       </span>
                     </div>
                   </div>

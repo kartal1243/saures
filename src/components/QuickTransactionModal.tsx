@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Customer, TransactionType, PaymentMethod } from '../types';
 import { formatCurrency } from '../utils/formatters';
-import { X, ArrowUpRight, ArrowDownLeft, Banknote, CreditCard, Send, Sparkles } from 'lucide-react';
+import { X, ArrowUpRight, ArrowDownLeft, Banknote, CreditCard, Send, ShoppingBag } from 'lucide-react';
 
 interface QuickTransactionModalProps {
   initialType?: TransactionType;
@@ -47,6 +47,11 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
     }
   };
 
+  // Quick expense tags for small shops
+  const setExpenseQuick = (tag: string) => {
+    setDescription(tag);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const num = Number(amount);
@@ -72,8 +77,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
           (type === 'veresiye'
             ? 'Veresiye Alışveriş'
             : type === 'tahsilat'
-            ? 'Tahsilat Ödemesi'
-            : 'Genel Kasa Gideri'),
+            ? 'Borç Ödemesi'
+            : 'Dükkan Masrafı'),
       });
       onClose();
     } catch (err) {
@@ -92,7 +97,13 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
         {/* Header & Tabs */}
         <div className="p-4 border-b border-stone-200 bg-stone-50">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-bold text-stone-900">Hızlı Kasa İşlemi</h3>
+            <h3 className="text-base font-bold text-stone-900">
+              {type === 'veresiye'
+                ? 'Deftere Borç Yaz'
+                : type === 'tahsilat'
+                ? 'Müşteriden Para Al / Borç Düş'
+                : 'Dükkan Harcaması / Masraf Yaz'}
+            </h3>
             <button
               type="button"
               onClick={onClose}
@@ -117,7 +128,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                   : 'text-stone-700 hover:text-stone-900'
               }`}
             >
-              <ArrowUpRight className="w-3.5 h-3.5" />
+              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Veresiye Yaz</span>
             </button>
 
@@ -134,8 +145,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                   : 'text-stone-700 hover:text-stone-900'
               }`}
             >
-              <ArrowDownLeft className="w-3.5 h-3.5" />
-              <span>Tahsilat Al</span>
+              <ArrowDownLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Para Aldım</span>
             </button>
 
             <button
@@ -151,14 +162,15 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                   : 'text-stone-700 hover:text-stone-900'
               }`}
             >
-              <span>Kasa Çıkışı</span>
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Harcama</span>
             </button>
           </div>
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
-          {/* Customer Selector (for Veresiye & Tahsilat) */}
+          {/* Customer Selector (for Veresiye & Tahsilat/Para Geldi) */}
           {type !== 'gider' && (
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1.5">
@@ -169,20 +181,20 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
                 required
-                className="w-full p-2.5 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                className="w-full p-2.5 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
               >
                 <option value="">-- Müşteri Seçiniz --</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} (Bakiye: {formatCurrency(c.balance)})
+                    {c.name} (Borç: {formatCurrency(c.balance)})
                   </option>
                 ))}
               </select>
 
               {activeCustomer && (
-                <div className="mt-1.5 flex items-center justify-between text-xs px-2 py-1 bg-stone-100 rounded-lg text-stone-600">
-                  <span>Mevcut Bakiye:</span>
-                  <span className="font-bold text-amber-700">
+                <div className="mt-1.5 flex items-center justify-between text-xs px-2.5 py-1.5 bg-stone-100 rounded-lg text-stone-600">
+                  <span>Defterdeki Güncel Borç:</span>
+                  <span className="font-bold text-amber-700 text-sm">
                     {formatCurrency(activeCustomer.balance)}
                   </span>
                 </div>
@@ -190,19 +202,70 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
             </div>
           )}
 
+          {/* Quick Expense Tags if "Dükkan Harcaması" */}
+          {type === 'gider' && (
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Hızlı Masraf Türü
+              </label>
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setExpenseQuick('Toptancı Ödemesi (Mal Alımı)')}
+                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 rounded-lg border border-rose-200 font-medium cursor-pointer"
+                >
+                  🚚 Toptancı
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpenseQuick('Dükkan Faturası (Elektrik/Su/İnternet)')}
+                  className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg border border-stone-200 font-medium cursor-pointer"
+                >
+                  🧾 Fatura / Kira
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpenseQuick('Çay, Yemek ve Mutfak Masrafı')}
+                  className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg border border-stone-200 font-medium cursor-pointer"
+                >
+                  ☕ Çay &amp; Yemek
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpenseQuick('Usta / Eleman Günlük Yevmiye')}
+                  className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg border border-stone-200 font-medium cursor-pointer"
+                >
+                  🛠️ Yevmiye
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpenseQuick('Poşet, Koli ve Sarf Malzeme')}
+                  className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg border border-stone-200 font-medium cursor-pointer"
+                >
+                  📦 Poşet &amp; Malzeme
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Amount Input & Quick Buttons */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-bold text-stone-700">
-                Tutar (TL) <span className="text-rose-500">*</span>
+                {type === 'veresiye'
+                  ? 'Veresiye Yazılacak Tutar (TL)'
+                  : type === 'tahsilat'
+                  ? 'Alınan Ödeme Tutarı (TL)'
+                  : 'Harcama Tutarı (TL)'}{' '}
+                <span className="text-rose-500">*</span>
               </label>
               {type === 'tahsilat' && activeCustomer && activeCustomer.balance > 0 && (
                 <button
                   type="button"
                   onClick={handlePayFullDebt}
-                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 cursor-pointer"
+                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
                 >
-                  Tamamını Kapat ({formatCurrency(activeCustomer.balance)})
+                  Tüm Borcu Sıfırla ({formatCurrency(activeCustomer.balance)})
                 </button>
               )}
             </div>
@@ -217,7 +280,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full pl-4 pr-12 py-3 text-xl font-bold bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                className="w-full pl-4 pr-12 py-3 text-xl font-black bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 font-bold text-lg">
                 ₺
@@ -229,46 +292,46 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
               <button
                 type="button"
                 onClick={() => addAmount(50)}
-                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold cursor-pointer"
               >
                 +50 ₺
               </button>
               <button
                 type="button"
                 onClick={() => addAmount(100)}
-                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold cursor-pointer"
               >
                 +100 ₺
               </button>
               <button
                 type="button"
                 onClick={() => addAmount(250)}
-                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold cursor-pointer"
               >
                 +250 ₺
               </button>
               <button
                 type="button"
                 onClick={() => addAmount(500)}
-                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold cursor-pointer"
               >
                 +500 ₺
               </button>
               <button
                 type="button"
                 onClick={() => addAmount(1000)}
-                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold cursor-pointer"
               >
                 +1000 ₺
               </button>
             </div>
           </div>
 
-          {/* Payment Method (for Tahsilat & Gider) */}
+          {/* Payment Method (for Tahsilat/Para Geldi & Gider) */}
           {type !== 'veresiye' && (
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                Kasa / Ödeme Türü
+                {type === 'tahsilat' ? 'Müşteri Nasıl Ödedi?' : 'Parayı Nereden Çıktık?'}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -281,7 +344,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                   }`}
                 >
                   <Banknote className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Nakit</span>
+                  <span>Nakit Elden</span>
                 </button>
 
                 <button
@@ -294,7 +357,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                   }`}
                 >
                   <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Kredi Kartı (Pos)</span>
+                  <span>Kredi Kartı / Pos</span>
                 </button>
 
                 <button
@@ -307,7 +370,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                   }`}
                 >
                   <Send className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Havale / EFT</span>
+                  <span>Havale / IBAN</span>
                 </button>
               </div>
             </div>
@@ -316,7 +379,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
           {/* Description / Note */}
           <div>
             <label className="block text-xs font-bold text-stone-700 mb-1.5">
-              İşlem Açıklaması / Kalemler
+              İşlem Notu / Ne Alındı veya Ne Ödendi?
             </label>
             <input
               id="input-transaction-desc"
@@ -327,8 +390,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                 type === 'veresiye'
                   ? 'Örn: 2 ekmek, beyaz peynir, çay'
                   : type === 'tahsilat'
-                  ? 'Örn: Kısmi nakit ödeme veya Aidat'
-                  : 'Örn: Toptancı ara ödemesi'
+                  ? 'Örn: Kısmi elden ödeme veya Aylık aidat'
+                  : 'Örn: Ekmek fırını toptancısı'
               }
               className="w-full p-2.5 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
@@ -350,10 +413,10 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
             {submitting
               ? 'Kaydediliyor...'
               : type === 'veresiye'
-              ? 'Veresiye Borcunu Kaydet'
+              ? 'Veresiye Borcunu Deftere Yaz'
               : type === 'tahsilat'
-              ? 'Tahsilatı Kasaya İşle'
-              : 'Gideri Kasadan Düş'}
+              ? 'Ödemeyi Kasaya Al ve Borcu Düş'
+              : 'Dükkan Masrafını Kasadan Düş'}
           </button>
         </form>
       </div>
