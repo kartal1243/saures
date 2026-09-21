@@ -11,8 +11,17 @@ import {
   DailyClosing,
   Product,
   StockMovement,
+  BusinessSector,
+  Appointment,
+  RestaurantTable,
+  RepairTicket,
 } from './types';
 import { Header } from './components/Header';
+import { SectorSwitcherBar, SECTORS } from './components/SectorSwitcherBar';
+import { BarberAppointmentsView } from './components/BarberAppointmentsView';
+import { RestaurantTablesView } from './components/RestaurantTablesView';
+import { FastRetailCounterView } from './components/FastRetailCounterView';
+import { RepairTicketsView } from './components/RepairTicketsView';
 import { RevenueVsExpensesChart } from './components/RevenueVsExpensesChart';
 import { CashSummary } from './components/CashSummary';
 import { QuickActionBar } from './components/QuickActionBar';
@@ -31,7 +40,25 @@ import { StockManagementView } from './components/StockManagementView';
 import { StockAdjustmentModal } from './components/StockAdjustmentModal';
 import { ProductFormModal } from './components/ProductFormModal';
 import { formatCurrency } from './utils/formatters';
-import { Activity, Clock, ArrowUpRight, ArrowDownLeft, Banknote, CreditCard, Send, Store, Moon, Crown, CheckCircle2, Package, AlertTriangle } from 'lucide-react';
+import {
+  Activity,
+  Clock,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Banknote,
+  CreditCard,
+  Send,
+  Store,
+  Moon,
+  Crown,
+  CheckCircle2,
+  Package,
+  AlertTriangle,
+  Scissors,
+  UtensilsCrossed,
+  ShoppingCart,
+  Wrench,
+} from 'lucide-react';
 
 export default function App() {
   // Dark Mode State with LocalStorage & system preference
@@ -92,7 +119,17 @@ export default function App() {
     dueTodayCount: 0,
   });
   const [connected, setConnected] = useState(false);
-  const [activeTab, setActiveTab] = useState<'activity' | 'customers' | 'stock'>('activity');
+  const [activeTab, setActiveTab] = useState<'sector_view' | 'activity' | 'customers' | 'stock'>('sector_view');
+
+  // Sector Specific States
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
+  const [repairTickets, setRepairTickets] = useState<RepairTicket[]>([]);
+
+  const currentSector: BusinessSector = shopProfile.sectorKey || 'bakkal_market';
+  const currentSectorInfo = useMemo(() => {
+    return SECTORS.find((s) => s.key === currentSector) || SECTORS[2];
+  }, [currentSector]);
 
   // Stock Management States
   const [products, setProducts] = useState<Product[]>([]);
@@ -145,6 +182,9 @@ export default function App() {
         if (data.dailyClosings) setDailyClosings(data.dailyClosings);
         if (data.products) setProducts(data.products);
         if (data.stockMovements) setStockMovements(data.stockMovements);
+        if (data.appointments) setAppointments(data.appointments);
+        if (data.tables) setTables(data.tables);
+        if (data.repairTickets) setRepairTickets(data.repairTickets);
         setCustomers(data.customers || []);
         setTransactions(data.transactions || []);
         setReminderLogs(data.reminderLogs || []);
@@ -192,6 +232,43 @@ export default function App() {
             if (wsEvent.payload.dailyClosings) {
               setDailyClosings(wsEvent.payload.dailyClosings);
             }
+            if (wsEvent.payload.appointments) {
+              setAppointments(wsEvent.payload.appointments);
+            }
+            if (wsEvent.payload.tables) {
+              setTables(wsEvent.payload.tables);
+            }
+            if (wsEvent.payload.repairTickets) {
+              setRepairTickets(wsEvent.payload.repairTickets);
+            }
+          } else if (wsEvent.type === 'APPOINTMENT_UPDATED') {
+            setAppointments((prev) => {
+              const exists = prev.some((a) => a.id === wsEvent.payload.id);
+              if (exists) {
+                return prev.map((a) => (a.id === wsEvent.payload.id ? wsEvent.payload : a));
+              }
+              return [wsEvent.payload, ...prev];
+            });
+          } else if (wsEvent.type === 'APPOINTMENT_DELETED') {
+            setAppointments((prev) => prev.filter((a) => a.id !== wsEvent.payload.id));
+          } else if (wsEvent.type === 'TABLE_UPDATED') {
+            setTables((prev) => {
+              const exists = prev.some((t) => t.id === wsEvent.payload.id);
+              if (exists) {
+                return prev.map((t) => (t.id === wsEvent.payload.id ? wsEvent.payload : t));
+              }
+              return [...prev, wsEvent.payload];
+            });
+          } else if (wsEvent.type === 'REPAIR_TICKET_UPDATED') {
+            setRepairTickets((prev) => {
+              const exists = prev.some((t) => t.id === wsEvent.payload.id);
+              if (exists) {
+                return prev.map((t) => (t.id === wsEvent.payload.id ? wsEvent.payload : t));
+              }
+              return [wsEvent.payload, ...prev];
+            });
+          } else if (wsEvent.type === 'REPAIR_TICKET_DELETED') {
+            setRepairTickets((prev) => prev.filter((t) => t.id !== wsEvent.payload.id));
           } else if (wsEvent.type === 'TRANSACTION_CREATED') {
             setTransactions((prev) => [wsEvent.payload.transaction, ...prev]);
             if (wsEvent.payload.customer) {
@@ -470,6 +547,355 @@ export default function App() {
     }
   };
 
+  // Sector Switching Handler
+  const handleSelectSector = async (sector: BusinessSector) => {
+    let updatedStoreName = storeName;
+    let updatedBusinessField = shopProfile.businessField;
+
+    const isGenericName =
+      storeName === 'Bereket Mahalle Esnafı' ||
+      storeName === 'Bereket Mahalle Bakkalı' ||
+      storeName === 'Usta Eller Berber & Kuaför' ||
+      storeName === 'Bereket Kafe & Lokanta' ||
+      storeName === 'Usta Teknik Servis & Oto' ||
+      storeName === 'Bereket Esnaf Dükkanı';
+
+    if (isGenericName) {
+      if (sector === 'berber_kuafor') {
+        updatedStoreName = 'Usta Eller Berber & Kuaför';
+        updatedBusinessField = 'Kuaför / Berber / Güzellik Salonu';
+      } else if (sector === 'kafe_restoran') {
+        updatedStoreName = 'Bereket Kafe & Lokanta';
+        updatedBusinessField = 'Kafe / Restoran / Çay Ocağı';
+      } else if (sector === 'bakkal_market') {
+        updatedStoreName = 'Bereket Mahalle Bakkalı';
+        updatedBusinessField = 'Bakkal / Market / Büfe';
+      } else if (sector === 'teknik_servis') {
+        updatedStoreName = 'Usta Teknik Servis & Oto';
+        updatedBusinessField = 'Tamir / Teknik Servis / Atölye';
+      } else {
+        updatedStoreName = 'Bereket Esnaf Dükkanı';
+        updatedBusinessField = 'Giyim / Züccaciye / Diğer';
+      }
+    }
+
+    const newProfile: ShopProfile = {
+      ...shopProfile,
+      storeName: updatedStoreName,
+      businessField: updatedBusinessField,
+      sectorKey: sector,
+    };
+
+    setShopProfile(newProfile);
+    setStoreName(updatedStoreName);
+    setActiveTab(sector === 'diger_esnaf' ? 'activity' : 'sector_view');
+
+    try {
+      await fetch('/api/shop-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProfile),
+      });
+    } catch (err) {
+      console.error('Error saving sector change:', err);
+    }
+  };
+
+  // 1. Barber & Hairdresser Handlers
+  const handleAddAppointment = async (apptData: Partial<Appointment>) => {
+    try {
+      const res = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apptData),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAppointments((prev) => [data.appointment, ...prev.filter((a) => a.id !== data.appointment.id)]);
+      }
+    } catch (err) {
+      console.error('Error adding appointment:', err);
+    }
+  };
+
+  const handleCompleteAppointment = async (id: string, paymentMethod: 'nakit' | 'kart') => {
+    try {
+      const res = await fetch(`/api/appointments/${id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.appointment) {
+          setAppointments((prev) => prev.map((a) => (a.id === id ? data.appointment : a)));
+        }
+        if (data.cash) setCash(data.cash);
+        if (data.transaction) setTransactions((prev) => [data.transaction, ...prev]);
+      }
+    } catch (err) {
+      console.error('Error completing appointment:', err);
+    }
+  };
+
+  const handleUpdateAppointmentStatus = async (id: string, status: Appointment['status']) => {
+    try {
+      const res = await fetch(`/api/appointments/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.appointment) {
+          setAppointments((prev) => prev.map((a) => (a.id === id ? data.appointment : a)));
+        }
+      }
+    } catch (err) {
+      console.error('Error updating appointment status:', err);
+    }
+  };
+
+  const handleDeleteAppointment = async (id: string) => {
+    try {
+      const res = await fetch(`/api/appointments/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setAppointments((prev) => prev.filter((a) => a.id !== id));
+      }
+    } catch (err) {
+      console.error('Error deleting appointment:', err);
+    }
+  };
+
+  const handleFastWalkinCash = async (serviceName: string, price: number, staffName: string) => {
+    try {
+      const res = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'tahsilat',
+          amount: price,
+          paymentMethod: 'nakit',
+          description: `Ayaktan Berber Müşterisi (${staffName}) - ${serviceName}`,
+          customerName: `Ayaktan Müşteri (${staffName || 'Usta'})`,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTransactions((prev) => [data.transaction, ...prev]);
+        setCash(data.cash);
+      }
+    } catch (err) {
+      console.error('Error recording fast walk-in cash:', err);
+    }
+  };
+
+  // 2. Restaurant & Cafe Handlers
+  const handleAddOrderToTable = async (
+    tableId: string,
+    item: { name: string; quantity: number; unitPrice: number }
+  ) => {
+    try {
+      const res = await fetch(`/api/tables/${tableId}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTables((prev) => prev.map((t) => (t.id === tableId ? data.table : t)));
+      }
+    } catch (err) {
+      console.error('Error adding order to table:', err);
+    }
+  };
+
+  const handleCheckoutTable = async (
+    tableId: string,
+    paymentMethod: 'nakit' | 'kart'
+  ) => {
+    try {
+      const res = await fetch(`/api/tables/${tableId}/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTables((prev) => prev.map((t) => (t.id === tableId ? data.table : t)));
+        if (data.cash) setCash(data.cash);
+        if (data.transaction) setTransactions((prev) => [data.transaction, ...prev]);
+        if (data.customer) {
+          setCustomers((prev) => prev.map((c) => (c.id === data.customer.id ? data.customer : c)));
+        }
+      }
+    } catch (err) {
+      console.error('Error checking out table:', err);
+    }
+  };
+
+  const handleResetTable = async (tableId: string) => {
+    try {
+      const res = await fetch(`/api/tables/${tableId}/reset`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setTables((prev) => prev.map((t) => (t.id === tableId ? data.table : t)));
+      }
+    } catch (err) {
+      console.error('Error resetting table:', err);
+    }
+  };
+
+  const handleAddQuickExpense = async (
+    description: string,
+    amount: number
+  ) => {
+    try {
+      const res = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'masraf',
+          amount,
+          paymentMethod: 'nakit',
+          description,
+          customerName: 'Mutfak / Hal / Tedarik',
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTransactions((prev) => [data.transaction, ...prev]);
+        setCash(data.cash);
+      }
+    } catch (err) {
+      console.error('Error adding quick expense:', err);
+    }
+  };
+
+  // 3. Fast Retail POS Handlers (Bakkal & Market)
+  const handleQuickPosSale = async (
+    items: { productId?: string; name: string; quantity: number; unitPrice: number; total: number }[],
+    paymentMethod: 'nakit' | 'kart'
+  ) => {
+    try {
+      const res = await fetch('/api/quick-pos-sale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, paymentMethod }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.transaction) setTransactions((prev) => [data.transaction, ...prev]);
+        if (data.cash) setCash(data.cash);
+        fetchInitialData();
+      }
+    } catch (err) {
+      console.error('Error in quick POS sale:', err);
+    }
+  };
+
+  const handleCreditSaleToCustomer = async (
+    customerId: string,
+    amount: number,
+    description: string
+  ) => {
+    try {
+      const res = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId,
+          type: 'veresiye',
+          amount,
+          paymentMethod: 'veresiye',
+          description,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTransactions((prev) => [data.transaction, ...prev]);
+        if (data.customer) {
+          setCustomers((prev) => prev.map((c) => (c.id === customerId ? data.customer : c)));
+        }
+        setCash(data.cash);
+      }
+    } catch (err) {
+      console.error('Error recording credit sale:', err);
+    }
+  };
+
+  // 4. Technical Service & Repair Tickets Handlers
+  const handleAddRepairTicket = async (
+    ticketData: Partial<RepairTicket>
+  ) => {
+    try {
+      const res = await fetch('/api/repair-tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ticketData),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRepairTickets((prev) => [data.ticket, ...prev.filter((t) => t.id !== data.ticket.id)]);
+      }
+    } catch (err) {
+      console.error('Error adding repair ticket:', err);
+    }
+  };
+
+  const handleUpdateRepairStatus = async (id: string, status: RepairTicket['status']) => {
+    try {
+      const res = await fetch(`/api/repair-tickets/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ticket) {
+          setRepairTickets((prev) => prev.map((t) => (t.id === id ? data.ticket : t)));
+        }
+      }
+    } catch (err) {
+      console.error('Error updating repair status:', err);
+    }
+  };
+
+  const handleCompleteRepairTicket = async (
+    id: string,
+    paymentMethod: 'nakit' | 'kart',
+    deductPartCost: boolean
+  ) => {
+    try {
+      const res = await fetch(`/api/repair-tickets/${id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod, deductPartCost }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ticket) {
+          setRepairTickets((prev) => prev.map((t) => (t.id === id ? data.ticket : t)));
+        }
+        if (data.cash) setCash(data.cash);
+        if (data.transaction) setTransactions((prev) => [data.transaction, ...prev]);
+      }
+    } catch (err) {
+      console.error('Error completing repair ticket:', err);
+    }
+  };
+
+  const handleDeleteRepairTicket = async (id: string) => {
+    try {
+      const res = await fetch(`/api/repair-tickets/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setRepairTickets((prev) => prev.filter((t) => t.id !== id));
+      }
+    } catch (err) {
+      console.error('Error deleting repair ticket:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans pb-16 transition-colors">
       {/* 1. Header with Store Profile Badge, Dark Mode Switch & VIP Button */}
@@ -483,6 +909,13 @@ export default function App() {
         onOpenVip={() => setIsVipModalOpen(true)}
         onResetDemo={handleResetDemo}
         onExportCsv={handleExportCsv}
+      />
+
+      {/* Dynamic Sector Switcher Bar (Berber, Kafe, Bakkal, Teknik Servis, vb.) */}
+      <SectorSwitcherBar
+        currentSector={currentSector}
+        onSelectSector={handleSelectSector}
+        shopProfile={shopProfile}
       />
 
       {/* Main Content Area */}
@@ -537,6 +970,9 @@ export default function App() {
           criticalStockCount={criticalStockCount}
           onToggleCustomerView={() => setActiveTab((prev) => (prev === 'customers' ? 'activity' : 'customers'))}
           showCustomerView={activeTab === 'customers'}
+          onOpenSectorView={() => setActiveTab('sector_view')}
+          sectorTitle={currentSectorInfo.specialTabName}
+          isSectorViewActive={activeTab === 'sector_view'}
         />
 
         {/* 3. Live Cash Registers & Daily Target Tracker */}
@@ -565,6 +1001,39 @@ export default function App() {
         {/* 6. Tabs: Canlı Kasa Akışı vs Stok & Ürün Takibi vs Müşteri & Veresiye Defteri */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-2 gap-2">
           <div className="flex flex-wrap items-center gap-2">
+            {currentSector !== 'diger_esnaf' && (
+              <button
+                id="tab-view-sector"
+                type="button"
+                onClick={() => setActiveTab('sector_view')}
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-2 shadow-xs ${
+                  activeTab === 'sector_view'
+                    ? 'bg-amber-500 text-white ring-2 ring-amber-500/20'
+                    : 'bg-stone-200/80 dark:bg-stone-800/80 text-stone-700 dark:text-stone-300 hover:bg-stone-300/80 dark:hover:bg-stone-700/80'
+                }`}
+              >
+                {currentSector === 'berber_kuafor' ? (
+                  <Scissors className="w-4 h-4" />
+                ) : currentSector === 'kafe_restoran' ? (
+                  <UtensilsCrossed className="w-4 h-4" />
+                ) : currentSector === 'bakkal_market' ? (
+                  <ShoppingCart className="w-4 h-4" />
+                ) : (
+                  <Wrench className="w-4 h-4" />
+                )}
+                <span>{currentSectorInfo.specialTabName}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    activeTab === 'sector_view'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                  }`}
+                >
+                  Özel Ekran
+                </span>
+              </button>
+            )}
+
             <button
               id="tab-view-activity"
               type="button"
@@ -645,8 +1114,40 @@ export default function App() {
           </div>
         </div>
 
-        {/* 7. View Content: Activity Feed OR Stock Management OR Customers Ledger */}
-        {activeTab === 'activity' ? (
+        {/* 7. View Content: Sector Specific View OR Activity Feed OR Stock Management OR Customers Ledger */}
+        {activeTab === 'sector_view' && currentSector === 'berber_kuafor' ? (
+          <BarberAppointmentsView
+            appointments={appointments}
+            onAddAppointment={handleAddAppointment}
+            onCompleteAppointment={handleCompleteAppointment}
+            onUpdateStatus={handleUpdateAppointmentStatus}
+            onDeleteAppointment={handleDeleteAppointment}
+            onFastWalkinCash={handleFastWalkinCash}
+          />
+        ) : activeTab === 'sector_view' && currentSector === 'kafe_restoran' ? (
+          <RestaurantTablesView
+            tables={tables}
+            onAddOrderToTable={handleAddOrderToTable}
+            onCheckoutTable={handleCheckoutTable}
+            onResetTable={handleResetTable}
+            onAddQuickExpense={handleAddQuickExpense}
+          />
+        ) : activeTab === 'sector_view' && currentSector === 'bakkal_market' ? (
+          <FastRetailCounterView
+            products={products}
+            customers={customers}
+            onQuickPosSale={handleQuickPosSale}
+            onCreditSaleToCustomer={handleCreditSaleToCustomer}
+          />
+        ) : activeTab === 'sector_view' && currentSector === 'teknik_servis' ? (
+          <RepairTicketsView
+            repairTickets={repairTickets}
+            onAddTicket={handleAddRepairTicket}
+            onUpdateStatus={handleUpdateRepairStatus}
+            onCompleteTicket={handleCompleteRepairTicket}
+            onDeleteTicket={handleDeleteRepairTicket}
+          />
+        ) : activeTab === 'activity' ? (
           <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5 transition-colors">
             <div className="flex items-center justify-between mb-4">
               <div>

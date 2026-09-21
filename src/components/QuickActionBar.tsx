@@ -11,6 +11,9 @@ interface QuickActionBarProps {
   showCustomerView?: boolean;
   onOpenStockView?: () => void;
   criticalStockCount?: number;
+  onOpenSectorView?: () => void;
+  sectorTitle?: string;
+  isSectorViewActive?: boolean;
 }
 
 export const QuickActionBar: React.FC<QuickActionBarProps> = ({
@@ -23,9 +26,29 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
   showCustomerView = false,
   onOpenStockView,
   criticalStockCount = 0,
+  onOpenSectorView,
+  sectorTitle,
+  isSectorViewActive = false,
 }) => {
   return (
     <div className="bg-white dark:bg-stone-900 rounded-2xl p-3 sm:p-4 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 transition-colors">
+      {/* 0. Sektöre Özel Hızlı Buton (Randevu, Masa, Hızlı Kasa vb.) */}
+      {onOpenSectorView && sectorTitle && (
+        <button
+          id="btn-quick-sector-view"
+          type="button"
+          onClick={onOpenSectorView}
+          className={`flex-initial flex items-center justify-center gap-1.5 px-3.5 py-3 rounded-xl font-black text-xs sm:text-sm border shadow-xs transition-transform active:scale-98 cursor-pointer whitespace-nowrap ${
+            isSectorViewActive
+              ? 'bg-indigo-600 text-white border-indigo-700 shadow-indigo-500/20 ring-2 ring-indigo-500/30'
+              : 'bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800'
+          }`}
+          title={`${sectorTitle} modunu aç`}
+        >
+          <span>{sectorTitle}</span>
+        </button>
+      )}
+
       {/* 1. Hızlı Para Al / Kasa Girişi */}
       <button
         id="btn-quick-money-in"

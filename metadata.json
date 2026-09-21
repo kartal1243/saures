@@ -1,6 +1,6 @@
 {
   "name": "Esnaf & KOBİ Müşteri & Veresiye Portalı",
-  "description": "Mahalle esnafı ve KOBİ'ler için anlık kasa akışı, veresiye defteri, basit stok ve kritik seviye takibi, gün sonu Z raporu ve VIP yapay zeka danışmanı.",
+  "description": "Her esnafa özel dinamik arayüz: Berberler için randevu & koltuk yönetimi, Kafe & Restoranlar için masa & adisyon takibi, Bakkal & Marketler için hızlı barkodlu satış, Teknik Servisler için cihaz tamir fişleri, anlık kasa akışı ve veresiye defteri.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -5,7 +5,22 @@ import fs from 'fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
-import { AppState, Customer, Transaction, ReminderLog, CashRegister, WSEvent, ShopProfile, DailyClosing, Product, StockMovement } from './src/types';
+import {
+  AppState,
+  Customer,
+  Transaction,
+  ReminderLog,
+  CashRegister,
+  WSEvent,
+  ShopProfile,
+  DailyClosing,
+  Product,
+  StockMovement,
+  Appointment,
+  RestaurantTable,
+  RepairTicket,
+  BusinessSector,
+} from './src/types';
 
 const PORT = 3000;
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -332,6 +347,7 @@ function getInitialData(): AppState {
     storeName: 'Bereket Mahalle Esnafı',
     ownerName: 'Usta Ahmet',
     businessField: 'Bakkal / Market',
+    sectorKey: 'bakkal_market',
     employeeCount: '1',
     phone: '0532 123 45 67',
     cityDistrict: 'İstanbul / Kadıköy',
@@ -481,6 +497,188 @@ function getInitialData(): AppState {
     },
   ];
 
+  const defaultAppointments: Appointment[] = [
+    {
+      id: 'apt_1',
+      customerName: 'Ali Demir',
+      phone: '05321112233',
+      staffName: 'Ahmet Usta (Koltuk 1)',
+      serviceName: 'Saç & Sakal Tıraşı + Saç Yıkama',
+      price: 350,
+      appointmentDate: today,
+      timeSlot: '14:30',
+      status: 'bekliyor',
+      notes: 'WhatsApp üzerinden teyit edildi. Çay ikramı.',
+      createdAt: `${today}T09:00:00.000Z`,
+    },
+    {
+      id: 'apt_2',
+      customerName: 'Murat Kaya',
+      phone: '05442223344',
+      staffName: 'Mehmet Kalfa (Koltuk 2)',
+      serviceName: 'Damat Tıraşı & Cilt Bakımı',
+      price: 750,
+      appointmentDate: today,
+      timeSlot: '15:15',
+      status: 'koltukta',
+      notes: 'Hafta sonu düğün var, özenli model kesim.',
+      createdAt: `${today}T10:30:00.000Z`,
+    },
+    {
+      id: 'apt_3',
+      customerName: 'Burak Çelik',
+      phone: '05553334455',
+      staffName: 'Ahmet Usta (Koltuk 1)',
+      serviceName: 'Klasik Saç Kesimi',
+      price: 200,
+      appointmentDate: today,
+      timeSlot: '11:00',
+      status: 'tamamlandi',
+      notes: 'İşlem tamamlandı, kasaya işlendi.',
+      createdAt: `${today}T08:30:00.000Z`,
+    },
+    {
+      id: 'apt_4',
+      customerName: 'Kemal Aksoy',
+      phone: '05054445566',
+      staffName: 'Mehmet Kalfa (Koltuk 2)',
+      serviceName: 'Sakal Düzeltme & Ense Temizliği',
+      price: 180,
+      appointmentDate: today,
+      timeSlot: '17:00',
+      status: 'bekliyor',
+      notes: 'İş çıkışı uğrayacak.',
+      createdAt: `${today}T11:00:00.000Z`,
+    },
+  ];
+
+  const defaultTables: RestaurantTable[] = [
+    {
+      id: 'tbl_1',
+      name: 'Masa 1 (Pencere)',
+      isOccupied: true,
+      openedAt: '12:45',
+      guestCount: 2,
+      orders: [
+        { id: 'ord_1', name: 'Çaykur Çay', quantity: 2, unitPrice: 15, total: 30 },
+        { id: 'ord_2', name: 'Kaşarlı Karışık Tost', quantity: 1, unitPrice: 75, total: 75 },
+        { id: 'ord_3', name: 'Günün Çorbası (Mercimek)', quantity: 1, unitPrice: 65, total: 65 },
+      ],
+      totalAmount: 170,
+      note: 'Çaylar açık ve taze olsun.',
+    },
+    {
+      id: 'tbl_2',
+      name: 'Masa 2 (Giriş)',
+      isOccupied: false,
+      orders: [],
+      totalAmount: 0,
+    },
+    {
+      id: 'tbl_3',
+      name: 'Masa 3 (Orta Salon)',
+      isOccupied: true,
+      openedAt: '13:10',
+      guestCount: 3,
+      orders: [
+        { id: 'ord_4', name: 'Izgara Köfte Porsiyon', quantity: 2, unitPrice: 190, total: 380 },
+        { id: 'ord_5', name: 'Köy Yayık Ayranı', quantity: 2, unitPrice: 30, total: 60 },
+        { id: 'ord_6', name: 'Fırın Sütlaç', quantity: 1, unitPrice: 75, total: 75 },
+      ],
+      totalAmount: 515,
+      note: 'Köfteler iyi pişmiş.',
+    },
+    {
+      id: 'tbl_4',
+      name: 'Bahçe 1',
+      isOccupied: true,
+      openedAt: '13:30',
+      guestCount: 2,
+      orders: [
+        { id: 'ord_7', name: 'Türk Kahvesi (Orta)', quantity: 2, unitPrice: 45, total: 90 },
+        { id: 'ord_8', name: 'Cam Şişe Su', quantity: 2, unitPrice: 15, total: 30 },
+      ],
+      totalAmount: 120,
+    },
+    {
+      id: 'tbl_5',
+      name: 'Bahçe 2',
+      isOccupied: false,
+      orders: [],
+      totalAmount: 0,
+    },
+    {
+      id: 'tbl_6',
+      name: 'Teras 1',
+      isOccupied: false,
+      orders: [],
+      totalAmount: 0,
+    },
+    {
+      id: 'tbl_7',
+      name: 'Paket Servis 1',
+      isOccupied: true,
+      openedAt: '13:50',
+      guestCount: 1,
+      orders: [
+        { id: 'ord_9', name: 'Et Döner Dürüm Menü', quantity: 2, unitPrice: 175, total: 350 },
+      ],
+      totalAmount: 350,
+      note: 'Apartman No: 14 Daire: 6 (Zili çalmayın bebek uyuyor)',
+    },
+  ];
+
+  const defaultRepairTickets: RepairTicket[] = [
+    {
+      id: 'rep_1',
+      customerName: 'Serkan Yıldız',
+      phone: '05321112233',
+      deviceOrVehicle: 'iPhone 12 Pro 128GB',
+      complaint: 'Ekran çatlak, dokunmatik ara sıra donuyor, kasa köşesinde darbe var.',
+      estimatedCost: 1750,
+      partCost: 950,
+      status: 'tamirde',
+      createdAt: `${yesterday} 14:00`,
+      notes: 'Orijinal revize ekran takılacak. Test aşamasında.',
+    },
+    {
+      id: 'rep_2',
+      customerName: 'Emre Vural',
+      phone: '05442223344',
+      deviceOrVehicle: '34 EMR 99 (Renault Clio 1.5 dCi)',
+      complaint: '10.000 km periyodik yağ, mazot filtresi, ön balata değişimi.',
+      estimatedCost: 2850,
+      partCost: 1500,
+      status: 'teslime_hazir',
+      createdAt: `${today} 09:30`,
+      notes: 'Parçalar takıldı, fren testi yapıldı. Müşteriye WhatsApp mesajı hazırlandı.',
+    },
+    {
+      id: 'rep_3',
+      customerName: 'Arzu Hanım (Site Sakini)',
+      phone: '05553334455',
+      deviceOrVehicle: 'Bosch Serie 6 Çamaşır Makinesi',
+      complaint: 'E18 arıza kodu veriyor, su tahliye pompası sıkışmış.',
+      estimatedCost: 900,
+      partCost: 400,
+      status: 'parca_bekleniyor',
+      createdAt: `${today} 11:15`,
+      notes: 'Pompa motoru sipariş edildi, yarın sabah kargodan gelecek.',
+    },
+    {
+      id: 'rep_4',
+      customerName: 'Hakan Şen',
+      phone: '05054445566',
+      deviceOrVehicle: 'Xiaomi Mi Pro 2 Elektrikli Scooter',
+      complaint: 'Arka lastik patlak (dolgu lastik takılacak) ve disk fren ayarı.',
+      estimatedCost: 650,
+      partCost: 280,
+      status: 'kabul_edildi',
+      createdAt: `${today} 13:40`,
+      notes: 'Akşam 18:00 gibi teslim edilecek.',
+    },
+  ];
+
   return {
     storeName: 'Bereket Mahalle Esnafı',
     shopProfile: defaultProfile,
@@ -490,6 +688,9 @@ function getInitialData(): AppState {
     reminderLogs,
     products: defaultProducts,
     stockMovements: defaultStockMovements,
+    appointments: defaultAppointments,
+    tables: defaultTables,
+    repairTickets: defaultRepairTickets,
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -505,12 +706,13 @@ let state: AppState = (function () {
           parsed.shopProfile = {
             storeName: parsed.storeName || 'Bereket Mahalle Esnafı',
             ownerName: 'Usta Ahmet',
-            businessField: 'Bakkal / Market',
-            employeeCount: '1',
+            businessField: 'Kuaför / Berber / Güzellik Salonu',
+            sectorKey: 'berber_kuafor',
+            employeeCount: '2-3',
             phone: '0532 123 45 67',
             cityDistrict: 'İstanbul / Kadıköy',
             dailyTarget: 2500,
-            slogan: 'Mahallenin Güvenilir ve Samimi Esnafı',
+            slogan: 'Mahallenin Güvenilir ve Usta Elleri',
             isConfigured: true,
             isVip: true,
           };
@@ -518,10 +720,19 @@ let state: AppState = (function () {
         if (!parsed.dailyClosings) {
           parsed.dailyClosings = [];
         }
+        const fresh = getInitialData();
         if (!parsed.products || !Array.isArray(parsed.products) || parsed.products.length === 0) {
-          const fresh = getInitialData();
           parsed.products = fresh.products;
           parsed.stockMovements = fresh.stockMovements;
+        }
+        if (!parsed.appointments || !Array.isArray(parsed.appointments) || parsed.appointments.length === 0) {
+          parsed.appointments = fresh.appointments;
+        }
+        if (!parsed.tables || !Array.isArray(parsed.tables) || parsed.tables.length === 0) {
+          parsed.tables = fresh.tables;
+        }
+        if (!parsed.repairTickets || !Array.isArray(parsed.repairTickets) || parsed.repairTickets.length === 0) {
+          parsed.repairTickets = fresh.repairTickets;
         }
         return parsed;
       }
@@ -637,6 +848,9 @@ async function startServer() {
         dailyClosings: state.dailyClosings,
         products: state.products || [],
         stockMovements: state.stockMovements || [],
+        appointments: state.appointments || [],
+        tables: state.tables || [],
+        repairTickets: state.repairTickets || [],
       },
     };
     ws.send(JSON.stringify(initEvent));
@@ -942,6 +1156,7 @@ Kurallar:
       storeName: data.storeName.trim(),
       ownerName: (data.ownerName || 'Esnaf').trim(),
       businessField: data.businessField || 'Bakkal / Market',
+      sectorKey: data.sectorKey || state.shopProfile?.sectorKey || 'bakkal_market',
       employeeCount: data.employeeCount || '1',
       phone: (data.phone || '').trim(),
       cityDistrict: (data.cityDistrict || '').trim(),
@@ -1265,7 +1480,448 @@ Kurallar:
     res.json({ movements: state.stockMovements || [] });
   });
 
-  // 13. Reset Demo Data
+  // ==========================================
+  // 14. SEKTÖRE ÖZEL: BERBER & KUAFÖR (RANDEVU & KOLTUK TAKİBİ)
+  // ==========================================
+  app.get('/api/appointments', (_req, res) => {
+    res.json({ appointments: state.appointments || [] });
+  });
+
+  app.post('/api/appointments', (req: Request, res: Response) => {
+    const data = req.body;
+    if (!data.customerName || !data.customerName.trim()) {
+      return res.status(400).json({ error: 'Müşteri adı zorunludur.' });
+    }
+    if (!state.appointments) state.appointments = [];
+
+    let apt: Appointment;
+    if (data.id) {
+      const idx = state.appointments.findIndex((a) => a.id === data.id);
+      if (idx === -1) return res.status(404).json({ error: 'Randevu bulunamadı.' });
+      apt = {
+        ...state.appointments[idx],
+        ...data,
+      };
+      state.appointments[idx] = apt;
+    } else {
+      const now = new Date();
+      apt = {
+        id: `apt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        customerName: data.customerName.trim(),
+        phone: data.phone?.trim() || '',
+        staffName: data.staffName?.trim() || 'Koltuk 1 (Usta)',
+        serviceName: data.serviceName?.trim() || 'Saç & Sakal Tıraşı',
+        price: Number(data.price) || 250,
+        appointmentDate: data.appointmentDate || now.toISOString().split('T')[0],
+        timeSlot: data.timeSlot || '14:00',
+        status: data.status || 'bekliyor',
+        notes: data.notes?.trim() || '',
+        createdAt: now.toISOString(),
+      };
+      state.appointments.unshift(apt);
+    }
+
+    saveState();
+    broadcast({ type: 'APPOINTMENT_UPDATED', payload: apt });
+    res.json({ success: true, appointment: apt });
+  });
+
+  app.post('/api/appointments/:id/status', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!state.appointments) state.appointments = [];
+    const apt = state.appointments.find((a) => a.id === id);
+    if (!apt) return res.status(404).json({ error: 'Randevu bulunamadı.' });
+
+    apt.status = status;
+    saveState();
+    broadcast({ type: 'APPOINTMENT_UPDATED', payload: apt });
+    res.json({ success: true, appointment: apt });
+  });
+
+  app.post('/api/appointments/:id/complete', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { paymentMethod } = req.body;
+    if (!state.appointments) state.appointments = [];
+    const apt = state.appointments.find((a) => a.id === id);
+    if (!apt) return res.status(404).json({ error: 'Randevu bulunamadı.' });
+
+    apt.status = 'tamamlandi';
+
+    // Otomatik Kasaya Tahsilat Ekle
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+    const transaction: Transaction = {
+      id: `tx_apt_${Date.now()}`,
+      customerId: '',
+      customerName: apt.customerName,
+      type: 'tahsilat',
+      amount: apt.price,
+      paymentMethod: paymentMethod || 'nakit',
+      description: `Kuaför/Berber Tahsilatı: ${apt.serviceName} (${apt.staffName})`,
+      date: `${todayStr} ${timeStr}`,
+      createdAt: now.toISOString(),
+    };
+
+    state.transactions.unshift(transaction);
+    saveState();
+
+    const cash = calculateCashRegister();
+    broadcast({ type: 'APPOINTMENT_UPDATED', payload: apt });
+    broadcast({
+      type: 'TRANSACTION_CREATED',
+      payload: { transaction, cash },
+    });
+
+    res.json({ success: true, appointment: apt, transaction, cash });
+  });
+
+  app.delete('/api/appointments/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!state.appointments) state.appointments = [];
+    state.appointments = state.appointments.filter((a) => a.id !== id);
+    saveState();
+    broadcast({ type: 'APPOINTMENT_DELETED', payload: { id } });
+    res.json({ success: true });
+  });
+
+  // ==========================================
+  // 15. SEKTÖRE ÖZEL: RESTORAN & KAFE (MASA & ADİSYON YÖNETİMİ)
+  // ==========================================
+  app.get('/api/tables', (_req, res) => {
+    res.json({ tables: state.tables || [] });
+  });
+
+  app.post('/api/tables/:id/order', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { name, quantity, unitPrice } = req.body;
+    if (!name || !quantity) {
+      return res.status(400).json({ error: 'Ürün adı ve adet zorunludur.' });
+    }
+    if (!state.tables) state.tables = [];
+    const table = state.tables.find((t) => t.id === id);
+    if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
+
+    const qty = Number(quantity) || 1;
+    const price = Number(unitPrice) || 0;
+    const total = qty * price;
+
+    const existingItem = table.orders.find((o) => o.name.toLowerCase() === name.trim().toLowerCase());
+    if (existingItem) {
+      existingItem.quantity += qty;
+      existingItem.total = existingItem.quantity * existingItem.unitPrice;
+    } else {
+      table.orders.push({
+        id: `ord_${Date.now()}_${Math.random().toString(36).substr(2, 3)}`,
+        name: name.trim(),
+        quantity: qty,
+        unitPrice: price,
+        total,
+      });
+    }
+
+    table.isOccupied = true;
+    if (!table.openedAt) {
+      table.openedAt = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    }
+    table.totalAmount = table.orders.reduce((sum, o) => sum + o.total, 0);
+
+    saveState();
+    broadcast({ type: 'TABLE_UPDATED', payload: table });
+    res.json({ success: true, table });
+  });
+
+  app.post('/api/tables/:id/checkout', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { paymentMethod } = req.body;
+    if (!state.tables) state.tables = [];
+    const table = state.tables.find((t) => t.id === id);
+    if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
+
+    if (table.totalAmount <= 0 && table.orders.length === 0) {
+      return res.status(400).json({ error: 'Masada açık hesap bulunmuyor.' });
+    }
+
+    const orderSummary = table.orders.map((o) => `${o.quantity}x ${o.name}`).join(', ');
+    const checkoutAmount = table.totalAmount;
+
+    // Otomatik Kasaya Gelir Yaz
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+    const transaction: Transaction = {
+      id: `tx_tbl_${Date.now()}`,
+      customerId: '',
+      customerName: table.name,
+      type: 'tahsilat',
+      amount: checkoutAmount,
+      paymentMethod: paymentMethod || 'nakit',
+      description: `Masa Hesabı: ${table.name} (${orderSummary})`,
+      date: `${todayStr} ${timeStr}`,
+      createdAt: now.toISOString(),
+    };
+
+    state.transactions.unshift(transaction);
+
+    // Masayı sıfırla ve boşalt
+    table.isOccupied = false;
+    table.orders = [];
+    table.totalAmount = 0;
+    table.openedAt = undefined;
+    table.guestCount = undefined;
+    table.note = undefined;
+
+    saveState();
+
+    const cash = calculateCashRegister();
+    broadcast({ type: 'TABLE_UPDATED', payload: table });
+    broadcast({
+      type: 'TRANSACTION_CREATED',
+      payload: { transaction, cash },
+    });
+
+    res.json({ success: true, table, transaction, cash });
+  });
+
+  app.post('/api/tables/:id/reset', (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!state.tables) state.tables = [];
+    const table = state.tables.find((t) => t.id === id);
+    if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
+
+    table.isOccupied = false;
+    table.orders = [];
+    table.totalAmount = 0;
+    table.openedAt = undefined;
+    table.guestCount = undefined;
+    table.note = undefined;
+
+    saveState();
+    broadcast({ type: 'TABLE_UPDATED', payload: table });
+    res.json({ success: true, table });
+  });
+
+  app.post('/api/tables', (req: Request, res: Response) => {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Masa adı zorunludur.' });
+    if (!state.tables) state.tables = [];
+
+    const newTable: RestaurantTable = {
+      id: `tbl_${Date.now()}`,
+      name: name.trim(),
+      isOccupied: false,
+      orders: [],
+      totalAmount: 0,
+    };
+    state.tables.push(newTable);
+    saveState();
+    broadcast({ type: 'TABLE_UPDATED', payload: newTable });
+    res.json({ success: true, table: newTable });
+  });
+
+  // ==========================================
+  // 16. SEKTÖRE ÖZEL: TEKNİK SERVİS & TAMİR (İŞ EMRİ & FİŞ)
+  // ==========================================
+  app.get('/api/repair-tickets', (_req, res) => {
+    res.json({ repairTickets: state.repairTickets || [] });
+  });
+
+  app.post('/api/repair-tickets', (req: Request, res: Response) => {
+    const data = req.body;
+    if (!data.customerName || !data.deviceOrVehicle) {
+      return res.status(400).json({ error: 'Müşteri adı ve cihaz/araç bilgisi zorunludur.' });
+    }
+    if (!state.repairTickets) state.repairTickets = [];
+
+    let ticket: RepairTicket;
+    if (data.id) {
+      const idx = state.repairTickets.findIndex((t) => t.id === data.id);
+      if (idx === -1) return res.status(404).json({ error: 'Servis fişi bulunamadı.' });
+      ticket = {
+        ...state.repairTickets[idx],
+        ...data,
+      };
+      state.repairTickets[idx] = ticket;
+    } else {
+      const now = new Date();
+      ticket = {
+        id: `rep_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        customerName: data.customerName.trim(),
+        phone: data.phone?.trim() || '',
+        deviceOrVehicle: data.deviceOrVehicle.trim(),
+        complaint: data.complaint?.trim() || 'Arıza tespiti ve bakım',
+        estimatedCost: Number(data.estimatedCost) || 0,
+        partCost: Number(data.partCost) || 0,
+        status: data.status || 'kabul_edildi',
+        notes: data.notes?.trim() || '',
+        createdAt: `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`,
+      };
+      state.repairTickets.unshift(ticket);
+    }
+
+    saveState();
+    broadcast({ type: 'REPAIR_TICKET_UPDATED', payload: ticket });
+    res.json({ success: true, ticket });
+  });
+
+  app.post('/api/repair-tickets/:id/status', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!state.repairTickets) state.repairTickets = [];
+    const ticket = state.repairTickets.find((t) => t.id === id);
+    if (!ticket) return res.status(404).json({ error: 'Servis fişi bulunamadı.' });
+
+    ticket.status = status;
+    saveState();
+    broadcast({ type: 'REPAIR_TICKET_UPDATED', payload: ticket });
+    res.json({ success: true, ticket });
+  });
+
+  app.post('/api/repair-tickets/:id/complete', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { paymentMethod, deductPartCost } = req.body;
+    if (!state.repairTickets) state.repairTickets = [];
+    const ticket = state.repairTickets.find((t) => t.id === id);
+    if (!ticket) return res.status(404).json({ error: 'Servis fişi bulunamadı.' });
+
+    ticket.status = 'teslim_edildi';
+    ticket.completedAt = new Date().toISOString();
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+    // Kasaya Tahsilat
+    const incomeTx: Transaction = {
+      id: `tx_rep_inc_${Date.now()}`,
+      customerId: '',
+      customerName: ticket.customerName,
+      type: 'tahsilat',
+      amount: ticket.estimatedCost,
+      paymentMethod: paymentMethod || 'nakit',
+      description: `Servis Teslimatı: ${ticket.deviceOrVehicle} (${ticket.complaint})`,
+      date: `${todayStr} ${timeStr}`,
+      createdAt: now.toISOString(),
+    };
+    state.transactions.unshift(incomeTx);
+
+    // İsteğe bağlı: Parça maliyetini Gider olarak kaydet
+    if (deductPartCost && ticket.partCost > 0) {
+      const expenseTx: Transaction = {
+        id: `tx_rep_exp_${Date.now()}`,
+        customerId: '',
+        customerName: 'Yedek Parça Maliyeti',
+        type: 'gider',
+        amount: ticket.partCost,
+        paymentMethod: 'nakit',
+        description: `Yedek Parça: ${ticket.deviceOrVehicle} parçası`,
+        date: `${todayStr} ${timeStr}`,
+        createdAt: now.toISOString(),
+      };
+      state.transactions.unshift(expenseTx);
+    }
+
+    saveState();
+
+    const cash = calculateCashRegister();
+    broadcast({ type: 'REPAIR_TICKET_UPDATED', payload: ticket });
+    broadcast({
+      type: 'TRANSACTION_CREATED',
+      payload: { transaction: incomeTx, cash },
+    });
+
+    res.json({ success: true, ticket, transaction: incomeTx, cash });
+  });
+
+  app.delete('/api/repair-tickets/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!state.repairTickets) state.repairTickets = [];
+    state.repairTickets = state.repairTickets.filter((t) => t.id !== id);
+    saveState();
+    broadcast({ type: 'REPAIR_TICKET_DELETED', payload: { id } });
+    res.json({ success: true });
+  });
+
+  // ==========================================
+  // 17. SEKTÖRE ÖZEL: BAKKAL & MARKET HIZLI TEZGÂH / KASA SATIŞI
+  // ==========================================
+  app.post('/api/quick-pos-sale', (req: Request, res: Response) => {
+    const { items, paymentMethod } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Sepette ürün bulunmalıdır.' });
+    }
+
+    const totalAmount = items.reduce((sum: number, it: any) => sum + (Number(it.total) || (Number(it.unitPrice) * Number(it.quantity))), 0);
+    const summaryStr = items.map((it: any) => `${it.quantity}x ${it.name}`).join(', ');
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+    // 1. Kasaya Tahsilat Ekle
+    const transaction: Transaction = {
+      id: `tx_pos_${Date.now()}`,
+      customerId: '',
+      customerName: 'Hızlı Tezgâh Satışı',
+      type: 'tahsilat',
+      amount: totalAmount,
+      paymentMethod: paymentMethod || 'nakit',
+      description: `Perakende Satış: ${summaryStr}`,
+      date: `${todayStr} ${timeStr}`,
+      createdAt: now.toISOString(),
+    };
+    state.transactions.unshift(transaction);
+
+    // 2. Varsa Stoktan Düş & Hareket Kaydet
+    if (state.products) {
+      for (const item of items) {
+        if (item.productId) {
+          const prod = state.products.find((p) => p.id === item.productId);
+          if (prod) {
+            const prevStock = prod.currentStock;
+            const newStock = Math.max(0, prevStock - Number(item.quantity));
+            prod.currentStock = newStock;
+            prod.updatedAt = now.toISOString();
+
+            const movement: StockMovement = {
+              id: `sm_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+              productId: prod.id,
+              productName: prod.name,
+              type: 'cikis',
+              quantity: Number(item.quantity),
+              previousStock: prevStock,
+              newStock,
+              reason: 'Hızlı Tezgâh Satışı',
+              date: `${todayStr} ${timeStr}`,
+            };
+
+            if (!state.stockMovements) state.stockMovements = [];
+            state.stockMovements.unshift(movement);
+
+            broadcast({
+              type: 'STOCK_MOVEMENT_CREATED',
+              payload: { movement, product: prod },
+            });
+          }
+        }
+      }
+    }
+
+    saveState();
+    const cash = calculateCashRegister();
+
+    broadcast({
+      type: 'TRANSACTION_CREATED',
+      payload: { transaction, cash },
+    });
+
+    res.json({ success: true, transaction, cash });
+  });
+
+  // 18. Reset Demo Data
   app.post('/api/reset-demo', (_req, res) => {
     state = getInitialData();
     saveState();
@@ -1281,6 +1937,9 @@ Kurallar:
         dailyClosings: state.dailyClosings,
         products: state.products || [],
         stockMovements: state.stockMovements || [],
+        appointments: state.appointments || [],
+        tables: state.tables || [],
+        repairTickets: state.repairTickets || [],
       },
     });
     res.json({ success: true, message: 'Veriler başarıyla başlangıç haline sıfırlandı.' });
