@@ -1,6 +1,6 @@
 {
   "name": "Esnaf & KOBİ Müşteri & Veresiye Portalı",
-  "description": "Mahalle işletmeleri ve KOBİ'ler için anlık müşteri takibi, veresiye ve abonelik yönetimi, canlı kasa ve WhatsApp hatırlatma sistemi.",
+  "description": "Mahalle esnafı ve KOBİ'ler için anlık kasa akışı, veresiye defteri, basit stok ve kritik seviye takibi, gün sonu Z raporu ve VIP yapay zeka danışmanı.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

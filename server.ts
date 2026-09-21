@@ -5,7 +5,7 @@ import fs from 'fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
-import { AppState, Customer, Transaction, ReminderLog, CashRegister, WSEvent } from './src/types';
+import { AppState, Customer, Transaction, ReminderLog, CashRegister, WSEvent, ShopProfile, DailyClosing, Product, StockMovement } from './src/types';
 
 const PORT = 3000;
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -328,11 +328,168 @@ function getInitialData(): AppState {
     }
   ];
 
+  const defaultProfile: ShopProfile = {
+    storeName: 'Bereket Mahalle Esnafı',
+    ownerName: 'Usta Ahmet',
+    businessField: 'Bakkal / Market',
+    employeeCount: '1',
+    phone: '0532 123 45 67',
+    cityDistrict: 'İstanbul / Kadıköy',
+    dailyTarget: 2500,
+    slogan: 'Mahallenin Güvenilir ve Samimi Esnafı',
+    isConfigured: true,
+    isVip: true,
+  };
+
+  const defaultClosings: DailyClosing[] = [
+    {
+      id: 'closing_yest',
+      date: yesterday,
+      closedAt: `${yesterday}T20:45:00.000Z`,
+      expectedCash: 1180,
+      actualCashCount: 1180,
+      diffAmount: 0,
+      totalIncomeToday: 2780,
+      todayCash: 1600,
+      todayCard: 1180,
+      todayBank: 0,
+      todayExpense: 420,
+      netProfitToday: 2360,
+      note: 'Dükkan zamanında kapatıldı, kasa kuruşu kuruşuna denk çıktı.',
+      closedBy: 'Usta Ahmet',
+    },
+  ];
+
+  const defaultProducts: Product[] = [
+    {
+      id: 'prod_1',
+      name: 'Çaykur Tiryaki Çay 1 Kg',
+      category: 'Gıda & Bakliyat',
+      currentStock: 4, // Critical alert! (Threshold 10)
+      unit: 'Paket',
+      criticalThreshold: 10,
+      purchasePrice: 155,
+      salePrice: 195,
+      barcode: '8690637012345',
+      updatedAt: today,
+    },
+    {
+      id: 'prod_2',
+      name: 'Tam Yağlı Süt 1 Litre (Sütaş)',
+      category: 'Süt & Kahvaltılık',
+      currentStock: 3, // Critical alert! (Threshold 8)
+      unit: 'Adet',
+      criticalThreshold: 8,
+      purchasePrice: 28,
+      salePrice: 38,
+      barcode: '8690555023456',
+      updatedAt: today,
+    },
+    {
+      id: 'prod_3',
+      name: 'Somun Ekmek (200 gr)',
+      category: 'Unlu Mamül',
+      currentStock: 25,
+      unit: 'Adet',
+      criticalThreshold: 15,
+      purchasePrice: 8,
+      salePrice: 10,
+      updatedAt: today,
+    },
+    {
+      id: 'prod_4',
+      name: 'Kristal Toz Şeker 5 Kg',
+      category: 'Gıda & Bakliyat',
+      currentStock: 2, // Critical alert! (Threshold 5)
+      unit: 'Torba',
+      criticalThreshold: 5,
+      purchasePrice: 140,
+      salePrice: 175,
+      barcode: '8690123456789',
+      updatedAt: today,
+    },
+    {
+      id: 'prod_5',
+      name: 'Yudum Ayçiçek Yağı 5 Litre',
+      category: 'Sıvı Yağ',
+      currentStock: 12,
+      unit: 'Teneke',
+      criticalThreshold: 6,
+      purchasePrice: 280,
+      salePrice: 340,
+      barcode: '8690888999123',
+      updatedAt: today,
+    },
+    {
+      id: 'prod_6',
+      name: 'Bulaşık Deterjanı 750 ml (Fairy)',
+      category: 'Temizlik & Hijyen',
+      currentStock: 7,
+      unit: 'Şişe',
+      criticalThreshold: 5,
+      purchasePrice: 55,
+      salePrice: 75,
+      barcode: '8690111222333',
+      updatedAt: today,
+    },
+    {
+      id: 'prod_7',
+      name: 'Karton Bardak 7 oz (50\'li Paket)',
+      category: 'Sarf Malzeme',
+      currentStock: 1, // Critical alert! (Threshold 4)
+      unit: 'Paket',
+      criticalThreshold: 4,
+      purchasePrice: 22,
+      salePrice: 35,
+      updatedAt: today,
+    },
+  ];
+
+  const defaultStockMovements: StockMovement[] = [
+    {
+      id: 'sm_1',
+      productId: 'prod_1',
+      productName: 'Çaykur Tiryaki Çay 1 Kg',
+      type: 'giris',
+      quantity: 20,
+      previousStock: 4,
+      newStock: 24,
+      reason: 'Toptancı Mal Alımı (Bereket Toptan)',
+      date: `${yesterday} 11:30`,
+    },
+    {
+      id: 'sm_2',
+      productId: 'prod_1',
+      productName: 'Çaykur Tiryaki Çay 1 Kg',
+      type: 'cikis',
+      quantity: 20,
+      previousStock: 24,
+      newStock: 4,
+      reason: 'Günlük Perakende Tezgâh Satışı',
+      date: `${today} 14:15`,
+    },
+    {
+      id: 'sm_3',
+      productId: 'prod_2',
+      productName: 'Tam Yağlı Süt 1 Litre (Sütaş)',
+      type: 'cikis',
+      quantity: 5,
+      previousStock: 8,
+      newStock: 3,
+      reason: 'Günlük Perakende Tezgâh Satışı',
+      date: `${today} 16:45`,
+    },
+  ];
+
   return {
-    storeName: 'Bereket Esnaf & KOBİ Portalı',
+    storeName: 'Bereket Mahalle Esnafı',
+    shopProfile: defaultProfile,
+    dailyClosings: defaultClosings,
     customers,
     transactions,
     reminderLogs,
+    products: defaultProducts,
+    stockMovements: defaultStockMovements,
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -344,6 +501,28 @@ let state: AppState = (function () {
       const content = fs.readFileSync(DATA_FILE, 'utf-8');
       const parsed = JSON.parse(content);
       if (parsed && Array.isArray(parsed.transactions) && parsed.transactions.some((t: any) => t.id === 'tx_p6_1')) {
+        if (!parsed.shopProfile) {
+          parsed.shopProfile = {
+            storeName: parsed.storeName || 'Bereket Mahalle Esnafı',
+            ownerName: 'Usta Ahmet',
+            businessField: 'Bakkal / Market',
+            employeeCount: '1',
+            phone: '0532 123 45 67',
+            cityDistrict: 'İstanbul / Kadıköy',
+            dailyTarget: 2500,
+            slogan: 'Mahallenin Güvenilir ve Samimi Esnafı',
+            isConfigured: true,
+            isVip: true,
+          };
+        }
+        if (!parsed.dailyClosings) {
+          parsed.dailyClosings = [];
+        }
+        if (!parsed.products || !Array.isArray(parsed.products) || parsed.products.length === 0) {
+          const fresh = getInitialData();
+          parsed.products = fresh.products;
+          parsed.stockMovements = fresh.stockMovements;
+        }
         return parsed;
       }
     }
@@ -454,6 +633,10 @@ async function startServer() {
         transactions: state.transactions,
         cash: calculateCashRegister(),
         reminderLogs: state.reminderLogs,
+        shopProfile: state.shopProfile,
+        dailyClosings: state.dailyClosings,
+        products: state.products || [],
+        stockMovements: state.stockMovements || [],
       },
     };
     ws.send(JSON.stringify(initEvent));
@@ -478,9 +661,13 @@ async function startServer() {
   app.get('/api/data', (_req, res) => {
     res.json({
       storeName: state.storeName,
+      shopProfile: state.shopProfile,
+      dailyClosings: state.dailyClosings,
       customers: state.customers,
       transactions: state.transactions,
       reminderLogs: state.reminderLogs,
+      products: state.products || [],
+      stockMovements: state.stockMovements || [],
       cash: calculateCashRegister(),
       lastUpdated: state.lastUpdated,
     });
@@ -714,7 +901,7 @@ Kurallar:
 3. Kaba, icra dili gibi soğuk ifadeler ASLA kullanma; esnaf nezaketiyle yaz.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
       });
 
@@ -740,7 +927,345 @@ Kurallar:
     res.send('\uFEFF' + csv);
   });
 
-  // 9. Reset Demo Data
+  // 9. Shop Profile Routes (Dükkan Kayıt & Profil Bilgileri)
+  app.get('/api/shop-profile', (_req, res) => {
+    res.json({ profile: state.shopProfile });
+  });
+
+  app.post('/api/shop-profile', (req: Request, res: Response) => {
+    const data = req.body;
+    if (!data.storeName) {
+      return res.status(400).json({ error: 'Dükkan adı zorunludur.' });
+    }
+
+    const updatedProfile: ShopProfile = {
+      storeName: data.storeName.trim(),
+      ownerName: (data.ownerName || 'Esnaf').trim(),
+      businessField: data.businessField || 'Bakkal / Market',
+      employeeCount: data.employeeCount || '1',
+      phone: (data.phone || '').trim(),
+      cityDistrict: (data.cityDistrict || '').trim(),
+      dailyTarget: Number(data.dailyTarget) || 2500,
+      slogan: (data.slogan || '').trim(),
+      isConfigured: true,
+      isVip: data.isVip !== undefined ? Boolean(data.isVip) : (state.shopProfile?.isVip ?? true),
+    };
+
+    state.shopProfile = updatedProfile;
+    state.storeName = updatedProfile.storeName;
+    saveState();
+
+    broadcast({ type: 'SHOP_PROFILE_UPDATED', payload: updatedProfile });
+    res.json({ success: true, profile: updatedProfile });
+  });
+
+  // 10. Daily Closings Routes (Gün Sonu Z Raporları)
+  app.get('/api/daily-closings', (_req, res) => {
+    res.json({ closings: state.dailyClosings || [] });
+  });
+
+  app.post('/api/daily-closings', (req: Request, res: Response) => {
+    const { actualCashCount, note, closedBy } = req.body;
+    const cash = calculateCashRegister();
+
+    const expectedCash = cash.netTodayCash;
+    const actual = Number(actualCashCount) || 0;
+    const diff = actual - expectedCash;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const newClosing: DailyClosing = {
+      id: `close_${Date.now()}`,
+      date: todayStr,
+      closedAt: new Date().toISOString(),
+      expectedCash,
+      actualCashCount: actual,
+      diffAmount: diff,
+      totalIncomeToday: cash.todayTotalIncome,
+      todayCash: cash.todayCash,
+      todayCard: cash.todayCard,
+      todayBank: cash.todayBank,
+      todayExpense: cash.todayExpense,
+      netProfitToday: cash.todayTotalIncome - cash.todayExpense,
+      note: note || '',
+      closedBy: closedBy || state.shopProfile?.ownerName || 'Kasiyer / Esnaf',
+    };
+
+    if (!state.dailyClosings) {
+      state.dailyClosings = [];
+    }
+
+    // Replace if closing already exists for today or unshift
+    const existingIdx = state.dailyClosings.findIndex((c) => c.date === todayStr);
+    if (existingIdx !== -1) {
+      state.dailyClosings[existingIdx] = newClosing;
+    } else {
+      state.dailyClosings.unshift(newClosing);
+    }
+
+    saveState();
+    broadcast({ type: 'DAILY_CLOSING_CREATED', payload: newClosing });
+    res.json({ success: true, closing: newClosing });
+  });
+
+  // 11. VIP AI Shop Consultant & Live Support (Yapay Zeka Esnaf Danışmanı)
+  app.post('/api/vip/ai-consultant', async (req: Request, res: Response) => {
+    const { message, topic } = req.body;
+    const profile = state.shopProfile;
+    const cash = calculateCashRegister();
+
+    // Context for AI
+    const shopContext = `
+Dükkan Adı: ${profile?.storeName || 'Mahalle Esnafı'}
+Faaliyet Alanı / Sektör: ${profile?.businessField || 'Küçük İşletme'}
+Dükkan Sahibi: ${profile?.ownerName || 'Esnaf'}
+Çalışan Sayısı: ${profile?.employeeCount || '1'} kişi
+Şehir / Semt: ${profile?.cityDistrict || 'Türkiye'}
+Bugünkü Toplam Gelir: ${cash.todayTotalIncome} TL (Nakit: ${cash.todayCash} TL, Kart: ${cash.todayCard} TL, IBAN: ${cash.todayBank} TL)
+Bugünkü Dükkan Harcamaları / Masraf: ${cash.todayExpense} TL
+Bugünkü Net Kasa Kârı: ${cash.todayTotalIncome - cash.todayExpense} TL
+Günlük Ciro Hedefi: ${profile?.dailyTarget || 2500} TL
+`;
+
+    // High quality intelligent fallback if Gemini API key not present
+    const getSmartFallback = (t: string, userMsg?: string) => {
+      if (t === 'profile') {
+        return {
+          title: 'Dükkan Profil & Vitrin İyileştirme Tavsiyeleri',
+          advice: `Sayın ${profile?.ownerName || 'Esnaf'}, ${profile?.storeName || 'Dükkanınız'} için mahallede müşteri çekim gücünü artıracak 3 öncelikli adım:
+1. **Google Haritalar & Tabela:** Dükkan tabelanızda ve Google Haritalar profilinizde "${profile?.businessField}" anahtar kelimesini ve çalışma saatlerinizi güncelleyin. Fotoğraflı profiller %45 daha çok müşteri çeker.
+2. **Kasa Önü Hızlı Ürün Alanı:** Kasa yanına sakız, atıştırmalık, kolonya gibi anlık satın alınan 10-50 TL'lik sepet genişletici ürünler yerleştirin.
+3. **Müşteri Hitap Sloganı:** Vitrininize "${profile?.slogan || 'Güler yüzlü hizmet, bereketli alışveriş'}" afişi asarak samimiyeti ön plana çıkarın.`,
+          suggestions: [
+            'Google Haritalar açıklamasını optimize et',
+            'Fiyat etiketlerini ve vitrini yenile',
+            'Kasa önü sepet kampanyası yap',
+          ],
+        };
+      }
+      if (t === 'expenses') {
+        return {
+          title: 'Giderleri Azaltma & Toptancı Tasarrufu',
+          advice: `Mevcut finansal durumunuza göre bugün ${cash.todayExpense} TL dükkan masrafınız oldu. Kârlılığı artırmak için:
+1. **Toptancı ile Peşin İndirimi:** Toptancı alımlarında nakit veya 3 gün içinde ödeme taahhüdüyle %4 ila %8 iskonto talep edin.
+2. **POS Komisyon Yönetimi:** Kartlı satış oranınız (${cash.todayCard} TL) arttıkça bankanızla görüşüp bloke süresini ertesi güne çekerek komisyonu %1.99 altına düşürün ya da FAST/IBAN karekodunu öne çıkarın.
+3. **Fatura & Sarf Malzeme Kontrolü:** Dükkan aydınlatmalarını LED'e çevirin, poşet ve ambalajı toptan kilo ile alın.`,
+          suggestions: [
+            'POS komisyonunu bankayla pazarlık et',
+            'Toptancı peşin iskontosu iste',
+            'Karekod / IBAN ile komisyonsuz tahsilat yap',
+          ],
+        };
+      }
+
+      // Default or custom question
+      return {
+        title: 'VIP Esnaf Danışmanı Yanıtı',
+        advice: userMsg
+          ? `Sayın ${profile?.ownerName || 'Esnaf'}, sorunuz için esnaf tecrübemizle önerimiz: Küçük işletmelerde en önemli kural günlük nakit akışını sıkı tutmak ve gereksiz masrafı önlemektir. Bugünkü ${cash.todayTotalIncome} TL cironuz hedefinize (${profile?.dailyTarget} TL) oranla aktif bir gün geçirdiğinizi gösteriyor. Müşterilerinize güler yüzle yaklaşın ve ödemeleri günü gününe kasaya işleyin.`
+          : `Sayın ${profile?.ownerName || 'Esnaf'}, ${profile?.storeName || 'Dükkanınız'} bugün ${cash.todayTotalIncome} TL ciro yaptı. Net kasa kârınız ${cash.todayTotalIncome - cash.todayExpense} TL seviyesinde. Dükkanınızın sektörüne (${profile?.businessField}) özel VIP optimizasyonlar aktif.`,
+        suggestions: [
+          'Günlük ciro hedefimi nasıl artırırım?',
+          'Toptancıya borçlanmadan nasıl mal çekerim?',
+          'Sadık mahalle müşterisi nasıl kazanılır?',
+        ],
+      };
+    };
+
+    if (!process.env.GEMINI_API_KEY) {
+      const fallback = getSmartFallback(topic || 'chat', message);
+      return res.json({ success: true, ...fallback, source: 'smart_advisor' });
+    }
+
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const systemPrompt = `Sen Türkiye'de 30 yıllık tecrübeye sahip, modern dijital araçları iyi bilen, çok samimi, babacan, esnaf dostu bir "VIP Esnaf Danışmanı"sın.
+Dükkan Bilgileri:
+${shopContext}
+
+Kullanıcı Konusu / Talebi:
+Konu: ${topic || 'Genel Danışmanlık'}
+Esnafın Sorusu / Notu: ${message || 'Dükkanımı büyütmek ve profili iyileştirmek için öneriler ver.'}
+
+Kurallar:
+1. Türkçe olarak, esnafın dilinden konuş; samimi, motive edici, pratik ve hemen uygulanabilir 3-4 somut tavsiye ver.
+2. Dükkan adı (${profile?.storeName}) ve sektörüne (${profile?.businessField}) doğrudan atıf yap.
+3. Gereksiz akademik laflar etme; toptancı, kasa, ciro, müşteri iletişimi, vitrin gibi gerçek hayata dokunan şeyler söyle.
+4. Çıktını temiz ve maddeli hazırla.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: systemPrompt,
+      });
+
+      const adviceText = response.text ? response.text.trim() : getSmartFallback(topic || 'chat', message).advice;
+
+      res.json({
+        success: true,
+        title: topic === 'profile' ? 'Profil & Vitrin Tavsiyeleri' : topic === 'expenses' ? 'Gider & Tasarruf Planı' : 'VIP Danışman Yanıtı',
+        advice: adviceText,
+        suggestions: [
+          'Dükkan vitrin ve tabelasını nasıl yenilerim?',
+          'Giderleri %15 kısmak için ne yapayım?',
+          'Müşteriyi veresiyeden nakite nasıl alıştırırım?',
+        ],
+        source: 'gemini-2.5-flash',
+      });
+    } catch (err) {
+      console.error('VIP AI Consultant error:', err);
+      const fallback = getSmartFallback(topic || 'chat', message);
+      res.json({ success: true, ...fallback, source: 'smart_fallback' });
+    }
+  });
+
+  // 12. Products & Stock Management Endpoints
+  app.get('/api/products', (_req, res) => {
+    const products = state.products || [];
+    const criticalCount = products.filter((p) => p.currentStock <= p.criticalThreshold).length;
+    res.json({ products, criticalCount });
+  });
+
+  app.post('/api/products', (req: Request, res: Response) => {
+    const data = req.body;
+    if (!data.name || !data.name.trim()) {
+      return res.status(400).json({ error: 'Ürün adı zorunludur.' });
+    }
+
+    if (!state.products) state.products = [];
+
+    const now = new Date().toISOString();
+    let product: Product;
+
+    if (data.id) {
+      // Update existing
+      const idx = state.products.findIndex((p) => p.id === data.id);
+      if (idx === -1) {
+        return res.status(404).json({ error: 'Ürün bulunamadı.' });
+      }
+      product = {
+        ...state.products[idx],
+        name: data.name.trim(),
+        category: data.category || 'Genel',
+        currentStock: Number(data.currentStock) >= 0 ? Number(data.currentStock) : state.products[idx].currentStock,
+        unit: data.unit || 'Adet',
+        criticalThreshold: Number(data.criticalThreshold) >= 0 ? Number(data.criticalThreshold) : state.products[idx].criticalThreshold,
+        purchasePrice: data.purchasePrice !== undefined ? Number(data.purchasePrice) : state.products[idx].purchasePrice,
+        salePrice: data.salePrice !== undefined ? Number(data.salePrice) : state.products[idx].salePrice,
+        barcode: data.barcode !== undefined ? data.barcode.trim() : state.products[idx].barcode,
+        updatedAt: now,
+      };
+      state.products[idx] = product;
+    } else {
+      // Create new
+      product = {
+        id: `prod_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        name: data.name.trim(),
+        category: data.category || 'Genel',
+        currentStock: Math.max(0, Number(data.currentStock) || 0),
+        unit: data.unit || 'Adet',
+        criticalThreshold: Math.max(1, Number(data.criticalThreshold) || 5),
+        purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : undefined,
+        salePrice: data.salePrice ? Number(data.salePrice) : undefined,
+        barcode: data.barcode ? data.barcode.trim() : undefined,
+        updatedAt: now,
+      };
+      state.products.unshift(product);
+    }
+
+    saveState();
+    broadcast({ type: 'PRODUCT_UPDATED', payload: product });
+    res.json({ success: true, product });
+  });
+
+  app.delete('/api/products/:id', (req: Request, res: Response) => {
+    const id = req.params.id;
+    if (!state.products) state.products = [];
+    state.products = state.products.filter((p) => p.id !== id);
+    saveState();
+    broadcast({ type: 'PRODUCT_DELETED', payload: { productId: id } });
+    res.json({ success: true, productId: id });
+  });
+
+  // Stock Movement: Giriş veya Çıkış
+  app.post('/api/products/:id/movement', (req: Request, res: Response) => {
+    const productId = req.params.id;
+    const { type, quantity, reason } = req.body;
+    const parsedQty = Math.abs(Number(quantity));
+
+    if (!type || (type !== 'giris' && type !== 'cikis') || isNaN(parsedQty) || parsedQty <= 0) {
+      return res.status(400).json({ error: 'Geçerli bir hareket türü (giris/cikis) ve adet giriniz.' });
+    }
+
+    if (!state.products) state.products = [];
+    const product = state.products.find((p) => p.id === productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Ürün bulunamadı.' });
+    }
+
+    const previousStock = product.currentStock;
+    let newStock = previousStock;
+
+    if (type === 'giris') {
+      newStock = previousStock + parsedQty;
+    } else {
+      if (previousStock < parsedQty) {
+        // Warning or allow partial/zero
+        newStock = Math.max(0, previousStock - parsedQty);
+      } else {
+        newStock = previousStock - parsedQty;
+      }
+    }
+
+    product.currentStock = newStock;
+    product.updatedAt = new Date().toISOString();
+
+    const now = new Date();
+    const dateStr = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
+
+    const movement: StockMovement = {
+      id: `sm_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      productId: product.id,
+      productName: product.name,
+      type,
+      quantity: parsedQty,
+      previousStock,
+      newStock,
+      reason: reason || (type === 'giris' ? 'Stok Girişi (Toptancı/İkmal)' : 'Stok Çıkışı (Satış/Fire)'),
+      date: dateStr,
+    };
+
+    if (!state.stockMovements) state.stockMovements = [];
+    state.stockMovements.unshift(movement);
+
+    saveState();
+
+    broadcast({
+      type: 'STOCK_MOVEMENT_CREATED',
+      payload: { movement, product },
+    });
+
+    const isCritical = product.currentStock <= product.criticalThreshold;
+
+    res.json({
+      success: true,
+      movement,
+      product,
+      isCritical,
+    });
+  });
+
+  app.get('/api/products/movements', (_req, res) => {
+    res.json({ movements: state.stockMovements || [] });
+  });
+
+  // 13. Reset Demo Data
   app.post('/api/reset-demo', (_req, res) => {
     state = getInitialData();
     saveState();
@@ -752,6 +1277,10 @@ Kurallar:
         transactions: state.transactions,
         cash,
         reminderLogs: state.reminderLogs,
+        shopProfile: state.shopProfile,
+        dailyClosings: state.dailyClosings,
+        products: state.products || [],
+        stockMovements: state.stockMovements || [],
       },
     });
     res.json({ success: true, message: 'Veriler başarıyla başlangıç haline sıfırlandı.' });

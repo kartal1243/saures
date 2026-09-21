@@ -1,16 +1,41 @@
 import React from 'react';
-import { Store, Wifi, WifiOff, FileSpreadsheet, RotateCcw, Calendar, ShieldCheck } from 'lucide-react';
+import {
+  Store,
+  Wifi,
+  WifiOff,
+  FileSpreadsheet,
+  RotateCcw,
+  Calendar,
+  ShieldCheck,
+  Sun,
+  Moon,
+  Crown,
+  Users,
+  Building2,
+  Sparkles,
+} from 'lucide-react';
+import { ShopProfile } from '../types';
 
 interface HeaderProps {
   storeName: string;
+  shopProfile?: ShopProfile;
   connected: boolean;
+  darkMode: boolean;
+  onToggleDarkMode: () => void;
+  onOpenShopProfile: () => void;
+  onOpenVip: () => void;
   onResetDemo: () => void;
   onExportCsv: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   storeName,
+  shopProfile,
   connected,
+  darkMode,
+  onToggleDarkMode,
+  onOpenShopProfile,
+  onOpenVip,
   onResetDemo,
   onExportCsv,
 }) => {
@@ -22,39 +47,99 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   return (
-    <header className="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Brand & Store Name */}
+    <header className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-30 shadow-xs transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+        {/* Left: Brand & Shop Info & Profile Clickable */}
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs font-bold text-lg">
+          <button
+            type="button"
+            onClick={onOpenShopProfile}
+            className="w-11 h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center shadow-xs font-bold text-lg transition-transform active:scale-95 cursor-pointer shrink-0"
+            title="Dükkan bilgilerini düzenle"
+          >
             <Store className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
-                {storeName}
-              </h1>
-              <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                <ShieldCheck className="w-3 h-3" /> Yerel / Local-First
-              </span>
+          </button>
+
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onOpenShopProfile}
+                className="text-base sm:text-lg font-black text-stone-900 dark:text-white tracking-tight hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-left truncate cursor-pointer"
+                title="Dükkan profilini görüntüle & düzenle"
+              >
+                {shopProfile?.storeName || storeName}
+              </button>
+
+              {/* Sektör & Çalışan Rozetleri */}
+              {shopProfile && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
+                    <Building2 className="w-3 h-3" />
+                    {shopProfile.businessField.split('/')[0].trim()}
+                  </span>
+
+                  <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700">
+                    <Users className="w-3 h-3 text-stone-400" />
+                    {shopProfile.employeeCount === '1' ? 'Tek Kişi' : `${shopProfile.employeeCount} Kişi`}
+                  </span>
+                </div>
+              )}
             </div>
-            <p className="text-xs text-stone-500 flex items-center gap-1.5 mt-0.5">
-              <Calendar className="w-3.5 h-3.5" />
-              <span>{todayFormatted}</span>
+
+            <p className="text-xs text-stone-500 dark:text-stone-400 flex items-center gap-2 mt-0.5">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-stone-400" />
+                <span>{todayFormatted}</span>
+              </span>
+              {shopProfile?.ownerName && (
+                <>
+                  <span className="opacity-40">•</span>
+                  <span>{shopProfile.ownerName}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
 
-        {/* Right side: Realtime WebSocket Badge & Tools */}
-        <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto">
+        {/* Right side: VIP Club, Dark Mode Toggle & Tools */}
+        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
+          {/* VIP AI Club Button */}
+          <button
+            id="btn-open-vip-club"
+            type="button"
+            onClick={onOpenVip}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-linear-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white shadow-xs transition-transform active:scale-95 cursor-pointer"
+            title="VIP Esnaf Kulübü & Canlı Yapay Zeka Danışmanı"
+          >
+            <Crown className="w-3.5 h-3.5" />
+            <span>VIP Danışman</span>
+            <span className="bg-white/20 px-1 py-0.2 rounded-sm text-[10px]">AI</span>
+          </button>
+
+          {/* Dark Mode Toggle */}
+          <button
+            id="btn-toggle-dark-mode"
+            type="button"
+            onClick={onToggleDarkMode}
+            className="p-2 rounded-xl text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
+            title={darkMode ? 'Gündüz Moduna Geç (Açık Tema)' : 'Gece Moduna Geç (Karanlık Tema)'}
+          >
+            {darkMode ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-stone-600" />
+            )}
+          </button>
+
           {/* Realtime WebSocket Pulse */}
           <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border ${
               connected
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 animate-pulse'
             }`}
-            title={connected ? 'WebSocket Canlı Bağlantı Açık (Tüm cihazlarda anlık senkronize)' : 'Bağlantı kesildi, yeniden bağlanılıyor...'}
+            title={connected ? 'Canlı Kasa Aktif (Anlık Senkronize)' : 'Bağlantı kesildi, yeniden bağlanılıyor...'}
           >
             {connected ? (
               <>
@@ -63,8 +148,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
                 <Wifi className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Canlı Kasa Aktif</span>
-                <span className="sm:hidden">Canlı</span>
+                <span className="hidden md:inline">Canlı Kasa</span>
               </>
             ) : (
               <>
@@ -79,12 +163,11 @@ export const Header: React.FC<HeaderProps> = ({
             id="btn-export-excel"
             onClick={onExportCsv}
             type="button"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 transition-colors cursor-pointer"
-            title="Tüm veresiye ve müşteri listesini Excel'e uyumlu CSV olarak indir"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
+            title="Excel uyumlu CSV indir"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="hidden md:inline">Excel / CSV İndir</span>
-            <span className="md:hidden">Excel</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden lg:inline">Excel</span>
           </button>
 
           {/* Reset Demo Data Button */}
@@ -92,11 +175,10 @@ export const Header: React.FC<HeaderProps> = ({
             id="btn-reset-demo"
             onClick={onResetDemo}
             type="button"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-stone-50 hover:bg-stone-100 text-stone-500 hover:text-stone-700 border border-stone-200 transition-colors cursor-pointer"
-            title="Örnek verileri varsayılana döndür"
+            className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 border border-transparent hover:border-stone-200 dark:hover:border-stone-700 transition-colors cursor-pointer"
+            title="Örnek verileri varsayılana sıfırla"
           >
-            <RotateCcw className="w-3 h-3" />
-            <span className="hidden lg:inline">Örnek Veri</span>
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { CashRegister } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import {
@@ -78,45 +78,45 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
           initial={{ scale: 0.98 }}
           animate={{ scale: 1 }}
           transition={{ duration: 0.2 }}
-          className="bg-white rounded-2xl p-4 border border-stone-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between"
+          className="bg-white dark:bg-stone-900 rounded-2xl p-4 border border-stone-200/90 dark:border-stone-800 shadow-xs relative overflow-hidden flex flex-col justify-between transition-colors"
         >
-          <div className="flex items-center justify-between text-stone-500 mb-2">
+          <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-2">
             <div>
-              <span className="text-xs font-bold text-stone-700">Bugünkü Ciro</span>
-              <span className="block text-[11px] text-stone-400">Kasaya giren para</span>
+              <span className="text-xs font-bold text-stone-700 dark:text-stone-200">Bugünkü Ciro</span>
+              <span className="block text-[11px] text-stone-400 dark:text-stone-500">Kasaya giren para</span>
             </div>
-            <span className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
             </span>
           </div>
 
           <div>
-            <div className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white tracking-tight">
               {formatCurrency(cash.todayTotalIncome)}
             </div>
 
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-stone-600 flex-wrap">
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-stone-600 dark:text-stone-300 flex-wrap">
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-md">
                 <Banknote className="w-3 h-3" /> Nakit: {formatCurrency(cash.todayCash)}
               </span>
-              <span className="inline-flex items-center gap-1 font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+              <span className="inline-flex items-center gap-1 font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded-md">
                 <CreditCard className="w-3 h-3" /> Kart: {formatCurrency(cash.todayCard)}
               </span>
             </div>
 
             {/* Mini target progress meter attached to Ciro card */}
-            <div className="mt-2.5 pt-2 border-t border-stone-100">
+            <div className="mt-2.5 pt-2 border-t border-stone-100 dark:border-stone-800">
               <div className="flex items-center justify-between text-[11px] mb-1">
                 <span className="text-stone-400 font-medium">Hedef: {formatCurrency(dailyTarget)}</span>
                 <span
                   className={`font-bold ${
-                    isTargetReached ? 'text-emerald-700' : 'text-amber-700'
+                    isTargetReached ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
                   }`}
                 >
                   %{progressPercent}
                 </span>
               </div>
-              <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     isTargetReached ? 'bg-emerald-600' : 'bg-amber-500'
@@ -134,22 +134,22 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
           initial={{ scale: 0.98 }}
           animate={{ scale: 1 }}
           transition={{ duration: 0.2 }}
-          className="bg-white rounded-2xl p-4 border border-amber-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between"
+          className="bg-white dark:bg-stone-900 rounded-2xl p-4 border border-amber-200/90 dark:border-amber-900/50 shadow-xs relative overflow-hidden flex flex-col justify-between transition-colors"
         >
-          <div className="flex items-center justify-between text-stone-500 mb-2">
+          <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-2">
             <div>
-              <span className="text-xs font-bold text-amber-900">Dışarıdaki Veresiye</span>
-              <span className="block text-[11px] text-stone-400">Müşterilerin toplam borcu</span>
+              <span className="text-xs font-bold text-amber-900 dark:text-amber-300">Dışarıdaki Veresiye</span>
+              <span className="block text-[11px] text-stone-400 dark:text-stone-500">Müşterilerin toplam borcu</span>
             </div>
-            <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 flex items-center justify-center">
               <Wallet className="w-4 h-4" />
             </span>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-amber-700 tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 tracking-tight">
               {formatCurrency(cash.totalReceivables)}
             </div>
-            <p className="text-[11px] text-stone-500 mt-2">
+            <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-2">
               Defterde yazılı toplanacak para
             </p>
           </div>
@@ -161,29 +161,29 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
           initial={{ scale: 0.98 }}
           animate={{ scale: 1 }}
           transition={{ duration: 0.2 }}
-          className="bg-white rounded-2xl p-4 border border-stone-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between"
+          className="bg-white dark:bg-stone-900 rounded-2xl p-4 border border-stone-200/90 dark:border-stone-800 shadow-xs relative overflow-hidden flex flex-col justify-between transition-colors"
         >
-          <div className="flex items-center justify-between text-stone-500 mb-2">
+          <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-2">
             <div>
-              <span className="text-xs font-bold text-stone-700">Cepte Kalan Net</span>
-              <span className="block text-[11px] text-stone-400">Cirodan masraf düşünce</span>
+              <span className="text-xs font-bold text-stone-700 dark:text-stone-200">Cepte Kalan Net</span>
+              <span className="block text-[11px] text-stone-400 dark:text-stone-500">Cirodan masraf düşünce</span>
             </div>
-            <span className="w-8 h-8 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 flex items-center justify-center">
               <ShoppingBag className="w-4 h-4" />
             </span>
           </div>
           <div>
             <div
               className={`text-xl sm:text-2xl font-black tracking-tight ${
-                cash.netTodayCash >= 0 ? 'text-stone-900' : 'text-rose-700'
+                cash.netTodayCash >= 0 ? 'text-stone-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'
               }`}
             >
               {formatCurrency(cash.netTodayCash)}
             </div>
-            <div className="flex items-center gap-1 mt-2 text-[11px] text-stone-500">
+            <div className="flex items-center gap-1 mt-2 text-[11px] text-stone-500 dark:text-stone-400">
               <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 shrink-0" />
               <span>
-                Bugünkü Masraf: <strong className="text-rose-700">{formatCurrency(cash.todayExpense)}</strong>
+                Bugünkü Masraf: <strong className="text-rose-600 dark:text-rose-400">{formatCurrency(cash.todayExpense)}</strong>
               </span>
             </div>
           </div>
@@ -198,20 +198,20 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
           onClick={onOpenUpcomingModal}
           className={`rounded-2xl p-4 border shadow-xs relative overflow-hidden flex flex-col justify-between cursor-pointer transition-all hover:shadow-md ${
             cash.overdueCount > 0 || cash.dueTodayCount > 0
-              ? 'bg-rose-50/50 border-rose-200'
-              : 'bg-white border-stone-200/90'
+              ? 'bg-rose-50/50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60'
+              : 'bg-white dark:bg-stone-900 border-stone-200/90 dark:border-stone-800'
           }`}
         >
-          <div className="flex items-center justify-between text-stone-500 mb-2">
+          <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-2">
             <div>
-              <span className="text-xs font-bold text-rose-900">Düzenli Ödeme Günü</span>
-              <span className="block text-[11px] text-stone-400">Aidat &amp; bakım takvimi</span>
+              <span className="text-xs font-bold text-rose-900 dark:text-rose-300">Düzenli Ödeme Günü</span>
+              <span className="block text-[11px] text-stone-400 dark:text-stone-500">Aidat &amp; bakım takvimi</span>
             </div>
             <span
               className={`w-8 h-8 rounded-xl flex items-center justify-center ${
                 cash.overdueCount > 0
-                  ? 'bg-rose-100 text-rose-700 animate-pulse'
-                  : 'bg-stone-100 text-stone-600'
+                  ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 animate-pulse'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
               }`}
             >
               <AlertCircle className="w-4 h-4" />
@@ -219,18 +219,18 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
           </div>
           <div>
             <div className="flex items-baseline gap-2">
-              <span className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+              <span className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white tracking-tight">
                 {cash.dueTodayCount + cash.overdueCount} Müşteri
               </span>
             </div>
             <div className="flex items-center gap-2 mt-2 text-[11px]">
               {cash.overdueCount > 0 && (
-                <span className="font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">
+                <span className="font-bold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/60 px-1.5 py-0.5 rounded">
                   {cash.overdueCount} geciken
                 </span>
               )}
               {cash.dueTodayCount > 0 && (
-                <span className="font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                <span className="font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
                   {cash.dueTodayCount} bugün vadesi
                 </span>
               )}
@@ -245,31 +245,31 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
       {/* Daily Earnings Target Tracker Banner with Progress Bar */}
       <div
         id="card-daily-target-tracker"
-        className="bg-white rounded-2xl p-3.5 sm:p-4 border border-stone-200/90 shadow-xs"
+        className="bg-white dark:bg-stone-900 rounded-2xl p-3.5 sm:p-4 border border-stone-200/90 dark:border-stone-800 shadow-xs transition-colors"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
           <div className="flex items-center gap-2">
             <span
               className={`w-7 h-7 rounded-lg flex items-center justify-center ${
                 isTargetReached
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-amber-100 text-amber-700'
+                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
               }`}
             >
               <Target className="w-4 h-4" />
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm font-bold text-stone-900">
+                <span className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white">
                   Günlük Ciro &amp; Kazanç Hedefi
                 </span>
                 {isTargetReached ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                    <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                     Hedefe Ulaşıldı!
                   </span>
                 ) : (
-                  <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
                     Kalan: {formatCurrency(remaining)}
                   </span>
                 )}
@@ -280,7 +280,7 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
           {/* Right: Target info & Edit toggle */}
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap justify-end">
             <div className="text-right">
-              <span className="text-xs font-bold text-stone-900 block sm:inline">
+              <span className="text-xs font-bold text-stone-900 dark:text-white block sm:inline">
                 {formatCurrency(currentEarnings)}{' '}
                 <span className="text-stone-400 font-normal">/ {formatCurrency(dailyTarget)}</span>
               </span>
@@ -288,8 +288,8 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
                 id="text-daily-target-percentage"
                 className={`ml-2 inline-flex items-center text-xs sm:text-sm font-black px-2 py-0.5 rounded-md ${
                   isTargetReached
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : 'bg-amber-100 text-amber-900'
+                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200'
                 }`}
               >
                 %{progressPercent}
@@ -304,7 +304,7 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
                   setTempTarget(String(dailyTarget));
                   setIsEditingTarget(true);
                 }}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 transition-colors cursor-pointer border border-stone-200"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors cursor-pointer border border-stone-200 dark:border-stone-700"
                 title="Günlük Hedefi Belirle / Değiştir"
               >
                 <Pencil className="w-3 h-3" />
@@ -314,7 +314,7 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
               <button
                 type="button"
                 onClick={() => setIsEditingTarget(false)}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors cursor-pointer"
                 title="Kapat"
               >
                 <X className="w-3.5 h-3.5" />
@@ -326,22 +326,22 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
 
         {/* Small Sleek Progress Bar */}
         <div className="relative w-full">
-          <div className="w-full h-2.5 sm:h-3 bg-stone-100 rounded-full overflow-hidden p-0.5 border border-stone-200/60">
+          <div className="w-full h-2.5 sm:h-3 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden p-0.5 border border-stone-200/60 dark:border-stone-700">
             <div
               className={`h-full rounded-full transition-all duration-700 ease-out ${
                 isTargetReached
-                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
-                  : 'bg-gradient-to-r from-amber-400 to-amber-500'
+                  ? 'bg-linear-to-r from-emerald-500 to-emerald-600'
+                  : 'bg-linear-to-r from-amber-400 to-amber-500'
               }`}
               style={{ width: `${cappedPercent}%` }}
             />
           </div>
 
-          {/* Progress Markers (0%, 25%, 50%, 75%, 100%) */}
+          {/* Progress Markers */}
           <div className="flex items-center justify-between text-[10px] text-stone-400 font-semibold mt-1 px-1">
             <span>0₺ (%0)</span>
             <span>{formatCurrency(dailyTarget * 0.5)} (%50)</span>
-            <span className={isTargetReached ? 'text-emerald-700 font-bold' : ''}>
+            <span className={isTargetReached ? 'text-emerald-600 dark:text-emerald-400 font-bold' : ''}>
               {formatCurrency(dailyTarget)} (%100)
             </span>
           </div>
@@ -351,11 +351,11 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
         {isEditingTarget && (
           <form
             onSubmit={handleSaveTarget}
-            className="mt-3 pt-3 border-t border-stone-200/80 animate-in fade-in slide-in-from-top-1 duration-150"
+            className="mt-3 pt-3 border-t border-stone-200/80 dark:border-stone-800 animate-in fade-in slide-in-from-top-1 duration-150"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-stone-700 shrink-0">
+                <label className="text-xs font-bold text-stone-700 dark:text-stone-300 shrink-0">
                   Yeni Günlük Ciro Hedefi:
                 </label>
                 <div className="relative w-36">
@@ -367,7 +367,7 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
                     required
                     value={tempTarget}
                     onChange={(e) => setTempTarget(e.target.value)}
-                    className="w-full pl-3 pr-7 py-1.5 text-xs font-bold bg-stone-50 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    className="w-full pl-3 pr-7 py-1.5 text-xs font-bold bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-white rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                   <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs font-bold">
                     ₺
@@ -393,8 +393,8 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
                     onClick={() => handleSetPreset(preset)}
                     className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
                       dailyTarget === preset
-                        ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold'
-                        : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                        ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-800 font-bold'
+                        : 'bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700'
                     }`}
                   >
                     {formatCurrency(preset)}

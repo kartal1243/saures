@@ -215,29 +215,29 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
   return (
     <div
       id="card-revenue-vs-expenses-summary"
-      className="bg-white rounded-2xl border border-stone-200/90 shadow-xs overflow-hidden"
+      className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200/90 dark:border-stone-800 shadow-xs overflow-hidden transition-colors"
     >
       {/* 1. Header Bar: Title, Range, Range Switcher & View Switcher */}
-      <div className="p-4 sm:p-5 border-b border-stone-200/80 bg-stone-50/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="p-4 sm:p-5 border-b border-stone-200/80 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold shrink-0">
+          <span className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center justify-center font-bold shrink-0">
             <Scale className="w-4 h-4" />
           </span>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base sm:text-lg font-bold text-stone-900">
+              <h2 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white">
                 Gelir vs Gider &amp; Kârlılık Karşılaştırması
               </h2>
               {profitMargin > 0 && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                  <Sparkles className="w-3 h-3 text-emerald-600" />%{profitMargin} Net Kârlılık
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                  <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />%{profitMargin} Net Kârlılık
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-stone-500 mt-0.5">
+            <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 mt-0.5">
               <Calendar className="w-3.5 h-3.5 text-stone-400" />
               <span>{rangeHeaderLabel}</span>
-              <span className="text-stone-300">•</span>
+              <span className="text-stone-300 dark:text-stone-700">•</span>
               <span>{profitableDaysCount}/7 Gün Kârlı Kapanış</span>
             </div>
           </div>
@@ -246,15 +246,15 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
         {/* Controls: Date range toggle & Chart mode toggle */}
         <div className="flex items-center gap-2 self-start md:self-center flex-wrap">
           {/* Time range selector */}
-          <div className="inline-flex items-center bg-stone-200/70 p-0.5 rounded-lg text-xs font-semibold">
+          <div className="inline-flex items-center bg-stone-200/70 dark:bg-stone-800 p-0.5 rounded-lg text-xs font-semibold">
             <button
               id="btn-range-last7days"
               type="button"
               onClick={() => setViewMode('last7days')}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                 viewMode === 'last7days'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
             >
               Son 7 Gün
@@ -265,8 +265,8 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
               onClick={() => setViewMode('currentWeek')}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                 viewMode === 'currentWeek'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
             >
               Bu Hafta
@@ -274,15 +274,15 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
           </div>
 
           {/* Chart format switcher */}
-          <div className="inline-flex items-center bg-stone-200/70 p-0.5 rounded-lg text-xs font-semibold">
+          <div className="inline-flex items-center bg-stone-200/70 dark:bg-stone-800 p-0.5 rounded-lg text-xs font-semibold">
             <button
               id="btn-chart-bars"
               type="button"
               onClick={() => setChartType('bars')}
               className={`px-2.5 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
                 chartType === 'bars'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
               title="Karşılaştırmalı Çift Çubuk Grafiği"
             >
@@ -295,8 +295,8 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
               onClick={() => setChartType('area')}
               className={`px-2.5 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
                 chartType === 'area'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
               title="Trend Eğrisi Grafiği"
             >
@@ -309,8 +309,8 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
               onClick={() => setChartType('profit')}
               className={`px-2.5 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
                 chartType === 'profit'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
               title="Net Kâr & Marj Grafiği"
             >
@@ -322,21 +322,21 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
       </div>
 
       {/* 2. Profitability Overview Metrics (Revenue, Expenses, Net Profit, Profit Margin) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-stone-200/80 border-b border-stone-200/80 bg-white">
+      <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-stone-200/80 dark:divide-stone-800 border-b border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900">
         {/* Metric 1: Toplam Gelir (Revenue) */}
         <div className="p-4 sm:p-5 flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-stone-500 block mb-0.5">
+            <span className="text-xs font-bold text-stone-500 dark:text-stone-400 block mb-0.5">
               Toplam Gelir (Revenue)
             </span>
-            <div className="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-tight">
               {formatCurrency(totalRevenue)}
             </div>
             <p className="text-[11px] text-stone-400 mt-1">
               7 günlük tahsilat &amp; satış
             </p>
           </div>
-          <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+          <span className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
             <ArrowUpRight className="w-5 h-5 stroke-[2.5]" />
           </span>
         </div>
@@ -344,10 +344,10 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
         {/* Metric 2: Toplam Gider (Expenses) */}
         <div className="p-4 sm:p-5 flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-stone-500 block mb-0.5">
+            <span className="text-xs font-bold text-stone-500 dark:text-stone-400 block mb-0.5">
               Toplam Gider (Expenses)
             </span>
-            <div className="text-xl sm:text-2xl font-black text-rose-700 tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-rose-700 dark:text-rose-400 tracking-tight">
               {formatCurrency(totalExpenses)}
             </div>
             <p className="text-[11px] text-stone-400 mt-1">
@@ -362,12 +362,12 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
         {/* Metric 3: Net Kâr (Net Profit) */}
         <div className="p-4 sm:p-5 flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-stone-500 block mb-0.5">
+            <span className="text-xs font-bold text-stone-500 dark:text-stone-400 block mb-0.5">
               Net Kâr (Net Profit)
             </span>
             <div
               className={`text-xl sm:text-2xl font-black tracking-tight ${
-                netProfit >= 0 ? 'text-stone-900' : 'text-rose-700'
+                netProfit >= 0 ? 'text-stone-900 dark:text-white' : 'text-rose-700 dark:text-rose-400'
               }`}
             >
               {formatCurrency(netProfit)}
@@ -378,7 +378,7 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
           </div>
           <span
             className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-              netProfit >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+              netProfit >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
             }`}
           >
             <TrendingUp className="w-5 h-5" />
@@ -388,14 +388,14 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
         {/* Metric 4: Kârlılık Oranı & Günlük Ortalama */}
         <div className="p-4 sm:p-5 flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-stone-500 block mb-0.5">
+            <span className="text-xs font-bold text-stone-500 dark:text-stone-400 block mb-0.5">
               Kârlılık Oranı (Profit Margin)
             </span>
-            <div className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight flex items-baseline gap-1.5">
-              <span className={profitMargin >= 40 ? 'text-emerald-700' : profitMargin > 0 ? 'text-amber-700' : 'text-rose-700'}>
+            <div className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white tracking-tight flex items-baseline gap-1.5">
+              <span className={profitMargin >= 40 ? 'text-emerald-700 dark:text-emerald-400' : profitMargin > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}>
                 %{profitMargin}
               </span>
-              <span className="text-xs font-semibold text-stone-500">
+              <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
                 (Ort. {formatCurrency(averageDailyProfit)}/gün)
               </span>
             </div>
