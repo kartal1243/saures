@@ -176,16 +176,16 @@ export interface RepairTicket {
 
 export interface AppState {
   storeName: string;
-  shopProfile?: ShopProfile;
-  dailyClosings?: DailyClosing[];
+  shopProfile: ShopProfile;
+  dailyClosings: DailyClosing[];
   customers: Customer[];
   transactions: Transaction[];
   reminderLogs: ReminderLog[];
-  products?: Product[];
-  stockMovements?: StockMovement[];
-  appointments?: Appointment[];
-  tables?: RestaurantTable[];
-  repairTickets?: RepairTicket[];
+  products: Product[];
+  stockMovements: StockMovement[];
+  appointments: Appointment[];
+  tables: RestaurantTable[];
+  repairTickets: RepairTicket[];
   lastUpdated: string;
 }
 

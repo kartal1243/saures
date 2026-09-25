@@ -103,7 +103,7 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
         if (tx.date && tx.date.startsWith(dateStr)) {
           if (tx.type === 'tahsilat') {
             dayRev += tx.amount;
-          } else if (tx.type === 'gider') {
+          } else if (tx.type === 'gider' || tx.type === 'masraf') {
             dayExp += tx.amount;
           }
         }
@@ -354,7 +354,7 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
               Toptancı, fatura ve dükkan masrafı
             </p>
           </div>
-          <span className="w-9 h-9 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center shrink-0">
+          <span className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 flex items-center justify-center shrink-0">
             <ArrowDownRight className="w-5 h-5 stroke-[2.5]" />
           </span>
         </div>
@@ -407,30 +407,30 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
                 : 'Masraf baskısı yüksek'}
             </p>
           </div>
-          <span className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+          <span className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
             <Percent className="w-5 h-5" />
           </span>
         </div>
       </div>
 
       {/* 3. The Comparison Chart Container */}
-      <div className="p-4 sm:p-5 bg-stone-50/20">
+      <div className="p-4 sm:p-5 bg-stone-50/20 dark:bg-stone-800/20">
         {/* Legend */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-4 text-xs font-semibold">
             {chartType !== 'profit' ? (
               <>
-                <span className="inline-flex items-center gap-1.5 text-stone-700">
+                <span className="inline-flex items-center gap-1.5 text-stone-700 dark:text-stone-300">
                   <span className="w-3 h-3 rounded-md bg-emerald-600"></span>
                   Gelir (Revenue)
                 </span>
-                <span className="inline-flex items-center gap-1.5 text-stone-700">
+                <span className="inline-flex items-center gap-1.5 text-stone-700 dark:text-stone-300">
                   <span className="w-3 h-3 rounded-md bg-rose-600"></span>
                   Gider (Expenses)
                 </span>
               </>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-stone-700">
+              <span className="inline-flex items-center gap-1.5 text-stone-700 dark:text-stone-300">
                 <span className="w-3 h-3 rounded-md bg-emerald-600"></span>
                 Günlük Net Kâr (Revenue - Expenses)
               </span>
@@ -580,39 +580,39 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
         </div>
 
         {/* 4. Day-by-Day Comparative Profitability Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 mt-4 pt-3.5 border-t border-stone-200/80">
+        <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 mt-4 pt-3.5 border-t border-stone-200/80 dark:border-stone-800">
           {daysData.map((d) => (
             <div
               key={d.dateStr}
               className={`p-2 sm:p-2.5 rounded-xl border transition-all text-center flex flex-col justify-between ${
                 d.isToday
-                  ? 'bg-amber-50/90 border-amber-300 ring-1 ring-amber-300/40 shadow-xs'
-                  : 'bg-white border-stone-200/80'
+                  ? 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 ring-1 ring-amber-300/40 shadow-xs'
+                  : 'bg-white dark:bg-stone-800 border-stone-200/80 dark:border-stone-700'
               }`}
             >
               <div>
-                <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-stone-600">
+                <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-stone-600 dark:text-stone-300">
                   <span>{d.dayShort}</span>
-                  <span className="text-[10px] text-stone-400 font-normal">({d.formattedDate})</span>
+                  <span className="text-[10px] text-stone-400 dark:text-stone-500 font-normal">({d.formattedDate})</span>
                   {d.isToday && <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>}
                 </div>
 
-                <div className="text-xs sm:text-sm font-black text-emerald-700 mt-1">
+                <div className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-400 mt-1">
                   {d.revenue > 0 ? formatCurrency(d.revenue) : '0 ₺'}
                 </div>
-                <div className="text-[11px] text-rose-600 font-medium">
+                <div className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">
                   {d.expenses > 0 ? `-${formatCurrency(d.expenses)}` : '0 ₺'}
                 </div>
               </div>
 
-              <div className="mt-2 pt-1.5 border-t border-stone-100">
+              <div className="mt-2 pt-1.5 border-t border-stone-100 dark:border-stone-700">
                 <span
                   className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
                     d.netProfit > 0
-                      ? 'bg-emerald-50 text-emerald-800'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
                       : d.netProfit === 0
-                      ? 'bg-stone-100 text-stone-600'
-                      : 'bg-rose-50 text-rose-800'
+                      ? 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
+                      : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
                   }`}
                 >
                   {d.netProfit > 0

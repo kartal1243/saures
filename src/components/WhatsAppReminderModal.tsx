@@ -149,20 +149,20 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs">
       <div
-        className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-2xl shadow-xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-stone-200 bg-emerald-50/70 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 bg-emerald-50/70 dark:bg-emerald-950/30 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-stone-900">
+              <h3 className="text-base font-bold text-stone-900 dark:text-white">
                 WhatsApp &amp; SMS Hatırlatma
               </h3>
-              <p className="text-xs text-stone-600">
+              <p className="text-xs text-stone-600 dark:text-stone-400">
                 {customer.name} ({formatPhoneNumber(customer.phone)})
               </p>
             </div>
@@ -170,7 +170,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -179,22 +179,22 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
         {/* Content */}
         <div className="p-4 sm:p-5 space-y-4">
           {/* Current Debt or Plan reminder badge */}
-          <div className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-200 text-xs">
+          <div className="flex items-center justify-between bg-stone-50 dark:bg-stone-800/60 p-3 rounded-xl border border-stone-200 dark:border-stone-700 text-xs">
             <div>
-              <span className="text-stone-500 font-medium">Güncel Bakiye:</span>{' '}
-              <span className="font-extrabold text-amber-700 text-sm">{formatCurrency(customer.balance)}</span>
+              <span className="text-stone-500 dark:text-stone-400 font-medium">Güncel Bakiye:</span>{' '}
+              <span className="font-extrabold text-amber-700 dark:text-amber-400 text-sm">{formatCurrency(customer.balance)}</span>
             </div>
             {customer.subscriptionPlan?.enabled && (
               <div>
-                <span className="text-stone-500 font-medium">Vade:</span>{' '}
-                <span className="font-bold text-stone-800">{customer.subscriptionPlan.nextDueDate}</span>
+                <span className="text-stone-500 dark:text-stone-400 font-medium">Vade:</span>{' '}
+                <span className="font-bold text-stone-800 dark:text-stone-200">{customer.subscriptionPlan.nextDueDate}</span>
               </div>
             )}
           </div>
 
           {/* Reminder Subject Selector */}
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-1.5">
+            <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
               Hatırlatma Konusu
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -204,7 +204,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
                 className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                   reminderType === 'veresiye'
                     ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                    : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                    : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
                 }`}
               >
                 Veresiye Borcu
@@ -215,7 +215,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
                 className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                   reminderType === 'aidat'
                     ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                    : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                    : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
                 }`}
               >
                 Aidat / Abonelik
@@ -226,7 +226,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
                 className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                   reminderType === 'bakim'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                    : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                    : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
                 }`}
               >
                 Servis &amp; Bakım
@@ -236,7 +236,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
 
           {/* Tone Selector */}
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-1.5">
+            <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
               Üslup / Esnaf Dili
             </label>
             <div className="flex items-center gap-2">
@@ -246,7 +246,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
                 className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                   tone === 'esnaf'
                     ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
-                    : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                    : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
                 }`}
               >
                 Esnaf Samimiyeti
@@ -257,7 +257,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
                 className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                   tone === 'kibar'
                     ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
-                    : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                    : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
                 }`}
               >
                 Kibar &amp; Dostane
@@ -268,7 +268,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
                 className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                   tone === 'resmi'
                     ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
-                    : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                    : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
                 }`}
               >
                 Resmi &amp; Kurumsal
@@ -279,14 +279,14 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
           {/* Message Area & Gemini Button */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-stone-700">
+              <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
                 Gönderilecek Mesaj Metni
               </label>
               <button
                 type="button"
                 onClick={handleGenerateWithGemini}
                 disabled={loadingAi}
-                className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800 transition-colors cursor-pointer"
                 title="Gemini AI ile bu müşteriye özel nazik mesaj hazırla"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-600" />
@@ -299,16 +299,16 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
               rows={4}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="w-full p-3 text-xs sm:text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-sans"
+              className="w-full p-3 text-xs sm:text-sm bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-sans"
               placeholder="Mesaj metnini buraya yazabilir veya düzenleyebilirsiniz..."
             />
 
-            <div className="flex items-center justify-between mt-1 text-[11px] text-stone-400">
+            <div className="flex items-center justify-between mt-1 text-[11px] text-stone-400 dark:text-stone-500">
               <span>{message.length} karakter</span>
               <button
                 type="button"
                 onClick={handleCopy}
-                className="inline-flex items-center gap-1 text-stone-500 hover:text-stone-800 cursor-pointer"
+                className="inline-flex items-center gap-1 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer"
               >
                 {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                 <span>{copied ? 'Kopyalandı' : 'Metni Kopyala'}</span>
@@ -318,12 +318,12 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
         </div>
 
         {/* Modal Actions */}
-        <div className="p-4 border-t border-stone-200 bg-stone-50 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <button
             type="button"
             onClick={handleSendViaApi}
             disabled={sendingApi}
-            className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold bg-stone-200 hover:bg-stone-300 text-stone-800 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
             title="Sisteme kayıt et ve SMS servis simülasyonu çalıştır"
           >
             <Send className="w-3.5 h-3.5" />

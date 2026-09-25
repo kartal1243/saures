@@ -84,20 +84,20 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs">
       <div
-        className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]"
+        className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-2xl shadow-xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-stone-200 bg-stone-50 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-stone-900 text-white flex items-center justify-center shadow-xs">
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-stone-900">
+              <h3 className="text-base font-bold text-stone-900 dark:text-white">
                 Yeni Müşteri &amp; Defter Kaydı
               </h3>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-stone-500 dark:text-stone-400">
                 Veresiye kartı veya periyodik abonelik tanımlayın
               </p>
             </div>
@@ -105,7 +105,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -115,7 +115,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
           {/* Business Category */}
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-1.5">
+            <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
               İşletme / Müşteri Tipi
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs font-semibold">
@@ -125,7 +125,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
                 className={`py-2 px-2 rounded-xl border text-center transition-all cursor-pointer ${
                   businessCategory === 'bakkal_market'
                     ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700'
                 }`}
               >
                 Bakkal &amp; Market
@@ -136,7 +136,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
                 className={`py-2 px-2 rounded-xl border text-center transition-all cursor-pointer ${
                   businessCategory === 'spor_salonu'
                     ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700'
                 }`}
               >
                 Spor Salonu
@@ -147,7 +147,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
                 className={`py-2 px-2 rounded-xl border text-center transition-all cursor-pointer ${
                   businessCategory === 'ozel_ders'
                     ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700'
                 }`}
               >
                 Özel Ders
@@ -158,7 +158,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
                 className={`py-2 px-2 rounded-xl border text-center transition-all cursor-pointer ${
                   businessCategory === 'teknik_servis'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700'
                 }`}
               >
                 Teknik Servis
@@ -169,7 +169,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
           {/* Name & Phone */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">
+              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                 Müşteri Adı - Soyadı <span className="text-rose-500">*</span>
               </label>
               <input
@@ -179,12 +179,12 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Örn: Hasan Yılmaz veya Marangoz Ali"
-                className="w-full p-2.5 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                className="w-full p-2.5 text-sm bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">
+              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                 Telefon Numarası (WhatsApp) <span className="text-rose-500">*</span>
               </label>
               <input
@@ -194,14 +194,14 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Örn: 0532 123 45 67"
-                className="w-full p-2.5 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                className="w-full p-2.5 text-sm bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
             </div>
           </div>
 
           {/* Initial Debt */}
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-1">
+            <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
               Başlangıç Veresiye Devir Bakiyesi (TL)
             </label>
             <div className="relative">
@@ -213,23 +213,23 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
                 value={initialBalance}
                 onChange={(e) => setInitialBalance(e.target.value)}
                 placeholder="0 (Borcu varsa yazınız)"
-                className="w-full pl-3 pr-8 py-2 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                className="w-full pl-3 pr-8 py-2 text-sm bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400 dark:text-stone-500">
                 ₺
               </span>
             </div>
           </div>
 
           {/* Subscription / Periodic Plan Toggle */}
-          <div className="border border-stone-200 rounded-xl p-3.5 bg-stone-50/70">
+          <div className="border border-stone-200 dark:border-stone-800 rounded-xl p-3.5 bg-stone-50/70 dark:bg-stone-800/40">
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs font-bold text-stone-800 cursor-pointer">
+              <label className="flex items-center gap-2 text-xs font-bold text-stone-800 dark:text-stone-200 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={hasSubscription}
                   onChange={(e) => setHasSubscription(e.target.checked)}
-                  className="rounded border-stone-300 text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                  className="rounded border-stone-300 dark:border-stone-700 text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
                 />
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-indigo-600" />
@@ -239,10 +239,10 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
             </div>
 
             {hasSubscription && (
-              <div className="mt-3 space-y-3 pt-3 border-t border-stone-200 animate-in fade-in">
+              <div className="mt-3 space-y-3 pt-3 border-t border-stone-200 dark:border-stone-800 animate-in fade-in">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                    <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 mb-1">
                       Plan / Hizmet Başlığı
                     </label>
                     <input
@@ -250,18 +250,18 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
                       value={subTitle}
                       onChange={(e) => setSubTitle(e.target.value)}
                       placeholder="Örn: Aylık Pilates Aidatı"
-                      className="w-full p-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      className="w-full p-2 text-xs bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                    <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 mb-1">
                       Tekrarlama Sıklığı
                     </label>
                     <select
                       value={subInterval}
                       onChange={(e) => setSubInterval(e.target.value as SubscriptionInterval)}
-                      className="w-full p-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      className="w-full p-2 text-xs bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     >
                       <option value="haftalik">Haftalık</option>
                       <option value="aylik">Aylık</option>
@@ -274,7 +274,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                    <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 mb-1">
                       Periyot Tutarı (TL)
                     </label>
                     <input
@@ -283,19 +283,19 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
                       value={subAmount}
                       onChange={(e) => setSubAmount(e.target.value)}
                       placeholder="Örn: 950"
-                      className="w-full p-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      className="w-full p-2 text-xs bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                    <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 mb-1">
                       Sonraki Ödeme / Bakım Günü
                     </label>
                     <input
                       type="date"
                       value={subNextDate}
                       onChange={(e) => setSubNextDate(e.target.value)}
-                      className="w-full p-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      className="w-full p-2 text-xs bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                   </div>
                 </div>
@@ -305,7 +305,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-1">
+            <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
               Özel Not / Adres / Cihaz Modeli
             </label>
             <textarea
@@ -313,7 +313,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Örn: Her ayın 15'inde kapatır / Apartman no 4 / Arçelik 24000 BTU klima"
-              className="w-full p-2.5 text-xs bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              className="w-full p-2.5 text-xs bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
           </div>
 

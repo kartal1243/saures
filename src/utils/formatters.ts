@@ -49,16 +49,16 @@ export function getCategoryLabel(category: BusinessType): string {
 export function getCategoryColor(category: BusinessType): { bg: string; text: string; border: string } {
   switch (category) {
     case 'bakkal_market':
-      return { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' };
+      return { bg: 'bg-amber-50 dark:bg-amber-950/50', text: 'text-amber-800 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' };
     case 'spor_salonu':
-      return { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200' };
+      return { bg: 'bg-emerald-50 dark:bg-emerald-950/50', text: 'text-emerald-800 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' };
     case 'ozel_ders':
-      return { bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-200' };
+      return { bg: 'bg-blue-50 dark:bg-blue-950/50', text: 'text-blue-800 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800' };
     case 'teknik_servis':
-      return { bg: 'bg-indigo-50', text: 'text-indigo-800', border: 'border-indigo-200' };
+      return { bg: 'bg-indigo-50 dark:bg-indigo-950/50', text: 'text-indigo-800 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800' };
     case 'diger':
     default:
-      return { bg: 'bg-stone-100', text: 'text-stone-800', border: 'border-stone-200' };
+      return { bg: 'bg-stone-100 dark:bg-stone-800', text: 'text-stone-800 dark:text-stone-200', border: 'border-stone-200 dark:border-stone-700' };
   }
 }
 

@@ -23,6 +23,7 @@ import { RestaurantTablesView } from './components/RestaurantTablesView';
 import { FastRetailCounterView } from './components/FastRetailCounterView';
 import { RepairTicketsView } from './components/RepairTicketsView';
 import { RevenueVsExpensesChart } from './components/RevenueVsExpensesChart';
+import { WeeklyTrendCard } from './components/WeeklyTrendCard';
 import { CashSummary } from './components/CashSummary';
 import { QuickActionBar } from './components/QuickActionBar';
 import { UpcomingReminders } from './components/UpcomingReminders';
@@ -32,6 +33,7 @@ import { WhatsAppReminderModal } from './components/WhatsAppReminderModal';
 import { QuickTransactionModal } from './components/QuickTransactionModal';
 import { NewCustomerModal } from './components/NewCustomerModal';
 import { ShopProfileModal } from './components/ShopProfileModal';
+import { AuthPage } from './components/AuthPage';
 import { MoneyInModal } from './components/MoneyInModal';
 import { MoneyOutModal } from './components/MoneyOutModal';
 import { DailyClosingModal } from './components/DailyClosingModal';
@@ -54,10 +56,17 @@ import {
   CheckCircle2,
   Package,
   AlertTriangle,
+  LayoutDashboard,
+  Users,
   Scissors,
   UtensilsCrossed,
   ShoppingCart,
   Wrench,
+  FileCheck,
+  LogOut,
+  ChevronDown,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 
 export default function App() {
@@ -89,18 +98,19 @@ export default function App() {
   const toggleDarkMode = () => setDarkMode((prev) => !prev);
 
   // Shop & Core Business States
-  const [storeName, setStoreName] = useState('Bereket Mahalle Esnafı');
+  const [storeName, setStoreName] = useState('Dükkanım');
   const [shopProfile, setShopProfile] = useState<ShopProfile>({
-    storeName: 'Bereket Mahalle Esnafı',
-    ownerName: 'Ahmet Usta',
+    storeName: '',
+    ownerName: '',
     businessField: 'Bakkal / Market / Büfe',
+    sectorKey: 'bakkal_market',
     employeeCount: '1',
     phone: '',
     cityDistrict: '',
-    dailyTarget: 3000,
-    slogan: 'Mahallenin Güler Yüzlü ve Güvenilir Esnafı',
+    dailyTarget: 2500,
+    slogan: '',
     isConfigured: false,
-    isVip: true,
+    isVip: false,
   });
   const [dailyClosings, setDailyClosings] = useState<DailyClosing[]>([]);
 
@@ -119,7 +129,25 @@ export default function App() {
     dueTodayCount: 0,
   });
   const [connected, setConnected] = useState(false);
-  const [activeTab, setActiveTab] = useState<'sector_view' | 'activity' | 'customers' | 'stock'>('sector_view');
+  const [activeTab, setActiveTab] = useState<'panel' | 'sector_view' | 'activity' | 'customers' | 'stock'>('panel');
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
+  // Profil menüsü açıkken dışarı tıklayınca kapansın (menü nav'ın altından açılır)
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Element | null;
+      if (t && t.closest('#btn-profile-menu, .profile-menu')) return;
+      setProfileMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [profileMenuOpen]);
+
+  // Faz 1 sade: stok geri geldi, sadece sektör gizli
+  useEffect(() => {
+    if (activeTab === 'sector_view') setActiveTab('panel');
+  }, [activeTab]);
 
   // Sector Specific States
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -165,10 +193,51 @@ export default function App() {
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
+  // Auth durumu: kontrol ediliyor / kapalı / açık
+  const [authStatus, setAuthStatus] = useState<'checking' | 'out' | 'in'>('checking');
+  const authedRef = useRef(false);
+
+  const handleLogout = async () => {
+    authedRef.current = false;
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+    if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    socketRef.current?.close();
+    socketRef.current = null;
+    setAuthStatus('out');
+  };
+
+  const bootstrapSession = async () => {
+    try {
+      const me = await fetch('/api/auth/me');
+      if (!me.ok) {
+        authedRef.current = false;
+        setAuthStatus('out');
+        return;
+      }
+      authedRef.current = true;
+      setAuthStatus('in');
+      fetchInitialData();
+      connectWebSocket();
+    } catch (e) {
+      console.error('Auth check failed:', e);
+      authedRef.current = false;
+      setAuthStatus('out');
+    }
+  };
+
   // Initial HTTP data fetch
   const fetchInitialData = async () => {
     try {
       const res = await fetch('/api/data');
+      if (res.status === 401) {
+        authedRef.current = false;
+        setAuthStatus('out');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         if (data.storeName) setStoreName(data.storeName);
@@ -270,7 +339,10 @@ export default function App() {
           } else if (wsEvent.type === 'REPAIR_TICKET_DELETED') {
             setRepairTickets((prev) => prev.filter((t) => t.id !== wsEvent.payload.id));
           } else if (wsEvent.type === 'TRANSACTION_CREATED') {
-            setTransactions((prev) => [wsEvent.payload.transaction, ...prev]);
+            setTransactions((prev) => {
+              if (prev.some((t) => t.id === wsEvent.payload.transaction.id)) return prev;
+              return [wsEvent.payload.transaction, ...prev];
+            });
             if (wsEvent.payload.customer) {
               setCustomers((prev) =>
                 prev.map((c) => (c.id === wsEvent.payload.customer!.id ? wsEvent.payload.customer! : c))
@@ -321,6 +393,7 @@ export default function App() {
 
       ws.onclose = () => {
         setConnected(false);
+        if (!authedRef.current) return;
         reconnectTimeoutRef.current = window.setTimeout(() => {
           connectWebSocket();
         }, 3000);
@@ -339,8 +412,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    fetchInitialData();
-    connectWebSocket();
+    bootstrapSession();
 
     return () => {
       if (reconnectTimeoutRef.current) {
@@ -350,6 +422,7 @@ export default function App() {
         socketRef.current.close();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectWebSocket]);
 
   // Handler: Save Shop Profile
@@ -366,6 +439,8 @@ export default function App() {
     const saved = await res.json();
     setShopProfile(saved);
     setStoreName(saved.storeName);
+    // İlk kurulum sonrası direkt panele dön (restoran/berber özel ekran ana sayfada gözükmesin)
+    setActiveTab('panel');
   };
 
   // Handler: Hızlı Para Al (Kasa Girişi / Satış)
@@ -391,6 +466,17 @@ export default function App() {
       const err = await res.json();
       throw new Error(err.error || 'Para alma işlemi kaydedilemedi.');
     }
+    const result = await res.json();
+    if (result.transaction) {
+      setTransactions((prev) => {
+        if (prev.some((t) => t.id === result.transaction.id)) return prev;
+        return [result.transaction, ...prev];
+      });
+    }
+    if (result.cash) setCash(result.cash);
+    if (result.customer) {
+      setCustomers((prev) => prev.map((c) => (c.id === result.customer.id ? result.customer : c)));
+    }
   };
 
   // Handler: Hızlı Para Ver (Dükkan Masrafı / Gider)
@@ -414,6 +500,14 @@ export default function App() {
       const err = await res.json();
       throw new Error(err.error || 'Masraf işlemi kaydedilemedi.');
     }
+    const result = await res.json();
+    if (result.transaction) {
+      setTransactions((prev) => {
+        if (prev.some((t) => t.id === result.transaction.id)) return prev;
+        return [result.transaction, ...prev];
+      });
+    }
+    if (result.cash) setCash(result.cash);
   };
 
   // Handler: Gün Sonu Kapatma (Z Raporu)
@@ -478,16 +572,6 @@ export default function App() {
 
   const handleExportCsv = () => {
     window.location.href = '/api/export/csv';
-  };
-
-  const handleResetDemo = async () => {
-    if (confirm('Tüm verileri varsayılan örnek verilere sıfırlamak istiyor musunuz?')) {
-      try {
-        await fetch('/api/reset-demo', { method: 'POST' });
-      } catch (e) {
-        console.error('Reset error:', e);
-      }
-    }
   };
 
   const openTransactionForCustomer = (cust: Customer, type: TransactionType) => {
@@ -896,6 +980,30 @@ export default function App() {
     }
   };
 
+  // ---- Auth gate: giris yoksa sadece AuthPage goster ----
+  if (authStatus === 'checking') {
+    return (
+      <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center animate-pulse">
+          <Store className="w-6 h-6" />
+        </div>
+        <p className="text-sm font-bold text-stone-500 dark:text-stone-400">Yükleniyor...</p>
+      </div>
+    );
+  }
+  if (authStatus === 'out') {
+    return (
+      <AuthPage
+        onSuccess={() => {
+          authedRef.current = true;
+          setAuthStatus('in');
+          fetchInitialData();
+          connectWebSocket();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans pb-16 transition-colors">
       {/* 1. Header with Store Profile Badge, Dark Mode Switch & VIP Button */}
@@ -907,19 +1015,154 @@ export default function App() {
         onToggleDarkMode={toggleDarkMode}
         onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
         onOpenVip={() => setIsVipModalOpen(true)}
-        onResetDemo={handleResetDemo}
+        profileMenuOpen={profileMenuOpen}
+        onToggleProfileMenu={() => setProfileMenuOpen((v) => !v)}
+        onLogout={handleLogout}
         onExportCsv={handleExportCsv}
       />
 
-      {/* Dynamic Sector Switcher Bar (Berber, Kafe, Bakkal, Teknik Servis, vb.) */}
-      <SectorSwitcherBar
-        currentSector={currentSector}
-        onSelectSector={handleSelectSector}
-        shopProfile={shopProfile}
-      />
+      {/* Sector switcher sadece sektör ekranındayken gözüksün — ana panel tertemiz kalsın */}
+      {activeTab === 'sector_view' && (
+        <SectorSwitcherBar
+          currentSector={currentSector}
+          onSelectSector={handleSelectSector}
+          shopProfile={shopProfile}
+        />
+      )}
+
+      {/* Güncel nav: Panel | Gün Sonu & Ciro | Müşteriler | Stok (patron akışı) */}
+      <nav className="sticky top-0 z-30 bg-stone-100/90 dark:bg-stone-950/90 backdrop-blur border-b border-stone-200 dark:border-stone-800 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 overflow-x-auto">
+          <button
+            id="nav-tab-panel"
+            type="button"
+            onClick={() => setActiveTab('panel')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'panel'
+                ? 'bg-stone-900 dark:bg-amber-500 text-white shadow-xs'
+                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            <span>Panel</span>
+          </button>
+
+          <button
+            id="nav-tab-activity"
+            type="button"
+            onClick={() => setActiveTab('activity')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'activity'
+                ? 'bg-stone-900 dark:bg-amber-500 text-white shadow-xs'
+                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            <span>Gün Sonu & Ciro</span>
+          </button>
+
+          <button
+            id="nav-tab-customers"
+            type="button"
+            onClick={() => setActiveTab('customers')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'customers'
+                ? 'bg-stone-900 dark:bg-amber-500 text-white shadow-xs'
+                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Müşteriler ({customers.length})</span>
+          </button>
+
+          <button
+            id="nav-tab-stock"
+            type="button"
+            onClick={() => setActiveTab('stock')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'stock'
+                ? 'bg-stone-900 dark:bg-amber-500 text-white shadow-xs'
+                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            <span>Stok ({products.length})</span>
+            {criticalStockCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
+                {criticalStockCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Profil menüsü: nav satırının ALTINDAN açılır, sekmeleri örtmez */}
+        {profileMenuOpen && (
+          <div className="profile-menu absolute right-4 top-full mt-1 w-60 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xl overflow-hidden z-50">
+            <div className="p-4 border-b border-stone-100 dark:border-stone-800">
+              <p className="text-sm font-black text-stone-900 dark:text-white truncate">
+                {shopProfile?.storeName || storeName}
+              </p>
+              {shopProfile?.ownerName && (
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">{shopProfile.ownerName}</p>
+              )}
+              <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1 flex items-center gap-1">
+                {connected ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                    <Wifi className="w-3 h-3" /> Bağlı
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-rose-500 inline-block animate-pulse" />
+                    <WifiOff className="w-3 h-3" /> Bağlanıyor...
+                  </>
+                )}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setProfileMenuOpen(false);
+                setIsShopProfileModalOpen(true);
+              }}
+              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <Store className="w-4 h-4 text-amber-500" />
+              Dükkan Bilgileri
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setProfileMenuOpen(false);
+                setIsVipModalOpen(true);
+              }}
+              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <Crown className="w-4 h-4 text-amber-500" />
+              VIP Danışman
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setProfileMenuOpen(false);
+                handleLogout();
+              }}
+              className="w-full text-left px-4 py-3 text-sm font-black text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-t border-stone-100 dark:border-stone-800 transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Çıkış Yap
+            </button>
+          </div>
+        )}
+      </nav>
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 flex-1 w-full">
+        {activeTab === 'panel' && (
+        <>
         {/* Top Banner: Esnaf Sloganı & Hoş Geldin Notu */}
         {shopProfile.isConfigured && (
           <div className="p-3.5 sm:p-4 rounded-2xl bg-linear-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 dark:border-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -948,32 +1191,21 @@ export default function App() {
               >
                 Dükkan Bilgileri
               </button>
-              <button
-                type="button"
-                onClick={() => setIsVipModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl text-xs font-black text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 border border-amber-300 dark:border-amber-800 transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-              >
-                <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span>Yapay Zeka Vitrin &amp; Kâr Danışmanı</span>
-              </button>
             </div>
           </div>
         )}
 
-        {/* 2. Primary Action Bar: Para Al (Satış), Para Ver (Gider), Gün Sonu Kapat (Z Raporu), Stok Takibi */}
+        {/* PANEL V4 - SADE KASA MODU */}
+
+        {/* 2. Primary Action Bar — Faz 1 sade: sadece Giren/Çıkan */}
         <QuickActionBar
           onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
           onOpenMoneyOut={() => setIsMoneyOutModalOpen(true)}
           onOpenDailyClosing={() => setIsDailyClosingModalOpen(true)}
-          onOpenVip={() => setIsVipModalOpen(true)}
-          onOpenStockView={() => setActiveTab('stock')}
+          onOpenVip={() => {}}
           criticalStockCount={criticalStockCount}
-          onToggleCustomerView={() => setActiveTab((prev) => (prev === 'customers' ? 'activity' : 'customers'))}
-          showCustomerView={activeTab === 'customers'}
-          onOpenSectorView={() => setActiveTab('sector_view')}
-          sectorTitle={currentSectorInfo.specialTabName}
-          isSectorViewActive={activeTab === 'sector_view'}
         />
+        <style>{`#btn-quick-vip, #btn-quick-stock, #btn-quick-sector-view, #btn-toggle-customer-ledger { display: none !important; }`}</style>
 
         {/* 3. Live Cash Registers & Daily Target Tracker */}
         <CashSummary
@@ -987,98 +1219,60 @@ export default function App() {
         {/* 4. Profitability & Revenue vs Expenses Comparison Chart */}
         <RevenueVsExpensesChart transactions={transactions} />
 
-        {/* 5. Upcoming Reminders for subscriptions/debts (collapsible if any exist) */}
-        {cash.overdueCount > 0 || cash.dueTodayCount > 0 ? (
-          <div id="section-upcoming-reminders">
-            <UpcomingReminders
-              customers={customers}
-              onOpenWhatsApp={(cust, type) => openWhatsAppForCustomer(cust, type)}
-              onOpenPayment={(cust) => openTransactionForCustomer(cust, 'tahsilat')}
-            />
-          </div>
-        ) : null}
+        {/* 4b. Haftalık Kazanç & Harcama Trendi */}
+        <WeeklyTrendCard transactions={transactions} />
+        </>
+        )}
 
-        {/* 6. Tabs: Canlı Kasa Akışı vs Stok & Ürün Takibi vs Müşteri & Veresiye Defteri */}
+        {/* 6. Bölüm başlığı + bağlamsal aksiyonlar */}
+        {activeTab !== 'panel' && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-2 gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {currentSector !== 'diger_esnaf' && (
-              <button
-                id="tab-view-sector"
-                type="button"
-                onClick={() => setActiveTab('sector_view')}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-2 shadow-xs ${
-                  activeTab === 'sector_view'
-                    ? 'bg-amber-500 text-white ring-2 ring-amber-500/20'
-                    : 'bg-stone-200/80 dark:bg-stone-800/80 text-stone-700 dark:text-stone-300 hover:bg-stone-300/80 dark:hover:bg-stone-700/80'
-                }`}
-              >
-                {currentSector === 'berber_kuafor' ? (
-                  <Scissors className="w-4 h-4" />
-                ) : currentSector === 'kafe_restoran' ? (
-                  <UtensilsCrossed className="w-4 h-4" />
-                ) : currentSector === 'bakkal_market' ? (
-                  <ShoppingCart className="w-4 h-4" />
-                ) : (
-                  <Wrench className="w-4 h-4" />
-                )}
-                <span>{currentSectorInfo.specialTabName}</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                    activeTab === 'sector_view'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                  }`}
-                >
-                  Özel Ekran
-                </span>
-              </button>
-            )}
-
-            <button
-              id="tab-view-activity"
-              type="button"
-              onClick={() => setActiveTab('activity')}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'activity'
-                  ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs border border-stone-200 dark:border-stone-800 ring-1 ring-stone-900/5'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-300'
-              }`}
-            >
-              <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Dükkan Kasa Akışı ({transactions.length})</span>
-            </button>
-
-            <button
-              id="tab-view-stock"
-              type="button"
-              onClick={() => setActiveTab('stock')}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'stock'
-                  ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs border border-stone-200 dark:border-stone-800 ring-1 ring-stone-900/5'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-300'
-              }`}
-            >
-              <Package className="w-4 h-4 text-amber-500" />
-              <span>Stok &amp; Ürün Takibi ({products.length})</span>
-              {criticalStockCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
-                  {criticalStockCount} Kritik!
-                </span>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-stone-900 dark:text-white flex items-center gap-2">
+              {activeTab === 'sector_view' ? (
+                <>
+                  {currentSector === 'berber_kuafor' ? (
+                    <Scissors className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  ) : currentSector === 'kafe_restoran' ? (
+                    <UtensilsCrossed className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  ) : currentSector === 'bakkal_market' ? (
+                    <ShoppingCart className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <Wrench className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  )}
+                  <span>{currentSectorInfo.specialTabName}</span>
+                </>
+              ) : activeTab === 'activity' ? (
+                <>
+                  <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Gün Sonu &amp; Ciro ({transactions.length})</span>
+                </>
+              ) : activeTab === 'stock' ? (
+                <>
+                  <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  <span>Stok &amp; Ürün Takibi ({products.length})</span>
+                  {criticalStockCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
+                      {criticalStockCount} Kritik!
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Users className="w-5 h-5 text-stone-600 dark:text-stone-300" />
+                  <span>Müşteri &amp; Veresiye Defteri ({customers.length})</span>
+                </>
               )}
-            </button>
-
-            <button
-              id="tab-view-customers"
-              type="button"
-              onClick={() => setActiveTab('customers')}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'customers'
-                  ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs border border-stone-200 dark:border-stone-800 ring-1 ring-stone-900/5'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-300'
-              }`}
-            >
-              <span>Müşteri &amp; Defter ({customers.length})</span>
-            </button>
+            </h2>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+              {activeTab === 'sector_view'
+                ? currentSectorInfo.description
+                : activeTab === 'activity'
+                ? 'Patron gün sonu cirosunu kapatır — kapanış arşivi, kâr/zarar ve tek tek fişler'
+                : activeTab === 'stock'
+                ? 'Ürünler, mal giriş/çıkışları ve kritik stok alarmları'
+                : 'Veresiye kartları, borç takibi ve WhatsApp hatırlatmaları'}
+            </p>
           </div>
 
           <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -1113,6 +1307,7 @@ export default function App() {
             </button>
           </div>
         </div>
+        )}
 
         {/* 7. View Content: Sector Specific View OR Activity Feed OR Stock Management OR Customers Ledger */}
         {activeTab === 'sector_view' && currentSector === 'berber_kuafor' ? (
@@ -1148,20 +1343,81 @@ export default function App() {
             onDeleteTicket={handleDeleteRepairTicket}
           />
         ) : activeTab === 'activity' ? (
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5 transition-colors">
-            <div className="flex items-center justify-between mb-4">
+          <div className="space-y-4">
+            {/* Patron akışı: Gün Sonu özet kartı */}
+            <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-stone-900 dark:text-white">
-                  Dükkan Kasa Hareketleri
-                </h2>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Satış tahsilatları, toptancı ödemeleri ve dükkan giderleri
-                </p>
+                <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2">
+                  <Moon className="w-4 h-4 text-amber-500" /> Gün Sonu & Ciro
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">Patron akşam gelip gün sonu cirosunu kapatır — kâr/zarar burada</p>
+                {dailyClosings.length > 0 && (
+                  <p className="text-xs font-semibold text-stone-700 dark:text-stone-300 mt-1">
+                    Son kapanış: {dailyClosings[0].date} — Net {formatCurrency(dailyClosings[0].netProfitToday || 0)} {dailyClosings[0].diffAmount !== 0 ? `(fark ${formatCurrency(dailyClosings[0].diffAmount)})` : '✓ denk'}
+                  </p>
+                )}
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-200 dark:border-emerald-800">
-                Canlı Eşzamanlı
-              </span>
+              <button
+                type="button"
+                onClick={() => setIsDailyClosingModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-black dark:bg-amber-500 dark:hover:bg-amber-600 text-white font-black text-sm shadow-md transition-colors cursor-pointer"
+              >
+                <Moon className="w-4 h-4 text-amber-400" /> Gün Sonu Kapat
+              </button>
             </div>
+
+            {/* Geçmiş gün sonu kapanışları — patron arşivi */}
+            {dailyClosings.length > 0 && (
+              <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2">
+                    <FileCheck className="w-4 h-4 text-amber-500" /> Geçmiş Gün Sonu Kapanışları
+                  </h3>
+                  <span className="text-xs text-stone-400">{dailyClosings.length} kayıt</span>
+                </div>
+                <div className="divide-y divide-stone-100 dark:divide-stone-800">
+                  {dailyClosings.slice(0, 14).map((c) => (
+                    <div key={c.id} className="py-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-stone-900 dark:text-white">{c.date}</span>
+                        <span className="text-stone-400">({c.closedBy || 'Kasiyer'})</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-bold ${
+                            c.diffAmount === 0
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : c.diffAmount > 0
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                          }`}
+                        >
+                          {c.diffAmount === 0 ? 'Denk' : c.diffAmount > 0 ? `+${formatCurrency(c.diffAmount)} Fazla` : `-${formatCurrency(Math.abs(c.diffAmount))} Açık`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <span className="text-stone-400">Ciro <b className="text-emerald-600 dark:text-emerald-400">{formatCurrency(c.totalIncomeToday)}</b></span>
+                        <span className="text-stone-400">Gider <b className="text-rose-600 dark:text-rose-400">{formatCurrency(c.todayExpense)}</b></span>
+                        <span className="text-stone-400">Net <b className="text-amber-700 dark:text-amber-400">{formatCurrency(c.netProfitToday)}</b></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5 transition-colors">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-base font-bold text-stone-900 dark:text-white">
+                    Dükkan Kasa Hareketleri
+                  </h2>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    Tek tek fişler — istersen sadece gün sonundan da kapatabilirsin
+                  </p>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-200 dark:border-emerald-800">
+                  Canlı Eşzamanlı
+                </span>
+              </div>
 
             {transactions.length === 0 ? (
               <div className="text-center py-12 text-stone-400">
@@ -1249,6 +1505,7 @@ export default function App() {
               </div>
             )}
           </div>
+          </div>
         ) : activeTab === 'stock' ? (
           <StockManagementView
             products={products}
@@ -1268,17 +1525,27 @@ export default function App() {
             }}
             onDeleteProduct={handleDeleteProduct}
           />
-        ) : (
-          <CustomerList
-            customers={customers}
-            onSelectCustomer={(cust) => {
-              setSelectedCustomer(cust);
-              setIsDetailModalOpen(true);
-            }}
-            onOpenTransaction={(cust, type) => openTransactionForCustomer(cust, type)}
-            onOpenWhatsApp={(cust) => openWhatsAppForCustomer(cust)}
-          />
-        )}
+        ) : activeTab === 'customers' ? (
+          <div className="space-y-4">
+            {/* Müşteri sekmesine taşındı: günü gelen ödemeler */}
+            {(cash.overdueCount > 0 || cash.dueTodayCount > 0) && (
+              <UpcomingReminders
+                customers={customers}
+                onOpenWhatsApp={(cust, type) => openWhatsAppForCustomer(cust, type)}
+                onOpenPayment={(cust) => openTransactionForCustomer(cust, 'tahsilat')}
+              />
+            )}
+            <CustomerList
+              customers={customers}
+              onSelectCustomer={(cust) => {
+                setSelectedCustomer(cust);
+                setIsDetailModalOpen(true);
+              }}
+              onOpenTransaction={(cust, type) => openTransactionForCustomer(cust, type)}
+              onOpenWhatsApp={(cust) => openWhatsAppForCustomer(cust)}
+            />
+          </div>
+        ) : null}
       </main>
 
       {/* MODALS */}

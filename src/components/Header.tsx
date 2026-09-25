@@ -4,15 +4,11 @@ import {
   Wifi,
   WifiOff,
   FileSpreadsheet,
-  RotateCcw,
   Calendar,
-  ShieldCheck,
-  Sun,
-  Moon,
   Crown,
   Users,
   Building2,
-  Sparkles,
+  ChevronDown,
 } from 'lucide-react';
 import { ShopProfile } from '../types';
 
@@ -21,10 +17,12 @@ interface HeaderProps {
   shopProfile?: ShopProfile;
   connected: boolean;
   darkMode: boolean;
+  profileMenuOpen: boolean;
   onToggleDarkMode: () => void;
   onOpenShopProfile: () => void;
   onOpenVip: () => void;
-  onResetDemo: () => void;
+  onToggleProfileMenu: () => void;
+  onLogout: () => void;
   onExportCsv: () => void;
 }
 
@@ -33,10 +31,12 @@ export const Header: React.FC<HeaderProps> = ({
   shopProfile,
   connected,
   darkMode,
+  profileMenuOpen,
   onToggleDarkMode,
   onOpenShopProfile,
   onOpenVip,
-  onResetDemo,
+  onToggleProfileMenu,
+  onLogout,
   onExportCsv,
 }) => {
   const todayFormatted = new Date().toLocaleDateString('tr-TR', {
@@ -46,10 +46,13 @@ export const Header: React.FC<HeaderProps> = ({
     day: 'numeric',
   });
 
+  const displayName = shopProfile?.storeName || storeName || 'Dükkanım';
+  const avatarChar = (displayName || 'D').trim().charAt(0).toUpperCase();
+
   return (
-    <header className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-30 shadow-xs transition-colors">
+    <header className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-40 shadow-xs transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Left: Brand & Shop Info & Profile Clickable */}
+        {/* Left: Brand & Shop Info */}
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <button
             type="button"
@@ -68,10 +71,9 @@ export const Header: React.FC<HeaderProps> = ({
                 className="text-base sm:text-lg font-black text-stone-900 dark:text-white tracking-tight hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-left truncate cursor-pointer"
                 title="Dükkan profilini görüntüle & düzenle"
               >
-                {shopProfile?.storeName || storeName}
+                {displayName}
               </button>
 
-              {/* Sektör & Çalışan Rozetleri */}
               {shopProfile && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
@@ -89,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             <p className="text-xs text-stone-500 dark:text-stone-400 flex items-center gap-2 mt-0.5">
               <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-stone-400" />
+                <Calendar className="w-3 h-3" />
                 <span>{todayFormatted}</span>
               </span>
               {shopProfile?.ownerName && (
@@ -102,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right side: VIP Club, Dark Mode Toggle & Tools */}
+        {/* Right side: VIP, Dark Mode, Excel & Profile trigger */}
         <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
           {/* VIP AI Club Button */}
           <button
@@ -110,11 +112,11 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onOpenVip}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-linear-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white shadow-xs transition-transform active:scale-95 cursor-pointer"
-            title="VIP Esnaf Kulübü & Canlı Yapay Zeka Danışmanı"
+            title="VIP Esnaf Kulübü & Yapay Zeka Danışmanı"
           >
             <Crown className="w-3.5 h-3.5" />
-            <span>VIP Danışman</span>
-            <span className="bg-white/20 px-1 py-0.2 rounded-sm text-[10px]">AI</span>
+            <span className="hidden sm:inline">VIP Danışman</span>
+            <span className="sm:hidden">VIP</span>
           </button>
 
           {/* Dark Mode Toggle */}
@@ -126,37 +128,11 @@ export const Header: React.FC<HeaderProps> = ({
             title={darkMode ? 'Gündüz Moduna Geç (Açık Tema)' : 'Gece Moduna Geç (Karanlık Tema)'}
           >
             {darkMode ? (
-              <Sun className="w-4 h-4 text-amber-400" />
+              <span className="block w-4 h-4 text-amber-500">☀️</span>
             ) : (
-              <Moon className="w-4 h-4 text-stone-600" />
+              <span className="block w-4 h-4">🌙</span>
             )}
           </button>
-
-          {/* Realtime WebSocket Pulse */}
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border ${
-              connected
-                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 animate-pulse'
-            }`}
-            title={connected ? 'Canlı Kasa Aktif (Anlık Senkronize)' : 'Bağlantı kesildi, yeniden bağlanılıyor...'}
-          >
-            {connected ? (
-              <>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <Wifi className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Canlı Kasa</span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-3.5 h-3.5" />
-                <span>Bağlanıyor</span>
-              </>
-            )}
-          </div>
 
           {/* Excel / CSV Export Button */}
           <button
@@ -170,16 +146,24 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden lg:inline">Excel</span>
           </button>
 
-          {/* Reset Demo Data Button */}
-          <button
-            id="btn-reset-demo"
-            onClick={onResetDemo}
-            type="button"
-            className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 border border-transparent hover:border-stone-200 dark:hover:border-stone-700 transition-colors cursor-pointer"
-            title="Örnek verileri varsayılana sıfırla"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
+          {/* Profile Menu Trigger (sag ust) */}
+          <div className="relative">
+            <button
+              id="btn-profile-menu"
+              type="button"
+              onClick={onToggleProfileMenu}
+              className="flex items-center gap-1.5 pl-1.5 pr-2 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
+              title="Profil menüsü"
+            >
+              <span className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs font-black">
+                {avatarChar}
+              </span>
+              <span className="hidden md:inline text-xs font-bold text-stone-700 dark:text-stone-300 max-w-[110px] truncate">
+                {displayName}
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 text-stone-400 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
         </div>
       </div>
     </header>

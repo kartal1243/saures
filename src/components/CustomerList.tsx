@@ -45,15 +45,15 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   }, [customers, searchQuery, selectedCategory, balanceFilter]);
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
+    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden">
       {/* Search & Filter Header */}
-      <div className="p-4 sm:p-5 border-b border-stone-200 space-y-3.5 bg-stone-50/50">
+      <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 space-y-3.5 bg-stone-50/50 dark:bg-stone-800/30">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-stone-900">
+            <h2 className="text-base font-bold text-stone-900 dark:text-white">
               Müşteri &amp; Veresiye Defteri
             </h2>
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-stone-500 dark:text-stone-400">
               Kayıtlı {customers.length} müşteriden {filteredCustomers.length} tanesi listeleniyor
             </p>
           </div>
@@ -67,7 +67,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="İsim, telefon veya not ara..."
-              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
             />
             {searchQuery && (
               <button
@@ -92,7 +92,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedCategory === 'all'
                   ? 'bg-stone-900 text-white'
-                  : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
               }`}
             >
               Tümü ({customers.length})
@@ -104,7 +104,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedCategory === 'bakkal_market'
                   ? 'bg-amber-600 text-white'
-                  : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
               }`}
             >
               Bakkal / Market
@@ -116,7 +116,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedCategory === 'spor_salonu'
                   ? 'bg-emerald-600 text-white'
-                  : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
               }`}
             >
               Spor Salonu
@@ -128,7 +128,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedCategory === 'ozel_ders'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
               }`}
             >
               Özel Ders
@@ -140,7 +140,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedCategory === 'teknik_servis'
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
               }`}
             >
               Teknik Servis
@@ -148,12 +148,12 @@ export const CustomerList: React.FC<CustomerListProps> = ({
           </div>
 
           {/* Balance & Subscription Filter Toggle */}
-          <div className="flex items-center gap-1 bg-stone-200/70 p-0.5 rounded-lg">
+          <div className="flex items-center gap-1 bg-stone-200/70 dark:bg-stone-800 p-0.5 rounded-lg">
             <button
               type="button"
               onClick={() => setBalanceFilter('all')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                balanceFilter === 'all' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                balanceFilter === 'all' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
             >
               Hepsi
@@ -162,7 +162,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               type="button"
               onClick={() => setBalanceFilter('has_debt')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                balanceFilter === 'has_debt' ? 'bg-amber-500 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                balanceFilter === 'has_debt' ? 'bg-amber-500 text-white shadow-xs' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
             >
               Borcu Olanlar
@@ -171,7 +171,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               type="button"
               onClick={() => setBalanceFilter('zero_debt')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                balanceFilter === 'zero_debt' ? 'bg-emerald-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                balanceFilter === 'zero_debt' ? 'bg-emerald-600 text-white shadow-xs' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
             >
               Borçsuz
@@ -180,7 +180,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               type="button"
               onClick={() => setBalanceFilter('has_subscription')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                balanceFilter === 'has_subscription' ? 'bg-indigo-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                balanceFilter === 'has_subscription' ? 'bg-indigo-600 text-white shadow-xs' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
               }`}
             >
               Düzenli Aidat/Bakım
@@ -190,9 +190,9 @@ export const CustomerList: React.FC<CustomerListProps> = ({
       </div>
 
       {/* Customer List Content */}
-      <div className="divide-y divide-stone-100">
+      <div className="divide-y divide-stone-100 dark:divide-stone-800">
         {filteredCustomers.length === 0 ? (
-          <div className="text-center py-12 px-4 text-stone-500">
+          <div className="text-center py-12 px-4 text-stone-500 dark:text-stone-400">
             <p className="text-sm font-semibold">Aradığınız kriterde müşteri bulunamadı.</p>
             <p className="text-xs text-stone-400 mt-1">Arama kelimesini değiştirebilir veya filtreyi temizleyebilirsiniz.</p>
           </div>
@@ -209,7 +209,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
             return (
               <div
                 key={cust.id}
-                className="p-3.5 sm:p-4 hover:bg-stone-50/70 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3.5"
+                className="p-3.5 sm:p-4 hover:bg-stone-50/70 dark:hover:bg-stone-800/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3.5"
               >
                 {/* Left info & category */}
                 <div
@@ -217,13 +217,13 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                   onClick={() => onSelectCustomer(cust)}
                 >
                   {/* Initials avatar */}
-                  <div className="w-10 h-10 rounded-xl bg-stone-100 text-stone-700 font-bold text-sm flex items-center justify-center border border-stone-200 shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 font-bold text-sm flex items-center justify-center border border-stone-200 dark:border-stone-700 shrink-0">
                     {initials}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-sm sm:text-base text-stone-900 truncate hover:text-amber-600 transition-colors">
+                      <h3 className="font-bold text-sm sm:text-base text-stone-900 dark:text-white truncate hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
                         {cust.name}
                       </h3>
                       <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${catColor.bg} ${catColor.text} ${catColor.border}`}>
@@ -231,22 +231,22 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs text-stone-500 mt-1 flex-wrap">
-                      <span className="font-medium text-stone-600">{formatPhoneNumber(cust.phone)}</span>
+                    <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 mt-1 flex-wrap">
+                      <span className="font-medium text-stone-600 dark:text-stone-300">{formatPhoneNumber(cust.phone)}</span>
                       {cust.notes && (
                         <>
-                          <span className="text-stone-300">•</span>
-                          <span className="text-stone-500 truncate max-w-xs">{cust.notes}</span>
+                          <span className="text-stone-300 dark:text-stone-600">•</span>
+                          <span className="text-stone-500 dark:text-stone-400 truncate max-w-xs">{cust.notes}</span>
                         </>
                       )}
                     </div>
 
                     {/* Subscription / Recurring badge if any */}
                     {cust.subscriptionPlan?.enabled && (
-                      <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-[11px] text-stone-700">
-                        <Clock className="w-3 h-3 text-stone-500" />
+                      <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-[11px] text-stone-700 dark:text-stone-300">
+                        <Clock className="w-3 h-3 text-stone-500 dark:text-stone-400" />
                         <span className="font-semibold">{cust.subscriptionPlan.title}</span>
-                        <span className="text-stone-400">|</span>
+                        <span className="text-stone-400 dark:text-stone-500">|</span>
                         <span>Vade: {cust.subscriptionPlan.nextDueDate}</span>
                       </div>
                     )}
@@ -254,20 +254,20 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                 </div>
 
                 {/* Right side: Balance & Quick Buttons */}
-                <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-stone-100">
+                <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-stone-100 dark:border-stone-800">
                   {/* Balance Display */}
                   <div
                     className="text-left md:text-right cursor-pointer"
                     onClick={() => onSelectCustomer(cust)}
                   >
-                    <div className="text-xs text-stone-400 font-medium">Defter Borcu</div>
+                    <div className="text-xs text-stone-400 dark:text-stone-500 font-medium">Defter Borcu</div>
                     <div
                       className={`text-base sm:text-lg font-black tracking-tight ${
                         cust.balance > 0
-                          ? 'text-amber-700'
+                          ? 'text-amber-700 dark:text-amber-400'
                           : cust.balance === 0
-                          ? 'text-emerald-700'
-                          : 'text-indigo-700'
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-indigo-700 dark:text-indigo-400'
                       }`}
                     >
                       {formatCurrency(cust.balance)}
@@ -281,7 +281,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       id={`btn-add-debt-${cust.id}`}
                       type="button"
                       onClick={() => onOpenTransaction(cust, 'veresiye')}
-                      className="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                       title="Veresiye Borç Yaz"
                     >
                       <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -293,7 +293,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       id={`btn-add-payment-${cust.id}`}
                       type="button"
                       onClick={() => onOpenTransaction(cust, 'tahsilat')}
-                      className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                       title="Müşteriden ödeme al, borcu düş"
                     >
                       <ArrowDownLeft className="w-3.5 h-3.5 stroke-[2.5]" />
