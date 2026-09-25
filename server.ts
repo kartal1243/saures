@@ -32,7 +32,7 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// ---------------- Hesaplar (dÃ¼kkan kayÄ±t) & Oturumlar ----------------
+// ---------------- Hesaplar (dükkan kayıt) & Oturumlar ----------------
 const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const SHOPS_DIR = path.join(DATA_DIR, 'shops');
@@ -100,14 +100,14 @@ function publicAccount(a: Account) {
   return { id: a.id, shopName: a.shopName, ownerName: a.ownerName, phone: a.phone, createdAt: a.createdAt, role: a.role || 'owner' };
 }
 
-// BoÅŸ state â€” demo/seed/fake veri YOK, her yeni dÃ¼kkan tertemiz baÅŸlar
+// Boş state — demo/seed/fake veri YOK, her yeni dükkan tertemiz başlar
 function emptyState(seed?: { storeName: string; ownerName: string; phone: string }): AppState {
   return {
-    storeName: seed?.storeName || 'Yeni DÃ¼kkan',
+    storeName: seed?.storeName || 'Yeni Dükkan',
     shopProfile: {
       storeName: seed?.storeName || '',
       ownerName: seed?.ownerName || '',
-      businessField: 'Bakkal / Market / BÃ¼fe',
+      businessField: 'Bakkal / Market / Büfe',
       sectorKey: 'bakkal_market',
       employeeCount: '1',
       phone: seed?.phone || '',
@@ -347,7 +347,7 @@ async function startServer() {
   setInterval(dailyBackupAll, 24 * 60 * 60 * 1000); // gunluk
   setTimeout(dailyBackupAll, 15 * 1000); // ilk acilista bugunun yedeği
 
-  // ---------------- Auth: dÃ¼kkan kayit / giris / cikis ----------------
+  // ---------------- Auth: dükkan kayit / giris / cikis ----------------
   app.post('/api/auth/register', (req: Request, res: Response) => {
     const body = req.body || {};
     const shopName = String(body.shopName || '').trim();
@@ -662,7 +662,7 @@ async function startServer() {
   app.post('/api/customers', (req: Request, res: Response) => {
     const data = req.body;
     if (!data.name || !data.phone) {
-      return res.status(400).json({ error: 'MÃ¼ÅŸteri adÄ± ve telefon numarasÄ± zorunludur.' });
+      return res.status(400).json({ error: 'Müşteri adı ve telefon numarası zorunludur.' });
     }
 
     let customer: Customer;
@@ -672,7 +672,7 @@ async function startServer() {
       // Update
       const index = S().customers.findIndex((c) => c.id === data.id);
       if (index === -1) {
-        return res.status(404).json({ error: 'MÃ¼ÅŸteri bulunamadÄ±.' });
+        return res.status(404).json({ error: 'Müşteri bulunamadı.' });
       }
       customer = {
         ...S().customers[index],
@@ -704,7 +704,7 @@ async function startServer() {
           type: 'veresiye',
           amount: customer.balance,
           paymentMethod: 'veresiye',
-          description: 'AÃ§Ä±lÄ±ÅŸ veresiye devir bakiyesi',
+          description: 'Açılış veresiye devir bakiyesi',
           date: `${todayStr} ${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`,
           createdAt: now,
         };
@@ -731,13 +731,13 @@ async function startServer() {
     res.json({ success: true, customerId: id, cash });
   });
 
-  // 5. Create Transaction (Veresiye ekle, Tahsilat al, Kasa Ã§Ä±kÄ±ÅŸÄ± yap)
+  // 5. Create Transaction (Veresiye ekle, Tahsilat al, Kasa çıkışı yap)
   app.post('/api/transactions', (req: Request, res: Response) => {
     const { customerId, type, amount, paymentMethod, description } = req.body;
     const parsedAmount = Number(amount);
 
     if (!type || isNaN(parsedAmount) || parsedAmount <= 0) {
-      return res.status(400).json({ error: 'GeÃ§erli bir iÅŸlem tÃ¼rÃ¼ ve tutar giriniz.' });
+      return res.status(400).json({ error: 'Geçerli bir işlem türü ve tutar giriniz.' });
     }
 
     const now = new Date();
@@ -787,7 +787,7 @@ async function startServer() {
       type,
       amount: parsedAmount,
       paymentMethod: paymentMethod || 'nakit',
-      description: description || (type === 'veresiye' ? 'Veresiye BorÃ§ YazÄ±ldÄ±' : type === 'tahsilat' ? 'Ã–deme AlÄ±ndÄ±' : 'DÃ¼kkan MasrafÄ±'),
+      description: description || (type === 'veresiye' ? 'Veresiye Borç Yazıldı' : type === 'tahsilat' ? 'Ödeme Alındı' : 'Dükkan Masrafı'),
       date: `${todayStr} ${timeStr}`,
       createdAt: now.toISOString(),
     };
@@ -812,7 +812,7 @@ async function startServer() {
     const reminderLog: ReminderLog = {
       id: `rem_${Date.now()}`,
       customerId: customerId || '',
-      customerName: customer ? customer.name : 'MÃ¼ÅŸteri',
+      customerName: customer ? customer.name : 'Müşteri',
       phone: customer ? customer.phone : '',
       channel: channel || 'whatsapp',
       message: message || '',
@@ -835,16 +835,16 @@ async function startServer() {
     // Fallback template generator if no API key or on error
     const fallbackMessage = (t: string) => {
       if (reminderType === 'aidat') {
-        return `Ä°yi gÃ¼nler ${customerName}, ${nextDueDate ? `${nextDueDate} tarihli ` : ''}Ã¼yelik aidat dÃ¶nemi gelmiÅŸtir. Kalan tutar: ${balance} TL'dir. KolaylÄ±klar dileriz.`;
+        return `İyi günler ${customerName}, ${nextDueDate ? `${nextDueDate} tarihli ` : ''}üyelik aidat dönemi gelmiştir. Kalan tutar: ${balance} TL'dir. Kolaylıklar dileriz.`;
       } else if (reminderType === 'bakim') {
-        return `Merhaba ${customerName}, periyodik cihaz bakÄ±m ve kontrol zamanÄ±nÄ±z gelmiÅŸtir. Randevu iÃ§in bize bu numaradan ulaÅŸabilirsiniz. HayÄ±rlÄ± gÃ¼nler dileriz.`;
+        return `Merhaba ${customerName}, periyodik cihaz bakım ve kontrol zamanınız gelmiştir. Randevu için bize bu numaradan ulaşabilirsiniz. Hayırlı günler dileriz.`;
       }
       if (t === 'esnaf') {
-        return `Selamlar ${customerName}, dÃ¼kkan hesabÄ±nÄ±zda ${balance} TL bakiyeniz bulunmaktadÄ±r. MÃ¼sait olduÄŸunuzda uÄŸrarsanÄ±z seviniriz, hayÄ±rlÄ± iÅŸler, bereketli gÃ¼nler.`;
+        return `Selamlar ${customerName}, dükkan hesabınızda ${balance} TL bakiyeniz bulunmaktadır. Müsait olduğunuzda uğrarsanız seviniriz, hayırlı işler, bereketli günler.`;
       } else if (t === 'resmi') {
-        return `SayÄ±n ${customerName}, iÅŸletmemizde kayÄ±tlÄ± ${balance} TL tutarÄ±ndaki cari bakiyenizi bilginize sunar, iyi Ã§alÄ±ÅŸmalar dileriz.`;
+        return `Sayın ${customerName}, işletmemizde kayıtlı ${balance} TL tutarındaki cari bakiyenizi bilginize sunar, iyi çalışmalar dileriz.`;
       }
-      return `Merhaba ${customerName}, hesabÄ±nÄ±zda kalan ${balance} TL bakiyeyi hatÄ±rlatmak istedik. GÃ¶sterdiÄŸiniz ilgiye teÅŸekkÃ¼r eder, hayÄ±rlÄ± gÃ¼nler dileriz.`;
+      return `Merhaba ${customerName}, hesabınızda kalan ${balance} TL bakiyeyi hatırlatmak istedik. Gösterdiğiniz ilgiye teşekkür eder, hayırlı günler dileriz.`;
     };
 
     if (!process.env.GEMINI_API_KEY) {
@@ -861,22 +861,22 @@ async function startServer() {
         },
       });
 
-      const prompt = `Sen TÃ¼rkiye'deki samimi, saygÄ±lÄ± ve dÃ¼rÃ¼st bir mahalle esnafÄ± veya KOBÄ° iÅŸletmecisisin.
-AÅŸaÄŸÄ±daki mÃ¼ÅŸteri iÃ§in WhatsApp veya SMS Ã¼zerinden gÃ¶nderilecek, kaba olmayan, mÃ¼ÅŸteriyi kÄ±rmayacak ama borcunu veya periyodik Ã¶demesini/bakÄ±mÄ±nÄ± hatÄ±rlatacak bir mesaj hazÄ±rla.
+      const prompt = `Sen Türkiye'deki samimi, saygılı ve dürüst bir mahalle esnafı veya KOBİ işletmecisisin.
+Aşağıdaki müşteri için WhatsApp veya SMS üzerinden gönderilecek, kaba olmayan, müşteriyi kırmayacak ama borcunu veya periyodik ödemesini/bakımını hatırlatacak bir mesaj hazırla.
 
 Bilgiler:
-- MÃ¼ÅŸteri AdÄ±: ${customerName}
+- Müşteri Adı: ${customerName}
 - Kalan Bakiye: ${balance} TL
-- Ä°ÅŸletme TÃ¼rÃ¼: ${businessType || 'Mahalle Ä°ÅŸletmesi'}
-- HatÄ±rlatma Konusu: ${reminderType || 'Veresiye / Bakiye'}
-- Ä°stenen Ãœslup / Ton: ${tone || 'Kibar & Samimi'} (seÃ§enekler: esnaf_samimiyeti, kibar, resmi)
-- Ã–zel Not / Detay: ${customNote || 'Yok'}
-${nextDueDate ? `- Son Ã–deme / Randevu Tarihi: ${nextDueDate}` : ''}
+- İşletme Türü: ${businessType || 'Mahalle İşletmesi'}
+- Hatırlatma Konusu: ${reminderType || 'Veresiye / Bakiye'}
+- İstenen Üslup / Ton: ${tone || 'Kibar & Samimi'} (seçenekler: esnaf_samimiyeti, kibar, resmi)
+- Özel Not / Detay: ${customNote || 'Yok'}
+${nextDueDate ? `- Son Ödeme / Randevu Tarihi: ${nextDueDate}` : ''}
 
 Kurallar:
-1. Sadece doÄŸrudan gÃ¶nderilecek TÃ¼rkÃ§e mesaj metnini Ã¼ret. TÄ±rnak iÅŸareti, baÅŸlÄ±k veya aÃ§Ä±klama ekleme.
-2. Mesaj 2-3 cÃ¼mleyi geÃ§mesin, WhatsApp'ta kolay okunabilir ve sÄ±cak olsun.
-3. Kaba, icra dili gibi soÄŸuk ifadeler ASLA kullanma; esnaf nezaketiyle yaz.`;
+1. Sadece doğrudan gönderilecek Türkçe mesaj metnini üret. Tırnak işareti, başlık veya açıklama ekleme.
+2. Mesaj 2-3 cümleyi geçmesin, WhatsApp'ta kolay okunabilir ve sıcak olsun.
+3. Kaba, icra dili gibi soğuk ifadeler ASLA kullanma; esnaf nezaketiyle yaz.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -893,7 +893,7 @@ Kurallar:
 
   // 8. Excel / CSV Export
   app.get('/api/export/csv', (_req, res) => {
-    let csv = 'MÃ¼ÅŸteri AdÄ±;Telefon;Ä°ÅŸletme Kategorisi;GÃ¼ncel Bakiye (TL);Abonelik/Periyot;Son Ã–deme Tarihi;Notlar\r\n';
+    let csv = 'Müşteri Adı;Telefon;İşletme Kategorisi;Güncel Bakiye (TL);Abonelik/Periyot;Son Ödeme Tarihi;Notlar\r\n';
     for (const c of S().customers) {
       const sub = c.subscriptionPlan?.enabled ? `${c.subscriptionPlan.title} (${c.subscriptionPlan.interval})` : '-';
       csv += `"${c.name}";"${c.phone}";"${c.businessCategory}";"${c.balance}";"${sub}";"${c.lastPaymentDate || '-'}";"${(c.notes || '').replace(/"/g, '""')}"\r\n`;
@@ -905,7 +905,7 @@ Kurallar:
     res.send('\uFEFF' + csv);
   });
 
-  // 9. Shop Profile Routes (DÃ¼kkan KayÄ±t & Profil Bilgileri)
+  // 9. Shop Profile Routes (Dükkan Kayıt & Profil Bilgileri)
   app.get('/api/shop-profile', (_req, res) => {
     res.json({ profile: S().shopProfile });
   });
@@ -913,7 +913,7 @@ Kurallar:
   app.post('/api/shop-profile', (req: Request, res: Response) => {
     const data = req.body;
     if (!data.storeName) {
-      return res.status(400).json({ error: 'DÃ¼kkan adÄ± zorunludur.' });
+      return res.status(400).json({ error: 'Dükkan adı zorunludur.' });
     }
 
     const updatedProfile: ShopProfile = {
@@ -938,7 +938,7 @@ Kurallar:
     res.json({ success: true, profile: updatedProfile });
   });
 
-  // 10. Daily Closings Routes (GÃ¼n Sonu Z RaporlarÄ±)
+  // 10. Daily Closings Routes (Gün Sonu Z Raporları)
   app.get('/api/daily-closings', (_req, res) => {
     res.json({ closings: S().dailyClosings || [] });
   });
@@ -986,7 +986,7 @@ Kurallar:
     res.json({ success: true, closing: newClosing });
   });
 
-  // 11. VIP AI Shop Consultant & Live Support (Yapay Zeka Esnaf DanÄ±ÅŸmanÄ±)
+  // 11. VIP AI Shop Consultant & Live Support (Yapay Zeka Esnaf Danışmanı)
   app.post('/api/vip/ai-consultant', async (req: Request, res: Response) => {
     const { message, topic } = req.body;
     const profile = S().shopProfile;
@@ -994,43 +994,43 @@ Kurallar:
 
     // Context for AI
     const shopContext = `
-DÃ¼kkan AdÄ±: ${profile?.storeName || 'Mahalle EsnafÄ±'}
-Faaliyet AlanÄ± / SektÃ¶r: ${profile?.businessField || 'KÃ¼Ã§Ã¼k Ä°ÅŸletme'}
-DÃ¼kkan Sahibi: ${profile?.ownerName || 'Esnaf'}
-Ã‡alÄ±ÅŸan SayÄ±sÄ±: ${profile?.employeeCount || '1'} kiÅŸi
-Åehir / Semt: ${profile?.cityDistrict || 'TÃ¼rkiye'}
-BugÃ¼nkÃ¼ Toplam Gelir: ${cash.todayTotalIncome} TL (Nakit: ${cash.todayCash} TL, Kart: ${cash.todayCard} TL, IBAN: ${cash.todayBank} TL)
-BugÃ¼nkÃ¼ DÃ¼kkan HarcamalarÄ± / Masraf: ${cash.todayExpense} TL
-BugÃ¼nkÃ¼ Net Kasa KÃ¢rÄ±: ${cash.todayTotalIncome - cash.todayExpense} TL
-GÃ¼nlÃ¼k Ciro Hedefi: ${profile?.dailyTarget || 2500} TL
+Dükkan Adı: ${profile?.storeName || 'Mahalle Esnafı'}
+Faaliyet Alanı / Sektör: ${profile?.businessField || 'Küçük İşletme'}
+Dükkan Sahibi: ${profile?.ownerName || 'Esnaf'}
+Çalışan Sayısı: ${profile?.employeeCount || '1'} kişi
+Şehir / Semt: ${profile?.cityDistrict || 'Türkiye'}
+Bugünkü Toplam Gelir: ${cash.todayTotalIncome} TL (Nakit: ${cash.todayCash} TL, Kart: ${cash.todayCard} TL, IBAN: ${cash.todayBank} TL)
+Bugünkü Dükkan Harcamaları / Masraf: ${cash.todayExpense} TL
+Bugünkü Net Kasa Kârı: ${cash.todayTotalIncome - cash.todayExpense} TL
+Günlük Ciro Hedefi: ${profile?.dailyTarget || 2500} TL
 `;
 
     // High quality intelligent fallback if Gemini API key not present
     const getSmartFallback = (t: string, userMsg?: string) => {
       if (t === 'profile') {
         return {
-          title: 'DÃ¼kkan Profil & Vitrin Ä°yileÅŸtirme Tavsiyeleri',
-          advice: `SayÄ±n ${profile?.ownerName || 'Esnaf'}, ${profile?.storeName || 'DÃ¼kkanÄ±nÄ±z'} iÃ§in mahallede mÃ¼ÅŸteri Ã§ekim gÃ¼cÃ¼nÃ¼ artÄ±racak 3 Ã¶ncelikli adÄ±m:
-1. **Google Haritalar & Tabela:** DÃ¼kkan tabelanÄ±zda ve Google Haritalar profilinizde "${profile?.businessField}" anahtar kelimesini ve Ã§alÄ±ÅŸma saatlerinizi gÃ¼ncelleyin. FotoÄŸraflÄ± profiller %45 daha Ã§ok mÃ¼ÅŸteri Ã§eker.
-2. **Kasa Ã–nÃ¼ HÄ±zlÄ± ÃœrÃ¼n AlanÄ±:** Kasa yanÄ±na sakÄ±z, atÄ±ÅŸtÄ±rmalÄ±k, kolonya gibi anlÄ±k satÄ±n alÄ±nan 10-50 TL'lik sepet geniÅŸletici Ã¼rÃ¼nler yerleÅŸtirin.
-3. **MÃ¼ÅŸteri Hitap SloganÄ±:** Vitrininize "${profile?.slogan || 'GÃ¼ler yÃ¼zlÃ¼ hizmet, bereketli alÄ±ÅŸveriÅŸ'}" afiÅŸi asarak samimiyeti Ã¶n plana Ã§Ä±karÄ±n.`,
+          title: 'Dükkan Profil & Vitrin İyileştirme Tavsiyeleri',
+          advice: `Sayın ${profile?.ownerName || 'Esnaf'}, ${profile?.storeName || 'Dükkanınız'} için mahallede müşteri çekim gücünü artıracak 3 öncelikli adım:
+1. **Google Haritalar & Tabela:** Dükkan tabelanızda ve Google Haritalar profilinizde "${profile?.businessField}" anahtar kelimesini ve çalışma saatlerinizi güncelleyin. Fotoğraflı profiller %45 daha çok müşteri çeker.
+2. **Kasa Önü Hızlı Ürün Alanı:** Kasa yanına sakız, atıştırmalık, kolonya gibi anlık satın alınan 10-50 TL'lik sepet genişletici ürünler yerleştirin.
+3. **Müşteri Hitap Sloganı:** Vitrininize "${profile?.slogan || 'Güler yüzlü hizmet, bereketli alışveriş'}" afişi asarak samimiyeti ön plana çıkarın.`,
           suggestions: [
-            'Google Haritalar aÃ§Ä±klamasÄ±nÄ± optimize et',
+            'Google Haritalar açıklamasını optimize et',
             'Fiyat etiketlerini ve vitrini yenile',
-            'Kasa Ã¶nÃ¼ sepet kampanyasÄ± yap',
+            'Kasa önü sepet kampanyası yap',
           ],
         };
       }
       if (t === 'expenses') {
         return {
-          title: 'Giderleri Azaltma & ToptancÄ± Tasarrufu',
-          advice: `Mevcut finansal durumunuza gÃ¶re bugÃ¼n ${cash.todayExpense} TL dÃ¼kkan masrafÄ±nÄ±z oldu. KÃ¢rlÄ±lÄ±ÄŸÄ± artÄ±rmak iÃ§in:
-1. **ToptancÄ± ile PeÅŸin Ä°ndirimi:** ToptancÄ± alÄ±mlarÄ±nda nakit veya 3 gÃ¼n iÃ§inde Ã¶deme taahhÃ¼dÃ¼yle %4 ila %8 iskonto talep edin.
-2. **POS Komisyon YÃ¶netimi:** KartlÄ± satÄ±ÅŸ oranÄ±nÄ±z (${cash.todayCard} TL) arttÄ±kÃ§a bankanÄ±zla gÃ¶rÃ¼ÅŸÃ¼p bloke sÃ¼resini ertesi gÃ¼ne Ã§ekerek komisyonu %1.99 altÄ±na dÃ¼ÅŸÃ¼rÃ¼n ya da FAST/IBAN karekodunu Ã¶ne Ã§Ä±karÄ±n.
-3. **Fatura & Sarf Malzeme KontrolÃ¼:** DÃ¼kkan aydÄ±nlatmalarÄ±nÄ± LED'e Ã§evirin, poÅŸet ve ambalajÄ± toptan kilo ile alÄ±n.`,
+          title: 'Giderleri Azaltma & Toptancı Tasarrufu',
+          advice: `Mevcut finansal durumunuza göre bugün ${cash.todayExpense} TL dükkan masrafınız oldu. Kârlılığı artırmak için:
+1. **Toptancı ile Peşin İndirimi:** Toptancı alımlarında nakit veya 3 gün içinde ödeme taahhüdüyle %4 ila %8 iskonto talep edin.
+2. **POS Komisyon Yönetimi:** Kartlı satış oranınız (${cash.todayCard} TL) arttıkça bankanızla görüşüp bloke süresini ertesi güne çekerek komisyonu %1.99 altına düşürün ya da FAST/IBAN karekodunu öne çıkarın.
+3. **Fatura & Sarf Malzeme Kontrolü:** Dükkan aydınlatmalarını LED'e çevirin, poşet ve ambalajı toptan kilo ile alın.`,
           suggestions: [
-            'POS komisyonunu bankayla pazarlÄ±k et',
-            'ToptancÄ± peÅŸin iskontosu iste',
+            'POS komisyonunu bankayla pazarlık et',
+            'Toptancı peşin iskontosu iste',
             'Karekod / IBAN ile komisyonsuz tahsilat yap',
           ],
         };
@@ -1038,14 +1038,14 @@ GÃ¼nlÃ¼k Ciro Hedefi: ${profile?.dailyTarget || 2500} TL
 
       // Default or custom question
       return {
-        title: 'VIP Esnaf DanÄ±ÅŸmanÄ± YanÄ±tÄ±',
+        title: 'VIP Esnaf Danışmanı Yanıtı',
         advice: userMsg
-          ? `SayÄ±n ${profile?.ownerName || 'Esnaf'}, sorunuz iÃ§in esnaf tecrÃ¼bemizle Ã¶nerimiz: KÃ¼Ã§Ã¼k iÅŸletmelerde en Ã¶nemli kural gÃ¼nlÃ¼k nakit akÄ±ÅŸÄ±nÄ± sÄ±kÄ± tutmak ve gereksiz masrafÄ± Ã¶nlemektir. BugÃ¼nkÃ¼ ${cash.todayTotalIncome} TL cironuz hedefinize (${profile?.dailyTarget} TL) oranla aktif bir gÃ¼n geÃ§irdiÄŸinizi gÃ¶steriyor. MÃ¼ÅŸterilerinize gÃ¼ler yÃ¼zle yaklaÅŸÄ±n ve Ã¶demeleri gÃ¼nÃ¼ gÃ¼nÃ¼ne kasaya iÅŸleyin.`
-          : `SayÄ±n ${profile?.ownerName || 'Esnaf'}, ${profile?.storeName || 'DÃ¼kkanÄ±nÄ±z'} bugÃ¼n ${cash.todayTotalIncome} TL ciro yaptÄ±. Net kasa kÃ¢rÄ±nÄ±z ${cash.todayTotalIncome - cash.todayExpense} TL seviyesinde. DÃ¼kkanÄ±nÄ±zÄ±n sektÃ¶rÃ¼ne (${profile?.businessField}) Ã¶zel VIP optimizasyonlar aktif.`,
+          ? `Sayın ${profile?.ownerName || 'Esnaf'}, sorunuz için esnaf tecrübemizle önerimiz: Küçük işletmelerde en önemli kural günlük nakit akışını sıkı tutmak ve gereksiz masrafı önlemektir. Bugünkü ${cash.todayTotalIncome} TL cironuz hedefinize (${profile?.dailyTarget} TL) oranla aktif bir gün geçirdiğinizi gösteriyor. Müşterilerinize güler yüzle yaklaşın ve ödemeleri günü gününe kasaya işleyin.`
+          : `Sayın ${profile?.ownerName || 'Esnaf'}, ${profile?.storeName || 'Dükkanınız'} bugün ${cash.todayTotalIncome} TL ciro yaptı. Net kasa kârınız ${cash.todayTotalIncome - cash.todayExpense} TL seviyesinde. Dükkanınızın sektörüne (${profile?.businessField}) özel VIP optimizasyonlar aktif.`,
         suggestions: [
-          'GÃ¼nlÃ¼k ciro hedefimi nasÄ±l artÄ±rÄ±rÄ±m?',
-          'ToptancÄ±ya borÃ§lanmadan nasÄ±l mal Ã§ekerim?',
-          'SadÄ±k mahalle mÃ¼ÅŸterisi nasÄ±l kazanÄ±lÄ±r?',
+          'Günlük ciro hedefimi nasıl artırırım?',
+          'Toptancıya borçlanmadan nasıl mal çekerim?',
+          'Sadık mahalle müşterisi nasıl kazanılır?',
         ],
       };
     };
@@ -1065,19 +1065,19 @@ GÃ¼nlÃ¼k Ciro Hedefi: ${profile?.dailyTarget || 2500} TL
         },
       });
 
-      const systemPrompt = `Sen TÃ¼rkiye'de 30 yÄ±llÄ±k tecrÃ¼beye sahip, modern dijital araÃ§larÄ± iyi bilen, Ã§ok samimi, babacan, esnaf dostu bir "VIP Esnaf DanÄ±ÅŸmanÄ±"sÄ±n.
-DÃ¼kkan Bilgileri:
+      const systemPrompt = `Sen Türkiye'de 30 yıllık tecrübeye sahip, modern dijital araçları iyi bilen, çok samimi, babacan, esnaf dostu bir "VIP Esnaf Danışmanı"sın.
+Dükkan Bilgileri:
 ${shopContext}
 
-KullanÄ±cÄ± Konusu / Talebi:
-Konu: ${topic || 'Genel DanÄ±ÅŸmanlÄ±k'}
-EsnafÄ±n Sorusu / Notu: ${message || 'DÃ¼kkanÄ±mÄ± bÃ¼yÃ¼tmek ve profili iyileÅŸtirmek iÃ§in Ã¶neriler ver.'}
+Kullanıcı Konusu / Talebi:
+Konu: ${topic || 'Genel Danışmanlık'}
+Esnafın Sorusu / Notu: ${message || 'Dükkanımı büyütmek ve profili iyileştirmek için öneriler ver.'}
 
 Kurallar:
-1. TÃ¼rkÃ§e olarak, esnafÄ±n dilinden konuÅŸ; samimi, motive edici, pratik ve hemen uygulanabilir 3-4 somut tavsiye ver.
-2. DÃ¼kkan adÄ± (${profile?.storeName}) ve sektÃ¶rÃ¼ne (${profile?.businessField}) doÄŸrudan atÄ±f yap.
-3. Gereksiz akademik laflar etme; toptancÄ±, kasa, ciro, mÃ¼ÅŸteri iletiÅŸimi, vitrin gibi gerÃ§ek hayata dokunan ÅŸeyler sÃ¶yle.
-4. Ã‡Ä±ktÄ±nÄ± temiz ve maddeli hazÄ±rla.`;
+1. Türkçe olarak, esnafın dilinden konuş; samimi, motive edici, pratik ve hemen uygulanabilir 3-4 somut tavsiye ver.
+2. Dükkan adı (${profile?.storeName}) ve sektörüne (${profile?.businessField}) doğrudan atıf yap.
+3. Gereksiz akademik laflar etme; toptancı, kasa, ciro, müşteri iletişimi, vitrin gibi gerçek hayata dokunan şeyler söyle.
+4. Çıktını temiz ve maddeli hazırla.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -1088,12 +1088,12 @@ Kurallar:
 
       res.json({
         success: true,
-        title: topic === 'profile' ? 'Profil & Vitrin Tavsiyeleri' : topic === 'expenses' ? 'Gider & Tasarruf PlanÄ±' : 'VIP DanÄ±ÅŸman YanÄ±tÄ±',
+        title: topic === 'profile' ? 'Profil & Vitrin Tavsiyeleri' : topic === 'expenses' ? 'Gider & Tasarruf Planı' : 'VIP Danışman Yanıtı',
         advice: adviceText,
         suggestions: [
-          'DÃ¼kkan vitrin ve tabelasÄ±nÄ± nasÄ±l yenilerim?',
-          'Giderleri %15 kÄ±smak iÃ§in ne yapayÄ±m?',
-          'MÃ¼ÅŸteriyi veresiyeden nakite nasÄ±l alÄ±ÅŸtÄ±rÄ±rÄ±m?',
+          'Dükkan vitrin ve tabelasını nasıl yenilerim?',
+          'Giderleri %15 kısmak için ne yapayım?',
+          'Müşteriyi veresiyeden nakite nasıl alıştırırım?',
         ],
         source: 'gemini-2.5-flash',
       });
@@ -1114,7 +1114,7 @@ Kurallar:
   app.post('/api/products', (req: Request, res: Response) => {
     const data = req.body;
     if (!data.name || !data.name.trim()) {
-      return res.status(400).json({ error: 'ÃœrÃ¼n adÄ± zorunludur.' });
+      return res.status(400).json({ error: 'Ürün adı zorunludur.' });
     }
 
     if (!S().products) S().products = [];
@@ -1126,7 +1126,7 @@ Kurallar:
       // Update existing
       const idx = S().products.findIndex((p) => p.id === data.id);
       if (idx === -1) {
-        return res.status(404).json({ error: 'ÃœrÃ¼n bulunamadÄ±.' });
+        return res.status(404).json({ error: 'Ürün bulunamadı.' });
       }
       product = {
         ...S().products[idx],
@@ -1172,20 +1172,20 @@ Kurallar:
     res.json({ success: true, productId: id });
   });
 
-  // Stock Movement: GiriÅŸ veya Ã‡Ä±kÄ±ÅŸ
+  // Stock Movement: Giriş veya Çıkış
   app.post('/api/products/:id/movement', (req: Request, res: Response) => {
     const productId = req.params.id;
     const { type, quantity, reason } = req.body;
     const parsedQty = Math.abs(Number(quantity));
 
     if (!type || (type !== 'giris' && type !== 'cikis') || isNaN(parsedQty) || parsedQty <= 0) {
-      return res.status(400).json({ error: 'GeÃ§erli bir hareket tÃ¼rÃ¼ (giris/cikis) ve adet giriniz.' });
+      return res.status(400).json({ error: 'Geçerli bir hareket türü (giris/cikis) ve adet giriniz.' });
     }
 
     if (!S().products) S().products = [];
     const product = S().products.find((p) => p.id === productId);
     if (!product) {
-      return res.status(404).json({ error: 'ÃœrÃ¼n bulunamadÄ±.' });
+      return res.status(404).json({ error: 'Ürün bulunamadı.' });
     }
 
     const previousStock = product.currentStock;
@@ -1216,7 +1216,7 @@ Kurallar:
       quantity: parsedQty,
       previousStock,
       newStock,
-      reason: reason || (type === 'giris' ? 'Stok GiriÅŸi (ToptancÄ±/Ä°kmal)' : 'Stok Ã‡Ä±kÄ±ÅŸÄ± (SatÄ±ÅŸ/Fire)'),
+      reason: reason || (type === 'giris' ? 'Stok Girişi (Toptancı/İkmal)' : 'Stok Çıkışı (Satış/Fire)'),
       date: dateStr,
     };
 
@@ -1245,7 +1245,7 @@ Kurallar:
   });
 
   // ==========================================
-  // 14. SEKTÃ–RE Ã–ZEL: BERBER & KUAFÃ–R (RANDEVU & KOLTUK TAKÄ°BÄ°)
+  // 14. SEKTÖRE ÖZEL: BERBER & KUAFÖR (RANDEVU & KOLTUK TAKİBİ)
   // ==========================================
   app.get('/api/appointments', (_req, res) => {
     res.json({ appointments: S().appointments || [] });
@@ -1254,14 +1254,14 @@ Kurallar:
   app.post('/api/appointments', (req: Request, res: Response) => {
     const data = req.body;
     if (!data.customerName || !data.customerName.trim()) {
-      return res.status(400).json({ error: 'MÃ¼ÅŸteri adÄ± zorunludur.' });
+      return res.status(400).json({ error: 'Müşteri adı zorunludur.' });
     }
     if (!S().appointments) S().appointments = [];
 
     let apt: Appointment;
     if (data.id) {
       const idx = S().appointments.findIndex((a) => a.id === data.id);
-      if (idx === -1) return res.status(404).json({ error: 'Randevu bulunamadÄ±.' });
+      if (idx === -1) return res.status(404).json({ error: 'Randevu bulunamadı.' });
       apt = {
         ...S().appointments[idx],
         ...data,
@@ -1274,7 +1274,7 @@ Kurallar:
         customerName: data.customerName.trim(),
         phone: data.phone?.trim() || '',
         staffName: data.staffName?.trim() || 'Koltuk 1 (Usta)',
-        serviceName: data.serviceName?.trim() || 'SaÃ§ & Sakal TÄ±raÅŸÄ±',
+        serviceName: data.serviceName?.trim() || 'Saç & Sakal Tıraşı',
         price: Number(data.price) || 250,
         appointmentDate: data.appointmentDate || now.toISOString().split('T')[0],
         timeSlot: data.timeSlot || '14:00',
@@ -1295,7 +1295,7 @@ Kurallar:
     const { status } = req.body;
     if (!S().appointments) S().appointments = [];
     const apt = S().appointments.find((a) => a.id === id);
-    if (!apt) return res.status(404).json({ error: 'Randevu bulunamadÄ±.' });
+    if (!apt) return res.status(404).json({ error: 'Randevu bulunamadı.' });
 
     apt.status = status;
     saveState();
@@ -1308,7 +1308,7 @@ Kurallar:
     const { paymentMethod } = req.body;
     if (!S().appointments) S().appointments = [];
     const apt = S().appointments.find((a) => a.id === id);
-    if (!apt) return res.status(404).json({ error: 'Randevu bulunamadÄ±.' });
+    if (!apt) return res.status(404).json({ error: 'Randevu bulunamadı.' });
 
     apt.status = 'tamamlandi';
 
@@ -1324,7 +1324,7 @@ Kurallar:
       type: 'tahsilat',
       amount: apt.price,
       paymentMethod: paymentMethod || 'nakit',
-      description: `KuafÃ¶r/Berber TahsilatÄ±: ${apt.serviceName} (${apt.staffName})`,
+      description: `Kuaför/Berber Tahsilatı: ${apt.serviceName} (${apt.staffName})`,
       date: `${todayStr} ${timeStr}`,
       createdAt: now.toISOString(),
     };
@@ -1352,7 +1352,7 @@ Kurallar:
   });
 
   // ==========================================
-  // 15. SEKTÃ–RE Ã–ZEL: RESTORAN & KAFE (MASA & ADÄ°SYON YÃ–NETÄ°MÄ°)
+  // 15. SEKTÖRE ÖZEL: RESTORAN & KAFE (MASA & ADİSYON YÖNETİMİ)
   // ==========================================
   app.get('/api/tables', (_req, res) => {
     res.json({ tables: S().tables || [] });
@@ -1362,11 +1362,11 @@ Kurallar:
     const { id } = req.params;
     const { name, quantity, unitPrice } = req.body;
     if (!name || !quantity) {
-      return res.status(400).json({ error: 'ÃœrÃ¼n adÄ± ve adet zorunludur.' });
+      return res.status(400).json({ error: 'Ürün adı ve adet zorunludur.' });
     }
     if (!S().tables) S().tables = [];
     const table = S().tables.find((t) => t.id === id);
-    if (!table) return res.status(404).json({ error: 'Masa bulunamadÄ±.' });
+    if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
 
     const qty = Number(quantity) || 1;
     const price = Number(unitPrice) || 0;
@@ -1402,10 +1402,10 @@ Kurallar:
     const { paymentMethod } = req.body;
     if (!S().tables) S().tables = [];
     const table = S().tables.find((t) => t.id === id);
-    if (!table) return res.status(404).json({ error: 'Masa bulunamadÄ±.' });
+    if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
 
     if (table.totalAmount <= 0 && table.orders.length === 0) {
-      return res.status(400).json({ error: 'Masada aÃ§Ä±k hesap bulunmuyor.' });
+      return res.status(400).json({ error: 'Masada açık hesap bulunmuyor.' });
     }
 
     const orderSummary = table.orders.map((o) => `${o.quantity}x ${o.name}`).join(', ');
@@ -1423,14 +1423,14 @@ Kurallar:
       type: 'tahsilat',
       amount: checkoutAmount,
       paymentMethod: paymentMethod || 'nakit',
-      description: `Masa HesabÄ±: ${table.name} (${orderSummary})`,
+      description: `Masa Hesabı: ${table.name} (${orderSummary})`,
       date: `${todayStr} ${timeStr}`,
       createdAt: now.toISOString(),
     };
 
     S().transactions.unshift(transaction);
 
-    // MasayÄ± sÄ±fÄ±rla ve boÅŸalt
+    // Masayı sıfırla ve boşalt
     table.isOccupied = false;
     table.orders = [];
     table.totalAmount = 0;
@@ -1454,7 +1454,7 @@ Kurallar:
     const { id } = req.params;
     if (!S().tables) S().tables = [];
     const table = S().tables.find((t) => t.id === id);
-    if (!table) return res.status(404).json({ error: 'Masa bulunamadÄ±.' });
+    if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
 
     table.isOccupied = false;
     table.orders = [];
@@ -1470,7 +1470,7 @@ Kurallar:
 
   app.post('/api/tables', (req: Request, res: Response) => {
     const { name } = req.body;
-    if (!name || !name.trim()) return res.status(400).json({ error: 'Masa adÄ± zorunludur.' });
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Masa adı zorunludur.' });
     if (!S().tables) S().tables = [];
 
     const newTable: RestaurantTable = {
@@ -1487,7 +1487,7 @@ Kurallar:
   });
 
   // ==========================================
-  // 16. SEKTÃ–RE Ã–ZEL: TEKNÄ°K SERVÄ°S & TAMÄ°R (Ä°Å EMRÄ° & FÄ°Å)
+  // 16. SEKTÖRE ÖZEL: TEKNİK SERVİS & TAMİR (İŞ EMRİ & FİŞ)
   // ==========================================
   app.get('/api/repair-tickets', (_req, res) => {
     res.json({ repairTickets: S().repairTickets || [] });
@@ -1496,14 +1496,14 @@ Kurallar:
   app.post('/api/repair-tickets', (req: Request, res: Response) => {
     const data = req.body;
     if (!data.customerName || !data.deviceOrVehicle) {
-      return res.status(400).json({ error: 'MÃ¼ÅŸteri adÄ± ve cihaz/araÃ§ bilgisi zorunludur.' });
+      return res.status(400).json({ error: 'Müşteri adı ve cihaz/araç bilgisi zorunludur.' });
     }
     if (!S().repairTickets) S().repairTickets = [];
 
     let ticket: RepairTicket;
     if (data.id) {
       const idx = S().repairTickets.findIndex((t) => t.id === data.id);
-      if (idx === -1) return res.status(404).json({ error: 'Servis fiÅŸi bulunamadÄ±.' });
+      if (idx === -1) return res.status(404).json({ error: 'Servis fişi bulunamadı.' });
       ticket = {
         ...S().repairTickets[idx],
         ...data,
@@ -1516,7 +1516,7 @@ Kurallar:
         customerName: data.customerName.trim(),
         phone: data.phone?.trim() || '',
         deviceOrVehicle: data.deviceOrVehicle.trim(),
-        complaint: data.complaint?.trim() || 'ArÄ±za tespiti ve bakÄ±m',
+        complaint: data.complaint?.trim() || 'Arıza tespiti ve bakım',
         estimatedCost: Number(data.estimatedCost) || 0,
         partCost: Number(data.partCost) || 0,
         status: data.status || 'kabul_edildi',
@@ -1536,7 +1536,7 @@ Kurallar:
     const { status } = req.body;
     if (!S().repairTickets) S().repairTickets = [];
     const ticket = S().repairTickets.find((t) => t.id === id);
-    if (!ticket) return res.status(404).json({ error: 'Servis fiÅŸi bulunamadÄ±.' });
+    if (!ticket) return res.status(404).json({ error: 'Servis fişi bulunamadı.' });
 
     ticket.status = status;
     saveState();
@@ -1549,7 +1549,7 @@ Kurallar:
     const { paymentMethod, deductPartCost } = req.body;
     if (!S().repairTickets) S().repairTickets = [];
     const ticket = S().repairTickets.find((t) => t.id === id);
-    if (!ticket) return res.status(404).json({ error: 'Servis fiÅŸi bulunamadÄ±.' });
+    if (!ticket) return res.status(404).json({ error: 'Servis fişi bulunamadı.' });
 
     ticket.status = 'teslim_edildi';
     ticket.completedAt = new Date().toISOString();
@@ -1566,22 +1566,22 @@ Kurallar:
       type: 'tahsilat',
       amount: ticket.estimatedCost,
       paymentMethod: paymentMethod || 'nakit',
-      description: `Servis TeslimatÄ±: ${ticket.deviceOrVehicle} (${ticket.complaint})`,
+      description: `Servis Teslimatı: ${ticket.deviceOrVehicle} (${ticket.complaint})`,
       date: `${todayStr} ${timeStr}`,
       createdAt: now.toISOString(),
     };
     S().transactions.unshift(incomeTx);
 
-    // Ä°steÄŸe baÄŸlÄ±: ParÃ§a maliyetini Gider olarak kaydet
+    // İsteğe bağlı: Parça maliyetini Gider olarak kaydet
     if (deductPartCost && ticket.partCost > 0) {
       const expenseTx: Transaction = {
         id: `tx_rep_exp_${Date.now()}`,
         customerId: '',
-        customerName: 'Yedek ParÃ§a Maliyeti',
+        customerName: 'Yedek Parça Maliyeti',
         type: 'gider',
         amount: ticket.partCost,
         paymentMethod: 'nakit',
-        description: `Yedek ParÃ§a: ${ticket.deviceOrVehicle} parÃ§asÄ±`,
+        description: `Yedek Parça: ${ticket.deviceOrVehicle} parçası`,
         date: `${todayStr} ${timeStr}`,
         createdAt: now.toISOString(),
       };
@@ -1610,12 +1610,12 @@ Kurallar:
   });
 
   // ==========================================
-  // 17. SEKTÃ–RE Ã–ZEL: BAKKAL & MARKET HIZLI TEZGÃ‚H / KASA SATIÅI
+  // 17. SEKTÖRE ÖZEL: BAKKAL & MARKET HIZLI TEZGÂH / KASA SATIŞI
   // ==========================================
   app.post('/api/quick-pos-sale', (req: Request, res: Response) => {
     const { items, paymentMethod } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Sepette Ã¼rÃ¼n bulunmalÄ±dÄ±r.' });
+      return res.status(400).json({ error: 'Sepette ürün bulunmalıdır.' });
     }
 
     const totalAmount = items.reduce((sum: number, it: any) => sum + (Number(it.total) || (Number(it.unitPrice) * Number(it.quantity))), 0);
@@ -1629,17 +1629,17 @@ Kurallar:
     const transaction: Transaction = {
       id: `tx_pos_${Date.now()}`,
       customerId: '',
-      customerName: 'HÄ±zlÄ± TezgÃ¢h SatÄ±ÅŸÄ±',
+      customerName: 'Hızlı Tezgâh Satışı',
       type: 'tahsilat',
       amount: totalAmount,
       paymentMethod: paymentMethod || 'nakit',
-      description: `Perakende SatÄ±ÅŸ: ${summaryStr}`,
+      description: `Perakende Satış: ${summaryStr}`,
       date: `${todayStr} ${timeStr}`,
       createdAt: now.toISOString(),
     };
     S().transactions.unshift(transaction);
 
-    // 2. Varsa Stoktan DÃ¼ÅŸ & Hareket Kaydet
+    // 2. Varsa Stoktan Düş & Hareket Kaydet
     if (S().products) {
       for (const item of items) {
         if (item.productId) {
@@ -1658,7 +1658,7 @@ Kurallar:
               quantity: Number(item.quantity),
               previousStock: prevStock,
               newStock,
-              reason: 'HÄ±zlÄ± TezgÃ¢h SatÄ±ÅŸÄ±',
+              reason: 'Hızlı Tezgâh Satışı',
               date: `${todayStr} ${timeStr}`,
             };
 

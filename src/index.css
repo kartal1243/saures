@@ -2,6 +2,123 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in: fade-in 0.35s ease-out both;
+  --animate-pop: pop 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* ---------------- Base ---------------- */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  text-wrap: balance;
+}
+
+::selection {
+  background: rgba(245, 158, 11, 0.3);
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(245 158 11 / 0.65);
+  outline-offset: 2px;
+}
+
+/* Ince, tema ile uyumlu scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 162, 158, 0.45) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(168, 162, 158, 0.4);
+  border-radius: 999px;
+  border: 2.5px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 113, 108, 0.6);
+  background-clip: padding-box;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(87, 83, 78, 0.55);
+  background-clip: padding-box;
+}
+
+/* ---------------- Bilesen katmani: tutarli kart / buton / alanlar ---------------- */
+@layer components {
+  .card {
+    @apply bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 rounded-2xl shadow-xs;
+  }
+  .card-hover {
+    @apply transition-shadow duration-200 hover:shadow-md;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-bold transition-all cursor-pointer select-none active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 font-bold transition-all cursor-pointer select-none active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none px-5 py-2.5 rounded-xl text-sm text-white bg-linear-to-b from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 shadow-[0_1px_2px_rgba(0,0,0,0.08),0_4px_12px_rgba(245,158,11,0.35)];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 font-bold transition-all cursor-pointer select-none active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none px-4 py-2 rounded-xl text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700;
+  }
+  .field-label {
+    @apply block text-[11px] font-extrabold text-stone-500 dark:text-stone-400 uppercase tracking-[0.12em] mb-1.5;
+  }
+  .field-input {
+    @apply w-full px-4 py-3 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/70 dark:bg-stone-800/70 text-sm text-stone-900 dark:text-white placeholder:text-stone-400 transition-all focus:outline-hidden focus:ring-2 focus:ring-amber-500/70 focus:border-amber-400 focus:bg-white dark:focus:bg-stone-800;
+  }
+}
+
 /* Yazdirma: sadece gun sonu raporu icerigi basilsin */
 @media print {
   body {

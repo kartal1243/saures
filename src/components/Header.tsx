@@ -9,6 +9,8 @@ import {
   Users,
   Building2,
   ChevronDown,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { ShopProfile } from '../types';
 
@@ -57,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onOpenShopProfile}
-            className="w-11 h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center shadow-xs font-bold text-lg transition-transform active:scale-95 cursor-pointer shrink-0"
+            className="w-11 h-11 rounded-xl bg-linear-to-b from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white flex items-center justify-center shadow-[0_2px_10px_rgba(245,158,11,0.45)] font-bold text-lg transition-all active:scale-95 cursor-pointer shrink-0"
             title="Dükkan bilgilerini düzenle"
           >
             <Store className="w-5 h-5" />
@@ -128,9 +130,9 @@ export const Header: React.FC<HeaderProps> = ({
             title={darkMode ? 'Gündüz Moduna Geç (Açık Tema)' : 'Gece Moduna Geç (Karanlık Tema)'}
           >
             {darkMode ? (
-              <span className="block w-4 h-4 text-amber-500">☀️</span>
+              <Sun className="w-4 h-4 text-amber-500" />
             ) : (
-              <span className="block w-4 h-4">🌙</span>
+              <Moon className="w-4 h-4" />
             )}
           </button>
 

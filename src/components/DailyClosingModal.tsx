@@ -63,15 +63,15 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       await onSaveClosing({
         actualCashCount: actualCash,
         note: note.trim(),
-        closedBy: shopProfile?.ownerName || 'DÃ¼kkan Sahibi',
+        closedBy: shopProfile?.ownerName || 'Dükkan Sahibi',
       });
-      setSuccessMessage('GÃ¼n sonu baÅŸarÄ±yla kapatÄ±ldÄ± ve Z Raporu arÅŸivlendi!');
+      setSuccessMessage('Gün sonu başarıyla kapatıldı ve Z Raporu arşivlendi!');
       setTimeout(() => {
         setSuccessMessage(null);
         onClose();
       }, 1500);
     } catch (err: any) {
-      setError(err.message || 'GÃ¼n sonu kaydedilirken bir hata oluÅŸtu.');
+      setError(err.message || 'Gün sonu kaydedilirken bir hata oluştu.');
     } finally {
       setIsSubmitting(false);
     }
@@ -80,24 +80,24 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const handlePrint = () => { window.print(); };
 
   const handleShareSummary = () => {
-    const text = `ğŸª ${shopProfile?.storeName || 'DÃ¼kkan'} GÃ¼n Sonu Kasa Raporu
-ğŸ“… ${todayFormatted}
+    const text = `🏪 ${shopProfile?.storeName || 'Dükkan'} Gün Sonu Kasa Raporu
+📅 ${todayFormatted}
 -----------------------------
-ğŸ’µ Toplam SatÄ±ÅŸ / Ciro: ${formatCurrency(cash.todayTotalIncome)}
-   â€¢ Nakit: ${formatCurrency(cash.todayCash)}
-   â€¢ Kart / POS: ${formatCurrency(cash.todayCard)}
-   â€¢ IBAN: ${formatCurrency(cash.todayBank)}
-ğŸ”´ Toplam Masraf / Gider: ${formatCurrency(cash.todayExpense)}
-ğŸ’° Net Kasa KÃ¢rÄ±: ${formatCurrency(cash.todayTotalIncome - cash.todayExpense)}
+💵 Toplam Satış / Ciro: ${formatCurrency(cash.todayTotalIncome)}
+   • Nakit: ${formatCurrency(cash.todayCash)}
+   • Kart / POS: ${formatCurrency(cash.todayCard)}
+   • IBAN: ${formatCurrency(cash.todayBank)}
+🔴 Toplam Masraf / Gider: ${formatCurrency(cash.todayExpense)}
+💰 Net Kasa Kârı: ${formatCurrency(cash.todayTotalIncome - cash.todayExpense)}
 -----------------------------
-ğŸ—„ï¸ Kasada Beklenen Nakit: ${formatCurrency(expectedCash)}
-ğŸ–ï¸ Fiili SayÄ±lan Nakit: ${formatCurrency(actualCash)}
-${diff === 0 ? 'âœ… KASA TAM DENK' : diff > 0 ? `âœ¨ KASA FAZLASI: +${formatCurrency(diff)}` : `âš ï¸ KASA AÃ‡IÄI: -${formatCurrency(Math.abs(diff))}`}
-${note ? `ğŸ“ Not: ${note}` : ''}`;
+🗄️ Kasada Beklenen Nakit: ${formatCurrency(expectedCash)}
+🖐️ Fiili Sayılan Nakit: ${formatCurrency(actualCash)}
+${diff === 0 ? '✅ KASA TAM DENK' : diff > 0 ? `✨ KASA FAZLASI: +${formatCurrency(diff)}` : `⚠️ KASA AÇIĞI: -${formatCurrency(Math.abs(diff))}`}
+${note ? `📝 Not: ${note}` : ''}`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
-      alert('GÃ¼n sonu kasa raporu panoya kopyalandÄ±! WhatsApp veya SMS ile paylaÅŸabilirsiniz.');
+      alert('Gün sonu kasa raporu panoya kopyalandı! WhatsApp veya SMS ile paylaşabilirsiniz.');
     }
   };
 
@@ -112,15 +112,15 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-black tracking-tight">GÃ¼n Sonu Kasa Kapatma (Z Raporu)</h2>
+                <h2 className="text-lg sm:text-xl font-black tracking-tight">Gün Sonu Kasa Kapatma (Z Raporu)</h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  Esnaf KapanÄ±ÅŸ
+                  Esnaf Kapanış
                 </span>
               </div>
               <p className="text-xs text-stone-400 flex items-center gap-1.5 mt-0.5">
                 <Calendar className="w-3.5 h-3.5 text-amber-400" />
                 <span>{todayFormatted}</span>
-                <span className="opacity-50">â€¢</span>
+                <span className="opacity-50">•</span>
                 <span>{shopProfile?.storeName || 'Dükkânım'}</span>
               </p>
             </div>
@@ -134,7 +134,7 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
           </button>
         </div>
 
-        {/* Tabs: BugÃ¼nkÃ¼ KapanÄ±ÅŸ / GeÃ§miÅŸ KapanÄ±ÅŸlar */}
+        {/* Tabs: Bugünkü Kapanış / Geçmiş Kapanışlar */}
         <div className="flex border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 px-4 pt-2">
           <button
             type="button"
@@ -146,7 +146,7 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
             }`}
           >
             <Moon className="w-4 h-4" />
-            <span>BugÃ¼nkÃ¼ Kasa KapanÄ±ÅŸÄ±</span>
+            <span>Bugünkü Kasa Kapanışı</span>
           </button>
           <button
             type="button"
@@ -158,7 +158,7 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
             }`}
           >
             <History className="w-4 h-4" />
-            <span>GeÃ§miÅŸ Z RaporlarÄ± ({closings.length})</span>
+            <span>Geçmiş Z Raporları ({closings.length})</span>
           </button>
         </div>
 
@@ -183,7 +183,7 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
               {/* Daily Financial Overview Bento */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
-                  <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">BugÃ¼n Toplam Ciro</p>
+                  <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Bugün Toplam Ciro</p>
                   <p className="text-lg font-black text-emerald-900 dark:text-emerald-200 mt-0.5">
                     {formatCurrency(cash.todayTotalIncome)}
                   </p>
@@ -193,11 +193,11 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                 </div>
 
                 <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60">
-                  <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 uppercase">POS & KartlÄ± SatÄ±ÅŸ</p>
+                  <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 uppercase">POS & Kartlı Satış</p>
                   <p className="text-lg font-black text-indigo-900 dark:text-indigo-200 mt-0.5">
                     {formatCurrency(cash.todayCard)}
                   </p>
-                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-1">Banka hesabÄ±na geÃ§er</p>
+                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-1">Banka hesabına geçer</p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60">
@@ -205,11 +205,11 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                   <p className="text-lg font-black text-rose-900 dark:text-rose-200 mt-0.5">
                     {formatCurrency(cash.todayExpense)}
                   </p>
-                  <p className="text-[10px] text-rose-600 dark:text-rose-400 mt-1">ToptancÄ± / Fatura</p>
+                  <p className="text-[10px] text-rose-600 dark:text-rose-400 mt-1">Toptancı / Fatura</p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60">
-                  <p className="text-[11px] font-bold text-amber-800 dark:text-amber-400 uppercase">GÃ¼nÃ¼n Net KÃ¢rÄ±</p>
+                  <p className="text-[11px] font-bold text-amber-800 dark:text-amber-400 uppercase">Günün Net Kârı</p>
                   <p className="text-lg font-black text-amber-950 dark:text-amber-200 mt-0.5">
                     {formatCurrency(cash.todayTotalIncome - cash.todayExpense)}
                   </p>
@@ -222,10 +222,10 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <div>
                     <label className="text-sm font-black text-stone-900 dark:text-white uppercase tracking-wider">
-                      Kasada Fiili Nakit SayÄ±mÄ±
+                      Kasada Fiili Nakit Sayımı
                     </label>
                     <p className="text-xs text-stone-500 dark:text-stone-400">
-                      Ã‡ekmecedeki nakiti sayÄ±p tam tutarÄ± giriniz
+                      Çekmecedeki nakiti sayıp tam tutarı giriniz
                     </p>
                   </div>
                   <div className="text-right">
@@ -238,7 +238,7 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
 
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-amber-500">
-                    â‚º
+                    ₺
                   </span>
                   <input
                     id="input-actual-cash-count"
@@ -257,13 +257,13 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                   {diff === 0 ? (
                     <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 flex items-center gap-2 text-xs font-bold">
                       <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      <span>Kasa KuruÅŸu KuruÅŸuna Denk! HiÃ§bir aÃ§Ä±k veya fazla yok.</span>
+                      <span>Kasa Kuruşu Kuruşuna Denk! Hiçbir açık veya fazla yok.</span>
                     </div>
                   ) : diff > 0 ? (
                     <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-200 flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-blue-600" />
-                        <span>Kasa FazlasÄ± Tespit Edildi</span>
+                        <span>Kasa Fazlası Tespit Edildi</span>
                       </div>
                       <span className="text-sm font-black text-blue-700 dark:text-blue-300">
                         +{formatCurrency(diff)}
@@ -273,7 +273,7 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                     <div className="p-3 rounded-xl bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5 text-rose-600" />
-                        <span>Kasa AÃ§Ä±ÄŸÄ± Var (Eksik Para)</span>
+                        <span>Kasa Açığı Var (Eksik Para)</span>
                       </div>
                       <span className="text-sm font-black text-rose-700 dark:text-rose-300">
                         -{formatCurrency(Math.abs(diff))}
@@ -283,16 +283,16 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                 </div>
               </div>
 
-              {/* GÃ¼nÃ¼n Notu */}
+              {/* Günün Notu */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
-                  GÃ¼nÃ¼n KapanÄ±ÅŸ Notu (Ä°steÄŸe BaÄŸlÄ±)
+                  Günün Kapanış Notu (İsteğe Bağlı)
                 </label>
                 <input
                   type="text"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Ã–rn: YaÄŸmurlu sakin bir gÃ¼ndÃ¼, toptancÄ±ya nakit Ã¶dendi..."
+                  placeholder="Örn: Yağmurlu sakin bir gündü, toptancıya nakit ödendi..."
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800 text-stone-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors"
                 />
               </div>
@@ -326,7 +326,7 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                     onClick={onClose}
                     className="px-4 py-2.5 rounded-xl text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold transition-colors cursor-pointer"
                   >
-                    VazgeÃ§
+                    Vazgeç
                   </button>
                   <button
                     id="btn-confirm-daily-closing"
@@ -335,19 +335,19 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                     className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-black dark:bg-amber-500 dark:hover:bg-amber-600 text-white font-black text-xs sm:text-sm shadow-md transition-transform active:scale-98 cursor-pointer disabled:opacity-50"
                   >
                     <Check className="w-4 h-4 stroke-[3]" />
-                    <span>{isSubmitting ? 'KapatÄ±lÄ±yor...' : 'GÃ¼nÃ¼ Kapat & Z Raporunu Onayla'}</span>
+                    <span>{isSubmitting ? 'Kapatılıyor...' : 'Günü Kapat & Z Raporunu Onayla'}</span>
                   </button>
                 </div>
               </div>
             </form>
           ) : (
-            /* GeÃ§miÅŸ Z RaporlarÄ± Tab */
+            /* Geçmiş Z Raporları Tab */
             <div className="space-y-3">
               {closings.length === 0 ? (
                 <div className="p-8 text-center text-stone-500 dark:text-stone-400">
                   <History className="w-10 h-10 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
-                  <p className="text-sm font-semibold">HenÃ¼z arÅŸivlenmiÅŸ gÃ¼n sonu kapanÄ±ÅŸÄ± yok.</p>
-                  <p className="text-xs mt-1">BugÃ¼n ilk gÃ¼n sonunuzu kapatarak baÅŸlayabilirsiniz.</p>
+                  <p className="text-sm font-semibold">Henüz arşivlenmiş gün sonu kapanışı yok.</p>
+                  <p className="text-xs mt-1">Bugün ilk gün sonunuzu kapatarak başlayabilirsiniz.</p>
                 </div>
               ) : (
                 closings.map((c) => (
@@ -374,7 +374,7 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                           ? 'Denk Kasa'
                           : c.diffAmount > 0
                           ? `+${formatCurrency(c.diffAmount)} Fazla`
-                          : `-${formatCurrency(Math.abs(c.diffAmount))} AÃ§Ä±k`}
+                          : `-${formatCurrency(Math.abs(c.diffAmount))} Açık`}
                       </span>
                     </div>
 
@@ -398,7 +398,7 @@ ${note ? `ğŸ“ Not: ${note}` : ''}`;
                         </span>
                       </div>
                       <div>
-                        <span className="text-stone-400 text-[10px] block">Fiili SayÄ±lan</span>
+                        <span className="text-stone-400 text-[10px] block">Fiili Sayılan</span>
                         <span className="font-bold text-stone-900 dark:text-white">
                           {formatCurrency(c.actualCashCount)}
                         </span>
