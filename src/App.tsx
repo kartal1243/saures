@@ -38,6 +38,8 @@ import { MoneyInModal } from './components/MoneyInModal';
 import { MoneyOutModal } from './components/MoneyOutModal';
 import { DailyClosingModal } from './components/DailyClosingModal';
 import { VipAiConsultantModal } from './components/VipAiConsultantModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { StaffModal } from './components/StaffModal';
 import { StockManagementView } from './components/StockManagementView';
 import { StockAdjustmentModal } from './components/StockAdjustmentModal';
 import { ProductFormModal } from './components/ProductFormModal';
@@ -67,6 +69,10 @@ import {
   ChevronDown,
   Wifi,
   WifiOff,
+  KeyRound,
+  UserPlus,
+  Download,
+  Upload,
 } from 'lucide-react';
 
 export default function App() {
@@ -178,6 +184,8 @@ export default function App() {
   const [isMoneyOutModalOpen, setIsMoneyOutModalOpen] = useState(false);
   const [isDailyClosingModalOpen, setIsDailyClosingModalOpen] = useState(false);
   const [isVipModalOpen, setIsVipModalOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
   // Veresiye / Customers Modals
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -574,6 +582,29 @@ export default function App() {
     window.location.href = '/api/export/csv';
   };
 
+  const handleRestoreBackup = async (file: File) => {
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      if (!json || !json.state) {
+        alert('Geçersiz yedek dosyası.');
+        return;
+      }
+      if (!confirm('Mevcut tüm veriler bu yedekle değiştirilecek. Emin misiniz?')) return;
+      const res = await fetch('/api/backup/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: json.state }),
+      });
+      const data = await res.json().catch(() => ({}) as any);
+      if (!res.ok) throw new Error(data.error || 'Geri yükleme başarısız oldu.');
+      alert('Yedek başarıyla geri yüklendi.');
+      fetchInitialData();
+    } catch (err: any) {
+      alert('Hata: ' + (err.message || 'Dosya okunamadı.'));
+    }
+  };
+
   const openTransactionForCustomer = (cust: Customer, type: TransactionType) => {
     setTransactionTargetCustomer(cust);
     setTransactionModalType(type);
@@ -637,6 +668,7 @@ export default function App() {
     let updatedBusinessField = shopProfile.businessField;
 
     const isGenericName =
+      storeName === 'Dıkkânım' ||
       storeName === 'Bereket Mahalle Esnafı' ||
       storeName === 'Bereket Mahalle Bakkalı' ||
       storeName === 'Usta Eller Berber & Kuaför' ||
@@ -1136,6 +1168,30 @@ export default function App() {
               type="button"
               onClick={() => {
                 setProfileMenuOpen(false);
+                setIsChangePasswordOpen(true);
+              }}
+              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <KeyRound className="w-4 h-4 text-amber-500" />
+              Şifre Değiştir
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setProfileMenuOpen(false);
+                setIsStaffModalOpen(true);
+              }}
+              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <UserPlus className="w-4 h-4 text-amber-500" />
+              Personel (Kasiyer)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setProfileMenuOpen(false);
                 setIsVipModalOpen(true);
               }}
               className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
@@ -1143,6 +1199,31 @@ export default function App() {
               <Crown className="w-4 h-4 text-amber-500" />
               VIP Danışman
             </button>
+
+            <a
+              href="/api/backup"
+              onClick={() => setProfileMenuOpen(false)}
+              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <Download className="w-4 h-4 text-emerald-600" />
+              Yedek İndir (JSON)
+            </a>
+
+            <label className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2">
+              <Upload className="w-4 h-4 text-emerald-600" />
+              Yedek Geri Yükle
+              <input
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files && e.target.files[0];
+                  setProfileMenuOpen(false);
+                  if (f) handleRestoreBackup(f);
+                  e.target.value = '';
+                }}
+              />
+            </label>
 
             <button
               type="button"
@@ -1591,6 +1672,16 @@ export default function App() {
         shopProfile={shopProfile}
         cash={cash}
         onApplyProfileTip={handleApplySlogan}
+      />
+
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
+
+      <StaffModal
+        isOpen={isStaffModalOpen}
+        onClose={() => setIsStaffModalOpen(false)}
       />
 
       {/* 6. Customer Detail Modal */}

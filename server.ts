@@ -311,6 +311,42 @@ async function startServer() {
   const app = express();
   app.use(express.json());
 
+  // ---------------- Otomatik bakim: oturum temizligi + gunluk yedek ----------------
+  const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+  if (!fs.existsSync(BACKUPS_DIR)) {
+    fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+  }
+
+  function cleanupSessions() {
+    const now = Date.now();
+    const before = sessions.length;
+    sessions = sessions.filter((s) => new Date(s.expiresAt).getTime() > now);
+    if (sessions.length !== before) writeJsonFile(SESSIONS_FILE, sessions);
+  }
+
+  function dailyBackupAll() {
+    const date = new Date().toISOString().split('T')[0];
+    for (const acc of accounts) {
+      try {
+        const st = loadShopState(acc.id);
+        const dir = path.join(BACKUPS_DIR, acc.id);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        writeJsonFile(path.join(dir, date + '.json'), st);
+        // son 30 gun sakla
+        const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
+        for (const f of files.slice(0, Math.max(0, files.length - 30))) {
+          fs.unlinkSync(path.join(dir, f));
+        }
+      } catch (err) {
+        console.error('Gunluk yedek alinamadi:', acc.id, err);
+      }
+    }
+  }
+
+  setInterval(cleanupSessions, 60 * 60 * 1000); // saatte bir
+  setInterval(dailyBackupAll, 24 * 60 * 60 * 1000); // gunluk
+  setTimeout(dailyBackupAll, 15 * 1000); // ilk acilista bugunun yedeği
+
   // ---------------- Auth: dÃ¼kkan kayit / giris / cikis ----------------
   app.post('/api/auth/register', (req: Request, res: Response) => {
     const body = req.body || {};
@@ -403,13 +439,91 @@ async function startServer() {
     res.json({ account: publicAccount(acc) });
   });
 
-  // Koruma: /api/* icin giris zorunlu (auth ve health haric)
+  // Sadece dukkan sahibi (owner) icin yardimci: oturum yoksa 401, rol degilse 403
+  function requireOwner(req: Request, res: Response): Account | null {
+    const acc = accountFromRequest(req);
+    if (!acc) {
+      res.status(401).json({ error: 'Oturum bulunamadi.' });
+      return null;
+    }
+    if ((acc.role || 'owner') !== 'owner') {
+      res.status(403).json({ error: 'Bu islem sadece dukkan sahibine aciktir.' });
+      return null;
+    }
+    return acc;
+  }
+
+  // Personel (kasiyer) ekle
+  app.post('/api/auth/add-staff', (req: Request, res: Response) => {
+    const owner = requireOwner(req, res);
+    if (!owner) return;
+    const body = req.body || {};
+    const phone = String(body.phone || '').replace(/\s+/g, '');
+    const password = String(body.password || '');
+    const name = String(body.name || '').trim();
+    if (!phone || password.length < 4 || !name) {
+      return res.status(400).json({ error: 'Ad, telefon ve en az 4 haneli sifre gerekli.' });
+    }
+    if (accounts.some((a) => a.phone === phone)) {
+      return res.status(409).json({ error: 'Bu telefon ile kayitli bir hesap var.' });
+    }
+    const staff: Account = {
+      id: 'acc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      shopName: owner.shopName,
+      ownerName: name,
+      phone,
+      passwordHash: hashPassword(password),
+      createdAt: new Date().toISOString(),
+      role: 'cashier',
+      parentAccountId: owner.id,
+    };
+    accounts.push(staff);
+    writeJsonFile(ACCOUNTS_FILE, accounts);
+    res.json({ success: true, account: publicAccount(staff) });
+  });
+
+  // Personel listesi
+  app.get('/api/auth/staff', (req: Request, res: Response) => {
+    const owner = requireOwner(req, res);
+    if (!owner) return;
+    const list = accounts
+      .filter((a) => a.parentAccountId === owner.id)
+      .map((a) => ({ ...publicAccount(a), createdAt: a.createdAt }));
+    res.json({ staff: list });
+  });
+
+  // Personel sil
+  app.delete('/api/auth/staff/:id', (req: Request, res: Response) => {
+    const owner = requireOwner(req, res);
+    if (!owner) return;
+    const id = req.params.id;
+    const target = accounts.find((a) => a.id === id && a.parentAccountId === owner.id);
+    if (!target) return res.status(404).json({ error: 'Personel bulunamadi.' });
+    accounts = accounts.filter((a) => a.id !== id);
+    sessions = sessions.filter((s) => s.accountId !== id);
+    writeJsonFile(ACCOUNTS_FILE, accounts);
+    writeJsonFile(SESSIONS_FILE, sessions);
+    res.json({ success: true });
+  });
+
+  // Koruma: /api/* icin giris zorunlu (auth ve health haric) + rol kisitlari
+  const CASHIER_FORBIDDEN_ALWAYS = ['/backup'];
+  const CASHIER_FORBIDDEN_MUTATION = ['/shop-profile', '/products', '/vip/'];
   app.use('/api', (req: Request, res: Response, next) => {
     const p = req.path;
     if (p === '/health' || p.startsWith('/auth/')) return next();
     const acc = accountFromRequest(req);
     if (!acc) return res.status(401).json({ error: 'Lutfen giris yapin.' });
-    als.run({ accountId: acc.id, role: acc.role || 'owner', state: loadShopState(acc.id) }, next);
+    const accRole = acc.role || 'owner';
+    if (accRole === 'cashier') {
+      if (CASHIER_FORBIDDEN_ALWAYS.some((o) => p.startsWith(o))) {
+        return res.status(403).json({ error: 'Bu islem sadece dukkan sahibine aciktir.' });
+      }
+      if (req.method !== 'GET' && CASHIER_FORBIDDEN_MUTATION.some((o) => p.startsWith(o))) {
+        return res.status(403).json({ error: 'Bu islem sadece dukkan sahibine aciktir.' });
+      }
+    }
+    als.run({ accountId: acc.id, role: accRole, state: loadShopState(acc.id) }, next);
   });
 
 
@@ -479,6 +593,53 @@ async function startServer() {
   // 1. Health check
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString(), clientsCount: clients.size });
+  });
+
+  // 1b. Tam yedek indir (JSON) — sadece owner
+  app.get('/api/backup', (_req, res) => {
+    const today = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Disposition', `attachment; filename="esnaf-yedek-${today}.json"`);
+    res.json({ version: 1, exportedAt: new Date().toISOString(), state: S() });
+  });
+
+  // 1c. Yedek geri yukle (JSON) — sadece owner, dogrulamali
+  app.post('/api/backup/restore', (req: Request, res: Response) => {
+    const ns = (req.body || {}).state;
+    if (!ns || !Array.isArray(ns.customers) || !Array.isArray(ns.transactions)) {
+      return res.status(400).json({ error: 'Gecersiz yedek dosyasi.' });
+    }
+    const st = S();
+    st.customers = ns.customers;
+    st.transactions = ns.transactions;
+    st.reminderLogs = Array.isArray(ns.reminderLogs) ? ns.reminderLogs : [];
+    st.dailyClosings = Array.isArray(ns.dailyClosings) ? ns.dailyClosings : [];
+    st.products = Array.isArray(ns.products) ? ns.products : [];
+    st.stockMovements = Array.isArray(ns.stockMovements) ? ns.stockMovements : [];
+    st.appointments = Array.isArray(ns.appointments) ? ns.appointments : [];
+    st.tables = Array.isArray(ns.tables) ? ns.tables : [];
+    st.repairTickets = Array.isArray(ns.repairTickets) ? ns.repairTickets : [];
+    if (ns.shopProfile && typeof ns.shopProfile === 'object') {
+      st.shopProfile = { ...st.shopProfile, ...ns.shopProfile };
+      st.storeName = ns.shopProfile.storeName || st.storeName;
+    }
+    saveState();
+    broadcast({
+      type: 'INIT',
+      payload: {
+        customers: st.customers,
+        transactions: st.transactions,
+        cash: calculateCashRegister(),
+        reminderLogs: st.reminderLogs,
+        shopProfile: st.shopProfile,
+        dailyClosings: st.dailyClosings,
+        products: st.products || [],
+        stockMovements: st.stockMovements || [],
+        appointments: st.appointments || [],
+        tables: st.tables || [],
+        repairTickets: st.repairTickets || [],
+      },
+    });
+    res.json({ success: true });
   });
 
   // 2. Full state fetch
@@ -1540,7 +1701,7 @@ Kurallar:
   }
 
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Bereket Esnaf PortalÄ± running at http://localhost:${PORT}`);
+    console.log(`Dükkânım running at http://localhost:${PORT}`);
   });
 }
 

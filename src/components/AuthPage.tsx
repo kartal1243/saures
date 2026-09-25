@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Store, Phone, Lock, User, ArrowRight, LogIn, UserPlus, Loader2 } from 'lucide-react';
 
 interface AuthPageProps {
@@ -45,13 +45,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         {/* Logo & Baslik */}
         <div className="text-center mb-6">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg mb-3">
-            <Store className="w-8 h-8" />
+            <svg viewBox="0 0 32 32" className="w-9 h-9" fill="none"><path d="M6 14 A10 10 0 0 1 26 14 Z" fill="#fff"/><circle cx="8" cy="15" r="2" fill="#f59e0b"/><circle cx="14" cy="15" r="2" fill="#fff"/><circle cx="20" cy="15" r="2" fill="#f59e0b"/><circle cx="25" cy="15" r="1.6" fill="#fff"/><rect x="9" y="17.5" width="14" height="10" rx="2" fill="#fff"/><rect x="11" y="19.5" width="4.5" height="3.5" rx="1" fill="#f59e0b"/><rect x="17" y="21.5" width="4" height="6" rx="1" fill="#f59e0b"/></svg>
           </div>
           <h1 className="text-2xl font-black text-stone-900 dark:text-white tracking-tight">
-            Esnaf & KOBİ Portalı
+            Dükkânım
           </h1>
           <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-            Kasa, veresiye, stok ve gün sonu — hepsi tek yerde
+            Dükkanının kasa, veresiye ve gün sonu defteri
           </p>
         </div>
 

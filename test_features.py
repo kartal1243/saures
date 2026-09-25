@@ -1,0 +1,202 @@
+# -*- coding: utf-8 -*-
+"""Faz 5/6/8/10b dogrulamasi: sifre guvenligi, brute force, personel rol kisiti, yedekleme."""
+import json
+import uuid
+import urllib.request
+import urllib.error
+
+BASE = "http://localhost:3000"
+PASSED = []
+FAILED = []
+
+
+def req(path, method="GET", body=None, cookie=None):
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    r = urllib.request.Request(BASE + path, data=data, method=method)
+    r.add_header("Content-Type", "application/json")
+    if cookie:
+        r.add_header("Cookie", cookie)
+    try:
+        resp = urllib.request.urlopen(r, timeout=15)
+        raw = resp.read().decode("utf-8")
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            parsed = raw
+        return resp.status, parsed, resp.headers
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode("utf-8")
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            parsed = raw
+        return e.code, parsed, e.headers
+
+
+def check(name, cond, detail=""):
+    if cond:
+        PASSED.append(name)
+        print(f"  PASS  {name}")
+    else:
+        FAILED.append(name)
+        print(f"  FAIL  {name}  {detail}")
+
+
+def sid_of(set_cookie):
+    if not set_cookie:
+        return None
+    for part in set_cookie.split(","):
+        if part.strip().startswith("sid="):
+            return "sid=" + part.strip().split(";", 1)[0].split("=", 1)[1]
+    return None
+
+
+def main():
+    tag = uuid.uuid4().hex[:6]
+    phone = f"0501{tag}"
+
+    print("\n== 1) KAYIT + SIFRE DEGISTIRME ==")
+    code, d, h = req("/api/auth/register", "POST",
+                     {"shopName": f"Guvenlik Testi {tag}", "ownerName": "Patron",
+                      "phone": phone, "password": "1111"})
+    cookie = sid_of(h.get("Set-Cookie", ""))
+    check("register 200", code in (200, 201) and bool(cookie), f"{code}")
+
+    code, d, _ = req("/api/auth/change-password", "POST",
+                     {"currentPassword": "yanlis", "newPassword": "2222"}, cookie=cookie)
+    check("yanlis mevcut sifre ile degisiklik 401", code == 401, f"{code} {d}")
+
+    code, d, _ = req("/api/auth/change-password", "POST",
+                     {"currentPassword": "1111", "newPassword": "22"}, cookie=cookie)
+    check("4 haneden kisa yeni sifre 400", code == 400, f"{code} {d}")
+
+    code, d, _ = req("/api/auth/change-password", "POST",
+                     {"currentPassword": "1111", "newPassword": "2222"}, cookie=cookie)
+    check("sifre degistirme 200", code == 200, f"{code} {d}")
+
+    code, d, _ = req("/api/auth/login", "POST", {"phone": phone, "password": "1111"})
+    check("eski sifre ile giris artik RED", code in (400, 401), f"{code}")
+    code, d, h = req("/api/auth/login", "POST", {"phone": phone, "password": "2222"})
+    cookie = sid_of(h.get("Set-Cookie", ""))
+    check("yeni sifre ile giris 200", code == 200 and bool(cookie), f"{code}")
+
+    print("\n== 2) BRUTE FORCE KORUMASI ==")
+    lock_phone = f"0502{tag}"
+    req("/api/auth/register", "POST",
+        {"shopName": f"Kilit Testi {tag}", "ownerName": "Kilit", "phone": lock_phone,
+         "password": "1234"})
+    codes = []
+    for _ in range(6):
+        c, _, _ = req("/api/auth/login", "POST", {"phone": lock_phone, "password": "yanlis"})
+        codes.append(c)
+    check("6. yanlis denemede 429 kilit", codes[-1] == 429, str(codes))
+    c, d, _ = req("/api/auth/login", "POST", {"phone": lock_phone, "password": "1234"})
+    check("kilitliyken dogru sifre bile giris yapamaz", c == 429, f"{c} {d}")
+
+    print("\n== 3) PERSONEL (KASIYER) EKLE + ROL KISITI ==")
+    code, d, h = req("/api/auth/register", "POST",
+                     {"shopName": f"Patronluk {tag}", "ownerName": "Patron",
+                      "phone": f"0503{tag}", "password": "1234"})
+    owner_cookie = sid_of(h.get("Set-Cookie", ""))
+    check("patron kaydi 200", code in (200, 201) and bool(owner_cookie), f"{code}")
+
+    # Profil tamamla (owner)
+    req("/api/shop-profile", "POST",
+        {"storeName": f"Patronluk {tag}", "ownerName": "Patron", "isConfigured": True},
+        cookie=owner_cookie)
+
+    cashier_phone = f"0504{tag}"
+    code, d, _ = req("/api/auth/add-staff", "POST",
+                     {"name": "Kasiyer Kiz", "phone": cashier_phone, "password": "4321"},
+                     cookie=owner_cookie)
+    staff_id = (d.get("account") or {}).get("id") if isinstance(d, dict) else None
+    check("kasiyer eklendi", code == 200 and staff_id, f"{code} {d}")
+
+    code, d, _ = req("/api/auth/staff", cookie=owner_cookie)
+    check("personel listesi 1 kisi", code == 200 and len(d.get("staff", [])) == 1, str(d))
+
+    # Kayitsiz telefondan add-staff denerse (auth yok) 401
+    code, d, _ = req("/api/auth/add-staff", "POST",
+                     {"name": "Seri", "phone": f"0505{tag}", "password": "1234"})
+    check("giris yokken personel eklenemez 401", code == 401, f"{code}")
+
+    code, d, h = req("/api/auth/login", "POST",
+                     {"phone": cashier_phone, "password": "4321"})
+    cash_cookie = sid_of(h.get("Set-Cookie", ""))
+    check("kasiyer giris 200", code == 200 and bool(cash_cookie), f"{code}")
+
+    code, d, _ = req("/api/auth/me", cookie=cash_cookie)
+    check("kasiyer rol='cashier'", code == 200 and d.get("account", {}).get("role") == "cashier",
+          str(d))
+
+    # Kasiyer serbest isler
+    code, d, _ = req("/api/data", cookie=cash_cookie)
+    check("kasiyer /api/data gorebilir 200", code == 200, f"{code}")
+    code, d, _ = req("/api/transactions", "POST",
+                     {"type": "masraf", "amount": 10}, cookie=cash_cookie)
+    check("kasiyer masraf girebilir 200", code == 200, f"{code} {d}")
+    code, d, _ = req("/api/customers", "POST",
+                     {"name": "Kasa Musteri", "phone": f"0556{tag}"}, cookie=cash_cookie)
+    check("kasiyer musteri ekleyebilir 200", code == 200, f"{code}")
+    code, d, _ = req("/api/daily-closings", "POST",
+                     {"actualCashCount": -10}, cookie=cash_cookie)
+    check("kasiyer gun sonu kapatabilir 200", code == 200, f"{code}")
+
+    # Kasiyer yasak isler
+    code, d, _ = req("/api/shop-profile", "POST",
+                     {"storeName": "Kaciyer Gunci", "isConfigured": True}, cookie=cash_cookie)
+    check("kasiyer profil degistiremez 403", code == 403, f"{code} {d}")
+    code, d, _ = req("/api/backup", cookie=cash_cookie)
+    check("kasiyer yedek alamaz 403", code == 403, f"{code}")
+    code, d, _ = req("/api/products", "POST",
+                     {"name": "X", "price": 10, "currentStock": 5, "minStock": 1},
+                     cookie=cash_cookie)
+    check("kasiyer urun ekleyemez 403", code == 403, f"{code} {d}")
+    code, d, _ = req("/api/auth/staff", cookie=cash_cookie)
+    check("kasiyer personel yonetemez 403", code == 403, f"{code}")
+
+    print("\n== 4) YEDEK INDIR + GERI YUKLE ==")
+    # Owner: 1 musteri ekle -> yedek al
+    req("/api/customers", "POST", {"name": "Yedekli Ali", "phone": f"0557{tag}"},
+        cookie=owner_cookie)
+    code, backup, _ = req("/api/backup", cookie=owner_cookie)
+    has_backup = code == 200 and isinstance(backup, dict) and backup.get("state", {}).get("customers")
+    check("yedek indirme 200 + state var", bool(has_backup), f"{code}")
+    saved_backup = backup if isinstance(backup, dict) else {}
+
+    # 2. musteri ekle (yedek disinda kalan veri)
+    req("/api/customers", "POST", {"name": "Sonrasi Mehmet", "phone": f"0558{tag}"},
+        cookie=owner_cookie)
+    code, st, _ = req("/api/data", cookie=owner_cookie)
+    check("geri yukleme oncesi 2 musteri", len(st.get("customers", [])) == 2,
+          str(len(st.get("customers", []))))
+
+    code, d, _ = req("/api/backup/restore", "POST", {"state": saved_backup["state"]},
+                     cookie=owner_cookie)
+    check("geri yukleme 200", code == 200 and d.get("success") is True, f"{code} {d}")
+
+    code, st, _ = req("/api/data", cookie=owner_cookie)
+    names = [c.get("name") for c in st.get("customers", [])]
+    check("geri yuklemeden sonra 1 musteri (Yedekli Ali)",
+          len(names) == 1 and "Yedekli Ali" in names, str(names))
+
+    code, d, _ = req("/api/backup/restore", "POST", {"state": {"customers": "bozuk"}},
+                     cookie=owner_cookie)
+    check("gecersiz yedek 400", code == 400, f"{code} {d}")
+
+    print("\n== 5) PERSONEL SIL ==")
+    code, d, _ = req(f"/api/auth/staff/{staff_id}", "DELETE", cookie=owner_cookie)
+    check("personel silindi 200", code == 200, f"{code} {d}")
+    code, d, _ = req("/api/data", cookie=cash_cookie)
+    check("silinen kasiyerin oturumu dustu 401", code == 401, f"{code}")
+    code, d, _ = req("/api/auth/login", "POST", {"phone": cashier_phone, "password": "4321"})
+    check("silinen kasiyer giris yapamaz", code in (400, 401, 404), f"{code} {d}")
+
+    print(f"\n===== SONUC: {len(PASSED)} PASS / {len(FAILED)} FAIL =====")
+    if FAILED:
+        print("Basarisiz:", ", ".join(FAILED))
+    return 1 if FAILED else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
