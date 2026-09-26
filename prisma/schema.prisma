@@ -1,0 +1,187 @@
+// Dükkanım Yanımda — Multi-tenant veri modeli (PostgreSQL + JSONB)
+// İlke: shared-schema, her satırda shopId (tenant_id). Sektöre özel
+// alanlar için katı kolon yerine Json (JSONB) + sektöre özel tablolar.
+// Postgres'te RLS ile ekstra izolasyon önerilir (not: dosya sonu).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BusinessType {
+  barber
+  lawyer
+  retail
+  service
+  common
+}
+
+enum Role {
+  owner
+  staff
+  cashier
+}
+
+enum TxnDirection {
+  income
+  expense
+}
+
+enum TicketStatus {
+  open
+  waiting_parts
+  in_progress
+  ready
+  delivered
+}
+
+model Shop {
+  id           String       @id @default(cuid())
+  name         String
+  businessType BusinessType @default(common)
+  ownerName    String?
+  phone        String?
+  city         String?
+  // Sektöre göre değişen ayarlar (randevu aralığı, vergi oranı, POS tercihi...)
+  settings     Json         @default("{}")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  users        User[]
+  customers    Customer[]
+  transactions CashTransaction[]
+  products     Product[]
+  appointments Appointment[]
+  cases        CaseFile[]
+  tickets      ServiceTicket[]
+
+  @@index([businessType])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name         String
+  pinHash      String?
+  role         Role     @default(staff)
+  // Berber primi, avukat saatlik ücreti gibi sektörel personel verisi
+  profile      Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  @@index([shopId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  balance   Decimal  @default(0) @db.Decimal(12, 2)
+  // Müvekkil dosya no, cilt tipi, araç plakası... sektöre özel esnek alan
+  extra     Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shopId])
+  @@index([shopId, name])
+}
+
+model CashTransaction {
+  id          String        @id @default(cuid())
+  shopId      String
+  shop        Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customerId  String?
+  direction   TxnDirection
+  amount      Decimal       @db.Decimal(12, 2)
+  method      String        @default("nakit")
+  category    String?
+  description String?
+  occurredAt  DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+
+  @@index([shopId, occurredAt])
+}
+
+// --- Sektörel tablolar: sadece ilgili businessType bu tabloları kullanır ---
+
+model Product {
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name      String
+  barcode   String?
+  stock     Int      @default(0)
+  critical  Int      @default(5)
+  buyPrice  Decimal? @db.Decimal(12, 2)
+  sellPrice Decimal? @db.Decimal(12, 2)
+  extra     Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  @@index([shopId])
+  @@index([shopId, barcode])
+}
+
+model Appointment {
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customer  String
+  staffName String?
+  service   String
+  price     Decimal  @db.Decimal(12, 2)
+  date      DateTime @db.Date
+  time      String
+  status    String   @default("bekliyor")
+
+  @@index([shopId, date])
+}
+
+model CaseFile {
+  id        String    @id @default(cuid())
+  shopId    String
+  shop      Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  title     String
+  client    String
+  court     String?
+  hearings  Hearing[]
+  extra     Json      @default("{}")
+  createdAt DateTime  @default(now())
+
+  @@index([shopId])
+}
+
+model Hearing {
+  id       String   @id @default(cuid())
+  caseId   String
+  caseFile CaseFile @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  date     DateTime
+  note     String?
+
+  @@index([caseId, date])
+}
+
+model ServiceTicket {
+  id        String       @id @default(cuid())
+  shopId    String
+  shop      Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customer  String
+  device    String
+  complaint String
+  estimate  Decimal      @db.Decimal(12, 2)
+  partCost  Decimal      @default(0) @db.Decimal(12, 2)
+  status    TicketStatus @default(open)
+  createdAt DateTime     @default(now())
+
+  @@index([shopId, status])
+}
+
+// RLS önerisi (migration'da aç):
+// ALTER TABLE "Shop" ENABLE ROW LEVEL SECURITY;
+// CREATE POLICY shop_isolation ON "Customer" USING ("shopId" = current_setting('app.shop_id'));
+// API katmanında her sorguya shopId filtresi zorunlu tutulur (bkz. registry: requireShopScope).
