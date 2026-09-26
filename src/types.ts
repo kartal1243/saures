@@ -252,6 +252,7 @@ export interface AppState {
   services: ServiceItem[];
   cases: CaseFile[];
   custody: CustodyTicket[];
+  businessDate: string; // İş günü (YYYY-MM-DD) — "Gün Sonu Kapat" ile devrer
   lastUpdated: string;
 }
 
@@ -274,6 +275,7 @@ export type WSEvent =
         services?: ServiceItem[];
         cases?: CaseFile[];
         custody?: CustodyTicket[];
+        businessDate?: string;
       };
     }
   | { type: 'TRANSACTION_CREATED'; payload: { transaction: Transaction; customer?: Customer; cash: CashRegister } }
@@ -289,6 +291,7 @@ export type WSEvent =
   | { type: 'APPOINTMENT_UPDATED'; payload: Appointment }
   | { type: 'APPOINTMENT_DELETED'; payload: { id: string } }
   | { type: 'TABLE_UPDATED'; payload: RestaurantTable }
+  | { type: 'TABLE_DELETED'; payload: { id: string } }
   | { type: 'REPAIR_TICKET_UPDATED'; payload: RepairTicket }
   | { type: 'REPAIR_TICKET_DELETED'; payload: { id: string } }
   | { type: 'SUPPLIER_UPDATED'; payload: Supplier }

@@ -3,6 +3,7 @@ import type { Supplier, Transaction } from '../../src/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
+import { localDay } from '../day';
 
 export function registerSupplierRoutes(app: Express): void {
   // ==========================================
@@ -80,7 +81,7 @@ export function registerSupplierRoutes(app: Express): void {
     const supplier = S().suppliers.find((s) => s.id === id);
     if (!supplier) return res.status(404).json({ error: 'Tedarikçi bulunamadı.' });
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = S().businessDate || localDay();
     const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     supplier.balance = Math.round((supplier.balance - amount) * 100) / 100;
     supplier.updatedAt = now.toISOString();

@@ -60,6 +60,7 @@ export function registerCoreRoutes(app: Express): void {
       services: (S() as any).services || [],
       cases: (S() as any).cases || [],
       custody: (S() as any).custody || [],
+      businessDate: S().businessDate,
       cash: calculateCashRegister(),
       lastUpdated: S().lastUpdated,
     });

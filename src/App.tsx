@@ -26,6 +26,8 @@ import { HomeDashboard } from './components/HomeDashboard';
 import { SECTORS } from './components/SectorSwitcherBar';
 
 import { CashSummary } from './components/CashSummary';
+import { RevenueVsExpensesChart } from './components/RevenueVsExpensesChart';
+import { WeeklyTrendCard } from './components/WeeklyTrendCard';
 import { QuickActionBar } from './components/QuickActionBar';
 import { UpcomingReminders } from './components/UpcomingReminders';
 import { CustomerList } from './components/CustomerList';
@@ -233,6 +235,7 @@ export default function App() {
   // Giris yoksa once tanitim (vitrin), butona basinca giris/kayit formu
   const [authView, setAuthView] = useState<'landing' | 'auth'>('landing');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     authedRef.current = false;
@@ -401,6 +404,8 @@ export default function App() {
               }
               return [...prev, wsEvent.payload];
             });
+          } else if (wsEvent.type === 'TABLE_DELETED') {
+            setTables((prev) => prev.filter((t) => t.id !== wsEvent.payload.id));
           } else if (wsEvent.type === 'REPAIR_TICKET_UPDATED') {
             setRepairTickets((prev) => {
               const exists = prev.some((t) => t.id === wsEvent.payload.id);
@@ -642,7 +647,11 @@ export default function App() {
       throw new Error(err.error || 'Gün sonu kaydedilemedi.');
     }
     const saved = await res.json();
-    setDailyClosings((prev) => [saved, ...prev]);
+    // API { success, closing, cash, businessDate } döner
+    if (saved.closing) {
+      setDailyClosings((prev) => [saved.closing, ...prev.filter((c) => c.id !== saved.closing.id)]);
+    }
+    if (saved.cash) setCash(saved.cash);
   };
 
   // Handler: Slogan / Vitrin AI Uygulama
@@ -1011,7 +1020,7 @@ export default function App() {
     item: { name: string; quantity: number; unitPrice: number }
   ) => {
     try {
-      const res = await fetch(`/api/tables/${tableId}/orders`, {
+      const res = await fetch(`/api/tables/${tableId}/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(item),
@@ -1058,6 +1067,36 @@ export default function App() {
       }
     } catch (err) {
       console.error('Error resetting table:', err);
+    }
+  };
+
+  const handleAddTable = async (name: string) => {
+    try {
+      const res = await fetch('/api/tables', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.table) setTables((prev) => [...prev, data.table]);
+      }
+    } catch (err) {
+      console.error('Error adding table:', err);
+    }
+  };
+
+  const handleDeleteTable = async (tableId: string) => {
+    try {
+      const res = await fetch(`/api/tables/${tableId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setTables((prev) => prev.filter((t) => t.id !== tableId));
+      } else {
+        const err = await res.json().catch(() => ({} as any));
+        alert(err.error || 'Masa silinemedi.');
+      }
+    } catch (err) {
+      console.error('Error deleting table:', err);
     }
   };
 
@@ -1347,11 +1386,46 @@ export default function App() {
         connected={connected}
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
-        onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
+        onOpenMenu={() => setMobileMenuOpen((v) => !v)}
         onOpenVip={() => setIsVipModalOpen(true)}
         onLogout={handleLogout}
         onExportCsv={handleExportCsv}
       />
+
+      {/* Mobil ayar menüsü (telefonda tek ayar noktası) */}
+      {mobileMenuOpen && (
+        <>
+          <div className="md:hidden fixed inset-0 z-40" onClick={() => setMobileMenuOpen(false)} />
+          <div className="md:hidden fixed top-16 right-3 z-50 w-60 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xl overflow-hidden animate-pop">
+            {(
+              [
+                { label: 'Dükkan Bilgileri', Icon: Store, fn: () => setIsShopProfileModalOpen(true) },
+                { label: 'Personel', Icon: UserPlus, fn: () => setIsStaffModalOpen(true) },
+                { label: 'Şifre Değiştir', Icon: KeyRound, fn: () => setIsChangePasswordOpen(true) },
+                { label: 'VIP Danışman', Icon: Crown, fn: () => setIsVipModalOpen(true) },
+              ] as const
+            ).map(({ label, Icon, fn }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => { setMobileMenuOpen(false); fn(); }}
+                className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
+              >
+                <Icon className="w-4 h-4 text-amber-500" />
+                {label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+              className="w-full text-left px-4 py-3 text-sm font-black text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-t border-stone-100 dark:border-stone-800 transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Çıkış Yap
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 flex-1 w-full animate-fade-in">
@@ -1375,16 +1449,6 @@ export default function App() {
                   "{shopProfile.slogan || 'Hayırlı ve bereketli işler dileriz.'}"
                 </p>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2 self-start sm:self-center">
-              <button
-                type="button"
-                onClick={() => setIsShopProfileModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold text-stone-700 dark:text-stone-300 bg-white dark:bg-stone-900 hover:bg-stone-50 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-colors cursor-pointer shadow-xs"
-              >
-                Dükkan Bilgileri
-              </button>
             </div>
           </div>
         )}
@@ -1413,11 +1477,16 @@ export default function App() {
         {/* 3. Live Cash Registers & Daily Target Tracker */}
         <CashSummary
           cash={cash}
+          profileTarget={shopProfile.dailyTarget}
           onOpenUpcomingModal={() => {
             const el = document.getElementById('section-upcoming-reminders');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }}
         />
+
+        {/* 4. Eski grafikler: kar/zarar karşılaştırma + haftalık trend */}
+        <RevenueVsExpensesChart transactions={transactions} />
+        <WeeklyTrendCard transactions={transactions} />
 
         </>
         )}
@@ -1527,6 +1596,8 @@ export default function App() {
           onCheckoutTable={handleCheckoutTable}
           onResetTable={handleResetTable}
           onAddQuickExpense={handleAddQuickExpense}
+          onAddTable={handleAddTable}
+          onDeleteTable={handleDeleteTable}
           products={products}
           customers={customers}
           onQuickPosSale={handleQuickPosSale}

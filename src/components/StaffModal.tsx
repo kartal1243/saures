@@ -8,6 +8,9 @@ interface StaffMember {
   phone: string;
   role: string;
   createdAt: string;
+  position?: string;
+  salary?: number;
+  staffNotes?: string;
 }
 
 interface StaffModalProps {
@@ -20,6 +23,9 @@ export const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose }) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [position, setPosition] = useState('Kasiyer');
+  const [salary, setSalary] = useState('');
+  const [staffNotes, setStaffNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -48,13 +54,16 @@ export const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose }) => {
       const res = await fetch('/api/auth/add-staff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, password }),
+        body: JSON.stringify({ name, phone, password, position, salary, staffNotes }),
       });
       const data = await res.json().catch(() => ({}) as any);
       if (!res.ok) throw new Error(data.error || 'Personel eklenemedi.');
       setName('');
       setPhone('');
       setPassword('');
+      setPosition('Kasiyer');
+      setSalary('');
+      setStaffNotes('');
       loadStaff();
     } catch (err: any) {
       setError(err.message || 'Bağlantı hatası oluştu.');
@@ -102,7 +111,10 @@ export const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose }) => {
 
           <form onSubmit={addStaff} className="space-y-3 p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700">
             <p className="text-xs font-black text-stone-800 dark:text-stone-200 uppercase tracking-wider flex items-center gap-1.5">
-              <UserPlus className="w-3.5 h-3.5 text-amber-500" /> Yeni Kasiyer Ekle
+              <UserPlus className="w-3.5 h-3.5 text-amber-500" /> Yeni Personel Ekle
+            </p>
+            <p className="text-[11px] text-stone-500 dark:text-stone-400 font-semibold">
+              Personel kendi telefon ve şifresiyle giriş yapar; satış yapabilir, ayarlara dokunamaz.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <input
@@ -118,7 +130,7 @@ export const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose }) => {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 required
-                placeholder="Telefon"
+                placeholder="Telefon (giriş için)"
                 className="px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm text-stone-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
               />
               <input
@@ -128,6 +140,32 @@ export const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose }) => {
                 required
                 minLength={4}
                 placeholder="Şifre (4+)"
+                className="px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm text-stone-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <select
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm text-stone-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer"
+              >
+                {['Kasiyer', 'Usta', 'Kalfa', 'Çırak', 'Garson', 'Tezgahtar', 'Kurye', 'Temizlik', 'Muhasebe'].map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0"
+                value={salary}
+                onChange={(e) => setSalary(e.target.value)}
+                placeholder="Aylık maaş ₺ (isteğe bağlı)"
+                className="px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm text-stone-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+              />
+              <input
+                type="text"
+                value={staffNotes}
+                onChange={(e) => setStaffNotes(e.target.value)}
+                placeholder="Not (örn: haftasonu çalışır)"
                 className="px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm text-stone-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
               />
             </div>
@@ -159,8 +197,17 @@ export const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose }) => {
                       {s.ownerName.charAt(0).toUpperCase()}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-stone-900 dark:text-white truncate">{s.ownerName}</p>
-                      <p className="text-[11px] text-stone-500 dark:text-stone-400">{s.phone}</p>
+                      <p className="text-sm font-bold text-stone-900 dark:text-white truncate">
+                        {s.ownerName}
+                        {typeof s.salary === 'number' && (
+                          <span className="ml-1.5 text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                            {s.salary.toLocaleString('tr-TR')} ₺
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
+                        {s.position || 'Kasiyer'} · {s.phone}{s.staffNotes ? ` · ${s.staffNotes}` : ''}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

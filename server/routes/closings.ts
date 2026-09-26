@@ -3,6 +3,7 @@ import type { DailyClosing } from '../../src/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
+import { addDaysStr, localDay } from '../day';
 
 export function registerClosingRoutes(app: Express): void {
   // 10. Daily Closings Routes (Gün Sonu Z Raporları)
@@ -18,7 +19,9 @@ export function registerClosingRoutes(app: Express): void {
     const actual = Number(actualCashCount) || 0;
     const diff = actual - expectedCash;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    // Kapanan gün = açık olan iş günü; kapanışla yeni iş günü açılır (Z-raporu)
+    const closingDay = S().businessDate || localDay();
+    const todayStr = closingDay;
     const newClosing: DailyClosing = {
       id: `close_${Date.now()}`,
       date: todayStr,
@@ -48,8 +51,12 @@ export function registerClosingRoutes(app: Express): void {
       S().dailyClosings.unshift(newClosing);
     }
 
+    // Günü devret: yeni iş günü açılır, kasa sıfırlanır
+    S().businessDate = addDaysStr(closingDay, 1);
     saveState();
+    const newCash = calculateCashRegister();
     broadcast({ type: 'DAILY_CLOSING_CREATED', payload: newClosing });
-    res.json({ success: true, closing: newClosing });
+    broadcast({ type: 'CASH_UPDATED', payload: newCash });
+    res.json({ success: true, closing: newClosing, cash: newCash, businessDate: S().businessDate });
   });
 }

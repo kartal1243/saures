@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CashRegister } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import {
@@ -20,11 +20,13 @@ import { motion } from 'motion/react';
 interface CashSummaryProps {
   cash: CashRegister;
   onOpenUpcomingModal?: () => void;
+  profileTarget?: number;
 }
 
-export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingModal }) => {
-  // Daily Earnings Target State with localStorage persistence
+export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingModal, profileTarget }) => {
+  // Hedef ciro tek kaynaktan: Dükkan Bilgileri'ndeki hedef (yoksa eski yerel değer)
   const [dailyTarget, setDailyTarget] = useState<number>(() => {
+    if (profileTarget && profileTarget > 0) return profileTarget;
     try {
       const saved = localStorage.getItem('esnaf_daily_earnings_target');
       return saved ? Number(saved) : 3000;
@@ -32,6 +34,14 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
       return 3000;
     }
   });
+
+  // Profilde hedef değişince aşağıdaki bar da artsın
+  useEffect(() => {
+    if (profileTarget && profileTarget > 0) {
+      setDailyTarget(profileTarget);
+      setTempTarget(String(profileTarget));
+    }
+  }, [profileTarget]);
 
   const [isEditingTarget, setIsEditingTarget] = useState<boolean>(false);
   const [tempTarget, setTempTarget] = useState<string>(String(dailyTarget));

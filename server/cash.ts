@@ -1,9 +1,10 @@
 import type { CashRegister } from '../src/types';
 import { S } from './context';
+import { localDay } from './day';
 
-// Canlı kasa & bakiye hesabı (günün tarihi UTC gün sınırına göre)
+// Canlı kasa & bakiye hesabı (açık olan İŞ GÜNÜNE göre — kapanışla devrer)
 export function calculateCashRegister(): CashRegister {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = S().businessDate || localDay();
   let todayCash = 0;
   let todayCard = 0;
   let todayBank = 0;

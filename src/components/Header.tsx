@@ -20,7 +20,7 @@ interface HeaderProps {
   connected: boolean;
   darkMode: boolean;
   onToggleDarkMode: () => void;
-  onOpenShopProfile: () => void;
+  onOpenMenu: () => void;
   onOpenVip: () => void;
   onToggleProfileMenu?: () => void;
   onLogout: () => void;
@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
   connected,
   darkMode,
   onToggleDarkMode,
-  onOpenShopProfile,
+  onOpenMenu,
   onOpenVip,
   onLogout,
   onExportCsv,
@@ -53,25 +53,19 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Left: Brand & Shop Info */}
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={onOpenShopProfile}
-            className="w-11 h-11 rounded-xl bg-linear-to-b from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white flex items-center justify-center shadow-[0_2px_10px_rgba(245,158,11,0.45)] font-bold text-lg transition-all active:scale-95 cursor-pointer shrink-0"
-            title="Dükkan bilgilerini düzenle"
+          <div
+            className="w-11 h-11 rounded-xl bg-linear-to-b from-amber-400 to-amber-500 text-white flex items-center justify-center shadow-[0_2px_10px_rgba(245,158,11,0.45)] font-bold text-lg shrink-0"
           >
             <Store className="w-5 h-5" />
-          </button>
+          </div>
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={onOpenShopProfile}
-                className="text-base sm:text-lg font-black text-stone-900 dark:text-white tracking-tight hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-left truncate cursor-pointer"
-                title="Dükkan profilini görüntüle & düzenle"
+              <span
+                className="text-base sm:text-lg font-black text-stone-900 dark:text-white tracking-tight text-left truncate"
               >
                 {displayName}
-              </button>
+              </span>
 
               {shopProfile && (
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -145,14 +139,14 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden lg:inline">Excel</span>
           </button>
 
-          {/* Profil kısayolu: dükkan bilgilerini açar (ayarlar sol menüde) */}
-          <div className="relative">
+          {/* Mobil ayar menüsü (tek ayar noktası — telefonda) */}
+          <div className="relative md:hidden">
             <button
               id="btn-profile-menu"
               type="button"
-              onClick={onOpenShopProfile}
+              onClick={onOpenMenu}
               className="flex items-center gap-1.5 pl-1.5 pr-2 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
-              title="Dükkan bilgileri"
+              title="Menü"
             >
               <span className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs font-black">
                 {avatarChar}

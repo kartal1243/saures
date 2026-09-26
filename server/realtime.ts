@@ -54,6 +54,7 @@ export function buildInitEvent(st: AppState): WSEvent {
       services: (st as any).services || [],
       cases: (st as any).cases || [],
       custody: (st as any).custody || [],
+      businessDate: st.businessDate,
     },
   };
 }

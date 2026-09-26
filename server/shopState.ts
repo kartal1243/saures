@@ -1,5 +1,6 @@
 import path from 'path';
 import { SHOPS_DIR } from './config';
+import { localDay } from './day';
 import { readJsonFile, writeJsonFile } from './fsdb';
 import { findAccountById } from './accounts';
 import type { AppState } from '../src/types';
@@ -34,6 +35,7 @@ export function emptyState(seed?: { storeName: string; ownerName: string; phone:
     services: [],
     cases: [],
     custody: [],
+    businessDate: localDay(),
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -67,6 +69,7 @@ export function loadShopState(accountId: string): AppState {
   if (!Array.isArray((st as any).services)) (st as any).services = [];
   if (!Array.isArray((st as any).cases)) (st as any).cases = [];
   if (!Array.isArray((st as any).custody)) (st as any).custody = [];
+  if (typeof st.businessDate !== 'string' || !st.businessDate) st.businessDate = localDay();
   if (!Array.isArray(st.reminderLogs)) st.reminderLogs = [];
   shopStateCache.set(accountId, st);
   return st;

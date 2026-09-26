@@ -2,6 +2,7 @@ import type { Express, Request, Response } from 'express';
 import type { Product, StockMovement } from '../../src/types';
 import { S, saveState } from '../context';
 import { broadcast } from '../realtime';
+import { localDay } from '../day';
 
 export function registerProductRoutes(app: Express): void {
   // 12. Products & Stock Management Endpoints
@@ -106,7 +107,7 @@ export function registerProductRoutes(app: Express): void {
     product.updatedAt = new Date().toISOString();
 
     const now = new Date();
-    const dateStr = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
+    const dateStr = `${S().businessDate || localDay()} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
 
     const movement: StockMovement = {
       id: `sm_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,

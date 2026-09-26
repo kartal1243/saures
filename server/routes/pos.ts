@@ -3,6 +3,7 @@ import type { StockMovement, Transaction } from '../../src/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
+import { localDay } from '../day';
 
 export function registerPosRoutes(app: Express): void {
   // 17. Hızlı POS satışı: kasaya tahsilat + stoktan düşüm
@@ -16,7 +17,7 @@ export function registerPosRoutes(app: Express): void {
     const summaryStr = items.map((it: any) => `${it.quantity}x ${it.name}`).join(', ');
 
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = S().businessDate || localDay();
     const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
     // 1. Kasaya Tahsilat Ekle

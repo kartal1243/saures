@@ -134,6 +134,9 @@ export function registerAuthRoutes(app: Express): void {
       createdAt: new Date().toISOString(),
       role: 'cashier',
       parentAccountId: owner.id,
+      position: String(body.position || 'Kasiyer').trim(),
+      salary: body.salary !== undefined && body.salary !== '' ? Number(body.salary) : undefined,
+      staffNotes: String(body.staffNotes || '').trim() || undefined,
     };
     addAccount(staff);
     res.json({ success: true, account: publicAccount(staff) });

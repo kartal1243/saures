@@ -24,6 +24,8 @@ interface RestaurantTablesViewProps {
   onCheckoutTable: (tableId: string, paymentMethod: 'nakit' | 'kart') => Promise<void>;
   onResetTable: (tableId: string) => Promise<void>;
   onAddQuickExpense: (description: string, amount: number) => Promise<void>;
+  onAddTable: (name: string) => Promise<void>;
+  onDeleteTable: (id: string) => Promise<void>;
 }
 
 const MENU_SHORTCUTS = [
@@ -45,8 +47,12 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
   onCheckoutTable,
   onResetTable,
   onAddQuickExpense,
+  onAddTable,
+  onDeleteTable,
 }) => {
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newTableName, setNewTableName] = useState('');
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState<number | ''>('');
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -114,6 +120,14 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
+            onClick={() => setIsAddOpen((v) => !v)}
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Masa Ekle</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setIsExpenseModalOpen(true)}
             className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 hover:bg-rose-100 transition-colors cursor-pointer"
           >
@@ -162,6 +176,43 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
         </div>
       </div>
 
+      {/* Masa ekleme formu */}
+      {isAddOpen && (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!newTableName.trim()) return;
+            await onAddTable(newTableName.trim());
+            setNewTableName('');
+            setIsAddOpen(false);
+          }}
+          className="flex gap-2 p-3 rounded-2xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/60"
+        >
+          <input
+            type="text"
+            value={newTableName}
+            onChange={(e) => setNewTableName(e.target.value)}
+            placeholder={`Masa adı (örn: Masa ${tables.length + 1})`}
+            autoFocus
+            className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm text-stone-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-orange-500"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black transition-colors cursor-pointer shrink-0"
+          >
+            Ekle
+          </button>
+        </form>
+      )}
+
+      {tables.length === 0 && !isAddOpen && (
+        <div className="p-8 rounded-2xl bg-white dark:bg-stone-900 border border-dashed border-stone-300 dark:border-stone-700 text-center">
+          <UtensilsCrossed className="w-8 h-8 mx-auto text-stone-300" />
+          <p className="mt-2 text-sm font-bold text-stone-500">Henüz masa yok.</p>
+          <p className="text-xs text-stone-400 mt-1">Yukarıdaki "Masa Ekle" ile salonunu kurmaya başla.</p>
+        </div>
+      )}
+
       {/* Bento Grid: Masalar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {tables.map((table) => {
@@ -177,19 +228,34 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
                   : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-stone-900 dark:text-white">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="font-bold text-sm text-stone-900 dark:text-white truncate">
                   {table.name}
                 </span>
 
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    isOccupied
-                      ? 'bg-orange-500 text-white shadow-xs'
-                      : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400'
-                  }`}
-                >
-                  {isOccupied ? 'DOLU' : 'BOŞ'}
+                <span className="flex items-center gap-1 shrink-0">
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      isOccupied
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400'
+                    }`}
+                  >
+                    {isOccupied ? 'DOLU' : 'BOŞ'}
+                  </span>
+                  {!isOccupied && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`"${table.name}" silinsin mi?`)) onDeleteTable(table.id);
+                      }}
+                      className="p-1 rounded-md text-stone-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                      title="Masayı sil"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </span>
               </div>
 

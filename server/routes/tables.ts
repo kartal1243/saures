@@ -3,6 +3,7 @@ import type { RestaurantTable, Transaction } from '../../src/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
+import { localDay } from '../day';
 
 export function registerTableRoutes(app: Express): void {
   // ==========================================
@@ -12,7 +13,8 @@ export function registerTableRoutes(app: Express): void {
     res.json({ tables: S().tables || [] });
   });
 
-  app.post('/api/tables/:id/order', (req: Request, res: Response) => {
+  // Not: eski ön yüzler /orders (çoğul) çağırır — ikisini de karşıla
+  const handleTableOrder = (req: Request, res: Response) => {
     const { id } = req.params;
     const { name, quantity, unitPrice } = req.body;
     if (!name || !quantity) {
@@ -49,7 +51,10 @@ export function registerTableRoutes(app: Express): void {
     saveState();
     broadcast({ type: 'TABLE_UPDATED', payload: table });
     res.json({ success: true, table });
-  });
+  };
+
+  app.post('/api/tables/:id/order', handleTableOrder);
+  app.post('/api/tables/:id/orders', handleTableOrder);
 
   app.post('/api/tables/:id/checkout', (req: Request, res: Response) => {
     const { id } = req.params;
@@ -67,7 +72,7 @@ export function registerTableRoutes(app: Express): void {
 
     // Otomatik Kasaya Gelir Yaz
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = S().businessDate || localDay();
     const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
     const transaction: Transaction = {
@@ -120,6 +125,20 @@ export function registerTableRoutes(app: Express): void {
     saveState();
     broadcast({ type: 'TABLE_UPDATED', payload: table });
     res.json({ success: true, table });
+  });
+
+  app.delete('/api/tables/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!S().tables) S().tables = [];
+    const table = S().tables.find((t) => t.id === id);
+    if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
+    if (table.isOccupied && table.orders.length > 0) {
+      return res.status(400).json({ error: 'Açık adisyonu olan masa silinemez. Önce hesabı kapatın.' });
+    }
+    S().tables = S().tables.filter((t) => t.id !== id);
+    saveState();
+    broadcast({ type: 'TABLE_DELETED', payload: { id } });
+    res.json({ success: true });
   });
 
   app.post('/api/tables', (req: Request, res: Response) => {

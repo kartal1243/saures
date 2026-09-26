@@ -3,6 +3,7 @@ import type { Customer, Transaction } from '../../src/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
+import { localDay } from '../day';
 
 export function registerTransactionRoutes(app: Express): void {
   // 5. Create Transaction (Veresiye ekle, Tahsilat al, Kasa çıkışı yap)
@@ -15,7 +16,7 @@ export function registerTransactionRoutes(app: Express): void {
     }
 
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = S().businessDate || localDay();
     const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
     let customer: Customer | undefined;

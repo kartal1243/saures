@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { TrendingUp, TrendingDown, ArrowRight, ReceiptText } from 'lucide-react';
 import type { CashRegister, Customer, Supplier, Transaction, TransactionType } from '../types';
 import { formatCurrency } from '../utils/formatters';
@@ -12,9 +12,6 @@ interface HomeDashboardProps {
   onNavigate: (tab: ActiveTab) => void;
 }
 
-type PeriodKey = '1G' | '7G' | '30G' | '1Y';
-const PERIOD_DAYS: Record<PeriodKey, number> = { '1G': 1, '7G': 7, '30G': 30, '1Y': 365 };
-
 function parseDate(d: string): number {
   const t = new Date(d.includes(' ') && !d.includes('T') ? d.replace(' ', 'T') : d).getTime();
   return isNaN(t) ? 0 : t;
@@ -26,8 +23,6 @@ function dayKey(ts: number): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-
-const DAY_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 const ROW_META: Record<TransactionType, { label: string; dot: string; text: string }> = {
   veresiye: { label: 'Alacak Kaydı', dot: 'bg-emerald-500', text: 'text-emerald-500' },
@@ -43,8 +38,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   suppliers,
   onNavigate,
 }) => {
-  const [period, setPeriod] = useState<PeriodKey>('30G');
-
   const alacak = cash.totalReceivables || 0;
   const borc = useMemo(
     () => suppliers.reduce((s, x) => s + Math.max(0, x.balance || 0), 0),
@@ -75,72 +68,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   const debtorCount = useMemo(() => customers.filter((c) => (c.balance || 0) > 0).length, [customers]);
 
-  const periodStats = useMemo(() => {
-    const cutoff = Date.now() - PERIOD_DAYS[period] * 86400000;
-    const list = transactions.filter((t) => parseDate(t.date) >= cutoff);
-    const byType = (type: TransactionType) => {
-      const rows = list.filter((t) => t.type === type);
-      return { count: rows.length, total: rows.reduce((s, t) => s + Math.abs(t.amount || 0), 0) };
-    };
-    const veresiye = byType('veresiye');
-    const tahsilat = byType('tahsilat');
-    const gider = byType('gider');
-    const masraf = byType('masraf');
-    const grand = veresiye.total + tahsilat.total + gider.total + masraf.total;
-    return { veresiye, tahsilat, gider, masraf, grand, netNakit: tahsilat.total - gider.total - masraf.total };
-  }, [transactions, period]);
-
-  // Günlük kar/zarar = (veresiye + tahsilat) − (gider + masraf); ciro = veresiye + tahsilat
-  const trend = useMemo(() => {
-    const days: { label: string; profit: number; revenue: number }[] = [];
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const key = dayKey(d.getTime());
-      let income = 0;
-      let expense = 0;
-      for (const t of transactions) {
-        const ts = parseDate(t.date);
-        if (ts > 0 && dayKey(ts) === key) {
-          const amt = Math.abs(t.amount || 0);
-          if (t.type === 'veresiye' || t.type === 'tahsilat') income += amt;
-          else expense += amt;
-        }
-      }
-      days.push({ label: DAY_SHORT[d.getDay()], profit: income - expense, revenue: income });
-    }
-    return days;
-  }, [transactions]);
-
-  const weekProfit = trend.reduce((s, d) => s + d.profit, 0);
-  const weekRevenue = trend.reduce((s, d) => s + d.revenue, 0);
-
-  const W = 300;
-  const H = 120;
-  const PAD = 8;
-  const allVals = trend.flatMap((d) => [d.profit, d.revenue]);
-  const tMin = Math.min(...allVals, 0);
-  const tMax = Math.max(...allVals, 0);
-  const span = tMax - tMin || 1;
-  const yOf = (v: number) => H - PAD - ((v - tMin) / span) * (H - PAD * 2);
-  const xOf = (i: number) => PAD + (i * (W - PAD * 2)) / 6;
-  const profitPts = trend.map((d, i) => ({ x: xOf(i), y: yOf(d.profit) }));
-  const revenuePts = trend.map((d, i) => ({ x: xOf(i), y: yOf(d.revenue) }));
-  const toLine = (pts: { x: number; y: number }[]) =>
-    pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const profitLine = toLine(profitPts);
-  const revenueLine = toLine(revenuePts);
-  const area = `${profitLine} L${profitPts[6].x.toFixed(1)},${H} L${profitPts[0].x.toFixed(1)},${H} Z`;
-  const zeroY = yOf(0);
-
   const recent = useMemo(() => transactions.slice(0, 6), [transactions]);
-
-  const periodRows: { type: TransactionType; count: number; total: number }[] = [
-    { type: 'veresiye', ...periodStats.veresiye },
-    { type: 'tahsilat', ...periodStats.tahsilat },
-    { type: 'gider', ...periodStats.gider },
-    { type: 'masraf', ...periodStats.masraf },
-  ];
 
   return (
     <div className="space-y-4">
@@ -224,90 +152,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <span className="w-6 h-6 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center text-xs font-black">₺</span>
           <span className="text-sm font-black text-rose-500">{debtorCount}</span>
           <span className="text-[11px] font-bold text-stone-400">borçlu</span>
-        </div>
-      </div>
-
-      {/* Dönem raporu + trend */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Dönem Raporu</p>
-            <div className="flex gap-1 bg-stone-100 dark:bg-stone-800 rounded-lg p-1">
-              {(Object.keys(PERIOD_DAYS) as PeriodKey[]).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPeriod(p)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-black transition-colors cursor-pointer ${
-                    period === p
-                      ? 'bg-rose-600 text-white'
-                      : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-          <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-stone-400">Net nakit girişi</p>
-          <p className={`text-2xl font-black ${periodStats.netNakit < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-            {periodStats.netNakit >= 0 ? '+' : '−'}{formatCurrency(Math.abs(periodStats.netNakit))}
-          </p>
-          <div className="mt-3 space-y-2.5">
-            {periodRows.map(({ type, count, total }) => {
-              const meta = ROW_META[type];
-              const pay = periodStats.grand > 0 ? Math.round((total / periodStats.grand) * 100) : 0;
-              return (
-                <div key={type} className="flex items-center gap-2.5 text-xs font-bold">
-                  <span className={`w-2 h-2 rounded-full ${meta.dot} shrink-0`} />
-                  <span className="text-stone-600 dark:text-stone-300 w-24 shrink-0">{meta.label}</span>
-                  <span className="text-stone-400 w-8 text-right shrink-0">{count}</span>
-                  <span className={`flex-1 text-right ${meta.text}`}>{formatCurrency(total)}</span>
-                  <span className="text-stone-400 w-10 text-right shrink-0">{pay}%</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Son 7 gün</p>
-          <div className="mt-1.5 grid grid-cols-2 gap-2">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Kar / Zarar</p>
-              <p className={`text-xl font-black ${weekProfit < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                {weekProfit >= 0 ? '+' : '−'}{formatCurrency(Math.abs(weekProfit))}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Ciro</p>
-              <p className="text-xl font-black text-amber-500">{formatCurrency(weekRevenue)}</p>
-            </div>
-          </div>
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-32 mt-2" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" stopOpacity="0.45" />
-                <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
-              </linearGradient>
-            </defs>
-            <line x1={PAD} x2={W - PAD} y1={zeroY} y2={zeroY} stroke="currentColor" className="text-stone-300 dark:text-stone-700" strokeWidth="1" strokeDasharray="4 3" />
-            <path d={area} fill="url(#trendFill)" />
-            <path d={revenueLine} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.9" />
-            <path d={profitLine} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-            {profitPts.map((p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r="3" fill="#10b981" stroke="#fff" strokeWidth="1.5" />
-            ))}
-          </svg>
-          <div className="flex justify-between text-[10px] font-bold text-stone-400 px-1">
-            {trend.map((d, i) => (
-              <span key={i}>{d.label}</span>
-            ))}
-          </div>
-          <p className="mt-2 text-[10px] font-bold text-stone-400 flex items-center gap-3">
-            <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-emerald-500 inline-block" /> Kar / Zarar</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-amber-500 inline-block" /> Ciro</span>
-          </p>
         </div>
       </div>
 

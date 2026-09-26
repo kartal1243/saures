@@ -95,7 +95,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-amber-100 mt-0.5">
-                {shopProfile?.storeName || 'Dükkanınız'} için 7/24 profil iyileştirme, tasarruf ve ciro danışmanlığı
+                {shopProfile?.storeName || 'Dükkanınız'} için ayrıcalıklar kulübü — borcunu toplayan, kârını artıran araçlar
               </p>
             </div>
           </div>
@@ -106,6 +106,65 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* VIP vitrin: neden VIP + yol haritası (ön yüz only) */}
+        <div className="px-5 sm:px-6 pt-5">
+          <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+            <div>
+              <p className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-1.5">
+                <Crown className="w-4 h-4 text-amber-500" /> Neden VIP?
+              </p>
+              <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 font-medium">
+                Esnafın paraya dönüşen 3 şeyi: <b>geciken borcu toplamak</b>, <b>gideri kısmak</b>, <b>ciroyu artırmak</b>. VIP araçlar tam bunun için geliyor.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('advisor'); setAiResponse(null); }}
+              className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-md transition-colors cursor-pointer"
+            >
+              <Bot className="w-4 h-4" /> AI Danışmanı Dene
+            </button>
+          </div>
+
+          <p className="mt-4 mb-2 text-[11px] font-black uppercase tracking-widest text-stone-400">
+            VIP Yol Haritası
+          </p>
+          <div className="grid sm:grid-cols-2 gap-2.5">
+            {(
+              [
+                { Icon: Bot, t: 'Yapay Zeka Danışman', d: '7/24 ciro, gider ve vitrin önerileri', on: true },
+                { Icon: MessageSquare, t: 'Otomatik Hatırlatma Paketi', d: 'Geciken borca toplu WhatsApp takibi', on: false },
+                { Icon: TrendingUp, t: 'Patron Raporları', d: 'Haftalık kâr/zarar PDF özeti', on: false },
+                { Icon: FileCheck, t: 'Muhasebeciye Tek Tık', d: 'Defteri müşavire hazır dosya olarak gönder', on: false },
+                { Icon: LifeBuoy, t: 'Öncelikli Destek', d: 'Sorunda sıra beklemeden yardım', on: false },
+                { Icon: Store, t: 'Sınırsız Kayıt', d: 'Müşteri, ürün ve fiş limiti yok', on: false },
+              ] as const
+            ).map(({ Icon, t, d, on }) => (
+              <div
+                key={t}
+                className={`flex items-start gap-2.5 p-3 rounded-xl border ${
+                  on
+                    ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60'
+                    : 'bg-stone-50 dark:bg-stone-800/50 border-stone-200 dark:border-stone-700'
+                }`}
+              >
+                <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${on ? 'bg-emerald-500 text-white' : 'bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-300'}`}>
+                  <Icon className="w-4 h-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5 text-xs font-black text-stone-900 dark:text-white">
+                    {t}
+                    <span className={`px-1.5 py-px rounded-full text-[9px] font-black ${on ? 'bg-emerald-500 text-white' : 'bg-stone-300 dark:bg-stone-600 text-stone-600 dark:text-stone-300'}`}>
+                      {on ? 'Aktif' : 'Yakında'}
+                    </span>
+                  </span>
+                  <span className="block text-[11px] text-stone-500 dark:text-stone-400 font-medium mt-0.5">{d}</span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Navigation Tabs */}

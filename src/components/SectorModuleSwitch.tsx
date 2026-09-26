@@ -43,6 +43,8 @@ interface SectorModuleSwitchProps {
   onCheckoutTable: (tableId: string, paymentMethod: 'nakit' | 'kart') => Promise<void>;
   onResetTable: (tableId: string) => Promise<void>;
   onAddQuickExpense: (description: string, amount: number) => Promise<void>;
+  onAddTable: (name: string) => Promise<void>;
+  onDeleteTable: (id: string) => Promise<void>;
   // Bakkal / Market (POS)
   products: Product[];
   customers: Customer[];
@@ -96,6 +98,8 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
         onCheckoutTable={props.onCheckoutTable}
         onResetTable={props.onResetTable}
         onAddQuickExpense={props.onAddQuickExpense}
+        onAddTable={props.onAddTable}
+        onDeleteTable={props.onDeleteTable}
       />
     );
   }

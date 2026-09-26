@@ -17,6 +17,9 @@ export interface Account {
   createdAt: string;
   role?: string; // 'owner' | 'cashier' (yok = owner)
   parentAccountId?: string; // kasiyer icin hesap sahibi
+  position?: string; // personel görevi (örn: Kasiyer, Usta, Çırak)
+  salary?: number; // aylık maaş (TL)
+  staffNotes?: string; // personel notu
 }
 
 export interface Session {
@@ -136,6 +139,9 @@ export function publicAccount(a: Account): {
   phone: string;
   createdAt: string;
   role: string;
+  position?: string;
+  salary?: number;
+  staffNotes?: string;
 } {
   return {
     id: a.id,
@@ -144,6 +150,9 @@ export function publicAccount(a: Account): {
     phone: a.phone,
     createdAt: a.createdAt,
     role: a.role || 'owner',
+    position: a.position || undefined,
+    salary: typeof a.salary === 'number' ? a.salary : undefined,
+    staffNotes: a.staffNotes || undefined,
   };
 }
 

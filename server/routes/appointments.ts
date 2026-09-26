@@ -3,6 +3,7 @@ import type { Appointment, Transaction } from '../../src/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
+import { localDay } from '../day';
 
 export function registerAppointmentRoutes(app: Express): void {
   // ==========================================
@@ -75,7 +76,7 @@ export function registerAppointmentRoutes(app: Express): void {
 
     // Otomatik Kasaya Tahsilat Ekle
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = S().businessDate || localDay();
     const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
     const transaction: Transaction = {

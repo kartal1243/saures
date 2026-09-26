@@ -3,6 +3,7 @@ import type { CustodyTicket, Transaction } from '../../src/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
+import { localDay } from '../day';
 
 export function registerCustodyRoutes(app: Express): void {
   // ==========================================
@@ -83,7 +84,7 @@ export function registerCustodyRoutes(app: Express): void {
     ticket.completedAt = new Date().toISOString();
 
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = S().businessDate || localDay();
     const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     const rest = Math.max(0, (ticket.price || 0) - (ticket.advance || 0));
 
