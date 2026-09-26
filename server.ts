@@ -22,6 +22,7 @@ import {
   RestaurantTable,
   RepairTicket,
   BusinessSector,
+  Supplier,
 } from './src/types';
 
 const PORT = 3000;
@@ -126,6 +127,7 @@ function emptyState(seed?: { storeName: string; ownerName: string; phone: string
     appointments: [],
     tables: [],
     repairTickets: [],
+    suppliers: [],
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -162,6 +164,7 @@ function loadShopState(accountId: string): AppState {
   if (!Array.isArray(st.appointments)) st.appointments = [];
   if (!Array.isArray(st.tables)) st.tables = [];
   if (!Array.isArray(st.repairTickets)) st.repairTickets = [];
+  if (!Array.isArray((st as any).suppliers)) (st as any).suppliers = [];
   if (!Array.isArray(st.reminderLogs)) st.reminderLogs = [];
   shopStateCache.set(accountId, st);
   return st;
@@ -574,6 +577,7 @@ async function startServer() {
           appointments: st.appointments || [],
           tables: st.tables || [],
           repairTickets: st.repairTickets || [],
+          suppliers: st.suppliers || [],
         },
       };
       ws.send(JSON.stringify(initEvent));
@@ -618,6 +622,7 @@ async function startServer() {
     st.appointments = Array.isArray(ns.appointments) ? ns.appointments : [];
     st.tables = Array.isArray(ns.tables) ? ns.tables : [];
     st.repairTickets = Array.isArray(ns.repairTickets) ? ns.repairTickets : [];
+    st.suppliers = Array.isArray(ns.suppliers) ? ns.suppliers : [];
     if (ns.shopProfile && typeof ns.shopProfile === 'object') {
       st.shopProfile = { ...st.shopProfile, ...ns.shopProfile };
       st.storeName = ns.shopProfile.storeName || st.storeName;
@@ -637,6 +642,7 @@ async function startServer() {
         appointments: st.appointments || [],
         tables: st.tables || [],
         repairTickets: st.repairTickets || [],
+        suppliers: st.suppliers || [],
       },
     });
     res.json({ success: true });
@@ -653,6 +659,7 @@ async function startServer() {
       reminderLogs: S().reminderLogs,
       products: S().products || [],
       stockMovements: S().stockMovements || [],
+      suppliers: S().suppliers || [],
       cash: calculateCashRegister(),
       lastUpdated: S().lastUpdated,
     });
@@ -733,7 +740,7 @@ async function startServer() {
 
   // 5. Create Transaction (Veresiye ekle, Tahsilat al, Kasa çıkışı yap)
   app.post('/api/transactions', (req: Request, res: Response) => {
-    const { customerId, type, amount, paymentMethod, description } = req.body;
+    const { customerId, type, amount, paymentMethod, description, category } = req.body;
     const parsedAmount = Number(amount);
 
     if (!type || isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -788,6 +795,7 @@ async function startServer() {
       amount: parsedAmount,
       paymentMethod: paymentMethod || 'nakit',
       description: description || (type === 'veresiye' ? 'Veresiye Borç Yazıldı' : type === 'tahsilat' ? 'Ödeme Alındı' : 'Dükkan Masrafı'),
+      category: typeof category === 'string' && category.trim() ? category.trim() : undefined,
       date: `${todayStr} ${timeStr}`,
       createdAt: now.toISOString(),
     };
@@ -1683,6 +1691,106 @@ Kurallar:
     });
 
     res.json({ success: true, transaction, cash });
+  });
+
+  // ==========================================
+  // 18. TEDARİKÇİ CARİ HESABI (Toptancı borcu takibi)
+  // ==========================================
+  app.post('/api/suppliers', (req: Request, res: Response) => {
+    const data = req.body || {};
+    if (!data.name || !String(data.name).trim()) {
+      return res.status(400).json({ error: 'Tedarikçi adı zorunludur.' });
+    }
+    const now = new Date().toISOString();
+    let supplier: Supplier;
+    if (data.id) {
+      const idx = S().suppliers.findIndex((s) => s.id === data.id);
+      if (idx === -1) return res.status(404).json({ error: 'Tedarikçi bulunamadı.' });
+      supplier = {
+        ...S().suppliers[idx],
+        name: String(data.name).trim(),
+        phone: String(data.phone || '').trim(),
+        notes: String(data.notes || ''),
+        updatedAt: now,
+      };
+      S().suppliers[idx] = supplier;
+    } else {
+      supplier = {
+        id: `sup_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        name: String(data.name).trim(),
+        phone: String(data.phone || '').trim(),
+        balance: 0,
+        notes: String(data.notes || ''),
+        createdAt: now,
+        updatedAt: now,
+      };
+      S().suppliers.unshift(supplier);
+    }
+    saveState();
+    broadcast({ type: 'SUPPLIER_UPDATED', payload: supplier });
+    res.json({ success: true, supplier });
+  });
+
+  app.delete('/api/suppliers/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idx = S().suppliers.findIndex((s) => s.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Tedarikçi bulunamadı.' });
+    S().suppliers.splice(idx, 1);
+    saveState();
+    broadcast({ type: 'SUPPLIER_DELETED', payload: { id } });
+    res.json({ success: true });
+  });
+
+  // Veresiye mal alımı: kasaya dokunmaz, borcu artırır
+  app.post('/api/suppliers/:id/purchase', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const amount = Number((req.body || {}).amount);
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Geçerli bir alım tutarı giriniz.' });
+    }
+    const supplier = S().suppliers.find((s) => s.id === id);
+    if (!supplier) return res.status(404).json({ error: 'Tedarikçi bulunamadı.' });
+    supplier.balance = Math.round((supplier.balance + amount) * 100) / 100;
+    supplier.updatedAt = new Date().toISOString();
+    saveState();
+    broadcast({ type: 'SUPPLIER_UPDATED', payload: supplier });
+    res.json({ success: true, supplier });
+  });
+
+  // Tedarikçiye ödeme: borcu düşürür + kasadan gider işler
+  app.post('/api/suppliers/:id/pay', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const body = req.body || {};
+    const amount = Number(body.amount);
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Geçerli bir ödeme tutarı giriniz.' });
+    }
+    const supplier = S().suppliers.find((s) => s.id === id);
+    if (!supplier) return res.status(404).json({ error: 'Tedarikçi bulunamadı.' });
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    supplier.balance = Math.round((supplier.balance - amount) * 100) / 100;
+    supplier.updatedAt = now.toISOString();
+
+    const transaction: Transaction = {
+      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      customerId: '',
+      customerName: `Tedarikçi: ${supplier.name}`,
+      type: 'gider',
+      amount,
+      paymentMethod: body.paymentMethod || 'nakit',
+      description: `Tedarikçi Ödemesi: ${supplier.name}`,
+      category: 'Toptancı Ödemesi / Mal Alımı',
+      date: `${todayStr} ${timeStr}`,
+      createdAt: now.toISOString(),
+    };
+    S().transactions.unshift(transaction);
+    saveState();
+    const cash = calculateCashRegister();
+    broadcast({ type: 'SUPPLIER_UPDATED', payload: supplier });
+    broadcast({ type: 'TRANSACTION_CREATED', payload: { transaction, cash } });
+    res.json({ success: true, supplier, transaction, cash });
   });
 
   // Vite middleware in development vs static serving in production

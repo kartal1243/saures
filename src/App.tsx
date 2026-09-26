@@ -15,6 +15,7 @@ import {
   Appointment,
   RestaurantTable,
   RepairTicket,
+  Supplier,
 } from './types';
 import { Header } from './components/Header';
 import { SectorSwitcherBar, SECTORS } from './components/SectorSwitcherBar';
@@ -43,6 +44,7 @@ import { StaffModal } from './components/StaffModal';
 import { StockManagementView } from './components/StockManagementView';
 import { StockAdjustmentModal } from './components/StockAdjustmentModal';
 import { ProductFormModal } from './components/ProductFormModal';
+import { SupplierModal, SupplierModalMode } from './components/SupplierModal';
 import { formatCurrency } from './utils/formatters';
 import {
   Activity,
@@ -73,6 +75,10 @@ import {
   UserPlus,
   Download,
   Upload,
+  Truck,
+  Plus,
+  Trash2,
+  Wallet,
 } from 'lucide-react';
 
 export default function App() {
@@ -159,6 +165,12 @@ export default function App() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [repairTickets, setRepairTickets] = useState<RepairTicket[]>([]);
+
+  // Tedarikçi cari hesap + modal durumu
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [supplierModalMode, setSupplierModalMode] = useState<SupplierModalMode>('form');
+  const [activeSupplier, setActiveSupplier] = useState<Supplier | null>(null);
 
   const currentSector: BusinessSector = shopProfile.sectorKey || 'bakkal_market';
   const currentSectorInfo = useMemo(() => {
@@ -262,6 +274,7 @@ export default function App() {
         if (data.appointments) setAppointments(data.appointments);
         if (data.tables) setTables(data.tables);
         if (data.repairTickets) setRepairTickets(data.repairTickets);
+        if (data.suppliers) setSuppliers(data.suppliers);
         setCustomers(data.customers || []);
         setTransactions(data.transactions || []);
         setReminderLogs(data.reminderLogs || []);
@@ -317,6 +330,9 @@ export default function App() {
             }
             if (wsEvent.payload.repairTickets) {
               setRepairTickets(wsEvent.payload.repairTickets);
+            }
+            if (wsEvent.payload.suppliers) {
+              setSuppliers(wsEvent.payload.suppliers);
             }
           } else if (wsEvent.type === 'APPOINTMENT_UPDATED') {
             setAppointments((prev) => {
@@ -393,6 +409,16 @@ export default function App() {
             setProducts((prev) =>
               prev.map((p) => (p.id === wsEvent.payload.product.id ? wsEvent.payload.product : p))
             );
+          } else if (wsEvent.type === 'SUPPLIER_UPDATED') {
+            setSuppliers((prev) => {
+              const exists = prev.some((s) => s.id === wsEvent.payload.id);
+              if (exists) {
+                return prev.map((s) => (s.id === wsEvent.payload.id ? wsEvent.payload : s));
+              }
+              return [wsEvent.payload, ...prev];
+            });
+          } else if (wsEvent.type === 'SUPPLIER_DELETED') {
+            setSuppliers((prev) => prev.filter((s) => s.id !== wsEvent.payload.id));
           }
         } catch (err) {
           console.error('Failed to parse WS message:', err);
@@ -502,6 +528,7 @@ export default function App() {
         amount: data.amount,
         paymentMethod: data.paymentMethod,
         description: data.description,
+        category: data.category,
       }),
     });
     if (!res.ok) {
@@ -563,6 +590,82 @@ export default function App() {
     if (!res.ok) {
       alert('Müşteri silinemedi.');
     }
+  };
+
+  // Tedarikçi cari hesap handler'ları
+  const openSupplierModal = (mode: SupplierModalMode, supplier: Supplier | null = null) => {
+    setSupplierModalMode(mode);
+    setActiveSupplier(supplier);
+    setIsSupplierModalOpen(true);
+  };
+
+  const handleSaveSupplier = async (data: { id?: string; name: string; phone: string; notes: string }) => {
+    const res = await fetch('/api/suppliers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Tedarikçi kaydedilemedi.');
+    }
+    const result = await res.json();
+    if (result.supplier) {
+      setSuppliers((prev) => {
+        const exists = prev.some((s) => s.id === result.supplier.id);
+        if (exists) return prev.map((s) => (s.id === result.supplier.id ? result.supplier : s));
+        return [result.supplier, ...prev];
+      });
+    }
+  };
+
+  const handleDeleteSupplier = async (id: string) => {
+    if (!confirm('Bu tedarikçi kaydını silmek istediğinize emin misiniz? (Borç bakiyesi de silinir)')) return;
+    const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      alert('Tedarikçi silinemedi.');
+    } else {
+      setSuppliers((prev) => prev.filter((s) => s.id !== id));
+    }
+  };
+
+  const handleSupplierPurchase = async (id: string, amount: number) => {
+    const res = await fetch(`/api/suppliers/${id}/purchase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Alım yazılamadı.');
+    }
+    const result = await res.json();
+    if (result.supplier) {
+      setSuppliers((prev) => prev.map((s) => (s.id === result.supplier.id ? result.supplier : s)));
+    }
+  };
+
+  const handleSupplierPay = async (id: string, amount: number, paymentMethod: PaymentMethod) => {
+    const res = await fetch(`/api/suppliers/${id}/pay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, paymentMethod }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Ödeme kaydedilemedi.');
+    }
+    const result = await res.json();
+    if (result.supplier) {
+      setSuppliers((prev) => prev.map((s) => (s.id === result.supplier.id ? result.supplier : s)));
+    }
+    if (result.transaction) {
+      setTransactions((prev) => {
+        if (prev.some((t) => t.id === result.transaction.id)) return prev;
+        return [result.transaction, ...prev];
+      });
+    }
+    if (result.cash) setCash(result.cash);
   };
 
   const handleReminderSent = (log: {
@@ -1485,6 +1588,158 @@ export default function App() {
               </div>
             )}
 
+            {/* Kasa farkları özeti: açık / fazla takibi */}
+            {dailyClosings.length > 0 && (() => {
+              const surplus = dailyClosings.filter((c) => c.diffAmount > 0).reduce((s, c) => s + c.diffAmount, 0);
+              const deficit = dailyClosings.filter((c) => c.diffAmount < 0).reduce((s, c) => s + Math.abs(c.diffAmount), 0);
+              const denk = dailyClosings.filter((c) => c.diffAmount === 0).length;
+              return (
+                <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5">
+                  <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2 mb-3">
+                    <Wallet className="w-4 h-4 text-amber-500" /> Kasa Farkları Takibi
+                    <span className="text-[11px] font-semibold text-stone-400">({dailyClosings.length} kapanış)</span>
+                  </h3>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60">
+                      <p className="text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase">Toplam Açık</p>
+                      <p className="text-base font-black text-rose-700 dark:text-rose-300">{formatCurrency(deficit)}</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60">
+                      <p className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase">Toplam Fazla</p>
+                      <p className="text-base font-black text-blue-700 dark:text-blue-300">{formatCurrency(surplus)}</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
+                      <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Denk Kapanış</p>
+                      <p className="text-base font-black text-emerald-700 dark:text-emerald-300">{denk} gün</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Tedarikçi borçları: toptancı cari hesabı */}
+            <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-amber-500" /> Tedarikçi Borçları
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                    {suppliers.length === 0
+                      ? 'Fırın, hal, sütçü... veresiye aldığın toptancıyı ekle'
+                      : `Toplam ${formatCurrency(suppliers.filter((s) => s.balance > 0).reduce((sum, s) => sum + s.balance, 0))} borç`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openSupplierModal('form')}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Tedarikçi
+                </button>
+              </div>
+              {suppliers.length === 0 ? (
+                <p className="text-xs text-stone-400 text-center py-3">
+                  Henüz tedarikçi yok — "Tedarikçi" butonuyla ilk cari hesabı aç.
+                </p>
+              ) : (
+                <div className="divide-y divide-stone-100 dark:divide-stone-800">
+                  {suppliers.map((s) => (
+                    <div key={s.id} className="py-2.5 flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => openSupplierModal('form', s)}
+                          className="text-xs font-black text-stone-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate cursor-pointer"
+                          title="Düzenle"
+                        >
+                          {s.name}
+                        </button>
+                        <p className="text-[11px] text-stone-400 truncate">{s.phone || s.notes || '—'}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`px-2 py-1 rounded-lg text-xs font-black ${
+                            s.balance > 0
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                              : s.balance < 0
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400'
+                          }`}
+                        >
+                          {s.balance > 0
+                            ? `${formatCurrency(s.balance)} borç`
+                            : s.balance < 0
+                            ? `${formatCurrency(Math.abs(s.balance))} avans`
+                            : 'Sıfır'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openSupplierModal('purchase', s)}
+                          className="px-2 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 text-blue-800 dark:text-blue-300 text-[11px] font-bold transition-colors cursor-pointer"
+                          title="Veresiye mal alımı yaz (borcu artırır)"
+                        >
+                          Alım Yaz
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openSupplierModal('pay', s)}
+                          className="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold transition-colors cursor-pointer"
+                          title="Tedarikçiye ödeme yap (kasadan düşer)"
+                        >
+                          Öde
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSupplier(s.id)}
+                          className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                          title="Tedarikçiyi sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Gider dağılımı: kalem kalem masraf özeti */}
+            {(() => {
+              const agg = new Map<string, number>();
+              transactions
+                .filter((tx) => tx.type === 'gider' || tx.type === 'masraf')
+                .forEach((tx) => {
+                  const k = (tx.category || 'Diğer').split('/')[0].trim() || 'Diğer';
+                  agg.set(k, (agg.get(k) || 0) + tx.amount);
+                });
+              const rows = [...agg.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+              if (rows.length === 0) return null;
+              const total = rows.reduce((s, [, v]) => s + v, 0) || 1;
+              return (
+                <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5">
+                  <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2 mb-3">
+                    <Banknote className="w-4 h-4 text-rose-500" /> Gider Dağılımı
+                    <span className="text-[11px] font-semibold text-stone-400">({formatCurrency(total)} toplam)</span>
+                  </h3>
+                  <div className="space-y-2">
+                    {rows.map(([label, val]) => (
+                      <div key={label} className="flex items-center gap-2 text-xs">
+                        <span className="w-32 sm:w-40 truncate font-bold text-stone-700 dark:text-stone-300">{label}</span>
+                        <div className="flex-1 h-2.5 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-linear-to-r from-rose-500 to-orange-400"
+                            style={{ width: `${Math.max(4, Math.round((val / total) * 100))}%` }}
+                          />
+                        </div>
+                        <span className="w-20 text-right font-black text-stone-800 dark:text-stone-200">{formatCurrency(val)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5 transition-colors">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1556,6 +1811,14 @@ export default function App() {
                               ? '📲 Havale / FAST'
                               : '📝 Deftere Yazıldı'}
                           </span>
+                          {(tx.type === 'gider' || tx.type === 'masraf') && tx.category && (
+                            <>
+                              <span>•</span>
+                              <span className="px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold truncate max-w-[140px]">
+                                {(tx.category || '').split('/')[0].trim()}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1653,6 +1916,20 @@ export default function App() {
         isOpen={isMoneyOutModalOpen}
         onClose={() => setIsMoneyOutModalOpen(false)}
         onSubmit={handleMoneyOut}
+      />
+
+      {/* 3b. Tedarikçi cari hesap Modal */}
+      <SupplierModal
+        isOpen={isSupplierModalOpen}
+        mode={supplierModalMode}
+        supplier={activeSupplier}
+        onClose={() => {
+          setIsSupplierModalOpen(false);
+          setActiveSupplier(null);
+        }}
+        onSave={handleSaveSupplier}
+        onPurchase={handleSupplierPurchase}
+        onPay={handleSupplierPay}
       />
 
       {/* 4. Gün Sonu Kasa Kapatma & Z Raporu Modal */}

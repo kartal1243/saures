@@ -40,8 +40,20 @@ export interface Transaction {
   amount: number;
   paymentMethod: PaymentMethod;
   description: string;
+  category?: string; // Gider kalemi (örn. "Toptancı Ödemesi / Mal Alımı")
   date: string; // ISO string or YYYY-MM-DD HH:mm
   createdAt: string;
+}
+
+// Tedarikçi cari hesabı: dükkanın toptancı/imalatçıya olan borcu
+export interface Supplier {
+  id: string;
+  name: string;
+  phone: string;
+  balance: number; // >0 = dükkanın tedarikçiye borcu, <0 = tedarikçide avans
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ReminderLog {
@@ -186,6 +198,7 @@ export interface AppState {
   appointments: Appointment[];
   tables: RestaurantTable[];
   repairTickets: RepairTicket[];
+  suppliers: Supplier[];
   lastUpdated: string;
 }
 
@@ -204,6 +217,7 @@ export type WSEvent =
         appointments?: Appointment[];
         tables?: RestaurantTable[];
         repairTickets?: RepairTicket[];
+        suppliers?: Supplier[];
       };
     }
   | { type: 'TRANSACTION_CREATED'; payload: { transaction: Transaction; customer?: Customer; cash: CashRegister } }
@@ -220,5 +234,7 @@ export type WSEvent =
   | { type: 'APPOINTMENT_DELETED'; payload: { id: string } }
   | { type: 'TABLE_UPDATED'; payload: RestaurantTable }
   | { type: 'REPAIR_TICKET_UPDATED'; payload: RepairTicket }
-  | { type: 'REPAIR_TICKET_DELETED'; payload: { id: string } };
+  | { type: 'REPAIR_TICKET_DELETED'; payload: { id: string } }
+  | { type: 'SUPPLIER_UPDATED'; payload: Supplier }
+  | { type: 'SUPPLIER_DELETED'; payload: { id: string } };
 

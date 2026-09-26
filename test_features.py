@@ -192,6 +192,59 @@ def main():
     code, d, _ = req("/api/auth/login", "POST", {"phone": cashier_phone, "password": "4321"})
     check("silinen kasiyer giris yapamaz", code in (400, 401, 404), f"{code} {d}")
 
+    print("\n== 6) GIDER KATEGORISI + TEDARIKCI CARI HESAP ==")
+    code, d, _ = req("/api/transactions", "POST",
+                     {"type": "masraf", "amount": 75, "category": "Fatura (Elektrik/Su/İnternet)",
+                      "description": "Elektrik faturasi"}, cookie=owner_cookie)
+    tx = d.get("transaction", {}) if isinstance(d, dict) else {}
+    check("masraf kategori ile kaydolur", code == 200 and tx.get("category") == "Fatura (Elektrik/Su/İnternet)",
+          f"{code} {d}")
+
+    code, d, _ = req("/api/suppliers", "POST", {"phone": "0555000000"}, cookie=owner_cookie)
+    check("isim yokken tedarikci 400", code == 400, f"{code} {d}")
+    code, d, _ = req("/api/suppliers", "POST",
+                     {"name": "Ekmekci Firin", "phone": f"0559{tag}"}, cookie=owner_cookie)
+    sup = d.get("supplier", {}) if isinstance(d, dict) else {}
+    sup_id = sup.get("id")
+    check("tedarikci olustu, borc 0", code == 200 and sup_id and sup.get("balance") == 0,
+          f"{code} {d}")
+
+    code, d, _ = req(f"/api/suppliers/{sup_id}/purchase", "POST",
+                     {"amount": 150}, cookie=owner_cookie)
+    check("veresiye alim borcu 150 yapar", code == 200 and d.get("supplier", {}).get("balance") == 150,
+          f"{code} {d}")
+
+    code, d0, _ = req("/api/data", cookie=owner_cookie)
+    exp0 = float((d0.get("cash") or {}).get("todayExpense", 0))
+    code, d, _ = req(f"/api/suppliers/{sup_id}/pay", "POST",
+                     {"amount": 50, "paymentMethod": "nakit"}, cookie=owner_cookie)
+    pay_tx = (d.get("transaction") or {}) if isinstance(d, dict) else {}
+    check("odeme sonrasi borc 100", code == 200 and d.get("supplier", {}).get("balance") == 100,
+          f"{code} {d}")
+    check("odeme gider fisi acar (kategori Toptanci)",
+          pay_tx.get("type") == "gider" and pay_tx.get("category") == "Toptancı Ödemesi / Mal Alımı",
+          str(pay_tx))
+    code, d1, _ = req("/api/data", cookie=owner_cookie)
+    exp1 = float((d1.get("cash") or {}).get("todayExpense", 0))
+    check("odeme kasadan dustu (+50)", exp1 - exp0 == 50.0, f"{exp0} -> {exp1}")
+    sups = [s for s in d1.get("suppliers", []) if s.get("id") == sup_id]
+    check("/api/data tedarikciyi dondurur", len(sups) == 1 and sups[0].get("balance") == 100,
+          str(sups))
+
+    code, d, _ = req(f"/api/suppliers/{sup_id}", "DELETE", cookie=owner_cookie)
+    check("tedarikci silindi 200", code == 200, f"{code} {d}")
+    code, d, _ = req("/api/data", cookie=owner_cookie)
+    check("silinen tedarikci listede yok",
+          all(s.get("id") != sup_id for s in d.get("suppliers", [])), str(d.get("suppliers")))
+
+    code, d, h = req("/api/auth/register", "POST",
+                     {"shopName": f"Izolasyon {tag}", "ownerName": "Diger",
+                      "phone": f"0506{tag}", "password": "1234"})
+    other_cookie = sid_of(h.get("Set-Cookie", ""))
+    code, d, _ = req("/api/data", cookie=other_cookie)
+    check("baska dukkan tedarikci gormez (bos)", code == 200 and d.get("suppliers") == [],
+          str(d.get("suppliers")))
+
     print(f"\n===== SONUC: {len(PASSED)} PASS / {len(FAILED)} FAIL =====")
     if FAILED:
         print("Basarisiz:", ", ".join(FAILED))
