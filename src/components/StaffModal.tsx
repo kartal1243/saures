@@ -155,7 +155,7 @@ export const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose }) => {
                   className="flex items-center justify-between p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-8 h-8 rounded-lg bg-stone-900 dark:bg-amber-500 text-white flex items-center justify-center text-xs font-black shrink-0">
+                    <span className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs font-black shrink-0">
                       {s.ownerName.charAt(0).toUpperCase()}
                     </span>
                     <div className="min-w-0">

@@ -240,7 +240,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-stone-900 hover:bg-black dark:bg-amber-500 dark:hover:bg-amber-600 text-white font-black text-sm shadow-md transition-transform active:scale-98 cursor-pointer disabled:opacity-50"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm shadow-md shadow-amber-500/30 transition-transform active:scale-98 cursor-pointer disabled:opacity-50"
             >
               <Check className="w-5 h-5 stroke-[3]" />
               <span>{isSubmitting ? 'Kaydediliyor...' : t.cta}</span>

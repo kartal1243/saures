@@ -1174,7 +1174,7 @@ export default function App() {
             onClick={() => setActiveTab('panel')}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'panel'
-                ? 'bg-stone-900 dark:bg-amber-500 text-white shadow-xs'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
                 : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
             }`}
           >
@@ -1188,12 +1188,12 @@ export default function App() {
             onClick={() => setActiveTab('activity')}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'activity'
-                ? 'bg-stone-900 dark:bg-amber-500 text-white shadow-xs'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
                 : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
             }`}
           >
             <Activity className="w-4 h-4" />
-            <span>Gün Sonu & Ciro</span>
+            <span>Gün Sonu</span>
           </button>
 
           <button
@@ -1202,7 +1202,7 @@ export default function App() {
             onClick={() => setActiveTab('customers')}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'customers'
-                ? 'bg-stone-900 dark:bg-amber-500 text-white shadow-xs'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
                 : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
             }`}
           >
@@ -1216,7 +1216,7 @@ export default function App() {
             onClick={() => setActiveTab('stock')}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'stock'
-                ? 'bg-stone-900 dark:bg-amber-500 text-white shadow-xs'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
                 : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
             }`}
           >
@@ -1429,12 +1429,12 @@ export default function App() {
               ) : activeTab === 'activity' ? (
                 <>
                   <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                  <span>Gün Sonu &amp; Ciro ({transactions.length})</span>
+                  <span>Gün Sonu ({transactions.length})</span>
                 </>
               ) : activeTab === 'stock' ? (
                 <>
                   <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                  <span>Stok &amp; Ürün Takibi ({products.length})</span>
+                  <span>Stok ({products.length})</span>
                   {criticalStockCount > 0 && (
                     <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
                       {criticalStockCount} Kritik!
@@ -1444,7 +1444,7 @@ export default function App() {
               ) : (
                 <>
                   <Users className="w-5 h-5 text-stone-600 dark:text-stone-300" />
-                  <span>Müşteri &amp; Veresiye Defteri ({customers.length})</span>
+                  <span>Müşteriler ({customers.length})</span>
                 </>
               )}
             </h2>
@@ -1452,7 +1452,7 @@ export default function App() {
               {activeTab === 'sector_view'
                 ? currentSectorInfo.description
                 : activeTab === 'activity'
-                ? 'Patron gün sonu cirosunu kapatır — kapanış arşivi, kâr/zarar ve tek tek fişler'
+                ? 'Kapanış arşivi, kâr/zarar ve fişler'
                 : activeTab === 'stock'
                 ? 'Ürünler, mal giriş/çıkışları ve kritik stok alarmları'
                 : 'Veresiye kartları, borç takibi ve WhatsApp hatırlatmaları'}
@@ -1484,7 +1484,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsDailyClosingModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-900 hover:bg-black dark:bg-stone-800 dark:hover:bg-stone-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
             >
               <Moon className="w-3.5 h-3.5 text-amber-400" />
               <span>Kasa Kapat &amp; Z Raporu</span>
@@ -1534,7 +1534,7 @@ export default function App() {
                 <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2">
                   <Moon className="w-4 h-4 text-amber-500" /> Gün Sonu & Ciro
                 </h3>
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">Patron akşam gelip gün sonu cirosunu kapatır — kâr/zarar burada</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">Akşam kapanışı burada</p>
                 {dailyClosings.length > 0 && (
                   <p className="text-xs font-semibold text-stone-700 dark:text-stone-300 mt-1">
                     Son kapanış: {dailyClosings[0].date} — Net {formatCurrency(dailyClosings[0].netProfitToday || 0)} {dailyClosings[0].diffAmount !== 0 ? `(fark ${formatCurrency(dailyClosings[0].diffAmount)})` : '✓ denk'}
@@ -1544,7 +1544,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setIsDailyClosingModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-black dark:bg-amber-500 dark:hover:bg-amber-600 text-white font-black text-sm shadow-md transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm shadow-md shadow-amber-500/30 transition-colors cursor-pointer"
               >
                 <Moon className="w-4 h-4 text-amber-400" /> Gün Sonu Kapat
               </button>
@@ -1626,7 +1626,7 @@ export default function App() {
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
                     {suppliers.length === 0
-                      ? 'Fırın, hal, sütçü... veresiye aldığın toptancıyı ekle'
+                      ? 'Veresiye aldığın toptancıyı ekle'
                       : `Toplam ${formatCurrency(suppliers.filter((s) => s.balance > 0).reduce((sum, s) => sum + s.balance, 0))} borç`}
                   </p>
                 </div>
@@ -1640,7 +1640,7 @@ export default function App() {
               </div>
               {suppliers.length === 0 ? (
                 <p className="text-xs text-stone-400 text-center py-3">
-                  Henüz tedarikçi yok — "Tedarikçi" butonuyla ilk cari hesabı aç.
+                  "Tedarikçi" butonuyla ilk hesabı aç.
                 </p>
               ) : (
                 <div className="divide-y divide-stone-100 dark:divide-stone-800">
@@ -1747,7 +1747,7 @@ export default function App() {
                     Dükkan Kasa Hareketleri
                   </h2>
                   <p className="text-xs text-stone-500 dark:text-stone-400">
-                    Tek tek fişler — istersen sadece gün sonundan da kapatabilirsin
+                    Tek tek fişler
                   </p>
                 </div>
                 <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-200 dark:border-emerald-800">
@@ -1762,7 +1762,7 @@ export default function App() {
                   Henüz kaydedilmiş bir kasa hareketi bulunmuyor.
                 </p>
                 <p className="text-xs text-stone-400 mt-1">
-                  Yukarıdaki "Para Al" veya "Para Ver" butonlarıyla dükkan hareketlerini girmeye başlayın.
+                  "Para Al" veya "Para Ver" ile başlayın.
                 </p>
               </div>
             ) : (

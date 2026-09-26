@@ -1809,7 +1809,7 @@ Kurallar:
   }
 
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Dükkânım running at http://localhost:${PORT}`);
+    console.log(`Dükkânım Yanımda running at http://localhost:${PORT}`);
   });
 }
 

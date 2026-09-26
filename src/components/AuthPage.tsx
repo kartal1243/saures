@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, HardHat } from 'lucide-react';
+import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Zap, BadgeCheck } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 
 interface AuthPageProps {
@@ -65,6 +65,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
       <div className="relative w-full max-w-md animate-fade-up">
         {/* Logo & Baslik */}
         <div className="text-center mb-5">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[11px] font-black tracking-wide border border-amber-200 dark:border-amber-800/60 mb-3">
+            <Store className="w-3 h-3" /> ESNAFIN DİJİTAL DEFTERİ
+          </span>
           <div
             className="mx-auto w-[230px] sm:w-[276px] select-none [&>svg]:w-full [&>svg]:h-auto [&>svg]:drop-shadow-sm"
             dangerouslySetInnerHTML={{ __html: logoRaw }}
@@ -229,9 +232,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
           </div>
         </div>
 
-        <p className="flex items-center justify-center gap-1.5 mt-5 text-[11px] text-stone-400 dark:text-stone-500 font-semibold">
-          <HardHat className="w-3.5 h-3.5" /> Kasa · Veresiye · Stok · Gün Sonu — esnaf için tek defter
-        </p>
+        <div className="flex items-center justify-center gap-2 mt-5 text-[11px] text-stone-500 dark:text-stone-400 font-bold">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/70 dark:bg-stone-900/70 border border-stone-200 dark:border-stone-800">
+            <BadgeCheck className="w-3.5 h-3.5 text-emerald-500" /> Ücretsiz
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/70 dark:bg-stone-900/70 border border-stone-200 dark:border-stone-800">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Şifreli
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/70 dark:bg-stone-900/70 border border-stone-200 dark:border-stone-800">
+            <Zap className="w-3.5 h-3.5 text-amber-500" /> 2 dakikada kurulum
+          </span>
+        </div>
       </div>
     </div>
   );

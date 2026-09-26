@@ -37,7 +37,6 @@
   </g>
 
   <!-- Wordmark -->
-  <text x="98" y="62" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-size="36" font-weight="800" fill="#1c1917" letter-spacing="-0.5">Dükkânım</text>
-  <rect x="99" y="72" width="34" height="3.5" rx="1.75" fill="#f59e0b"/>
-  <text x="141" y="76.5" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="700" fill="#78716c" letter-spacing="3.5">KASA • VERESİYE • GÜN SONU</text>
+  <text x="98" y="56" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-size="34" font-weight="800" fill="#1c1917" letter-spacing="-0.5">Dükkânım</text>
+  <text x="99" y="80" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-size="15" font-weight="800" fill="#d97706" letter-spacing="6">YANIMDA</text>
 </svg>

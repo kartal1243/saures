@@ -78,7 +78,7 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
         id="btn-quick-daily-closing"
         type="button"
         onClick={onOpenDailyClosing}
-        className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-3.5 py-3 rounded-xl bg-slate-900 hover:bg-black dark:bg-stone-800 dark:hover:bg-stone-700 text-white font-black text-sm shadow-sm transition-transform active:scale-98 cursor-pointer border border-transparent dark:border-stone-700"
+        className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-3.5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm shadow-sm shadow-amber-500/30 transition-transform active:scale-98 cursor-pointer"
         title="Günü kapat, fiili kasa sayımını yap ve Z Raporunu al"
       >
         <Moon className="w-5 h-5 text-amber-400" />

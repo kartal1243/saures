@@ -323,7 +323,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
               id="btn-save-new-customer"
               type="submit"
               disabled={submitting}
-              className="w-full py-3 rounded-xl bg-stone-900 hover:bg-black text-white font-bold text-sm shadow-xs transition-colors cursor-pointer"
+              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-xs transition-colors cursor-pointer"
             >
               {submitting ? 'Kaydediliyor...' : 'Müşteriyi Kaydet ve Defteri Aç'}
             </button>
