@@ -20,38 +20,26 @@ import {
   CaseFile,
   CustodyTicket,
 } from './types';
-import { Header } from './components/Header';
-import { Sidebar } from './components/Sidebar';
-import { HomeDashboard } from './components/HomeDashboard';
-import { SECTORS } from './components/SectorSwitcherBar';
+import { Header } from './components/layout/Header';
+import { Sidebar } from './components/layout/Sidebar';
+import { HomeDashboard } from './components/panel/HomeDashboard';
+import { SECTORS } from './components/sector/SectorSwitcherBar';
 
-import { CashSummary } from './components/CashSummary';
-import { RevenueVsExpensesChart } from './components/RevenueVsExpensesChart';
-import { WeeklyTrendCard } from './components/WeeklyTrendCard';
-import { QuickActionBar } from './components/QuickActionBar';
-import { UpcomingReminders } from './components/UpcomingReminders';
-import { CustomerList } from './components/CustomerList';
-import { CustomerDetailModal } from './components/CustomerDetailModal';
-import { WhatsAppReminderModal } from './components/WhatsAppReminderModal';
-import { QuickTransactionModal } from './components/QuickTransactionModal';
-import { NewCustomerModal } from './components/NewCustomerModal';
-import { ShopProfileModal } from './components/ShopProfileModal';
-import { AuthPage } from './components/AuthPage';
-import { LandingPage } from './components/LandingPage';
-import { MoneyInModal } from './components/MoneyInModal';
-import { MoneyOutModal } from './components/MoneyOutModal';
-import { DailyClosingModal } from './components/DailyClosingModal';
-import { VipAiConsultantModal } from './components/VipAiConsultantModal';
-import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { StaffModal } from './components/StaffModal';
-import { StockManagementView } from './components/StockManagementView';
-import { StockAdjustmentModal } from './components/StockAdjustmentModal';
-import { ProductFormModal } from './components/ProductFormModal';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { SupplierModal, SupplierModalMode } from './components/SupplierModal';
-import { ServicesModal, DEFAULT_SERVICES } from './components/ServicesModal';
-import { SectorModuleSwitch } from './components/SectorModuleSwitch';
-import type { LawyerTab } from './components/LawyerCasesView';
+import { CashSummary } from './components/panel/CashSummary';
+import { RevenueVsExpensesChart } from './components/panel/RevenueVsExpensesChart';
+import { WeeklyTrendCard } from './components/panel/WeeklyTrendCard';
+import { QuickActionBar } from './components/panel/QuickActionBar';
+import { UpcomingReminders } from './components/panel/UpcomingReminders';
+import { CustomerList } from './components/customers/CustomerList';
+import { AuthPage } from './components/auth/AuthPage';
+import { LandingPage } from './components/auth/LandingPage';
+import { StockManagementView } from './components/stock/StockManagementView';
+import { ErrorBoundary } from './components/layout/ErrorBoundary';
+import { AppModals } from './components/layout/AppModals';
+import type { SupplierModalMode } from './components/stock/SupplierModal';
+import { DEFAULT_SERVICES } from './components/sector/ServicesModal';
+import { SectorModuleSwitch } from './components/sector/SectorModuleSwitch';
+import type { LawyerTab } from './components/sector/LawyerCasesView';
 import { formatCurrency } from './utils/formatters';
 import { deriveSector } from './utils/sector';
 import {
@@ -92,6 +80,12 @@ import {
 } from 'lucide-react';
 
 export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock';
+
+// Aynı id'li çift kayıtları temizler (çift tıklama artıkları)
+function dedupeById<T extends { id: string }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  return list.filter((x) => (seen.has(x.id) ? false : (seen.add(x.id), true)));
+}
 
 export default function App() {
   // Dark Mode State with LocalStorage & system preference
@@ -312,7 +306,7 @@ export default function App() {
         if (data.products) setProducts(data.products);
         if (data.stockMovements) setStockMovements(data.stockMovements);
         if (data.appointments) setAppointments(data.appointments);
-        if (data.tables) setTables(data.tables);
+        if (data.tables) setTables(dedupeById(data.tables));
         if (data.repairTickets) setRepairTickets(data.repairTickets);
         if (data.suppliers) setSuppliers(data.suppliers);
         if (data.services) setServices(data.services);
@@ -369,7 +363,7 @@ export default function App() {
               setAppointments(wsEvent.payload.appointments);
             }
             if (wsEvent.payload.tables) {
-              setTables(wsEvent.payload.tables);
+              setTables(dedupeById(wsEvent.payload.tables));
             }
             if (wsEvent.payload.repairTickets) {
               setRepairTickets(wsEvent.payload.repairTickets);
@@ -839,6 +833,24 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(log),
     }).catch((e) => console.error('Error logging reminder:', e));
+  };
+
+  const handleQuickTransactionSubmit = async (data: {
+    customerId?: string;
+    type: TransactionType;
+    amount: number;
+    paymentMethod: PaymentMethod;
+    description: string;
+  }) => {
+    const res = await fetch('/api/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.error || 'İşlem kaydedilemedi.');
+    }
   };
 
   const handleExportCsv = () => {
@@ -1455,16 +1467,7 @@ export default function App() {
 
         {/* PANEL V4 - SADE KASA MODU */}
 
-        {/* 1b. Anasayfa özet paneli: net durum, dönem raporu, trend, son işlemler */}
-        <HomeDashboard
-          cash={cash}
-          transactions={transactions}
-          customers={customers}
-          suppliers={suppliers}
-          onNavigate={setActiveTab}
-        />
-
-        {/* 2. Primary Action Bar — Faz 1 sade: sadece Giren/Çıkan */}
+        {/* 2. Hızlı işlem butonları en üstte: Para Al / Para Ver / Gün Sonu */}
         <QuickActionBar
           onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
           onOpenMoneyOut={() => setIsMoneyOutModalOpen(true)}
@@ -1473,6 +1476,12 @@ export default function App() {
           criticalStockCount={criticalStockCount}
         />
         <style>{`#btn-quick-vip, #btn-quick-stock, #btn-quick-sector-view, #btn-toggle-customer-ledger { display: none !important; }`}</style>
+
+        {/* Son işlemler */}
+        <HomeDashboard
+          transactions={transactions}
+          onNavigate={setActiveTab}
+        />
 
         {/* 3. Live Cash Registers & Daily Target Tracker */}
         <CashSummary
@@ -1986,167 +1995,86 @@ export default function App() {
         ) : null}
       </main>
 
-      {/* MODALS */}
-
-      {/* 1. Dükkan Kayıt & Profil Modal (Onboarding & Settings) */}
-      <ShopProfileModal
-        isOpen={isShopProfileModalOpen}
-        onClose={() => setIsShopProfileModalOpen(false)}
-        currentProfile={shopProfile}
-        onSaveProfile={handleSaveShopProfile}
-        isFirstTime={!shopProfile.isConfigured}
+      {/* MODALS — hepsi components/layout/AppModals içinde */}
+      <AppModals
+        isShopProfileModalOpen={isShopProfileModalOpen}
+        onCloseShopProfile={() => setIsShopProfileModalOpen(false)}
+        shopProfile={shopProfile}
+        onSaveShopProfile={handleSaveShopProfile}
         onRestoreBackup={handleRestoreBackup}
-      />
-
-      {/* 2. Para Al (Satış / Kasa Girişi) Modal */}
-      <MoneyInModal
-        isOpen={isMoneyInModalOpen}
-        onClose={() => setIsMoneyInModalOpen(false)}
+        isMoneyInModalOpen={isMoneyInModalOpen}
+        onCloseMoneyIn={() => setIsMoneyInModalOpen(false)}
         customers={customers}
-        onSubmit={handleMoneyIn}
-        services={serviceList}
-        showServices={isBarber}
-      />
-
-      {/* 2b. Hizmet tarifeleri (berber) */}
-      <ServicesModal
-        isOpen={isServicesModalOpen}
-        onClose={() => setIsServicesModalOpen(false)}
+        onMoneyIn={handleMoneyIn}
+        serviceList={serviceList}
+        isBarber={isBarber}
+        isServicesModalOpen={isServicesModalOpen}
+        onCloseServices={() => setIsServicesModalOpen(false)}
         services={services}
-        onSave={handleSaveService}
-        onDelete={handleDeleteService}
-      />
-
-      {/* 3. Para Ver (Dükkan Masrafı / Gider) Modal */}
-      <MoneyOutModal
-        isOpen={isMoneyOutModalOpen}
-        onClose={() => setIsMoneyOutModalOpen(false)}
-        onSubmit={handleMoneyOut}
-      />
-
-      {/* 3b. Tedarikçi cari hesap Modal */}
-      <SupplierModal
-        isOpen={isSupplierModalOpen}
-        mode={supplierModalMode}
-        supplier={activeSupplier}
-        onClose={() => {
+        onSaveService={handleSaveService}
+        onDeleteService={handleDeleteService}
+        isMoneyOutModalOpen={isMoneyOutModalOpen}
+        onCloseMoneyOut={() => setIsMoneyOutModalOpen(false)}
+        onMoneyOut={handleMoneyOut}
+        isSupplierModalOpen={isSupplierModalOpen}
+        onCloseSupplier={() => {
           setIsSupplierModalOpen(false);
           setActiveSupplier(null);
         }}
-        onSave={handleSaveSupplier}
-        onPurchase={handleSupplierPurchase}
-        onPay={handleSupplierPay}
-      />
-
-      {/* 4. Gün Sonu Kasa Kapatma & Z Raporu Modal */}
-      <DailyClosingModal
-        isOpen={isDailyClosingModalOpen}
-        onClose={() => setIsDailyClosingModalOpen(false)}
+        supplierModalMode={supplierModalMode}
+        activeSupplier={activeSupplier}
+        onSaveSupplier={handleSaveSupplier}
+        onSupplierPurchase={handleSupplierPurchase}
+        onSupplierPay={handleSupplierPay}
+        isDailyClosingModalOpen={isDailyClosingModalOpen}
+        onCloseDailyClosing={() => setIsDailyClosingModalOpen(false)}
         cash={cash}
-        shopProfile={shopProfile}
-        closings={dailyClosings}
-        onSaveClosing={handleSaveDailyClosing}
-      />
-
-      {/* 5. VIP Esnaf Kulübü & AI Dükkan Danışmanı Modal */}
-      <VipAiConsultantModal
-        isOpen={isVipModalOpen}
-        onClose={() => setIsVipModalOpen(false)}
-        shopProfile={shopProfile}
-        cash={cash}
-        onApplyProfileTip={handleApplySlogan}
-      />
-
-      <ChangePasswordModal
-        isOpen={isChangePasswordOpen}
-        onClose={() => setIsChangePasswordOpen(false)}
-      />
-
-      <StaffModal
-        isOpen={isStaffModalOpen}
-        onClose={() => setIsStaffModalOpen(false)}
-      />
-
-      {/* 6. Customer Detail Modal */}
-      {isDetailModalOpen && selectedCustomer && (
-        <CustomerDetailModal
-          customer={customers.find((c) => c.id === selectedCustomer.id) || selectedCustomer}
-          transactions={transactions}
-          reminderLogs={reminderLogs}
-          onClose={() => setIsDetailModalOpen(false)}
-          onOpenTransaction={(cust, type) => {
-            setIsDetailModalOpen(false);
-            openTransactionForCustomer(cust, type);
-          }}
-          onOpenWhatsApp={(cust) => {
-            setIsDetailModalOpen(false);
-            openWhatsAppForCustomer(cust);
-          }}
-          onDeleteCustomer={handleDeleteCustomer}
-        />
-      )}
-
-      {/* 7. Quick Transaction (Veresiye/Tahsilat for Customer) */}
-      {isTransactionModalOpen && (
-        <QuickTransactionModal
-          initialType={transactionModalType}
-          selectedCustomer={transactionTargetCustomer}
-          customers={customers}
-          onClose={() => {
-            setIsTransactionModalOpen(false);
-            setTransactionTargetCustomer(null);
-          }}
-          onSubmit={async (data) => {
-            const res = await fetch('/api/transactions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data),
-            });
-            if (!res.ok) {
-              const err = await res.json();
-              alert(err.error || 'İşlem kaydedilemedi.');
-            }
-          }}
-        />
-      )}
-
-      {/* 8. New Customer Modal */}
-      {isNewCustomerModalOpen && (
-        <NewCustomerModal
-          onClose={() => setIsNewCustomerModalOpen(false)}
-          onSubmit={handleCreateCustomer}
-        />
-      )}
-
-      {/* 9. WhatsApp Reminder Modal */}
-      {isWhatsAppModalOpen && whatsAppTargetCustomer && (
-        <WhatsAppReminderModal
-          customer={whatsAppTargetCustomer}
-          defaultType={whatsAppReminderType}
-          onClose={() => {
-            setIsWhatsAppModalOpen(false);
-            setWhatsAppTargetCustomer(null);
-          }}
-          onReminderSent={handleReminderSent}
-        />
-      )}
-
-      {/* 10. Stok Giriş / Çıkış Hareketi Modal */}
-      <StockAdjustmentModal
-        isOpen={isStockAdjustmentModalOpen}
-        onClose={() => setIsStockAdjustmentModalOpen(false)}
-        product={selectedProductForAdjustment}
+        dailyClosings={dailyClosings}
+        onSaveDailyClosing={handleSaveDailyClosing}
+        isVipModalOpen={isVipModalOpen}
+        onCloseVip={() => setIsVipModalOpen(false)}
+        onApplySlogan={handleApplySlogan}
+        isChangePasswordOpen={isChangePasswordOpen}
+        onCloseChangePassword={() => setIsChangePasswordOpen(false)}
+        isStaffModalOpen={isStaffModalOpen}
+        onCloseStaff={() => setIsStaffModalOpen(false)}
+        isDetailModalOpen={isDetailModalOpen}
+        selectedCustomer={selectedCustomer}
+        transactions={transactions}
+        reminderLogs={reminderLogs}
+        onCloseDetail={() => setIsDetailModalOpen(false)}
+        onOpenTransaction={openTransactionForCustomer}
+        onOpenWhatsApp={openWhatsAppForCustomer}
+        onDeleteCustomer={handleDeleteCustomer}
+        isTransactionModalOpen={isTransactionModalOpen}
+        onCloseTransaction={() => {
+          setIsTransactionModalOpen(false);
+          setTransactionTargetCustomer(null);
+        }}
+        transactionModalType={transactionModalType}
+        transactionTargetCustomer={transactionTargetCustomer}
+        onQuickTransactionSubmit={handleQuickTransactionSubmit}
+        isNewCustomerModalOpen={isNewCustomerModalOpen}
+        onCloseNewCustomer={() => setIsNewCustomerModalOpen(false)}
+        onCreateCustomer={handleCreateCustomer}
+        isWhatsAppModalOpen={isWhatsAppModalOpen}
+        whatsAppTargetCustomer={whatsAppTargetCustomer}
+        whatsAppReminderType={whatsAppReminderType}
+        onCloseWhatsApp={() => {
+          setIsWhatsAppModalOpen(false);
+          setWhatsAppTargetCustomer(null);
+        }}
+        onReminderSent={handleReminderSent}
+        isStockAdjustmentModalOpen={isStockAdjustmentModalOpen}
+        onCloseStockAdjustment={() => setIsStockAdjustmentModalOpen(false)}
+        selectedProductForAdjustment={selectedProductForAdjustment}
         products={products}
-        initialType={adjustmentType}
-        onSubmit={handleStockAdjustment}
-      />
-
-      {/* 11. Yeni Ürün Ekleme / Düzenleme Modal */}
-      <ProductFormModal
-        isOpen={isProductFormModalOpen}
-        onClose={() => setIsProductFormModalOpen(false)}
+        adjustmentType={adjustmentType}
+        onStockAdjustment={handleStockAdjustment}
+        isProductFormModalOpen={isProductFormModalOpen}
+        onCloseProductForm={() => setIsProductFormModalOpen(false)}
         productToEdit={productToEdit}
-        onSubmit={handleSaveProduct}
+        onSaveProduct={handleSaveProduct}
       />
       </div>
     </div>

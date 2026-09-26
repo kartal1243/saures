@@ -147,7 +147,7 @@ export function registerTableRoutes(app: Express): void {
     if (!S().tables) S().tables = [];
 
     const newTable: RestaurantTable = {
-      id: `tbl_${Date.now()}`,
+      id: `tbl_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       name: name.trim(),
       isOccupied: false,
       orders: [],
