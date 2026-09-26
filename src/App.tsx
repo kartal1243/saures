@@ -18,6 +18,8 @@ import {
   Supplier,
 } from './types';
 import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
+import { HomeDashboard } from './components/HomeDashboard';
 import { SectorSwitcherBar, SECTORS } from './components/SectorSwitcherBar';
 import { BarberAppointmentsView } from './components/BarberAppointmentsView';
 import { RestaurantTablesView } from './components/RestaurantTablesView';
@@ -83,6 +85,8 @@ import {
   Wallet,
 } from 'lucide-react';
 
+export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock';
+
 export default function App() {
   // Dark Mode State with LocalStorage & system preference
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -143,20 +147,7 @@ export default function App() {
     dueTodayCount: 0,
   });
   const [connected, setConnected] = useState(false);
-  const [activeTab, setActiveTab] = useState<'panel' | 'sector_view' | 'activity' | 'customers' | 'stock'>('panel');
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-
-  // Profil menüsü açıkken dışarı tıklayınca kapansın (menü nav'ın altından açılır)
-  useEffect(() => {
-    if (!profileMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Element | null;
-      if (t && t.closest('#btn-profile-menu, .profile-menu')) return;
-      setProfileMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [profileMenuOpen]);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('panel');
 
   // Faz 1 sade: stok geri geldi, sadece sektör gizli
   useEffect(() => {
@@ -1159,7 +1150,25 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans pb-16 transition-colors">
+    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans pb-16 md:pb-0 transition-colors md:flex">
+      {/* Sol menü: desktop sidebar + mobil alt bar */}
+      <Sidebar
+        activeTab={activeTab}
+        onNavigate={setActiveTab}
+        customersCount={customers.length}
+        productsCount={products.length}
+        criticalStockCount={criticalStockCount}
+        storeName={shopProfile?.storeName || storeName}
+        ownerName={shopProfile?.ownerName}
+        connected={connected}
+        onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
+        onOpenStaff={() => setIsStaffModalOpen(true)}
+        onChangePassword={() => setIsChangePasswordOpen(true)}
+        onOpenVip={() => setIsVipModalOpen(true)}
+        onRestoreBackup={handleRestoreBackup}
+        onLogout={handleLogout}
+      />
+      <div className="flex-1 min-w-0 flex flex-col">
       {/* 1. Header with Store Profile Badge, Dark Mode Switch & VIP Button */}
       <Header
         storeName={storeName}
@@ -1169,8 +1178,6 @@ export default function App() {
         onToggleDarkMode={toggleDarkMode}
         onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
         onOpenVip={() => setIsVipModalOpen(true)}
-        profileMenuOpen={profileMenuOpen}
-        onToggleProfileMenu={() => setProfileMenuOpen((v) => !v)}
         onLogout={handleLogout}
         onExportCsv={handleExportCsv}
       />
@@ -1183,184 +1190,6 @@ export default function App() {
           shopProfile={shopProfile}
         />
       )}
-
-      {/* Güncel nav: Panel | Gün Sonu & Ciro | Müşteriler | Stok (patron akışı) */}
-      <nav className="sticky top-0 z-30 bg-stone-100/90 dark:bg-stone-950/90 backdrop-blur border-b border-stone-200 dark:border-stone-800 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 overflow-x-auto">
-          <button
-            id="nav-tab-panel"
-            type="button"
-            onClick={() => setActiveTab('panel')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'panel'
-                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
-                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            <span>Panel</span>
-          </button>
-
-          <button
-            id="nav-tab-activity"
-            type="button"
-            onClick={() => setActiveTab('activity')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'activity'
-                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
-                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            <span>Gün Sonu</span>
-          </button>
-
-          <button
-            id="nav-tab-customers"
-            type="button"
-            onClick={() => setActiveTab('customers')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'customers'
-                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
-                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Müşteriler ({customers.length})</span>
-          </button>
-
-          <button
-            id="nav-tab-stock"
-            type="button"
-            onClick={() => setActiveTab('stock')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'stock'
-                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
-                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800'
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            <span>Stok ({products.length})</span>
-            {criticalStockCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
-                {criticalStockCount}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Profil menüsü: nav satırının ALTINDAN açılır, sekmeleri örtmez */}
-        {profileMenuOpen && (
-          <div className="profile-menu absolute right-4 top-full mt-1 w-60 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xl overflow-hidden z-50">
-            <div className="p-4 border-b border-stone-100 dark:border-stone-800">
-              <p className="text-sm font-black text-stone-900 dark:text-white truncate">
-                {shopProfile?.storeName || storeName}
-              </p>
-              {shopProfile?.ownerName && (
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">{shopProfile.ownerName}</p>
-              )}
-              <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1 flex items-center gap-1">
-                {connected ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    <Wifi className="w-3 h-3" /> Bağlı
-                  </>
-                ) : (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-rose-500 inline-block animate-pulse" />
-                    <WifiOff className="w-3 h-3" /> Bağlanıyor...
-                  </>
-                )}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setProfileMenuOpen(false);
-                setIsShopProfileModalOpen(true);
-              }}
-              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <Store className="w-4 h-4 text-amber-500" />
-              Dükkan Bilgileri
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setProfileMenuOpen(false);
-                setIsChangePasswordOpen(true);
-              }}
-              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <KeyRound className="w-4 h-4 text-amber-500" />
-              Şifre Değiştir
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setProfileMenuOpen(false);
-                setIsStaffModalOpen(true);
-              }}
-              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <UserPlus className="w-4 h-4 text-amber-500" />
-              Personel (Kasiyer)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setProfileMenuOpen(false);
-                setIsVipModalOpen(true);
-              }}
-              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <Crown className="w-4 h-4 text-amber-500" />
-              VIP Danışman
-            </button>
-
-            <a
-              href="/api/backup"
-              onClick={() => setProfileMenuOpen(false)}
-              className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <Download className="w-4 h-4 text-emerald-600" />
-              Yedek İndir (JSON)
-            </a>
-
-            <label className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2">
-              <Upload className="w-4 h-4 text-emerald-600" />
-              Yedek Geri Yükle
-              <input
-                type="file"
-                accept="application/json"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files && e.target.files[0];
-                  setProfileMenuOpen(false);
-                  if (f) handleRestoreBackup(f);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={() => {
-                setProfileMenuOpen(false);
-                handleLogout();
-              }}
-              className="w-full text-left px-4 py-3 text-sm font-black text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-t border-stone-100 dark:border-stone-800 transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              Çıkış Yap
-            </button>
-          </div>
-        )}
-      </nav>
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 flex-1 w-full animate-fade-in">
@@ -1399,6 +1228,15 @@ export default function App() {
         )}
 
         {/* PANEL V4 - SADE KASA MODU */}
+
+        {/* 1b. Anasayfa özet paneli: net durum, dönem raporu, trend, son işlemler */}
+        <HomeDashboard
+          cash={cash}
+          transactions={transactions}
+          customers={customers}
+          suppliers={suppliers}
+          onNavigate={setActiveTab}
+        />
 
         {/* 2. Primary Action Bar — Faz 1 sade: sadece Giren/Çıkan */}
         <QuickActionBar
@@ -2061,6 +1899,7 @@ export default function App() {
         productToEdit={productToEdit}
         onSubmit={handleSaveProduct}
       />
+      </div>
     </div>
     </ErrorBoundary>
   );

@@ -19,11 +19,10 @@ interface HeaderProps {
   shopProfile?: ShopProfile;
   connected: boolean;
   darkMode: boolean;
-  profileMenuOpen: boolean;
   onToggleDarkMode: () => void;
   onOpenShopProfile: () => void;
   onOpenVip: () => void;
-  onToggleProfileMenu: () => void;
+  onToggleProfileMenu?: () => void;
   onLogout: () => void;
   onExportCsv: () => void;
 }
@@ -33,11 +32,9 @@ export const Header: React.FC<HeaderProps> = ({
   shopProfile,
   connected,
   darkMode,
-  profileMenuOpen,
   onToggleDarkMode,
   onOpenShopProfile,
   onOpenVip,
-  onToggleProfileMenu,
   onLogout,
   onExportCsv,
 }) => {
@@ -148,14 +145,14 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden lg:inline">Excel</span>
           </button>
 
-          {/* Profile Menu Trigger (sag ust) */}
+          {/* Profil kısayolu: dükkan bilgilerini açar (ayarlar sol menüde) */}
           <div className="relative">
             <button
               id="btn-profile-menu"
               type="button"
-              onClick={onToggleProfileMenu}
+              onClick={onOpenShopProfile}
               className="flex items-center gap-1.5 pl-1.5 pr-2 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
-              title="Profil menüsü"
+              title="Dükkan bilgileri"
             >
               <span className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs font-black">
                 {avatarChar}
@@ -163,7 +160,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden md:inline text-xs font-bold text-stone-700 dark:text-stone-300 max-w-[110px] truncate">
                 {displayName}
               </span>
-              <ChevronDown className={`w-3.5 h-3.5 text-stone-400 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
             </button>
           </div>
         </div>
