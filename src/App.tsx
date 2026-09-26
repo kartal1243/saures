@@ -25,8 +25,6 @@ import { BarberAppointmentsView } from './components/BarberAppointmentsView';
 import { RestaurantTablesView } from './components/RestaurantTablesView';
 import { FastRetailCounterView } from './components/FastRetailCounterView';
 import { RepairTicketsView } from './components/RepairTicketsView';
-import { RevenueVsExpensesChart } from './components/RevenueVsExpensesChart';
-import { WeeklyTrendCard } from './components/WeeklyTrendCard';
 import { CashSummary } from './components/CashSummary';
 import { QuickActionBar } from './components/QuickActionBar';
 import { UpcomingReminders } from './components/UpcomingReminders';
@@ -1257,11 +1255,6 @@ export default function App() {
           }}
         />
 
-        {/* 4. Profitability & Revenue vs Expenses Comparison Chart */}
-        <RevenueVsExpensesChart transactions={transactions} />
-
-        {/* 4b. Haftalık Kazanç & Harcama Trendi */}
-        <WeeklyTrendCard transactions={transactions} />
         </>
         )}
 

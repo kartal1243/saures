@@ -26,7 +26,8 @@ import {
 } from './src/types';
 
 const PORT = 3000;
-const DATA_DIR = path.join(process.cwd(), 'data');
+// Testler izole klasörde çalışsın diye (DATA_DIR=data_test) — gerçek dükkan verisine dokunulmaz
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
