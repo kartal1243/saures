@@ -16,6 +16,7 @@ import {
   RestaurantTable,
   RepairTicket,
   Supplier,
+  ServiceItem,
 } from './types';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -47,6 +48,7 @@ import { StockAdjustmentModal } from './components/StockAdjustmentModal';
 import { ProductFormModal } from './components/ProductFormModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SupplierModal, SupplierModalMode } from './components/SupplierModal';
+import { ServicesModal, DEFAULT_SERVICES } from './components/ServicesModal';
 import { formatCurrency } from './utils/formatters';
 import {
   Activity,
@@ -147,11 +149,6 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('panel');
 
-  // Faz 1 sade: stok geri geldi, sadece sektör gizli
-  useEffect(() => {
-    if (activeTab === 'sector_view') setActiveTab('panel');
-  }, [activeTab]);
-
   // Sector Specific States
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
@@ -159,6 +156,8 @@ export default function App() {
 
   // Tedarikçi cari hesap + modal durumu
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [supplierModalMode, setSupplierModalMode] = useState<SupplierModalMode>('form');
   const [activeSupplier, setActiveSupplier] = useState<Supplier | null>(null);
@@ -167,6 +166,16 @@ export default function App() {
   const currentSectorInfo = useMemo(() => {
     return SECTORS.find((s) => s.key === currentSector) || SECTORS[2];
   }, [currentSector]);
+
+  // Berber modu: menü + Para Al ekranı hizmet tarifeli olur
+  const isBarber = currentSector === 'berber_kuafor';
+  const serviceList = services.length > 0 || !isBarber ? services : DEFAULT_SERVICES.map((d, i) => ({
+    id: `default_${i}`,
+    name: d.name,
+    price: d.price,
+    createdAt: '',
+    updatedAt: '',
+  }));
 
   // Stock Management States
   const [products, setProducts] = useState<Product[]>([]);
@@ -270,6 +279,7 @@ export default function App() {
         if (data.tables) setTables(data.tables);
         if (data.repairTickets) setRepairTickets(data.repairTickets);
         if (data.suppliers) setSuppliers(data.suppliers);
+        if (data.services) setServices(data.services);
         setCustomers(data.customers || []);
         setTransactions(data.transactions || []);
         setReminderLogs(data.reminderLogs || []);
@@ -328,6 +338,9 @@ export default function App() {
             }
             if (wsEvent.payload.suppliers) {
               setSuppliers(wsEvent.payload.suppliers);
+            }
+            if (wsEvent.payload.services) {
+              setServices(wsEvent.payload.services);
             }
           } else if (wsEvent.type === 'APPOINTMENT_UPDATED') {
             setAppointments((prev) => {
@@ -414,6 +427,16 @@ export default function App() {
             });
           } else if (wsEvent.type === 'SUPPLIER_DELETED') {
             setSuppliers((prev) => prev.filter((s) => s.id !== wsEvent.payload.id));
+          } else if (wsEvent.type === 'SERVICE_UPDATED') {
+            setServices((prev) => {
+              const exists = prev.some((s) => s.id === wsEvent.payload.id);
+              if (exists) {
+                return prev.map((s) => (s.id === wsEvent.payload.id ? wsEvent.payload : s));
+              }
+              return [wsEvent.payload, ...prev];
+            });
+          } else if (wsEvent.type === 'SERVICE_DELETED') {
+            setServices((prev) => prev.filter((s) => s.id !== wsEvent.payload.id));
           }
         } catch (err) {
           console.error('Failed to parse WS message:', err);
@@ -613,6 +636,38 @@ export default function App() {
         if (exists) return prev.map((s) => (s.id === result.supplier.id ? result.supplier : s));
         return [result.supplier, ...prev];
       });
+    }
+  };
+
+  // Hizmet tarifesi handler'ları (berber tek-tık satış + randevu formu)
+  const handleSaveService = async (data: { id?: string; name: string; price: number }) => {
+    const res = await fetch('/api/services', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Hizmet kaydedilemedi.');
+    }
+    const result = await res.json();
+    if (result.service) {
+      setServices((prev) => {
+        const exists = prev.some((s) => s.id === result.service.id);
+        if (exists) return prev.map((s) => (s.id === result.service.id ? result.service : s));
+        return [result.service, ...prev];
+      });
+    }
+  };
+
+  const handleDeleteService = async (id: string) => {
+    if (id.startsWith('default_')) return;
+    if (!confirm('Bu hizmeti tarifeden silmek istiyor musunuz?')) return;
+    const res = await fetch(`/api/services/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      alert('Hizmet silinemedi.');
+    } else {
+      setServices((prev) => prev.filter((s) => s.id !== id));
     }
   };
 
@@ -1159,11 +1214,12 @@ export default function App() {
         storeName={shopProfile?.storeName || storeName}
         ownerName={shopProfile?.ownerName}
         connected={connected}
+        isBarber={isBarber}
         onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
         onOpenStaff={() => setIsStaffModalOpen(true)}
         onChangePassword={() => setIsChangePasswordOpen(true)}
         onOpenVip={() => setIsVipModalOpen(true)}
-        onRestoreBackup={handleRestoreBackup}
+        onOpenServices={() => setIsServicesModalOpen(true)}
         onLogout={handleLogout}
       />
       <div className="flex-1 min-w-0 flex flex-col">
@@ -1347,6 +1403,7 @@ export default function App() {
         {activeTab === 'sector_view' && currentSector === 'berber_kuafor' ? (
           <BarberAppointmentsView
             appointments={appointments}
+            services={serviceList}
             onAddAppointment={handleAddAppointment}
             onCompleteAppointment={handleCompleteAppointment}
             onUpdateStatus={handleUpdateAppointmentStatus}
@@ -1751,6 +1808,7 @@ export default function App() {
         currentProfile={shopProfile}
         onSaveProfile={handleSaveShopProfile}
         isFirstTime={!shopProfile.isConfigured}
+        onRestoreBackup={handleRestoreBackup}
       />
 
       {/* 2. Para Al (Satış / Kasa Girişi) Modal */}
@@ -1759,6 +1817,17 @@ export default function App() {
         onClose={() => setIsMoneyInModalOpen(false)}
         customers={customers}
         onSubmit={handleMoneyIn}
+        services={serviceList}
+        showServices={isBarber}
+      />
+
+      {/* 2b. Hizmet tarifeleri (berber) */}
+      <ServicesModal
+        isOpen={isServicesModalOpen}
+        onClose={() => setIsServicesModalOpen(false)}
+        services={services}
+        onSave={handleSaveService}
+        onDelete={handleDeleteService}
       />
 
       {/* 3. Para Ver (Dükkan Masrafı / Gider) Modal */}

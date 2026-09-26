@@ -242,6 +242,25 @@ def main():
 
     code, d, _ = req(f"/api/suppliers/{sup_id}", "DELETE", cookie=owner_cookie)
     check("tedarikci silindi 200", code == 200, f"{code} {d}")
+
+    code, d, _ = req("/api/services", "POST", {"price": 300}, cookie=owner_cookie)
+    check("isim yokken hizmet 400", code == 400, f"{code} {d}")
+    code, d, _ = req("/api/services", "POST",
+                     {"name": "Sakal Tıraşı", "price": 150}, cookie=owner_cookie)
+    srv = d.get("service", {}) if isinstance(d, dict) else {}
+    srv_id = srv.get("id")
+    check("hizmet olustu (150)", code == 200 and srv_id and srv.get("price") == 150,
+          f"{code} {d}")
+    code, d, _ = req("/api/services", "POST",
+                     {"id": srv_id, "name": "Sakal Tıraşı", "price": 200},
+                     cookie=owner_cookie)
+    check("hizmet fiyati guncellendi (200)",
+          code == 200 and d.get("service", {}).get("price") == 200, f"{code} {d}")
+    code, d, _ = req("/api/data", cookie=owner_cookie)
+    check("/api/data hizmeti dondurur",
+          any(s.get("id") == srv_id for s in d.get("services", [])), str(d.get("services")))
+    code, d, _ = req(f"/api/services/{srv_id}", "DELETE", cookie=owner_cookie)
+    check("hizmet silindi 200", code == 200, f"{code} {d}")
     code, d, _ = req("/api/data", cookie=owner_cookie)
     check("silinen tedarikci listede yok",
           all(s.get("id") != sup_id for s in d.get("suppliers", [])), str(d.get("suppliers")))

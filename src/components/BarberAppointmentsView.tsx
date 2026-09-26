@@ -18,10 +18,11 @@ import {
   ChevronRight,
   Filter,
 } from 'lucide-react';
-import { Appointment } from '../types';
+import { Appointment, ServiceItem } from '../types';
 
 interface BarberAppointmentsViewProps {
   appointments: Appointment[];
+  services?: ServiceItem[];
   onAddAppointment: (data: Partial<Appointment>) => Promise<void>;
   onCompleteAppointment: (id: string, paymentMethod: 'nakit' | 'kart') => Promise<void>;
   onUpdateStatus: (id: string, status: Appointment['status']) => Promise<void>;
@@ -46,12 +47,16 @@ const STAFF_LIST = [
 
 export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   appointments,
+  services,
   onAddAppointment,
   onCompleteAppointment,
   onUpdateStatus,
   onDeleteAppointment,
   onFastWalkinCash,
 }) => {
+  // Dükkanın kendi tarifesi varsa onu kullan, yoksa hazır liste
+  const serviceOptions: { name: string; price: number }[] =
+    services && services.length > 0 ? services : COMMON_SERVICES;
   const [filterStatus, setFilterStatus] = useState<'all' | 'bekliyor' | 'koltukta' | 'tamamlandi'>('all');
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [completingApt, setCompletingApt] = useState<Appointment | null>(null);
@@ -60,8 +65,8 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [staffName, setStaffName] = useState(STAFF_LIST[0]);
-  const [serviceName, setServiceName] = useState(COMMON_SERVICES[0].name);
-  const [price, setPrice] = useState(COMMON_SERVICES[0].price);
+  const [serviceName, setServiceName] = useState(serviceOptions[0]?.name || '');
+  const [price, setPrice] = useState(serviceOptions[0]?.price || 0);
   const [timeSlot, setTimeSlot] = useState('14:00');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -262,7 +267,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {COMMON_SERVICES.map((srv) => (
+          {serviceOptions.map((srv) => (
             <button
               key={srv.name}
               type="button"
@@ -537,12 +542,12 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                     value={serviceName}
                     onChange={(e) => {
                       setServiceName(e.target.value);
-                      const matched = COMMON_SERVICES.find((s) => s.name === e.target.value);
+                      const matched = serviceOptions.find((s) => s.name === e.target.value);
                       if (matched) setPrice(matched.price);
                     }}
                     className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   >
-                    {COMMON_SERVICES.map((srv) => (
+                    {serviceOptions.map((srv) => (
                       <option key={srv.name} value={srv.name}>
                         {srv.name}
                       </option>

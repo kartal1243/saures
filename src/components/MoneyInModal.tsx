@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Customer, PaymentMethod } from '../types';
+import { Customer, PaymentMethod, ServiceItem } from '../types';
 import { Banknote, CreditCard, Send, X, Check, ShoppingBag, Store, User, Sparkles } from 'lucide-react';
 
 interface MoneyInModalProps {
   isOpen: boolean;
   onClose: () => void;
   customers: Customer[];
+  services?: ServiceItem[];
+  showServices?: boolean;
   onSubmit: (data: {
     amount: number;
     paymentMethod: PaymentMethod;
@@ -30,6 +32,8 @@ export const MoneyInModal: React.FC<MoneyInModalProps> = ({
   isOpen,
   onClose,
   customers,
+  services = [],
+  showServices = false,
   onSubmit,
 }) => {
   const [amount, setAmount] = useState<string>('');
@@ -153,6 +157,38 @@ export const MoneyInModal: React.FC<MoneyInModalProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Hizmet hızlı seçim (berber modu): tek tıkla tutar + kategori dolar */}
+          {showServices && services.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
+                Hizmet Seç (Tek Tıkla Satış)
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {services.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setAmount(String(s.price));
+                      setCategory('Hizmet & İşçilik Bedeli');
+                      setDescription(s.name);
+                    }}
+                    className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer text-left ${
+                      description === s.name && Number(amount) === s.price
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-stone-100 hover:bg-emerald-100 dark:bg-stone-800 dark:hover:bg-emerald-900/40 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <span className="block truncate">{s.name}</span>
+                    <span className={`block font-black ${description === s.name && Number(amount) === s.price ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {s.price} ₺
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Payment Method Radio Group */}
           <div>

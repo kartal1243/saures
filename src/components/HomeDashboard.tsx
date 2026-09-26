@@ -20,6 +20,13 @@ function parseDate(d: string): number {
   return isNaN(t) ? 0 : t;
 }
 
+// Yerel güne göre kova anahtarı (UTC kayması hatasını önler)
+function dayKey(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+
 const DAY_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 const ROW_META: Record<TransactionType, { label: string; dot: string; text: string }> = {
@@ -55,10 +62,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   );
 
   const todayStats = useMemo(() => {
-    const today = new Date().toDateString();
+    const today = dayKey(Date.now());
     const list = transactions.filter((t) => {
       const ts = parseDate(t.date);
-      return ts > 0 && new Date(ts).toDateString() === today;
+      return ts > 0 && dayKey(ts) === today;
     });
     return {
       count: list.length,
@@ -83,36 +90,48 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     return { veresiye, tahsilat, gider, masraf, grand, netNakit: tahsilat.total - gider.total - masraf.total };
   }, [transactions, period]);
 
+  // Günlük kar/zarar = (veresiye + tahsilat) − (gider + masraf); ciro = veresiye + tahsilat
   const trend = useMemo(() => {
-    const days: { label: string; value: number }[] = [];
+    const days: { label: string; profit: number; revenue: number }[] = [];
     const now = new Date();
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const key = d.toDateString();
-      let v = 0;
+      const key = dayKey(d.getTime());
+      let income = 0;
+      let expense = 0;
       for (const t of transactions) {
         const ts = parseDate(t.date);
-        if (ts > 0 && new Date(ts).toDateString() === key) {
-          if (t.type === 'tahsilat') v += Math.abs(t.amount || 0);
-          else if (t.type === 'gider' || t.type === 'masraf') v -= Math.abs(t.amount || 0);
+        if (ts > 0 && dayKey(ts) === key) {
+          const amt = Math.abs(t.amount || 0);
+          if (t.type === 'veresiye' || t.type === 'tahsilat') income += amt;
+          else expense += amt;
         }
       }
-      days.push({ label: DAY_SHORT[d.getDay()], value: v });
+      days.push({ label: DAY_SHORT[d.getDay()], profit: income - expense, revenue: income });
     }
     return days;
   }, [transactions]);
 
-  const trendMax = Math.max(...trend.map((d) => d.value), 0);
+  const weekProfit = trend.reduce((s, d) => s + d.profit, 0);
+  const weekRevenue = trend.reduce((s, d) => s + d.revenue, 0);
+
   const W = 300;
   const H = 120;
   const PAD = 8;
-  const pts = trend.map((d, i) => {
-    const x = PAD + (i * (W - PAD * 2)) / 6;
-    const y = trendMax > 0 ? H - PAD - (d.value / trendMax) * (H - PAD * 2) : H - PAD;
-    return { x, y };
-  });
-  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const area = `${line} L${pts[6].x.toFixed(1)},${H} L${pts[0].x.toFixed(1)},${H} Z`;
+  const allVals = trend.flatMap((d) => [d.profit, d.revenue]);
+  const tMin = Math.min(...allVals, 0);
+  const tMax = Math.max(...allVals, 0);
+  const span = tMax - tMin || 1;
+  const yOf = (v: number) => H - PAD - ((v - tMin) / span) * (H - PAD * 2);
+  const xOf = (i: number) => PAD + (i * (W - PAD * 2)) / 6;
+  const profitPts = trend.map((d, i) => ({ x: xOf(i), y: yOf(d.profit) }));
+  const revenuePts = trend.map((d, i) => ({ x: xOf(i), y: yOf(d.revenue) }));
+  const toLine = (pts: { x: number; y: number }[]) =>
+    pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const profitLine = toLine(profitPts);
+  const revenueLine = toLine(revenuePts);
+  const area = `${profitLine} L${profitPts[6].x.toFixed(1)},${H} L${profitPts[0].x.toFixed(1)},${H} Z`;
+  const zeroY = yOf(0);
 
   const recent = useMemo(() => transactions.slice(0, 6), [transactions]);
 
@@ -252,21 +271,32 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         </div>
 
         <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Son 7 gün trendi</p>
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-36 mt-2" preserveAspectRatio="none">
+          <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Son 7 gün</p>
+          <div className="mt-1.5 grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Kar / Zarar</p>
+              <p className={`text-xl font-black ${weekProfit < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                {weekProfit >= 0 ? '+' : '−'}{formatCurrency(Math.abs(weekProfit))}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Ciro</p>
+              <p className="text-xl font-black text-amber-500">{formatCurrency(weekRevenue)}</p>
+            </div>
+          </div>
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-32 mt-2" preserveAspectRatio="none">
             <defs>
               <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#10b981" stopOpacity="0.45" />
                 <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
               </linearGradient>
             </defs>
-            {[0.25, 0.5, 0.75].map((f) => (
-              <line key={f} x1={PAD} x2={W - PAD} y1={H * f} y2={H * f} stroke="currentColor" className="text-stone-200 dark:text-stone-800" strokeWidth="1" />
-            ))}
+            <line x1={PAD} x2={W - PAD} y1={zeroY} y2={zeroY} stroke="currentColor" className="text-stone-300 dark:text-stone-700" strokeWidth="1" strokeDasharray="4 3" />
             <path d={area} fill="url(#trendFill)" />
-            <path d={line} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-            {pts.map((p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r="3.5" fill="#3b82f6" stroke="#fff" strokeWidth="1.5" />
+            <path d={revenueLine} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.9" />
+            <path d={profitLine} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            {profitPts.map((p, i) => (
+              <circle key={i} cx={p.x} cy={p.y} r="3" fill="#10b981" stroke="#fff" strokeWidth="1.5" />
             ))}
           </svg>
           <div className="flex justify-between text-[10px] font-bold text-stone-400 px-1">
@@ -275,8 +305,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             ))}
           </div>
           <p className="mt-2 text-[10px] font-bold text-stone-400 flex items-center gap-3">
-            <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-blue-500 inline-block" /> NET</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-emerald-500 inline-block" /> Tahsilat − Gider</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-emerald-500 inline-block" /> Kar / Zarar</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-amber-500 inline-block" /> Ciro</span>
           </p>
         </div>
       </div>

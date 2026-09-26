@@ -45,6 +45,15 @@ export interface Transaction {
   createdAt: string;
 }
 
+// Hizmet tarifesi: berber/güzellik salonu fiyat listesi (tek-tık satış için)
+export interface ServiceItem {
+  id: string;
+  name: string;
+  price: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Tedarikçi cari hesabı: dükkanın toptancı/imalatçıya olan borcu
 export interface Supplier {
   id: string;
@@ -199,6 +208,7 @@ export interface AppState {
   tables: RestaurantTable[];
   repairTickets: RepairTicket[];
   suppliers: Supplier[];
+  services: ServiceItem[];
   lastUpdated: string;
 }
 
@@ -218,6 +228,7 @@ export type WSEvent =
         tables?: RestaurantTable[];
         repairTickets?: RepairTicket[];
         suppliers?: Supplier[];
+        services?: ServiceItem[];
       };
     }
   | { type: 'TRANSACTION_CREATED'; payload: { transaction: Transaction; customer?: Customer; cash: CashRegister } }
@@ -236,5 +247,7 @@ export type WSEvent =
   | { type: 'REPAIR_TICKET_UPDATED'; payload: RepairTicket }
   | { type: 'REPAIR_TICKET_DELETED'; payload: { id: string } }
   | { type: 'SUPPLIER_UPDATED'; payload: Supplier }
-  | { type: 'SUPPLIER_DELETED'; payload: { id: string } };
+  | { type: 'SUPPLIER_DELETED'; payload: { id: string } }
+  | { type: 'SERVICE_UPDATED'; payload: ServiceItem }
+  | { type: 'SERVICE_DELETED'; payload: { id: string } };
 

@@ -5,11 +5,11 @@ import {
   Users,
   Package,
   Activity,
+  CalendarDays,
+  Scissors,
   KeyRound,
   UserPlus,
   Crown,
-  Download,
-  Upload,
   LogOut,
   Wifi,
   WifiOff,
@@ -25,11 +25,12 @@ interface SidebarProps {
   storeName: string;
   ownerName?: string;
   connected: boolean;
+  isBarber: boolean;
   onOpenShopProfile: () => void;
   onOpenStaff: () => void;
   onChangePassword: () => void;
   onOpenVip: () => void;
-  onRestoreBackup: (f: File) => void;
+  onOpenServices: () => void;
   onLogout: () => void;
 }
 
@@ -52,11 +53,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   storeName,
   ownerName,
   connected,
+  isBarber,
   onOpenShopProfile,
   onOpenStaff,
   onChangePassword,
   onOpenVip,
-  onRestoreBackup,
+  onOpenServices,
   onLogout,
 }) => {
   const avatarChar = (storeName || 'D').trim().charAt(0).toUpperCase();
@@ -67,6 +69,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <LayoutDashboard className="w-4 h-4 shrink-0" />
         <span>Anasayfa</span>
       </button>
+      {isBarber && (
+        <>
+          <button id="nav-tab-appointments" type="button" onClick={() => onNavigate('sector_view')} className={tabBtn(activeTab === 'sector_view')}>
+            <CalendarDays className="w-4 h-4 shrink-0" />
+            <span>Randevu Takvimi</span>
+          </button>
+          <button type="button" onClick={onOpenServices} className={tabBtn(false)}>
+            <Scissors className="w-4 h-4 shrink-0" />
+            <span>Hizmetler</span>
+          </button>
+        </>
+      )}
       <button id="nav-tab-customers" type="button" onClick={() => onNavigate('customers')} className={tabBtn(activeTab === 'customers')}>
         <Users className="w-4 h-4 shrink-0" />
         <span>Müşteriler ({customersCount})</span>
@@ -102,22 +116,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <button type="button" onClick={onOpenVip} className={menuBtn}>
         <Crown className="w-4 h-4 shrink-0 text-stone-500" /> VIP Danışman
       </button>
-      <a href="/api/backup" className={menuBtn}>
-        <Download className="w-4 h-4 shrink-0 text-emerald-500" /> Yedek İndir
-      </a>
-      <label className={`${menuBtn} cursor-pointer`}>
-        <Upload className="w-4 h-4 shrink-0 text-emerald-500" /> Yedek Yükle
-        <input
-          type="file"
-          accept="application/json"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files && e.target.files[0];
-            if (f) onRestoreBackup(f);
-            e.target.value = '';
-          }}
-        />
-      </label>
       <button
         type="button"
         onClick={onLogout}
@@ -175,10 +173,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Mobil alt bar */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-stone-950/95 backdrop-blur border-t border-stone-800">
-        <div className="grid grid-cols-4">
+        <div className={`grid ${isBarber ? 'grid-cols-5' : 'grid-cols-4'}`}>
           {(
             [
               { id: 'nav-tab-panel', tab: 'panel' as const, label: 'Anasayfa', Icon: LayoutDashboard, badge: 0 },
+              ...(isBarber
+                ? [{ id: 'nav-tab-appointments', tab: 'sector_view' as const, label: 'Randevu', Icon: CalendarDays, badge: 0 }]
+                : []),
               { id: 'nav-tab-customers', tab: 'customers' as const, label: 'Müşteriler', Icon: Users, badge: 0 },
               { id: 'nav-tab-stock', tab: 'stock' as const, label: 'Stok', Icon: Package, badge: criticalStockCount },
               { id: 'nav-tab-activity', tab: 'activity' as const, label: 'Gün Sonu', Icon: Activity, badge: 0 },

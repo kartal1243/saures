@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Store, Users, Phone, MapPin, Target, Sparkles, Check, X, ShieldAlert, Award, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Store, Users, Phone, MapPin, Target, Sparkles, Check, X, ShieldAlert, Award, ArrowRight, ArrowLeft, Download, Upload, DatabaseBackup } from 'lucide-react';
 import { ShopProfile, BusinessSector } from '../types';
 
 interface ShopProfileModalProps {
@@ -8,6 +8,7 @@ interface ShopProfileModalProps {
   currentProfile?: ShopProfile;
   onSaveProfile: (profile: ShopProfile) => Promise<void>;
   isFirstTime?: boolean;
+  onRestoreBackup?: (f: File) => void;
 }
 
 const BUSINESS_FIELDS = [
@@ -36,6 +37,7 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
   currentProfile,
   onSaveProfile,
   isFirstTime = false,
+  onRestoreBackup,
 }) => {
   const [storeName, setStoreName] = useState(currentProfile?.storeName || '');
   const [ownerName, setOwnerName] = useState(currentProfile?.ownerName || '');
@@ -541,6 +543,39 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
                   </p>
                 </div>
               </div>
+              {!isFirstTime && (
+                <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700">
+                  <p className="text-xs font-black text-stone-800 dark:text-stone-100 flex items-center gap-1.5">
+                    <DatabaseBackup className="w-4 h-4 text-emerald-600" /> Defter Yedeği
+                  </p>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
+                    Tüm müşteri, işlem ve stok kayıtlarını tek dosyada indir veya geri yükle.
+                  </p>
+                  <div className="mt-2.5 flex gap-2">
+                    <a
+                      href="/api/backup"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Yedek İndir
+                    </a>
+                    {onRestoreBackup && (
+                      <label className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer">
+                        <Upload className="w-3.5 h-3.5" /> Yedek Yükle
+                        <input
+                          type="file"
+                          accept="application/json"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files && e.target.files[0];
+                            if (f) onRestoreBackup(f);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-stone-200 dark:border-stone-800">
                 <button
                   type="button"

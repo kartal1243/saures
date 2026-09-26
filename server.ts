@@ -23,6 +23,7 @@ import {
   RepairTicket,
   BusinessSector,
   Supplier,
+  ServiceItem,
 } from './src/types';
 
 const PORT = 3000;
@@ -129,6 +130,7 @@ function emptyState(seed?: { storeName: string; ownerName: string; phone: string
     tables: [],
     repairTickets: [],
     suppliers: [],
+    services: [],
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -166,6 +168,7 @@ function loadShopState(accountId: string): AppState {
   if (!Array.isArray(st.tables)) st.tables = [];
   if (!Array.isArray(st.repairTickets)) st.repairTickets = [];
   if (!Array.isArray((st as any).suppliers)) (st as any).suppliers = [];
+  if (!Array.isArray((st as any).services)) (st as any).services = [];
   if (!Array.isArray(st.reminderLogs)) st.reminderLogs = [];
   shopStateCache.set(accountId, st);
   return st;
@@ -579,6 +582,7 @@ async function startServer() {
           tables: st.tables || [],
           repairTickets: st.repairTickets || [],
           suppliers: st.suppliers || [],
+          services: (st as any).services || [],
         },
       };
       ws.send(JSON.stringify(initEvent));
@@ -624,6 +628,7 @@ async function startServer() {
     st.tables = Array.isArray(ns.tables) ? ns.tables : [];
     st.repairTickets = Array.isArray(ns.repairTickets) ? ns.repairTickets : [];
     st.suppliers = Array.isArray(ns.suppliers) ? ns.suppliers : [];
+    (st as any).services = Array.isArray(ns.services) ? ns.services : [];
     if (ns.shopProfile && typeof ns.shopProfile === 'object') {
       st.shopProfile = { ...st.shopProfile, ...ns.shopProfile };
       st.storeName = ns.shopProfile.storeName || st.storeName;
@@ -644,6 +649,7 @@ async function startServer() {
         tables: st.tables || [],
         repairTickets: st.repairTickets || [],
         suppliers: st.suppliers || [],
+        services: (st as any).services || [],
       },
     });
     res.json({ success: true });
@@ -661,6 +667,7 @@ async function startServer() {
       products: S().products || [],
       stockMovements: S().stockMovements || [],
       suppliers: S().suppliers || [],
+      services: (S() as any).services || [],
       cash: calculateCashRegister(),
       lastUpdated: S().lastUpdated,
     });
@@ -1739,6 +1746,52 @@ Kurallar:
     S().suppliers.splice(idx, 1);
     saveState();
     broadcast({ type: 'SUPPLIER_DELETED', payload: { id } });
+    res.json({ success: true });
+  });
+
+  // ==========================================
+  // 18b. HİZMET TARİFESİ (Berber/güzellik salonu fiyat listesi)
+  // ==========================================
+  app.post('/api/services', (req: Request, res: Response) => {
+    const data = req.body || {};
+    if (!data.name || !String(data.name).trim()) {
+      return res.status(400).json({ error: 'Hizmet adı zorunludur.' });
+    }
+    const price = Number(data.price);
+    if (isNaN(price) || price <= 0) {
+      return res.status(400).json({ error: 'Geçerli bir fiyat giriniz.' });
+    }
+    const now = new Date().toISOString();
+    const list = (S() as any).services as ServiceItem[];
+    let service: ServiceItem;
+    if (data.id) {
+      const idx = list.findIndex((s) => s.id === data.id);
+      if (idx === -1) return res.status(404).json({ error: 'Hizmet bulunamadı.' });
+      service = { ...list[idx], name: String(data.name).trim(), price, updatedAt: now };
+      list[idx] = service;
+    } else {
+      service = {
+        id: `srv_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        name: String(data.name).trim(),
+        price,
+        createdAt: now,
+        updatedAt: now,
+      };
+      list.unshift(service);
+    }
+    saveState();
+    broadcast({ type: 'SERVICE_UPDATED', payload: service });
+    res.json({ success: true, service });
+  });
+
+  app.delete('/api/services/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const list = (S() as any).services as ServiceItem[];
+    const idx = list.findIndex((s) => s.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Hizmet bulunamadı.' });
+    list.splice(idx, 1);
+    saveState();
+    broadcast({ type: 'SERVICE_DELETED', payload: { id } });
     res.json({ success: true });
   });
 
