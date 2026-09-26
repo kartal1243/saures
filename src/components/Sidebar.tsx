@@ -127,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <Users className="w-4 h-4 shrink-0" />
         <span>Müşteriler ({customersCount})</span>
       </button>
-      {!isLawyer && (
+      {!isLawyer && !isBarber && (
         <button id="nav-tab-stock" type="button" onClick={() => onOpenStock(false)} className={tabBtn(activeTab === 'stock')}>
           <Package className="w-4 h-4 shrink-0" />
           <span>Stok ({productsCount})</span>
@@ -221,7 +221,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="grid"
           style={{
             gridTemplateColumns: `repeat(${
-              4 + (isBarber ? 1 : 0) + (isLawyer ? 1 : 0) + (isRetail ? 2 : 0) - (isLawyer ? 1 : 0)
+              3 +
+              (isBarber ? 1 : 0) +
+              (isLawyer ? 1 : 0) +
+              (isRetail ? 2 : 0) +
+              (!isLawyer && !isBarber ? 1 : 0)
             }, minmax(0,1fr))`,
           }}
         >
@@ -241,7 +245,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ]
                 : []),
               { id: 'nav-tab-customers', label: 'Müşteriler', Icon: Users, badge: 0, active: activeTab === 'customers', onClick: () => onNavigate('customers') },
-              ...(!isLawyer
+              ...(!isLawyer && !isBarber
                 ? [{ id: 'nav-tab-stock', label: 'Stok', Icon: Package, badge: criticalStockCount, active: activeTab === 'stock', onClick: () => onOpenStock(false) }]
                 : []),
               { id: 'nav-tab-activity', label: 'Gün Sonu', Icon: Activity, badge: 0, active: activeTab === 'activity', onClick: () => onNavigate('activity') },

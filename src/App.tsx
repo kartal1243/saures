@@ -50,6 +50,7 @@ import { ServicesModal, DEFAULT_SERVICES } from './components/ServicesModal';
 import { SectorModuleSwitch } from './components/SectorModuleSwitch';
 import type { LawyerTab } from './components/LawyerCasesView';
 import { formatCurrency } from './utils/formatters';
+import { deriveSector } from './utils/sector';
 import {
   Activity,
   Clock,
@@ -277,6 +278,25 @@ export default function App() {
           // If shop profile has never been configured by user, auto-prompt onboarding modal
           if (!data.shopProfile.isConfigured) {
             setIsShopProfileModalOpen(true);
+          } else {
+            // Eski bug'dan takılı kalmış sectorKey varsa alana göre sessizce düzelt
+            const expected = deriveSector(data.shopProfile.businessField);
+            if (data.shopProfile.sectorKey !== expected) {
+              fetch('/api/shop-profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...data.shopProfile, sectorKey: expected }),
+              })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((saved) => {
+                  const profile = saved?.profile || saved;
+                  if (profile?.sectorKey) {
+                    setShopProfile(profile);
+                    setStoreName(profile.storeName);
+                  }
+                })
+                .catch(() => {});
+            }
           }
         }
         if (data.dailyClosings) setDailyClosings(data.dailyClosings);
@@ -882,6 +902,7 @@ export default function App() {
     let updatedBusinessField = shopProfile.businessField;
 
     const isGenericName =
+      storeName === 'Dükkanım' ||
       storeName === 'Dıkkânım' ||
       storeName === 'Bereket Mahalle Esnafı' ||
       storeName === 'Bereket Mahalle Bakkalı' ||

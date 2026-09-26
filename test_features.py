@@ -113,6 +113,18 @@ def main():
     check("kayitli profil /api/data ile ayni",
           (st.get("shopProfile") or {}).get("storeName") == f"Patronluk {tag}",
           str((st.get("shopProfile") or {}).get("storeName")))
+    code, d, _ = req("/api/shop-profile", "POST",
+                     {"storeName": f"Patronluk {tag}", "ownerName": "Patron",
+                      "businessField": "Kuaför / Berber / Güzellik Salonu",
+                      "sectorKey": "berber_kuafor", "isConfigured": True},
+                     cookie=owner_cookie)
+    check("berber sectorKey kaydolur",
+          code == 200 and (d.get("profile") or {}).get("sectorKey") == "berber_kuafor",
+          f"{code} {d}")
+    code, st, _ = req("/api/data", cookie=owner_cookie)
+    check("berber sectorKey /api/data ile ayni",
+          (st.get("shopProfile") or {}).get("sectorKey") == "berber_kuafor",
+          str((st.get("shopProfile") or {}).get("sectorKey")))
 
     cashier_phone = f"0504{tag}"
     code, d, _ = req("/api/auth/add-staff", "POST",

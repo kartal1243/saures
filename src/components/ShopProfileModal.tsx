@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Store, Users, Phone, MapPin, Target, Sparkles, Check, X, ShieldAlert, Award, ArrowRight, ArrowLeft, Download, Upload, DatabaseBackup } from 'lucide-react';
-import { ShopProfile, BusinessSector } from '../types';
+import { ShopProfile } from '../types';
+import { deriveSector } from '../utils/sector';
 
 interface ShopProfileModalProps {
   isOpen: boolean;
@@ -91,26 +92,12 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
     setError(null);
     setIsSaving(true);
     try {
-      let derivedSector: BusinessSector = currentProfile?.sectorKey || 'bakkal_market';
-      if (businessField.includes('Berber') || businessField.includes('Kuaför')) {
-        derivedSector = 'berber_kuafor';
-      } else if (businessField.includes('Kafe') || businessField.includes('Restoran')) {
-        derivedSector = 'kafe_restoran';
-      } else if (businessField.includes('Tamir') || businessField.includes('Teknik') || businessField.includes('Oto')) {
-        derivedSector = 'teknik_servis';
-      } else if (businessField.includes('Avukat') || businessField.includes('Danışman') || businessField.includes('Hukuk')) {
-        derivedSector = 'avukat_danisman';
-      } else if (businessField.includes('Bakkal') || businessField.includes('Market')) {
-        derivedSector = 'bakkal_market';
-      } else {
-        derivedSector = 'diger_esnaf';
-      }
-
       await onSaveProfile({
         storeName: storeName.trim(),
         ownerName: ownerName.trim() || 'Esnaf',
         businessField,
-        sectorKey: currentProfile?.sectorKey || derivedSector,
+        // Seçilen alandan taze türet — eski sectorKey asla ezmesin (randevu menüsü bug'ı)
+        sectorKey: deriveSector(businessField),
         employeeCount,
         phone: phone.trim(),
         cityDistrict: cityDistrict.trim(),
