@@ -164,6 +164,32 @@ def main():
     code, d, _ = req("/api/auth/staff", cookie=cash_cookie)
     check("kasiyer personel yonetemez 403", code == 403, f"{code}")
 
+    print("\n== 3b) DAVA DOSYALARI (avukat) ==")
+    code, d, _ = req("/api/cases", "POST", {"clientName": "Ali Veli"}, cookie=owner_cookie)
+    check("dosya no yokken dava 400", code == 400, f"{code} {d}")
+    code, d, _ = req("/api/cases", "POST",
+                     {"fileNo": "2026/1234", "clientName": "Ali Veli",
+                      "court": "Asliye Hukuk", "hearingDate": "2026-10-15",
+                      "consultancyHours": 3, "hourlyRate": 5000,
+                      "hearings": [{"date": "2026-10-15", "note": "Kesif"}]},
+                     cookie=owner_cookie)
+    case = d.get("case", {}) if isinstance(d, dict) else {}
+    case_id = case.get("id")
+    check("dava dosyasi olustu", code == 200 and case_id and len(case.get("hearings", [])) == 1,
+          f"{code} {d}")
+    code, d, _ = req("/api/data", cookie=owner_cookie)
+    check("/api/data dosyayi dondurur",
+          any(c.get("id") == case_id for c in d.get("cases", [])), str(d.get("cases")))
+    code, d, _ = req("/api/cases", "POST",
+                     {"id": case_id, "fileNo": "2026/1234", "clientName": "Ali Veli",
+                      "status": "kapali", "hearings": []}, cookie=owner_cookie)
+    check("dosya kapatilabiliyor",
+          code == 200 and d.get("case", {}).get("status") == "kapali", f"{code} {d}")
+    code, d, _ = req(f"/api/cases/{case_id}", "DELETE", cookie=cash_cookie)
+    check("kasiyer dosya silemez 403", code == 403, f"{code} {d}")
+    code, d, _ = req(f"/api/cases/{case_id}", "DELETE", cookie=owner_cookie)
+    check("dosya silindi 200", code == 200, f"{code} {d}")
+
     print("\n== 4) YEDEK INDIR + GERI YUKLE ==")
     # Owner: 1 musteri ekle -> yedek al
     req("/api/customers", "POST", {"name": "Yedekli Ali", "phone": f"0557{tag}"},

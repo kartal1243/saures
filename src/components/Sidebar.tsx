@@ -7,6 +7,10 @@ import {
   Activity,
   CalendarDays,
   Scissors,
+  Scale,
+  Gavel,
+  ShoppingCart,
+  AlertTriangle,
   KeyRound,
   UserPlus,
   Crown,
@@ -15,6 +19,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import type { ActiveTab } from '../App';
+import type { LawyerTab } from './LawyerCasesView';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -26,11 +31,15 @@ interface SidebarProps {
   ownerName?: string;
   connected: boolean;
   isBarber: boolean;
+  isLawyer: boolean;
+  isRetail: boolean;
   onOpenShopProfile: () => void;
   onOpenStaff: () => void;
   onChangePassword: () => void;
   onOpenVip: () => void;
   onOpenServices: () => void;
+  onOpenLawyer: (sub: LawyerTab) => void;
+  onOpenStock: (criticalOnly: boolean) => void;
   onLogout: () => void;
 }
 
@@ -54,11 +63,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ownerName,
   connected,
   isBarber,
+  isLawyer,
+  isRetail,
   onOpenShopProfile,
   onOpenStaff,
   onChangePassword,
   onOpenVip,
   onOpenServices,
+  onOpenLawyer,
+  onOpenStock,
   onLogout,
 }) => {
   const avatarChar = (storeName || 'D').trim().charAt(0).toUpperCase();
@@ -81,19 +94,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </>
       )}
+      {isLawyer && (
+        <>
+          <button id="nav-tab-cases" type="button" onClick={() => onOpenLawyer('cases')} className={tabBtn(activeTab === 'sector_view')}>
+            <Scale className="w-4 h-4 shrink-0" />
+            <span>Dava Dosyaları</span>
+          </button>
+          <button id="nav-tab-hearings" type="button" onClick={() => onOpenLawyer('hearings')} className={tabBtn(false)}>
+            <Gavel className="w-4 h-4 shrink-0" />
+            <span>Duruşma Takvimi</span>
+          </button>
+        </>
+      )}
+      {isRetail && (
+        <>
+          <button id="nav-tab-pos" type="button" onClick={() => onNavigate('sector_view')} className={tabBtn(activeTab === 'sector_view')}>
+            <ShoppingCart className="w-4 h-4 shrink-0" />
+            <span>Hızlı Satış (POS)</span>
+          </button>
+          <button id="nav-tab-critical-stock" type="button" onClick={() => onOpenStock(true)} className={tabBtn(false)}>
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>Kritik Stok</span>
+            {criticalStockCount > 0 && (
+              <span className="ml-auto px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
+                {criticalStockCount}
+              </span>
+            )}
+          </button>
+        </>
+      )}
       <button id="nav-tab-customers" type="button" onClick={() => onNavigate('customers')} className={tabBtn(activeTab === 'customers')}>
         <Users className="w-4 h-4 shrink-0" />
         <span>Müşteriler ({customersCount})</span>
       </button>
-      <button id="nav-tab-stock" type="button" onClick={() => onNavigate('stock')} className={tabBtn(activeTab === 'stock')}>
-        <Package className="w-4 h-4 shrink-0" />
-        <span>Stok ({productsCount})</span>
-        {criticalStockCount > 0 && (
-          <span className="ml-auto px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
-            {criticalStockCount}
-          </span>
-        )}
-      </button>
+      {!isLawyer && (
+        <button id="nav-tab-stock" type="button" onClick={() => onOpenStock(false)} className={tabBtn(activeTab === 'stock')}>
+          <Package className="w-4 h-4 shrink-0" />
+          <span>Stok ({productsCount})</span>
+          {criticalStockCount > 0 && (
+            <span className="ml-auto px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
+              {criticalStockCount}
+            </span>
+          )}
+        </button>
+      )}
       <button id="nav-tab-activity" type="button" onClick={() => onNavigate('activity')} className={tabBtn(activeTab === 'activity')}>
         <Activity className="w-4 h-4 shrink-0" />
         <span>Gün Sonu</span>
@@ -173,25 +217,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Mobil alt bar */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-stone-950/95 backdrop-blur border-t border-stone-800">
-        <div className={`grid ${isBarber ? 'grid-cols-5' : 'grid-cols-4'}`}>
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: `repeat(${
+              4 + (isBarber ? 1 : 0) + (isLawyer ? 1 : 0) + (isRetail ? 2 : 0) - (isLawyer ? 1 : 0)
+            }, minmax(0,1fr))`,
+          }}
+        >
           {(
             [
-              { id: 'nav-tab-panel', tab: 'panel' as const, label: 'Anasayfa', Icon: LayoutDashboard, badge: 0 },
+              { id: 'nav-tab-panel', label: 'Anasayfa', Icon: LayoutDashboard, badge: 0, active: activeTab === 'panel', onClick: () => onNavigate('panel') },
               ...(isBarber
-                ? [{ id: 'nav-tab-appointments', tab: 'sector_view' as const, label: 'Randevu', Icon: CalendarDays, badge: 0 }]
+                ? [{ id: 'nav-tab-appointments', label: 'Randevu', Icon: CalendarDays, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') }]
                 : []),
-              { id: 'nav-tab-customers', tab: 'customers' as const, label: 'Müşteriler', Icon: Users, badge: 0 },
-              { id: 'nav-tab-stock', tab: 'stock' as const, label: 'Stok', Icon: Package, badge: criticalStockCount },
-              { id: 'nav-tab-activity', tab: 'activity' as const, label: 'Gün Sonu', Icon: Activity, badge: 0 },
+              ...(isLawyer
+                ? [{ id: 'nav-tab-cases', label: 'Dosyalar', Icon: Scale, badge: 0, active: activeTab === 'sector_view', onClick: () => onOpenLawyer('cases') }]
+                : []),
+              ...(isRetail
+                ? [
+                    { id: 'nav-tab-pos', label: 'POS', Icon: ShoppingCart, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') },
+                    { id: 'nav-tab-critical-stock', label: 'Kritik', Icon: AlertTriangle, badge: criticalStockCount, active: false, onClick: () => onOpenStock(true) },
+                  ]
+                : []),
+              { id: 'nav-tab-customers', label: 'Müşteriler', Icon: Users, badge: 0, active: activeTab === 'customers', onClick: () => onNavigate('customers') },
+              ...(!isLawyer
+                ? [{ id: 'nav-tab-stock', label: 'Stok', Icon: Package, badge: criticalStockCount, active: activeTab === 'stock', onClick: () => onOpenStock(false) }]
+                : []),
+              { id: 'nav-tab-activity', label: 'Gün Sonu', Icon: Activity, badge: 0, active: activeTab === 'activity', onClick: () => onNavigate('activity') },
             ]
-          ).map(({ id, tab, label, Icon, badge }) => {
-            const active = activeTab === tab;
+          ).map(({ id, label, Icon, badge, active, onClick }) => {
             return (
               <button
                 key={id}
                 id={id}
                 type="button"
-                onClick={() => onNavigate(tab)}
+                onClick={onClick}
                 className={`relative flex flex-col items-center gap-1 py-2.5 text-[10px] font-black transition-colors cursor-pointer ${
                   active ? 'text-amber-500' : 'text-stone-500'
                 }`}

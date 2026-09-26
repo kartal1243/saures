@@ -17,15 +17,13 @@ import {
   RepairTicket,
   Supplier,
   ServiceItem,
+  CaseFile,
 } from './types';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { HomeDashboard } from './components/HomeDashboard';
 import { SectorSwitcherBar, SECTORS } from './components/SectorSwitcherBar';
-import { BarberAppointmentsView } from './components/BarberAppointmentsView';
-import { RestaurantTablesView } from './components/RestaurantTablesView';
-import { FastRetailCounterView } from './components/FastRetailCounterView';
-import { RepairTicketsView } from './components/RepairTicketsView';
+
 import { CashSummary } from './components/CashSummary';
 import { QuickActionBar } from './components/QuickActionBar';
 import { UpcomingReminders } from './components/UpcomingReminders';
@@ -49,6 +47,8 @@ import { ProductFormModal } from './components/ProductFormModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SupplierModal, SupplierModalMode } from './components/SupplierModal';
 import { ServicesModal, DEFAULT_SERVICES } from './components/ServicesModal';
+import { SectorModuleSwitch } from './components/SectorModuleSwitch';
+import type { LawyerTab } from './components/LawyerCasesView';
 import { formatCurrency } from './utils/formatters';
 import {
   Activity,
@@ -70,6 +70,7 @@ import {
   UtensilsCrossed,
   ShoppingCart,
   Wrench,
+  Scale,
   FileCheck,
   LogOut,
   ChevronDown,
@@ -169,6 +170,12 @@ export default function App() {
 
   // Berber modu: menü + Para Al ekranı hizmet tarifeli olur
   const isBarber = currentSector === 'berber_kuafor';
+  const isLawyer = currentSector === 'avukat_danisman';
+  const isRetail = currentSector === 'bakkal_market';
+  const [cases, setCases] = useState<CaseFile[]>([]);
+  const [lawyerTab, setLawyerTab] = useState<LawyerTab>('cases');
+  const [stockCriticalOnly, setStockCriticalOnly] = useState(false);
+  const [stockViewKey, setStockViewKey] = useState(0);
   const serviceList = services.length > 0 || !isBarber ? services : DEFAULT_SERVICES.map((d, i) => ({
     id: `default_${i}`,
     name: d.name,
@@ -280,6 +287,7 @@ export default function App() {
         if (data.repairTickets) setRepairTickets(data.repairTickets);
         if (data.suppliers) setSuppliers(data.suppliers);
         if (data.services) setServices(data.services);
+        if (data.cases) setCases(data.cases);
         setCustomers(data.customers || []);
         setTransactions(data.transactions || []);
         setReminderLogs(data.reminderLogs || []);
@@ -341,6 +349,9 @@ export default function App() {
             }
             if (wsEvent.payload.services) {
               setServices(wsEvent.payload.services);
+            }
+            if (wsEvent.payload.cases) {
+              setCases(wsEvent.payload.cases);
             }
           } else if (wsEvent.type === 'APPOINTMENT_UPDATED') {
             setAppointments((prev) => {
@@ -437,6 +448,16 @@ export default function App() {
             });
           } else if (wsEvent.type === 'SERVICE_DELETED') {
             setServices((prev) => prev.filter((s) => s.id !== wsEvent.payload.id));
+          } else if (wsEvent.type === 'CASE_UPSERTED') {
+            setCases((prev) => {
+              const exists = prev.some((c) => c.id === wsEvent.payload.id);
+              if (exists) {
+                return prev.map((c) => (c.id === wsEvent.payload.id ? wsEvent.payload : c));
+              }
+              return [wsEvent.payload, ...prev];
+            });
+          } else if (wsEvent.type === 'CASE_DELETED') {
+            setCases((prev) => prev.filter((c) => c.id !== wsEvent.payload.id));
           }
         } catch (err) {
           console.error('Failed to parse WS message:', err);
@@ -671,6 +692,44 @@ export default function App() {
     }
   };
 
+  // Dava dosyası handler'ları (avukat)
+  const handleSaveCase = async (data: Partial<CaseFile>) => {
+    const res = await fetch('/api/cases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Dosya kaydedilemedi.');
+    }
+    const result = await res.json();
+    if (result.case) {
+      setCases((prev) => {
+        const exists = prev.some((c) => c.id === result.case.id);
+        if (exists) return prev.map((c) => (c.id === result.case.id ? result.case : c));
+        return [result.case, ...prev];
+      });
+    }
+  };
+
+  const handleDeleteCase = async (id: string) => {
+    if (!confirm('Bu dava dosyasını silmek istiyor musunuz?')) return;
+    const res = await fetch(`/api/cases/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      alert('Dosya silinemedi.');
+    } else {
+      setCases((prev) => prev.filter((c) => c.id !== id));
+    }
+  };
+
+  // Stok sekmeleri: normal + kritik filtreli (remount ile filtre uygulanır)
+  const openStock = (criticalOnly: boolean) => {
+    setStockCriticalOnly(criticalOnly);
+    setStockViewKey((k) => k + 1);
+    setActiveTab('stock');
+  };
+
   const handleDeleteSupplier = async (id: string) => {
     if (!confirm('Bu tedarikçi kaydını silmek istediğinize emin misiniz? (Borç bakiyesi de silinir)')) return;
     const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
@@ -844,6 +903,9 @@ export default function App() {
       } else if (sector === 'teknik_servis') {
         updatedStoreName = 'Usta Teknik Servis & Oto';
         updatedBusinessField = 'Tamir / Teknik Servis / Atölye';
+      } else if (sector === 'avukat_danisman') {
+        updatedStoreName = 'Adalet Hukuk & Danışmanlık';
+        updatedBusinessField = 'Avukat / Danışmanlık / Hukuk';
       } else {
         updatedStoreName = 'Bereket Esnaf Dükkanı';
         updatedBusinessField = 'Giyim / Züccaciye / Diğer';
@@ -1215,11 +1277,15 @@ export default function App() {
         ownerName={shopProfile?.ownerName}
         connected={connected}
         isBarber={isBarber}
+        isLawyer={isLawyer}
+        isRetail={isRetail}
         onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
         onOpenStaff={() => setIsStaffModalOpen(true)}
         onChangePassword={() => setIsChangePasswordOpen(true)}
         onOpenVip={() => setIsVipModalOpen(true)}
         onOpenServices={() => setIsServicesModalOpen(true)}
+        onOpenLawyer={(sub) => { setLawyerTab(sub); setActiveTab('sector_view'); }}
+        onOpenStock={openStock}
         onLogout={handleLogout}
       />
       <div className="flex-1 min-w-0 flex flex-col">
@@ -1327,6 +1393,8 @@ export default function App() {
                     <UtensilsCrossed className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                   ) : currentSector === 'bakkal_market' ? (
                     <ShoppingCart className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  ) : currentSector === 'avukat_danisman' ? (
+                    <Scale className="w-5 h-5 text-violet-600 dark:text-violet-400" />
                   ) : (
                     <Wrench className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   )}
@@ -1399,41 +1467,38 @@ export default function App() {
         </div>
         )}
 
-        {/* 7. View Content: Sector Specific View OR Activity Feed OR Stock Management OR Customers Ledger */}
-        {activeTab === 'sector_view' && currentSector === 'berber_kuafor' ? (
-          <BarberAppointmentsView
-            appointments={appointments}
-            services={serviceList}
-            onAddAppointment={handleAddAppointment}
-            onCompleteAppointment={handleCompleteAppointment}
-            onUpdateStatus={handleUpdateAppointmentStatus}
-            onDeleteAppointment={handleDeleteAppointment}
-            onFastWalkinCash={handleFastWalkinCash}
-          />
-        ) : activeTab === 'sector_view' && currentSector === 'kafe_restoran' ? (
-          <RestaurantTablesView
-            tables={tables}
-            onAddOrderToTable={handleAddOrderToTable}
-            onCheckoutTable={handleCheckoutTable}
-            onResetTable={handleResetTable}
-            onAddQuickExpense={handleAddQuickExpense}
-          />
-        ) : activeTab === 'sector_view' && currentSector === 'bakkal_market' ? (
-          <FastRetailCounterView
-            products={products}
-            customers={customers}
-            onQuickPosSale={handleQuickPosSale}
-            onCreditSaleToCustomer={handleCreditSaleToCustomer}
-          />
-        ) : activeTab === 'sector_view' && currentSector === 'teknik_servis' ? (
-          <RepairTicketsView
-            repairTickets={repairTickets}
-            onAddTicket={handleAddRepairTicket}
-            onUpdateStatus={handleUpdateRepairStatus}
-            onCompleteTicket={handleCompleteRepairTicket}
-            onDeleteTicket={handleDeleteRepairTicket}
-          />
-        ) : activeTab === 'activity' ? (
+        {/* 7. View Content: SectorModuleSwitch (sektör) OR Activity Feed OR ... */}
+        <SectorModuleSwitch
+          sector={currentSector}
+          activeTab={activeTab}
+          appointments={appointments}
+          services={serviceList}
+          onAddAppointment={handleAddAppointment}
+          onCompleteAppointment={handleCompleteAppointment}
+          onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+          onDeleteAppointment={handleDeleteAppointment}
+          onFastWalkinCash={handleFastWalkinCash}
+          tables={tables}
+          onAddOrderToTable={handleAddOrderToTable}
+          onCheckoutTable={handleCheckoutTable}
+          onResetTable={handleResetTable}
+          onAddQuickExpense={handleAddQuickExpense}
+          products={products}
+          customers={customers}
+          onQuickPosSale={handleQuickPosSale}
+          onCreditSaleToCustomer={handleCreditSaleToCustomer}
+          repairTickets={repairTickets}
+          onAddRepairTicket={handleAddRepairTicket}
+          onUpdateRepairStatus={handleUpdateRepairStatus}
+          onCompleteRepairTicket={handleCompleteRepairTicket}
+          onDeleteRepairTicket={handleDeleteRepairTicket}
+          cases={cases}
+          lawyerTab={lawyerTab}
+          onLawyerTabChange={setLawyerTab}
+          onSaveCase={handleSaveCase}
+          onDeleteCase={handleDeleteCase}
+        />
+        {activeTab === 'activity' ? (
           <div className="space-y-4">
             {/* Patron akışı: Gün Sonu özet kartı */}
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1759,8 +1824,10 @@ export default function App() {
           </div>
         ) : activeTab === 'stock' ? (
           <StockManagementView
+            key={stockViewKey}
             products={products}
             stockMovements={stockMovements}
+            initialOnlyCritical={stockCriticalOnly}
             onOpenAdjustment={(prod, type) => {
               setSelectedProductForAdjustment(prod);
               setAdjustmentType(type);

@@ -23,6 +23,7 @@ import {
   Check,
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
+import { useForceLightTheme } from '../hooks/useForceLightTheme';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -57,6 +58,7 @@ const FAQS: { q: string; a: string }[] = [
 ];
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
+  useForceLightTheme();
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans scroll-smooth transition-colors">
       {/* Üst bar */}

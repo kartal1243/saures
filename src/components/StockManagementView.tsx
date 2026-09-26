@@ -29,6 +29,7 @@ interface StockManagementViewProps {
   onOpenNewProduct: () => void;
   onOpenEditProduct: (product: Product) => void;
   onDeleteProduct: (productId: string) => void;
+  initialOnlyCritical?: boolean;
 }
 
 export const StockManagementView: React.FC<StockManagementViewProps> = ({
@@ -38,10 +39,11 @@ export const StockManagementView: React.FC<StockManagementViewProps> = ({
   onOpenNewProduct,
   onOpenEditProduct,
   onDeleteProduct,
+  initialOnlyCritical = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [onlyCriticalFilter, setOnlyCriticalFilter] = useState(false);
+  const [onlyCriticalFilter, setOnlyCriticalFilter] = useState(initialOnlyCritical);
   const [activeSubTab, setActiveSubTab] = useState<'products' | 'movements'>('products');
 
   // Categories list

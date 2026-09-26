@@ -208,9 +208,21 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
               type="text"
-              placeholder="Ürün adı veya barkod ile hızlı ara (örn: ekmek, süt, çay)..."
+              placeholder="Ürün adı veya barkod ile hızlı ara (barkodu okutup Enter'a bas)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                const q = searchQuery.trim().toLowerCase();
+                if (!q) return;
+                const exact = displayProducts.find(
+                  (p) => Boolean((p as any).barcode) && String((p as any).barcode).toLowerCase() === q
+                );
+                if (exact) {
+                  addToCart(exact);
+                  setSearchQuery('');
+                }
+              }}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs focus:ring-2 focus:ring-emerald-500"
             />
           </div>

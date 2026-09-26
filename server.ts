@@ -24,6 +24,7 @@ import {
   BusinessSector,
   Supplier,
   ServiceItem,
+  CaseFile,
 } from './src/types';
 
 const PORT = 3000;
@@ -131,6 +132,7 @@ function emptyState(seed?: { storeName: string; ownerName: string; phone: string
     repairTickets: [],
     suppliers: [],
     services: [],
+    cases: [],
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -169,6 +171,7 @@ function loadShopState(accountId: string): AppState {
   if (!Array.isArray(st.repairTickets)) st.repairTickets = [];
   if (!Array.isArray((st as any).suppliers)) (st as any).suppliers = [];
   if (!Array.isArray((st as any).services)) (st as any).services = [];
+  if (!Array.isArray((st as any).cases)) (st as any).cases = [];
   if (!Array.isArray(st.reminderLogs)) st.reminderLogs = [];
   shopStateCache.set(accountId, st);
   return st;
@@ -515,7 +518,7 @@ async function startServer() {
 
   // Koruma: /api/* icin giris zorunlu (auth ve health haric) + rol kisitlari
   const CASHIER_FORBIDDEN_ALWAYS = ['/backup'];
-  const CASHIER_FORBIDDEN_MUTATION = ['/shop-profile', '/products', '/vip/'];
+  const CASHIER_FORBIDDEN_MUTATION = ['/shop-profile', '/products', '/vip/', '/cases'];
   app.use('/api', (req: Request, res: Response, next) => {
     const p = req.path;
     if (p === '/health' || p.startsWith('/auth/')) return next();
@@ -583,6 +586,7 @@ async function startServer() {
           repairTickets: st.repairTickets || [],
           suppliers: st.suppliers || [],
           services: (st as any).services || [],
+          cases: (st as any).cases || [],
         },
       };
       ws.send(JSON.stringify(initEvent));
@@ -629,6 +633,7 @@ async function startServer() {
     st.repairTickets = Array.isArray(ns.repairTickets) ? ns.repairTickets : [];
     st.suppliers = Array.isArray(ns.suppliers) ? ns.suppliers : [];
     (st as any).services = Array.isArray(ns.services) ? ns.services : [];
+    (st as any).cases = Array.isArray(ns.cases) ? ns.cases : [];
     if (ns.shopProfile && typeof ns.shopProfile === 'object') {
       st.shopProfile = { ...st.shopProfile, ...ns.shopProfile };
       st.storeName = ns.shopProfile.storeName || st.storeName;
@@ -650,6 +655,7 @@ async function startServer() {
         repairTickets: st.repairTickets || [],
         suppliers: st.suppliers || [],
         services: (st as any).services || [],
+        cases: (st as any).cases || [],
       },
     });
     res.json({ success: true });
@@ -668,6 +674,7 @@ async function startServer() {
       stockMovements: S().stockMovements || [],
       suppliers: S().suppliers || [],
       services: (S() as any).services || [],
+      cases: (S() as any).cases || [],
       cash: calculateCashRegister(),
       lastUpdated: S().lastUpdated,
     });
@@ -1792,6 +1799,81 @@ Kurallar:
     list.splice(idx, 1);
     saveState();
     broadcast({ type: 'SERVICE_DELETED', payload: { id } });
+    res.json({ success: true });
+  });
+
+  // ==========================================
+  // 18c. DAVA DOSYALARI (Avukat / danışman)
+  // ==========================================
+  app.post('/api/cases', (req: Request, res: Response) => {
+    const data = req.body || {};
+    if (!data.fileNo || !String(data.fileNo).trim()) {
+      return res.status(400).json({ error: 'Dosya No zorunludur.' });
+    }
+    if (!data.clientName || !String(data.clientName).trim()) {
+      return res.status(400).json({ error: 'Müvekkil adı zorunludur.' });
+    }
+    const now = new Date().toISOString();
+    const list = (S() as any).cases as CaseFile[];
+    const hearings = Array.isArray(data.hearings)
+      ? data.hearings
+          .filter((h: any) => h && h.date)
+          .map((h: any) => ({
+            id: String(h.id || `hr_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`),
+            date: String(h.date),
+            note: String(h.note || ''),
+          }))
+      : [];
+    let file: CaseFile;
+    if (data.id) {
+      const idx = list.findIndex((c) => c.id === data.id);
+      if (idx === -1) return res.status(404).json({ error: 'Dosya bulunamadı.' });
+      file = {
+        ...list[idx],
+        fileNo: String(data.fileNo).trim(),
+        clientName: String(data.clientName).trim(),
+        customerId: data.customerId ? String(data.customerId) : undefined,
+        court: String(data.court || ''),
+        hearingDate: String(data.hearingDate || ''),
+        hearings,
+        consultancyHours: Number(data.consultancyHours) || 0,
+        hourlyRate: data.hourlyRate !== undefined && data.hourlyRate !== '' ? Number(data.hourlyRate) : undefined,
+        status: data.status === 'kapali' ? 'kapali' : 'acik',
+        notes: String(data.notes || ''),
+        updatedAt: now,
+      };
+      list[idx] = file;
+    } else {
+      file = {
+        id: `case_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        fileNo: String(data.fileNo).trim(),
+        clientName: String(data.clientName).trim(),
+        customerId: data.customerId ? String(data.customerId) : undefined,
+        court: String(data.court || ''),
+        hearingDate: String(data.hearingDate || ''),
+        hearings,
+        consultancyHours: Number(data.consultancyHours) || 0,
+        hourlyRate: data.hourlyRate !== undefined && data.hourlyRate !== '' ? Number(data.hourlyRate) : undefined,
+        status: data.status === 'kapali' ? 'kapali' : 'acik',
+        notes: String(data.notes || ''),
+        createdAt: now,
+        updatedAt: now,
+      };
+      list.unshift(file);
+    }
+    saveState();
+    broadcast({ type: 'CASE_UPSERTED', payload: file });
+    res.json({ success: true, case: file });
+  });
+
+  app.delete('/api/cases/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const list = (S() as any).cases as CaseFile[];
+    const idx = list.findIndex((c) => c.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Dosya bulunamadı.' });
+    list.splice(idx, 1);
+    saveState();
+    broadcast({ type: 'CASE_DELETED', payload: { id } });
     res.json({ success: true });
   });
 

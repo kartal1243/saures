@@ -15,6 +15,7 @@ const BUSINESS_FIELDS = [
   'Bakkal / Market / Büfe',
   'Kafe / Çay Ocağı / Restoran',
   'Kuaför / Berber / Güzellik Salonu',
+  'Avukat / Danışmanlık / Hukuk',
   'Oto Tamir / Yıkama / Yedek Parça',
   'Terzi / Kuru Temizleme / Giyim',
   'Kırtasiye / Kitap / Fotokopi',
@@ -97,6 +98,8 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
         derivedSector = 'kafe_restoran';
       } else if (businessField.includes('Tamir') || businessField.includes('Teknik') || businessField.includes('Oto')) {
         derivedSector = 'teknik_servis';
+      } else if (businessField.includes('Avukat') || businessField.includes('Danışman') || businessField.includes('Hukuk')) {
+        derivedSector = 'avukat_danisman';
       } else if (businessField.includes('Bakkal') || businessField.includes('Market')) {
         derivedSector = 'bakkal_market';
       } else {

@@ -5,6 +5,7 @@ export type BusinessSector =
   | 'kafe_restoran'
   | 'bakkal_market'
   | 'teknik_servis'
+  | 'avukat_danisman'
   | 'diger_esnaf';
 
 export type TransactionType = 'veresiye' | 'tahsilat' | 'gider' | 'masraf';
@@ -50,6 +51,29 @@ export interface ServiceItem {
   id: string;
   name: string;
   price: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Sektöre Özel: Avukat / Danışman Dava Dosyası & Duruşma Takvimi
+export interface Hearing {
+  id: string;
+  date: string; // YYYY-MM-DD
+  note?: string;
+}
+
+export interface CaseFile {
+  id: string;
+  fileNo: string; // Dosya No
+  clientName: string; // Müvekkil
+  customerId?: string; // Müşteri Defteri bağlantısı (cari bilgi için)
+  court?: string; // Mahkeme / kurum
+  hearingDate?: string; // Sonraki duruşma tarihi (YYYY-MM-DD)
+  hearings: Hearing[]; // Duruşma geçmişi
+  consultancyHours: number; // Takip edilen danışmanlık saati
+  hourlyRate?: number; // Saatlik ücret
+  status: 'acik' | 'kapali';
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -209,6 +233,7 @@ export interface AppState {
   repairTickets: RepairTicket[];
   suppliers: Supplier[];
   services: ServiceItem[];
+  cases: CaseFile[];
   lastUpdated: string;
 }
 
@@ -229,6 +254,7 @@ export type WSEvent =
         repairTickets?: RepairTicket[];
         suppliers?: Supplier[];
         services?: ServiceItem[];
+        cases?: CaseFile[];
       };
     }
   | { type: 'TRANSACTION_CREATED'; payload: { transaction: Transaction; customer?: Customer; cash: CashRegister } }
@@ -249,5 +275,7 @@ export type WSEvent =
   | { type: 'SUPPLIER_UPDATED'; payload: Supplier }
   | { type: 'SUPPLIER_DELETED'; payload: { id: string } }
   | { type: 'SERVICE_UPDATED'; payload: ServiceItem }
-  | { type: 'SERVICE_DELETED'; payload: { id: string } };
+  | { type: 'SERVICE_DELETED'; payload: { id: string } }
+  | { type: 'CASE_UPSERTED'; payload: CaseFile }
+  | { type: 'CASE_DELETED'; payload: { id: string } };
 
