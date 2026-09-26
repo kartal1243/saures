@@ -4,10 +4,12 @@ import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 
 interface AuthPageProps {
   onSuccess: () => void;
+  initialMode?: 'login' | 'register';
+  onBack?: () => void;
 }
 
-export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBack }) => {
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode ?? 'login');
   const [shopName, setShopName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [phone, setPhone] = useState('');
@@ -63,6 +65,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
       />
 
       <div className="relative w-full max-w-md animate-fade-up">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-4 inline-flex items-center gap-1.5 text-xs font-bold text-stone-500 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
+          >
+            ← Tanıtıma dön
+          </button>
+        )}
         {/* Logo & Baslik */}
         <div className="text-center mb-5">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[11px] font-black tracking-wide border border-amber-200 dark:border-amber-800/60 mb-3">

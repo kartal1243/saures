@@ -35,6 +35,7 @@ import { QuickTransactionModal } from './components/QuickTransactionModal';
 import { NewCustomerModal } from './components/NewCustomerModal';
 import { ShopProfileModal } from './components/ShopProfileModal';
 import { AuthPage } from './components/AuthPage';
+import { LandingPage } from './components/LandingPage';
 import { MoneyInModal } from './components/MoneyInModal';
 import { MoneyOutModal } from './components/MoneyOutModal';
 import { DailyClosingModal } from './components/DailyClosingModal';
@@ -217,6 +218,9 @@ export default function App() {
   // Auth durumu: kontrol ediliyor / kapalı / açık
   const [authStatus, setAuthStatus] = useState<'checking' | 'out' | 'in'>('checking');
   const authedRef = useRef(false);
+  // Giris yoksa once tanitim (vitrin), butona basinca giris/kayit formu
+  const [authView, setAuthView] = useState<'landing' | 'auth'>('landing');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const handleLogout = async () => {
     authedRef.current = false;
@@ -228,6 +232,7 @@ export default function App() {
     if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     socketRef.current?.close();
     socketRef.current = null;
+    setAuthView('landing');
     setAuthStatus('out');
   };
 
@@ -1130,8 +1135,18 @@ export default function App() {
     );
   }
   if (authStatus === 'out') {
+    if (authView === 'landing') {
+      return (
+        <LandingPage
+          onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
+          onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
+        />
+      );
+    }
     return (
       <AuthPage
+        initialMode={authMode}
+        onBack={() => setAuthView('landing')}
         onSuccess={() => {
           authedRef.current = true;
           setAuthStatus('in');
