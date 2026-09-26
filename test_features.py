@@ -101,9 +101,18 @@ def main():
     check("patron kaydi 200", code in (200, 201) and bool(owner_cookie), f"{code}")
 
     # Profil tamamla (owner)
-    req("/api/shop-profile", "POST",
-        {"storeName": f"Patronluk {tag}", "ownerName": "Patron", "isConfigured": True},
-        cookie=owner_cookie)
+    code, d, _ = req("/api/shop-profile", "POST",
+                     {"storeName": f"Patronluk {tag}", "ownerName": "Patron",
+                      "businessField": "Bakkal / Market", "isConfigured": True},
+                     cookie=owner_cookie)
+    prof = (d.get("profile") or {}) if isinstance(d, dict) else {}
+    check("profil kayit {success, profile} seklinde doner",
+          code == 200 and d.get("success") is True and prof.get("storeName") == f"Patronluk {tag}"
+          and prof.get("businessField") == "Bakkal / Market", f"{code} {d}")
+    code, st, _ = req("/api/data", cookie=owner_cookie)
+    check("kayitli profil /api/data ile ayni",
+          (st.get("shopProfile") or {}).get("storeName") == f"Patronluk {tag}",
+          str((st.get("shopProfile") or {}).get("storeName")))
 
     cashier_phone = f"0504{tag}"
     code, d, _ = req("/api/auth/add-staff", "POST",

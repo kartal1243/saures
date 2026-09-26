@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
                     <Building2 className="w-3 h-3" />
-                    {shopProfile.businessField.split('/')[0].trim()}
+                    {(shopProfile.businessField || '').split('/')[0].trim() || 'Esnaf'}
                   </span>
 
                   <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700">

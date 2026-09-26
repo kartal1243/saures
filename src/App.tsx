@@ -44,6 +44,7 @@ import { StaffModal } from './components/StaffModal';
 import { StockManagementView } from './components/StockManagementView';
 import { StockAdjustmentModal } from './components/StockAdjustmentModal';
 import { ProductFormModal } from './components/ProductFormModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { SupplierModal, SupplierModalMode } from './components/SupplierModal';
 import { formatCurrency } from './utils/formatters';
 import {
@@ -471,8 +472,10 @@ export default function App() {
       throw new Error(err.error || 'Dükkan profili kaydedilemedi.');
     }
     const saved = await res.json();
-    setShopProfile(saved);
-    setStoreName(saved.storeName);
+    // API { success, profile } döner — yanlışlıkla sarmalayıcıyı profile yazma (Header crash yapar)
+    const profile: ShopProfile = saved.profile || saved;
+    setShopProfile(profile);
+    setStoreName(profile.storeName);
     // İlk kurulum sonrası direkt panele dön (restoran/berber özel ekran ana sayfada gözükmesin)
     setActiveTab('panel');
   };
@@ -1140,6 +1143,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans pb-16 transition-colors">
       {/* 1. Header with Store Profile Badge, Dark Mode Switch & VIP Button */}
       <Header
@@ -2043,5 +2047,6 @@ export default function App() {
         onSubmit={handleSaveProduct}
       />
     </div>
+    </ErrorBoundary>
   );
 }
