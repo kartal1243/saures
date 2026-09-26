@@ -158,6 +158,7 @@ const LEGACY_SECTOR_MAP: Record<string, BusinessType> = {
   bakkal_market: 'retail',
   teknik_servis: 'service',
   avukat_danisman: 'lawyer',
+  terzi_kurutemizleme: 'common',
   diger_esnaf: 'common',
 };
 

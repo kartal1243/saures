@@ -18,6 +18,7 @@ import {
   Supplier,
   ServiceItem,
   CaseFile,
+  CustodyTicket,
 } from './types';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -72,6 +73,7 @@ import {
   ShoppingCart,
   Wrench,
   Scale,
+  Shirt,
   FileCheck,
   LogOut,
   ChevronDown,
@@ -175,7 +177,9 @@ export default function App() {
   const isRetail = currentSector === 'bakkal_market';
   const isCafe = currentSector === 'kafe_restoran';
   const isService = currentSector === 'teknik_servis';
+  const isTailor = currentSector === 'terzi_kurutemizleme';
   const [cases, setCases] = useState<CaseFile[]>([]);
+  const [custody, setCustody] = useState<CustodyTicket[]>([]);
   const [lawyerTab, setLawyerTab] = useState<LawyerTab>('cases');
   const [stockCriticalOnly, setStockCriticalOnly] = useState(false);
   const [stockViewKey, setStockViewKey] = useState(0);
@@ -310,6 +314,7 @@ export default function App() {
         if (data.suppliers) setSuppliers(data.suppliers);
         if (data.services) setServices(data.services);
         if (data.cases) setCases(data.cases);
+        if (data.custody) setCustody(data.custody);
         setCustomers(data.customers || []);
         setTransactions(data.transactions || []);
         setReminderLogs(data.reminderLogs || []);
@@ -374,6 +379,9 @@ export default function App() {
             }
             if (wsEvent.payload.cases) {
               setCases(wsEvent.payload.cases);
+            }
+            if (wsEvent.payload.custody) {
+              setCustody(wsEvent.payload.custody);
             }
           } else if (wsEvent.type === 'APPOINTMENT_UPDATED') {
             setAppointments((prev) => {
@@ -480,6 +488,16 @@ export default function App() {
             });
           } else if (wsEvent.type === 'CASE_DELETED') {
             setCases((prev) => prev.filter((c) => c.id !== wsEvent.payload.id));
+          } else if (wsEvent.type === 'CUSTODY_UPDATED') {
+            setCustody((prev) => {
+              const exists = prev.some((t) => t.id === wsEvent.payload.id);
+              if (exists) {
+                return prev.map((t) => (t.id === wsEvent.payload.id ? wsEvent.payload : t));
+              }
+              return [wsEvent.payload, ...prev];
+            });
+          } else if (wsEvent.type === 'CUSTODY_DELETED') {
+            setCustody((prev) => prev.filter((t) => t.id !== wsEvent.payload.id));
           }
         } catch (err) {
           console.error('Failed to parse WS message:', err);
@@ -1193,6 +1211,72 @@ export default function App() {
     }
   };
 
+  // Emanet (terzi / kuru temizleme) handler'ları
+  const handleSaveCustody = async (ticketData: Partial<CustodyTicket>) => {
+    const res = await fetch('/api/custody', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ticketData),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Emanet kaydedilemedi.');
+    }
+    const data = await res.json();
+    if (data.ticket) {
+      setCustody((prev) => [data.ticket, ...prev.filter((t) => t.id !== data.ticket.id)]);
+    }
+  };
+
+  const handleCustodyStatus = async (id: string, status: CustodyTicket['status']) => {
+    const res = await fetch(`/api/custody/${id}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Durum güncellenemedi.');
+    }
+    const data = await res.json();
+    if (data.ticket) {
+      setCustody((prev) => prev.map((t) => (t.id === id ? data.ticket : t)));
+    }
+  };
+
+  const handleCompleteCustody = async (id: string, paymentMethod: 'nakit' | 'kart') => {
+    const res = await fetch(`/api/custody/${id}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentMethod }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Teslim tamamlanamadı.');
+    }
+    const data = await res.json();
+    if (data.ticket) {
+      setCustody((prev) => prev.map((t) => (t.id === id ? data.ticket : t)));
+    }
+    if (data.cash) setCash(data.cash);
+    if (data.transaction) {
+      setTransactions((prev) => {
+        if (prev.some((t) => t.id === data.transaction.id)) return prev;
+        return [data.transaction, ...prev];
+      });
+    }
+  };
+
+  const handleDeleteCustody = async (id: string) => {
+    if (!confirm('Bu emanet fişini silmek istiyor musunuz?')) return;
+    const res = await fetch(`/api/custody/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      alert('Emanet silinemedi.');
+    } else {
+      setCustody((prev) => prev.filter((t) => t.id !== id));
+    }
+  };
+
   // ---- Auth gate: giris yoksa sadece AuthPage goster ----
   if (authStatus === 'checking') {
     return (
@@ -1245,6 +1329,7 @@ export default function App() {
         isRetail={isRetail}
         isCafe={isCafe}
         isService={isService}
+        isTailor={isTailor}
         onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
         onOpenStaff={() => setIsStaffModalOpen(true)}
         onChangePassword={() => setIsChangePasswordOpen(true)}
@@ -1352,6 +1437,8 @@ export default function App() {
                     <ShoppingCart className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   ) : currentSector === 'avukat_danisman' ? (
                     <Scale className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                  ) : currentSector === 'terzi_kurutemizleme' ? (
+                    <Shirt className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                   ) : (
                     <Wrench className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   )}
@@ -1454,6 +1541,11 @@ export default function App() {
           onLawyerTabChange={setLawyerTab}
           onSaveCase={handleSaveCase}
           onDeleteCase={handleDeleteCase}
+          custody={custody}
+          onSaveCustody={handleSaveCustody}
+          onUpdateCustodyStatus={handleCustodyStatus}
+          onCompleteCustody={handleCompleteCustody}
+          onDeleteCustody={handleDeleteCustody}
         />
         {activeTab === 'activity' ? (
           <div className="space-y-4">

@@ -6,6 +6,7 @@ export type BusinessSector =
   | 'bakkal_market'
   | 'teknik_servis'
   | 'avukat_danisman'
+  | 'terzi_kurutemizleme'
   | 'diger_esnaf';
 
 export type TransactionType = 'veresiye' | 'tahsilat' | 'gider' | 'masraf';
@@ -76,6 +77,22 @@ export interface CaseFile {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Sektöre Özel: Terzi / Kuru Temizleme Emanet (bırakılan eşya) Takibi
+export interface CustodyTicket {
+  id: string;
+  customerName: string;
+  phone: string;
+  customerId?: string; // Müşteri Defteri bağlantısı (cari bilgi için)
+  itemDesc: string; // Bırakılan eşya: "2 takım elbise, 1 gömlek"
+  promisedDate?: string; // Söz verilen tarih (YYYY-MM-DD)
+  price: number; // Toplam ücret
+  advance: number; // Alınan kapora
+  status: 'kabul' | 'islemde' | 'hazir' | 'teslim';
+  notes?: string;
+  createdAt: string;
+  completedAt?: string;
 }
 
 // Tedarikçi cari hesabı: dükkanın toptancı/imalatçıya olan borcu
@@ -234,6 +251,7 @@ export interface AppState {
   suppliers: Supplier[];
   services: ServiceItem[];
   cases: CaseFile[];
+  custody: CustodyTicket[];
   lastUpdated: string;
 }
 
@@ -255,6 +273,7 @@ export type WSEvent =
         suppliers?: Supplier[];
         services?: ServiceItem[];
         cases?: CaseFile[];
+        custody?: CustodyTicket[];
       };
     }
   | { type: 'TRANSACTION_CREATED'; payload: { transaction: Transaction; customer?: Customer; cash: CashRegister } }
@@ -277,5 +296,7 @@ export type WSEvent =
   | { type: 'SERVICE_UPDATED'; payload: ServiceItem }
   | { type: 'SERVICE_DELETED'; payload: { id: string } }
   | { type: 'CASE_UPSERTED'; payload: CaseFile }
-  | { type: 'CASE_DELETED'; payload: { id: string } };
+  | { type: 'CASE_DELETED'; payload: { id: string } }
+  | { type: 'CUSTODY_UPDATED'; payload: CustodyTicket }
+  | { type: 'CUSTODY_DELETED'; payload: { id: string } };
 

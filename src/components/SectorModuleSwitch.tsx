@@ -4,6 +4,7 @@ import type {
   Appointment,
   BusinessSector,
   CaseFile,
+  CustodyTicket,
   Customer,
   Product,
   RepairTicket,
@@ -15,6 +16,7 @@ import { RestaurantTablesView } from './RestaurantTablesView';
 import { FastRetailCounterView } from './FastRetailCounterView';
 import { RepairTicketsView } from './RepairTicketsView';
 import { LawyerCasesView, type LawyerTab } from './LawyerCasesView';
+import { CustodyTicketsView } from './CustodyTicketsView';
 
 /**
  * SectorModuleSwitch — dükkan çeşidine (business_type/sectorKey) göre
@@ -61,6 +63,12 @@ interface SectorModuleSwitchProps {
   onLawyerTabChange: (tab: LawyerTab) => void;
   onSaveCase: (data: Partial<CaseFile>) => Promise<void>;
   onDeleteCase: (id: string) => Promise<void>;
+  // Terzi / Kuru temizleme (emanet)
+  custody: CustodyTicket[];
+  onSaveCustody: (data: Partial<CustodyTicket>) => Promise<void>;
+  onUpdateCustodyStatus: (id: string, status: CustodyTicket['status']) => Promise<void>;
+  onCompleteCustody: (id: string, paymentMethod: 'nakit' | 'kart') => Promise<void>;
+  onDeleteCustody: (id: string) => Promise<void>;
 }
 
 export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => {
@@ -121,6 +129,18 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
         onTabChange={props.onLawyerTabChange}
         onSaveCase={props.onSaveCase}
         onDeleteCase={props.onDeleteCase}
+      />
+    );
+  }
+  if (sector === 'terzi_kurutemizleme') {
+    return (
+      <CustodyTicketsView
+        tickets={props.custody}
+        customers={props.customers}
+        onSaveTicket={props.onSaveCustody}
+        onUpdateStatus={props.onUpdateCustodyStatus}
+        onCompleteTicket={props.onCompleteCustody}
+        onDeleteTicket={props.onDeleteCustody}
       />
     );
   }

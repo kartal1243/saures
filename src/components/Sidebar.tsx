@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   UtensilsCrossed,
   Wrench,
+  Shirt,
   KeyRound,
   UserPlus,
   Crown,
@@ -37,6 +38,7 @@ interface SidebarProps {
   isRetail: boolean;
   isCafe: boolean;
   isService: boolean;
+  isTailor: boolean;
   onOpenShopProfile: () => void;
   onOpenStaff: () => void;
   onChangePassword: () => void;
@@ -71,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isRetail,
   isCafe,
   isService,
+  isTailor,
   onOpenShopProfile,
   onOpenStaff,
   onChangePassword,
@@ -139,6 +142,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button id="nav-tab-tickets" type="button" onClick={() => onNavigate('sector_view')} className={tabBtn(activeTab === 'sector_view')}>
           <Wrench className="w-4 h-4 shrink-0" />
           <span>Servis Fişleri</span>
+        </button>
+      )}
+      {isTailor && (
+        <button id="nav-tab-custody" type="button" onClick={() => onNavigate('sector_view')} className={tabBtn(activeTab === 'sector_view')}>
+          <Shirt className="w-4 h-4 shrink-0" />
+          <span>Emanet Takibi</span>
         </button>
       )}
       <button id="nav-tab-customers" type="button" onClick={() => onNavigate('customers')} className={tabBtn(activeTab === 'customers')}>
@@ -245,6 +254,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               (isRetail ? 2 : 0) +
               (isCafe ? 1 : 0) +
               (isService ? 1 : 0) +
+              (isTailor ? 1 : 0) +
               (!isLawyer && !isBarber ? 1 : 0)
             }, minmax(0,1fr))`,
           }}
@@ -269,6 +279,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : []),
               ...(isService
                 ? [{ id: 'nav-tab-tickets', label: 'Servis', Icon: Wrench, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') }]
+                : []),
+              ...(isTailor
+                ? [{ id: 'nav-tab-custody', label: 'Emanet', Icon: Shirt, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') }]
                 : []),
               { id: 'nav-tab-customers', label: 'Müşteriler', Icon: Users, badge: 0, active: activeTab === 'customers', onClick: () => onNavigate('customers') },
               ...(!isLawyer && !isBarber

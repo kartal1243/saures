@@ -202,6 +202,33 @@ def main():
     code, d, _ = req(f"/api/cases/{case_id}", "DELETE", cookie=owner_cookie)
     check("dosya silindi 200", code == 200, f"{code} {d}")
 
+    print("\n== 3c) EMANET TAKIBI (terzi) ==")
+    code, d, _ = req("/api/custody", "POST", {"customerName": "Fatma"}, cookie=owner_cookie)
+    check("esya yokken emanet 400", code == 400, f"{code} {d}")
+    code, d, _ = req("/api/custody", "POST",
+                     {"customerName": "Fatma", "phone": "05511112233",
+                      "itemDesc": "2 takim elbise, 1 gomlek",
+                      "promisedDate": "2026-10-02", "price": 500, "advance": 100},
+                     cookie=owner_cookie)
+    tick = d.get("ticket", {}) if isinstance(d, dict) else {}
+    tick_id = tick.get("id")
+    check("emanet fisi olustu", code == 200 and tick_id and tick.get("status") == "kabul",
+          f"{code} {d}")
+    code, d, _ = req(f"/api/custody/{tick_id}/status", "POST",
+                     {"status": "hazir"}, cookie=owner_cookie)
+    check("durum hazir olur",
+          code == 200 and d.get("ticket", {}).get("status") == "hazir", f"{code} {d}")
+    code, d0, _ = req("/api/data", cookie=owner_cookie)
+    exp0 = float((d0.get("cash") or {}).get("todayExpense", 0)) if isinstance(d0, dict) else 0
+    code, d, _ = req(f"/api/custody/{tick_id}/complete", "POST",
+                     {"paymentMethod": "nakit"}, cookie=owner_cookie)
+    comp_tx = (d.get("transaction") or {}) if isinstance(d, dict) else {}
+    check("teslim kalan 400 tahsilat acar",
+          code == 200 and comp_tx.get("type") == "tahsilat" and comp_tx.get("amount") == 400,
+          f"{code} {d}")
+    code, d, _ = req(f"/api/custody/{tick_id}", "DELETE", cookie=owner_cookie)
+    check("emanet silindi 200", code == 200, f"{code} {d}")
+
     print("\n== 4) YEDEK INDIR + GERI YUKLE ==")
     # Owner: 1 musteri ekle -> yedek al
     req("/api/customers", "POST", {"name": "Yedekli Ali", "phone": f"0557{tag}"},
