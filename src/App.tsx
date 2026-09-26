@@ -22,7 +22,7 @@ import {
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { HomeDashboard } from './components/HomeDashboard';
-import { SectorSwitcherBar, SECTORS } from './components/SectorSwitcherBar';
+import { SECTORS } from './components/SectorSwitcherBar';
 
 import { CashSummary } from './components/CashSummary';
 import { QuickActionBar } from './components/QuickActionBar';
@@ -173,6 +173,8 @@ export default function App() {
   const isBarber = currentSector === 'berber_kuafor';
   const isLawyer = currentSector === 'avukat_danisman';
   const isRetail = currentSector === 'bakkal_market';
+  const isCafe = currentSector === 'kafe_restoran';
+  const isService = currentSector === 'teknik_servis';
   const [cases, setCases] = useState<CaseFile[]>([]);
   const [lawyerTab, setLawyerTab] = useState<LawyerTab>('cases');
   const [stockCriticalOnly, setStockCriticalOnly] = useState(false);
@@ -896,65 +898,6 @@ export default function App() {
     }
   };
 
-  // Sector Switching Handler
-  const handleSelectSector = async (sector: BusinessSector) => {
-    let updatedStoreName = storeName;
-    let updatedBusinessField = shopProfile.businessField;
-
-    const isGenericName =
-      storeName === 'Dükkanım' ||
-      storeName === 'Dıkkânım' ||
-      storeName === 'Bereket Mahalle Esnafı' ||
-      storeName === 'Bereket Mahalle Bakkalı' ||
-      storeName === 'Usta Eller Berber & Kuaför' ||
-      storeName === 'Bereket Kafe & Lokanta' ||
-      storeName === 'Usta Teknik Servis & Oto' ||
-      storeName === 'Bereket Esnaf Dükkanı';
-
-    if (isGenericName) {
-      if (sector === 'berber_kuafor') {
-        updatedStoreName = 'Usta Eller Berber & Kuaför';
-        updatedBusinessField = 'Kuaför / Berber / Güzellik Salonu';
-      } else if (sector === 'kafe_restoran') {
-        updatedStoreName = 'Bereket Kafe & Lokanta';
-        updatedBusinessField = 'Kafe / Restoran / Çay Ocağı';
-      } else if (sector === 'bakkal_market') {
-        updatedStoreName = 'Bereket Mahalle Bakkalı';
-        updatedBusinessField = 'Bakkal / Market / Büfe';
-      } else if (sector === 'teknik_servis') {
-        updatedStoreName = 'Usta Teknik Servis & Oto';
-        updatedBusinessField = 'Tamir / Teknik Servis / Atölye';
-      } else if (sector === 'avukat_danisman') {
-        updatedStoreName = 'Adalet Hukuk & Danışmanlık';
-        updatedBusinessField = 'Avukat / Danışmanlık / Hukuk';
-      } else {
-        updatedStoreName = 'Bereket Esnaf Dükkanı';
-        updatedBusinessField = 'Giyim / Züccaciye / Diğer';
-      }
-    }
-
-    const newProfile: ShopProfile = {
-      ...shopProfile,
-      storeName: updatedStoreName,
-      businessField: updatedBusinessField,
-      sectorKey: sector,
-    };
-
-    setShopProfile(newProfile);
-    setStoreName(updatedStoreName);
-    setActiveTab(sector === 'diger_esnaf' ? 'activity' : 'sector_view');
-
-    try {
-      await fetch('/api/shop-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProfile),
-      });
-    } catch (err) {
-      console.error('Error saving sector change:', err);
-    }
-  };
-
   // 1. Barber & Hairdresser Handlers
   const handleAddAppointment = async (apptData: Partial<Appointment>) => {
     try {
@@ -1300,6 +1243,8 @@ export default function App() {
         isBarber={isBarber}
         isLawyer={isLawyer}
         isRetail={isRetail}
+        isCafe={isCafe}
+        isService={isService}
         onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
         onOpenStaff={() => setIsStaffModalOpen(true)}
         onChangePassword={() => setIsChangePasswordOpen(true)}
@@ -1322,15 +1267,6 @@ export default function App() {
         onLogout={handleLogout}
         onExportCsv={handleExportCsv}
       />
-
-      {/* Sector switcher sadece sektör ekranındayken gözüksün — ana panel tertemiz kalsın */}
-      {activeTab === 'sector_view' && (
-        <SectorSwitcherBar
-          currentSector={currentSector}
-          onSelectSector={handleSelectSector}
-          shopProfile={shopProfile}
-        />
-      )}
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 flex-1 w-full animate-fade-in">

@@ -11,6 +11,8 @@ import {
   Gavel,
   ShoppingCart,
   AlertTriangle,
+  UtensilsCrossed,
+  Wrench,
   KeyRound,
   UserPlus,
   Crown,
@@ -33,6 +35,8 @@ interface SidebarProps {
   isBarber: boolean;
   isLawyer: boolean;
   isRetail: boolean;
+  isCafe: boolean;
+  isService: boolean;
   onOpenShopProfile: () => void;
   onOpenStaff: () => void;
   onChangePassword: () => void;
@@ -65,6 +69,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isBarber,
   isLawyer,
   isRetail,
+  isCafe,
+  isService,
   onOpenShopProfile,
   onOpenStaff,
   onChangePassword,
@@ -122,6 +128,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </button>
         </>
+      )}
+      {isCafe && (
+        <button id="nav-tab-tables" type="button" onClick={() => onNavigate('sector_view')} className={tabBtn(activeTab === 'sector_view')}>
+          <UtensilsCrossed className="w-4 h-4 shrink-0" />
+          <span>Masalar & Adisyon</span>
+        </button>
+      )}
+      {isService && (
+        <button id="nav-tab-tickets" type="button" onClick={() => onNavigate('sector_view')} className={tabBtn(activeTab === 'sector_view')}>
+          <Wrench className="w-4 h-4 shrink-0" />
+          <span>Servis Fişleri</span>
+        </button>
       )}
       <button id="nav-tab-customers" type="button" onClick={() => onNavigate('customers')} className={tabBtn(activeTab === 'customers')}>
         <Users className="w-4 h-4 shrink-0" />
@@ -225,6 +243,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               (isBarber ? 1 : 0) +
               (isLawyer ? 1 : 0) +
               (isRetail ? 2 : 0) +
+              (isCafe ? 1 : 0) +
+              (isService ? 1 : 0) +
               (!isLawyer && !isBarber ? 1 : 0)
             }, minmax(0,1fr))`,
           }}
@@ -243,6 +263,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     { id: 'nav-tab-pos', label: 'POS', Icon: ShoppingCart, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') },
                     { id: 'nav-tab-critical-stock', label: 'Kritik', Icon: AlertTriangle, badge: criticalStockCount, active: false, onClick: () => onOpenStock(true) },
                   ]
+                : []),
+              ...(isCafe
+                ? [{ id: 'nav-tab-tables', label: 'Masalar', Icon: UtensilsCrossed, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') }]
+                : []),
+              ...(isService
+                ? [{ id: 'nav-tab-tickets', label: 'Servis', Icon: Wrench, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') }]
                 : []),
               { id: 'nav-tab-customers', label: 'Müşteriler', Icon: Users, badge: 0, active: activeTab === 'customers', onClick: () => onNavigate('customers') },
               ...(!isLawyer && !isBarber
