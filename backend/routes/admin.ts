@@ -1,30 +1,127 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import type { Express, Request, Response } from 'express';
 import {
   getAccounts,
-  accountFromRequest,
-  isAdminAccount,
+  clientIp,
   countActiveSessions,
+  getAuthEvents,
 } from '../accounts';
 import { loadShopState } from '../shopState';
-import { SHOPS_DIR } from '../config';
+import {
+  SHOPS_DIR,
+  ADMIN_PASSWORD,
+  ADMIN_SESSION_TTL_MS,
+  ADMIN_SESSIONS_FILE,
+} from '../config';
+import { readJsonFile, writeJsonFile } from '../fsdb';
+import { rateLimit } from '../guards';
 
-// Sadece ADMIN_PHONES'taki numaralar. 401 = giris yok, 403 = yetki yok.
-function requireAdmin(req: Request, res: Response) {
-  const acc = accountFromRequest(req);
-  if (!acc) {
-    res.status(401).json({ error: 'Oturum bulunamadi.' });
-    return null;
+// Admin oturumu dukkan oturumunden ayridir (ayri cookie: aid, 12 saat).
+// Sifre .env'deki ADMIN_PASSWORD'dur; tanimli degilse admin girisi kapali kalir.
+interface AdminSession {
+  token: string;
+  expiresAt: string;
+  createdIp: string;
+}
+
+let adminSessions: AdminSession[] = readJsonFile<AdminSession[]>(ADMIN_SESSIONS_FILE, []).filter(
+  (s) => new Date(s.expiresAt).getTime() > Date.now()
+);
+
+function persistAdminSessions(): void {
+  writeJsonFile(ADMIN_SESSIONS_FILE, adminSessions);
+}
+
+function adminTokenFromRequest(req: Request): string | null {
+  const header = req.headers.cookie || '';
+  const match = header.match(/(?:^|;\s*)aid=([a-f0-9]+)/);
+  return match ? match[1] : null;
+}
+
+function isAdminSession(req: Request): boolean {
+  const token = adminTokenFromRequest(req);
+  if (!token) return false;
+  const s = adminSessions.find((x) => x.token === token);
+  if (!s) return false;
+  if (new Date(s.expiresAt).getTime() < Date.now()) return false;
+  return true;
+}
+
+function requireAdmin(req: Request, res: Response): boolean {
+  if (!isAdminSession(req)) {
+    res.status(401).json({ error: 'Admin girisi gerekli.' });
+    return false;
   }
-  if (!isAdminAccount(acc)) {
-    res.status(403).json({ error: 'Bu sayfa sadece site yoneticisine aciktir.' });
-    return null;
-  }
-  return acc;
+  return true;
+}
+
+function passwordOk(input: string): boolean {
+  if (!ADMIN_PASSWORD || !input) return false;
+  const a = Buffer.from(input);
+  const b = Buffer.from(ADMIN_PASSWORD);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+function adminCookie(token: string): string {
+  return (
+    'aid=' + token + '; HttpOnly; Path=/; Max-Age=' + Math.floor(ADMIN_SESSION_TTL_MS / 1000) + '; SameSite=Lax'
+  );
+}
+
+// Sunucu log dosyalari (salt-okunur). couple-meeting loglarina DOKUNULMAZ.
+const LOG_FILES: Record<string, string> = {
+  nginx: '/var/log/nginx/access.log',
+  app: '/root/.pm2/logs/dukkanim-out.log',
+  'app-error': '/root/.pm2/logs/dukkanim-error.log',
+};
+
+function tailFile(file: string, lines: number): string[] {
+  const n = Math.max(1, Math.min(500, Math.floor(lines) || 200));
+  const raw = fs.readFileSync(file, 'utf-8');
+  const parts = raw.split('\n');
+  if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
+  return parts.slice(-n);
 }
 
 export function registerAdminRoutes(app: Express): void {
+  // Admin girisi (hiz limitli). NOT: bu route apiGuard'dan ONCE kaydedilir.
+  app.post('/api/admin/login', rateLimit, (req: Request, res: Response) => {
+    if (!ADMIN_PASSWORD) {
+      return res.status(503).json({ error: 'Admin girisi henuz tanimlanmamis.' });
+    }
+    const password = String((req.body || {}).password || '');
+    if (!passwordOk(password)) {
+      return res.status(401).json({ error: 'Sifre hatali.' });
+    }
+    const session: AdminSession = {
+      token: crypto.randomBytes(24).toString('hex'),
+      expiresAt: new Date(Date.now() + ADMIN_SESSION_TTL_MS).toISOString(),
+      createdIp: clientIp(req),
+    };
+    adminSessions.push(session);
+    persistAdminSessions();
+    res.setHeader('Set-Cookie', adminCookie(session.token));
+    res.json({ success: true });
+  });
+
+  app.post('/api/admin/logout', (req: Request, res: Response) => {
+    const token = adminTokenFromRequest(req);
+    if (token) {
+      adminSessions = adminSessions.filter((s) => s.token !== token);
+      persistAdminSessions();
+    }
+    res.setHeader('Set-Cookie', 'aid=; HttpOnly; Path=/; Max-Age=0');
+    res.json({ success: true });
+  });
+
+  app.get('/api/admin/me', (req: Request, res: Response) => {
+    if (!isAdminSession(req)) return res.status(401).json({ error: 'Admin girisi gerekli.' });
+    res.json({ admin: true });
+  });
+
   // Tum dukkanlar: iletisim + IP + kullanim detayi. Sifre ozeti ASLA disari cikmaz.
   app.get('/api/admin/shops', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
@@ -49,6 +146,7 @@ export function registerAdminRoutes(app: Express): void {
           lastLoginIp: a.lastLoginIp || null,
           lastLoginAt: a.lastLoginAt || null,
           loginCount: a.loginCount || 0,
+          loginHistory: (a.loginHistory || []).slice(0, 10),
           activeSessions: countActiveSessions(a.id),
           sector: st.shopProfile?.businessField || null,
           cityDistrict: st.shopProfile?.cityDistrict || null,
@@ -74,5 +172,25 @@ export function registerAdminRoutes(app: Express): void {
       })
       .sort((x, y) => y.createdAt.localeCompare(x.createdAt));
     res.json({ shops, total: shops.length });
+  });
+
+  // Kimlik olaylari: kayit / basarili-hatali giris / kilit (en yeniden eskiye)
+  app.get('/api/admin/events', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const limit = Number(req.query.limit) || 100;
+    res.json({ events: getAuthEvents(limit) });
+  });
+
+  // Sunucu loglari: nginx | app | app-error (son N satir)
+  app.get('/api/admin/logs/:name', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const file = LOG_FILES[req.params.name];
+    if (!file) return res.status(404).json({ error: 'Bilinmeyen log.' });
+    const lines = Number(req.query.lines) || 200;
+    try {
+      res.json({ name: req.params.name, lines: tailFile(file, lines) });
+    } catch {
+      res.status(404).json({ error: 'Log dosyasi okunamadi.' });
+    }
   });
 }

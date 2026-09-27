@@ -78,6 +78,9 @@ export async function startServer(): Promise<void> {
   app.use('/api/auth', rateLimit);
   registerAuthRoutes(app);
 
+  // ---------------- Admin: kendi sifreli oturumu var, guard'dan once ----------------
+  registerAdminRoutes(app);
+
   // ---------------- Koruma: sonrası için giriş + rol zorunlu ----------------
   app.use('/api', apiGuard);
 
@@ -97,7 +100,6 @@ export async function startServer(): Promise<void> {
   registerServiceRoutes(app);
   registerCaseRoutes(app);
   registerCustodyRoutes(app);
-  registerAdminRoutes(app);
 
   // Vite middleware in development vs static serving in production
   if (process.env.NODE_ENV !== 'production') {

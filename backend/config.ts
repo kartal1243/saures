@@ -7,6 +7,8 @@ export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data')
 
 export const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 export const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+export const ADMIN_SESSIONS_FILE = path.join(DATA_DIR, 'admin-sessions.json');
+export const AUTH_EVENTS_FILE = path.join(DATA_DIR, 'auth-events.json');
 export const SHOPS_DIR = path.join(DATA_DIR, 'shops');
 export const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 
@@ -22,12 +24,9 @@ export const AUTH_RATE_LIMIT = { windowMs: 60 * 1000, max: 40 };
 // ile geçici olarak başka modele geçilebilir.
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
-// Site yoneticisi telefonlari (virgulle ayrilir). Bu numaralar admin panelini gorur.
-// Ornegin: ADMIN_PHONES=05510000000,05520000000
-export const ADMIN_PHONES: string[] = (process.env.ADMIN_PHONES || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+// Admin paneli (/admin) giris sifresi. .env'de tanimli olmali, yoksa admin girisi kapali.
+export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+export const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
 
 // Klasörler hazır olsun (uygulama açılışındaki davranışla aynı)
 if (!fs.existsSync(DATA_DIR)) {

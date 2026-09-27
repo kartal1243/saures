@@ -84,8 +84,8 @@ export const AdminPanel: React.FC = () => {
     setError('');
     try {
       const res = await fetch('/api/admin/shops');
-      if (res.status === 403) {
-        setError('Bu sayfa sadece site yöneticisine açık.');
+      if (res.status === 401 || res.status === 403) {
+        setError('Bu sayfa sadece admin girişiyle açılır. /admin adresinden giriş yap.');
         setShops([]);
         return;
       }

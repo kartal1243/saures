@@ -32,7 +32,7 @@ import { CustomerList } from './components/customers/CustomerList';
 import { AuthPage } from './components/auth/AuthPage';
 import { LandingPage } from './components/auth/LandingPage';
 import { matchPublicRoute, PublicPage } from './components/public/PublicPages';
-import { AdminPanel } from './components/admin/AdminPanel';
+import { AdminSite } from './components/admin/AdminSite';
 import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
@@ -96,7 +96,7 @@ import {
   Wallet,
 } from 'lucide-react';
 
-export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock' | 'admin';
+export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock';
 
 // Aynı id'li çift kayıtları temizler (çift tıklama artıkları)
 function dedupeById<T extends { id: string }>(list: T[]): T[] {
@@ -247,19 +247,6 @@ export default function App() {
   const [authView, setAuthView] = useState<'landing' | 'auth'>('landing');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Site yoneticisi mi? (/api/auth/me -> account.isAdmin, ADMIN_PHONES listesinden)
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    if (authStatus !== 'in') {
-      setIsAdmin(false);
-      return;
-    }
-    fetch('/api/auth/me')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setIsAdmin(!!d?.account?.isAdmin))
-      .catch(() => setIsAdmin(false));
-  }, [authStatus]);
 
   const handleLogout = async () => {
     authedRef.current = false;
@@ -1359,6 +1346,10 @@ export default function App() {
   };
 
   // ---- Auth gate: giris yoksa sadece AuthPage goster ----
+  // Ayri admin sayfasi: /admin (kendi sifreli girisi, dukkan oturumunden bagimsiz)
+  if (window.location.pathname.replace(/\/+$/, '') === '/admin') {
+    return <AdminSite />;
+  }
   if (authStatus === 'checking') {
     return (
       <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center gap-3">
@@ -1424,7 +1415,6 @@ export default function App() {
         isCafe={isCafe}
         isService={isService}
         isTailor={isTailor}
-        isAdmin={isAdmin}
         onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
         onOpenStaff={() => setIsStaffModalOpen(true)}
         onChangePassword={() => setIsChangePasswordOpen(true)}
@@ -1546,13 +1536,8 @@ export default function App() {
         </>
         )}
 
-        {/* Admin: kayitli dukkanlar (sadece site yoneticisi) */}
-        {activeTab === 'admin' && isAdmin && (
-          <AdminPanel />
-        )}
-
         {/* 6. Bölüm başlığı + bağlamsal aksiyonlar */}
-        {activeTab !== 'panel' && activeTab !== 'admin' && (
+        {activeTab !== 'panel' && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-2 gap-2">
           <div>
             <h2 className="text-base sm:text-lg font-black text-stone-900 dark:text-white flex items-center gap-2">

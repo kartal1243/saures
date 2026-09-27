@@ -20,6 +20,7 @@ import {
   persistAccounts,
   recordLogin,
   clientIp,
+  logAuthEvent,
   type Account,
 } from '../accounts';
 import { loadShopState } from '../shopState';
@@ -49,6 +50,7 @@ export function registerAuthRoutes(app: Express): void {
     };
     addAccount(acc);
     recordLogin(acc, clientIp(req));
+    logAuthEvent('register', phone, clientIp(req));
     loadShopState(acc.id);
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
@@ -61,6 +63,7 @@ export function registerAuthRoutes(app: Express): void {
     const password = String(body.password || '');
     const lockedMs = isLoginLocked(phone);
     if (lockedMs > 0) {
+      logAuthEvent('locked', phone, clientIp(req));
       return res.status(429).json({
         error: 'Cok fazla hatali deneme. ' + Math.ceil(lockedMs / 60000) + ' dakika sonra tekrar deneyin.',
       });
@@ -68,6 +71,7 @@ export function registerAuthRoutes(app: Express): void {
     const acc = findAccountByPhone(phone);
     if (!acc || !verifyPassword(password, acc.passwordHash)) {
       registerFailedLogin(phone);
+      logAuthEvent('login_fail', phone, clientIp(req));
       const left = loginAttemptsLeft(phone);
       return res.status(401).json({
         error: 'Telefon veya sifre hatali.' + (left > 0 && left <= 2 ? ` (${left} deneme hakkiniz kaldi)` : ''),
@@ -75,6 +79,7 @@ export function registerAuthRoutes(app: Express): void {
     }
     clearLoginAttempts(phone);
     recordLogin(acc, clientIp(req));
+    logAuthEvent('login_ok', phone, clientIp(req));
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
     res.json({ success: true, account: publicAccount(acc) });

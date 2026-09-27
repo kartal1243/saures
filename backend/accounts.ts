@@ -5,7 +5,7 @@ import {
   SESSION_TTL_MS,
   MAX_LOGIN_ATTEMPTS,
   LOGIN_LOCK_MS,
-  ADMIN_PHONES,
+  AUTH_EVENTS_FILE,
 } from './config';
 import { readJsonFile, writeJsonFile } from './fsdb';
 
@@ -25,6 +25,7 @@ export interface Account {
   lastLoginIp?: string; // son giris IP'si
   lastLoginAt?: string; // son giris zamani (ISO)
   loginCount?: number; // toplam basarili giris sayisi
+  loginHistory?: { at: string; ip: string }[]; // son girisler (en fazla 20)
 }
 
 export interface Session {
@@ -150,17 +151,39 @@ export function clientIp(req: {
   );
 }
 
-// Basarili giris/kayit kaydi: IP + zaman + sayac
+// Basarili giris/kayit kaydi: IP + zaman + sayac + gecmis (en fazla 20)
 export function recordLogin(acc: Account, ip: string): void {
+  const at = new Date().toISOString();
   acc.lastLoginIp = ip;
-  acc.lastLoginAt = new Date().toISOString();
+  acc.lastLoginAt = at;
   acc.loginCount = (acc.loginCount || 0) + 1;
+  const hist = acc.loginHistory || [];
+  hist.unshift({ at, ip });
+  acc.loginHistory = hist.slice(0, 20);
   persistAccounts();
 }
 
-export function isAdminAccount(acc: Account | null): boolean {
-  if (!acc) return false;
-  return ADMIN_PHONES.includes(acc.phone);
+// ---------------- Kimlik olay gunlugu (admin paneli "Olaylar" sekmesi) ----------------
+export interface AuthEvent {
+  at: string;
+  type: 'register' | 'login_ok' | 'login_fail' | 'locked';
+  phone: string;
+  ip: string;
+}
+
+export function logAuthEvent(type: AuthEvent['type'], phone: string, ip: string): void {
+  try {
+    const list = readJsonFile<AuthEvent[]>(AUTH_EVENTS_FILE, []);
+    list.unshift({ at: new Date().toISOString(), type, phone, ip });
+    writeJsonFile(AUTH_EVENTS_FILE, list.slice(0, 500));
+  } catch {
+    // log yazilamazsa girisi engelleme
+  }
+}
+
+export function getAuthEvents(limit: number): AuthEvent[] {
+  const n = Math.max(1, Math.min(500, Math.floor(limit) || 100));
+  return readJsonFile<AuthEvent[]>(AUTH_EVENTS_FILE, []).slice(0, n);
 }
 
 export function hashPassword(password: string): string {
@@ -185,7 +208,6 @@ export function publicAccount(a: Account): {
   phone: string;
   createdAt: string;
   role: string;
-  isAdmin: boolean;
   position?: string;
   salary?: number;
   staffNotes?: string;
@@ -197,7 +219,6 @@ export function publicAccount(a: Account): {
     phone: a.phone,
     createdAt: a.createdAt,
     role: a.role || 'owner',
-    isAdmin: isAdminAccount(a),
     position: a.position || undefined,
     salary: typeof a.salary === 'number' ? a.salary : undefined,
     staffNotes: a.staffNotes || undefined,
