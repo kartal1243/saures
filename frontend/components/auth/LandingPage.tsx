@@ -325,12 +325,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             </button>
           </div>
         </div>
-        <footer className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-400 dark:text-stone-500 font-semibold">
-          <div
-            className="w-[130px] select-none opacity-80 [&>svg]:w-full [&>svg]:h-auto"
-            dangerouslySetInnerHTML={{ __html: logoRaw }}
-          />
-          <p>© 2026 Dükkanım Yanımda · Esnaf için yapıldı</p>
+        <footer className="mt-8 flex flex-col items-center gap-4 text-xs text-stone-400 dark:text-stone-500 font-semibold">
+          <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2">
+            <a href="/kayit" className="hover:text-amber-600 dark:hover:text-amber-400">Ücretsiz Kayıt</a>
+            <a href="/berber" className="hover:text-amber-600 dark:hover:text-amber-400">Berber</a>
+            <a href="/kafe-restoran" className="hover:text-amber-600 dark:hover:text-amber-400">Kafe &amp; Restoran</a>
+            <a href="/bakkal-market" className="hover:text-amber-600 dark:hover:text-amber-400">Bakkal &amp; Market</a>
+            <a href="/teknik-servis" className="hover:text-amber-600 dark:hover:text-amber-400">Teknik Servis</a>
+            <a href="/iletisim" className="hover:text-amber-600 dark:hover:text-amber-400">İletişim</a>
+            <a href="/gizlilik" className="hover:text-amber-600 dark:hover:text-amber-400">Gizlilik</a>
+          </nav>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
+            <div
+              className="w-[130px] select-none opacity-80 [&>svg]:w-full [&>svg]:h-auto"
+              dangerouslySetInnerHTML={{ __html: logoRaw }}
+            />
+            <p>© 2026 Dükkanım Yanımda · Esnaf için yapıldı</p>
+          </div>
         </footer>
       </section>
     </div>

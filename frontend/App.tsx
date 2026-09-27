@@ -31,6 +31,7 @@ import { UpcomingReminders } from './components/panel/UpcomingReminders';
 import { CustomerList } from './components/customers/CustomerList';
 import { AuthPage } from './components/auth/AuthPage';
 import { LandingPage } from './components/auth/LandingPage';
+import { matchPublicRoute, PublicPage } from './components/public/PublicPages';
 import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
@@ -1355,6 +1356,19 @@ export default function App() {
     );
   }
   if (authStatus === 'out') {
+    // Herkese açık SEO sayfaları (/gizlilik, /iletisim, /kayit, sektör sayfaları).
+    // Backend tüm yollarda index.html sunar, içerik buradan seçilir.
+    const pub = matchPublicRoute(window.location.pathname);
+    if (pub) {
+      return (
+        <PublicPage
+          route={pub}
+          onHome={() => { window.location.href = '/'; }}
+          onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
+          onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
+        />
+      );
+    }
     if (authView === 'landing') {
       return (
         <LandingPage
