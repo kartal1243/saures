@@ -165,7 +165,7 @@ export const AdminPanel: React.FC = () => {
         )}
       </div>
 
-      {loading && <p className="text-sm font-bold text-stone-500">Yükleniyor...</p>}
+      {loading && <p className="text-sm font-bold text-stone-500 dark:text-stone-400">Yükleniyor...</p>}
       {error && (
         <div className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-4 py-3 text-sm font-bold text-rose-700 dark:text-rose-300">
           {error}
