@@ -72,12 +72,16 @@ function Stat({ icon: Icon, label, value }: { icon: React.ComponentType<{ classN
   );
 }
 
-export const AdminPanel: React.FC = () => {
+export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }) => {
   const [shops, setShops] = useState<ShopRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery || '');
   const [openId, setOpenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialQuery !== undefined) setQuery(initialQuery);
+  }, [initialQuery]);
 
   const load = async () => {
     setLoading(true);

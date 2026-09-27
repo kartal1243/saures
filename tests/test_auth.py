@@ -212,6 +212,8 @@ def main():
     check("giris yokken /api/admin/events 401", code == 401, f"got {code}")
     code, data, _ = req("/api/admin/logs/nginx")
     check("giris yokken /api/admin/logs/nginx 401", code == 401, f"got {code}")
+    code, data, _ = req("/api/admin/overview")
+    check("giris yokken /api/admin/overview 401", code == 401, f"got {code}")
     code, me, _ = req("/api/auth/me", cookie=cookieB)
     acct = (me.get("account") or {}) if isinstance(me, dict) else {}
     check("/api/auth/me 200", code == 200, f"got {code}")

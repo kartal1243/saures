@@ -181,6 +181,73 @@ export function registerAdminRoutes(app: Express): void {
     res.json({ events: getAuthEvents(limit) });
   });
 
+  // Gosterge paneli: tek istekte tum ozet (kartlar + 7 gunluk grafik + son kayit/giris)
+  app.get('/api/admin/overview', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const owners = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
+    let customers = 0;
+    let transactions = 0;
+    let online = 0;
+    for (const o of owners) {
+      const st = loadShopState(o.id);
+      customers += st.customers.length;
+      transactions += st.transactions.length;
+      online += countActiveSessions(o.id);
+    }
+    const events = getAuthEvents(500);
+    const today = new Date().toISOString().slice(0, 10);
+    const ipSet = new Set<string>();
+    for (const e of events) if (e.ip && e.ip !== 'unknown') ipSet.add(e.ip);
+    for (const o of owners) {
+      if (o.createdIp && o.createdIp !== 'unknown') ipSet.add(o.createdIp);
+      if (o.lastLoginIp && o.lastLoginIp !== 'unknown') ipSet.add(o.lastLoginIp);
+    }
+    const week: { day: string; label: string; registers: number; logins: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000);
+      const day = d.toISOString().slice(0, 10);
+      week.push({
+        day,
+        label: d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' }),
+        registers: owners.filter((o) => (o.createdAt || '').slice(0, 10) === day).length,
+        logins: events.filter((e) => e.type === 'login_ok' && e.at.slice(0, 10) === day).length,
+      });
+    }
+    const recentRegisters = owners
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 8)
+      .map((o) => ({
+        shopName: o.shopName,
+        ownerName: o.ownerName,
+        phone: o.phone,
+        createdAt: o.createdAt,
+        createdIp: o.createdIp || null,
+      }));
+    const phoneToShop = new Map(owners.map((o) => [o.phone, o.shopName]));
+    const recentLogins = events
+      .filter((e) => e.type === 'login_ok')
+      .slice(0, 10)
+      .map((e) => ({
+        shopName: phoneToShop.get(e.phone) || e.phone,
+        phone: e.phone,
+        ip: e.ip,
+        at: e.at,
+      }));
+    res.json({
+      shops: owners.length,
+      online,
+      customers,
+      transactions,
+      eventsTotal: events.length,
+      eventsToday: events.filter((e) => e.at.slice(0, 10) === today).length,
+      uniqueIps: ipSet.size,
+      week,
+      recentRegisters,
+      recentLogins,
+    });
+  });
+
   // Sunucu loglari: nginx | app | app-error (son N satir)
   app.get('/api/admin/logs/:name', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
