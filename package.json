@@ -1,13 +1,19 @@
 {
-  "name": "react-example",
+  "name": "dukkanim-yanimda",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "backup": "bash deploy/backup.sh",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "dev": "tsx server.ts",
+    "lint": "tsc --noEmit",
     "start": "node dist/server.cjs",
-    "lint": "tsc --noEmit"
+    "test": "node tests/test_ws.mjs",
+    "test:auth": "python3 tests/test_auth.py",
+    "test:features": "python3 tests/test_features.py",
+    "test:ws": "node tests/test_ws.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -34,5 +40,6 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2"
-  }
+  },
+  "description": "Dukkanim Yanimda - kasa, veresiye, stok ve gun sonu yonetimi (esnaf paneli)"
 }
