@@ -22,6 +22,13 @@ export const AUTH_RATE_LIMIT = { windowMs: 60 * 1000, max: 40 };
 // ile geçici olarak başka modele geçilebilir.
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
+// Site yoneticisi telefonlari (virgulle ayrilir). Bu numaralar admin panelini gorur.
+// Ornegin: ADMIN_PHONES=05510000000,05520000000
+export const ADMIN_PHONES: string[] = (process.env.ADMIN_PHONES || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 // Klasörler hazır olsun (uygulama açılışındaki davranışla aynı)
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });

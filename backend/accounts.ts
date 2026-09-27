@@ -5,6 +5,7 @@ import {
   SESSION_TTL_MS,
   MAX_LOGIN_ATTEMPTS,
   LOGIN_LOCK_MS,
+  ADMIN_PHONES,
 } from './config';
 import { readJsonFile, writeJsonFile } from './fsdb';
 
@@ -20,6 +21,10 @@ export interface Account {
   position?: string; // personel görevi (örn: Kasiyer, Usta, Çırak)
   salary?: number; // aylık maaş (TL)
   staffNotes?: string; // personel notu
+  createdIp?: string; // kayit olunan IP
+  lastLoginIp?: string; // son giris IP'si
+  lastLoginAt?: string; // son giris zamani (ISO)
+  loginCount?: number; // toplam basarili giris sayisi
 }
 
 export interface Session {
@@ -79,10 +84,16 @@ export function removeSessionByToken(token: string): void {
   sessions = sessions.filter((s) => s.token !== token);
   persistSessions();
 }
-
 export function removeSessionsForAccount(accountId: string): void {
   sessions = sessions.filter((s) => s.accountId !== accountId);
   persistSessions();
+}
+
+export function countActiveSessions(accountId: string): number {
+  const now = Date.now();
+  return sessions.filter(
+    (s) => s.accountId === accountId && new Date(s.expiresAt).getTime() > now
+  ).length;
 }
 
 export function keepOnlySession(accountId: string, token: string): void {
@@ -117,6 +128,41 @@ export function sessionCookie(token: string): string {
   return 'sid=' + token + '; HttpOnly; Path=/; Max-Age=' + Math.floor(SESSION_TTL_MS / 1000) + '; SameSite=Lax';
 }
 
+// Gercek istemci IP'si: Cloudflare -> nginx -> node zincirinde en guvenilir baslik
+// CF-Connecting-IP'dir. Dogrudan erisimde X-Real-IP / X-Forwarded-For'a dusulur.
+export function clientIp(req: {
+  headers: Record<string, string | string[] | undefined>;
+  ip?: string;
+  socket?: { remoteAddress?: string };
+}): string {
+  const h = req.headers || {};
+  const first = (v: string | string[] | undefined): string => {
+    if (Array.isArray(v)) return (v[0] || '').trim();
+    return String(v || '').split(',')[0].trim();
+  };
+  return (
+    first(h['cf-connecting-ip']) ||
+    first(h['x-real-ip']) ||
+    first(h['x-forwarded-for']) ||
+    (req.ip || '') ||
+    (req.socket?.remoteAddress || '') ||
+    'unknown'
+  );
+}
+
+// Basarili giris/kayit kaydi: IP + zaman + sayac
+export function recordLogin(acc: Account, ip: string): void {
+  acc.lastLoginIp = ip;
+  acc.lastLoginAt = new Date().toISOString();
+  acc.loginCount = (acc.loginCount || 0) + 1;
+  persistAccounts();
+}
+
+export function isAdminAccount(acc: Account | null): boolean {
+  if (!acc) return false;
+  return ADMIN_PHONES.includes(acc.phone);
+}
+
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -139,6 +185,7 @@ export function publicAccount(a: Account): {
   phone: string;
   createdAt: string;
   role: string;
+  isAdmin: boolean;
   position?: string;
   salary?: number;
   staffNotes?: string;
@@ -150,6 +197,7 @@ export function publicAccount(a: Account): {
     phone: a.phone,
     createdAt: a.createdAt,
     role: a.role || 'owner',
+    isAdmin: isAdminAccount(a),
     position: a.position || undefined,
     salary: typeof a.salary === 'number' ? a.salary : undefined,
     staffNotes: a.staffNotes || undefined,

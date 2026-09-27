@@ -14,6 +14,7 @@ import {
   UtensilsCrossed,
   Wrench,
   Shirt,
+  ShieldCheck,
   KeyRound,
   UserPlus,
   Crown,
@@ -39,6 +40,7 @@ interface SidebarProps {
   isCafe: boolean;
   isService: boolean;
   isTailor: boolean;
+  isAdmin: boolean;
   onOpenShopProfile: () => void;
   onOpenStaff: () => void;
   onChangePassword: () => void;
@@ -74,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCafe,
   isService,
   isTailor,
+  isAdmin,
   onOpenShopProfile,
   onOpenStaff,
   onChangePassword,
@@ -169,6 +172,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <Activity className="w-4 h-4 shrink-0" />
         <span>Gün Sonu</span>
       </button>
+      {isAdmin && (
+        <button id="nav-tab-admin" type="button" onClick={() => onNavigate('admin')} className={tabBtn(activeTab === 'admin')}>
+          <ShieldCheck className="w-4 h-4 shrink-0" />
+          <span>Admin</span>
+        </button>
+      )}
     </>
   );
 
@@ -288,6 +297,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? [{ id: 'nav-tab-stock', label: 'Stok', Icon: Package, badge: criticalStockCount, active: activeTab === 'stock', onClick: () => onOpenStock(false) }]
                 : []),
               { id: 'nav-tab-activity', label: 'Gün Sonu', Icon: Activity, badge: 0, active: activeTab === 'activity', onClick: () => onNavigate('activity') },
+              ...(isAdmin
+                ? [{ id: 'nav-tab-admin', label: 'Admin', Icon: ShieldCheck, badge: 0, active: activeTab === 'admin', onClick: () => onNavigate('admin') }]
+                : []),
             ]
           ).map(({ id, label, Icon, badge, active, onClick }) => {
             return (

@@ -27,10 +27,13 @@ import { registerSupplierRoutes } from './routes/suppliers';
 import { registerServiceRoutes } from './routes/services';
 import { registerCaseRoutes } from './routes/cases';
 import { registerCustodyRoutes } from './routes/custody';
+import { registerAdminRoutes } from './routes/admin';
 
 export async function startServer(): Promise<void> {
   const app = express();
   app.disable('x-powered-by');
+  // nginx + Cloudflare arkasindayiz: gercek istemci IP'si basliklardan okunsun
+  app.set('trust proxy', 1);
 
   // Güvenlik başlıkları (yayın kilidi)
   app.use((_req, res, next) => {
@@ -94,6 +97,7 @@ export async function startServer(): Promise<void> {
   registerServiceRoutes(app);
   registerCaseRoutes(app);
   registerCustodyRoutes(app);
+  registerAdminRoutes(app);
 
   // Vite middleware in development vs static serving in production
   if (process.env.NODE_ENV !== 'production') {

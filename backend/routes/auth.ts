@@ -18,6 +18,8 @@ import {
   clearLoginAttempts,
   loginAttemptsLeft,
   persistAccounts,
+  recordLogin,
+  clientIp,
   type Account,
 } from '../accounts';
 import { loadShopState } from '../shopState';
@@ -43,8 +45,10 @@ export function registerAuthRoutes(app: Express): void {
       phone,
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString(),
+      createdIp: clientIp(req),
     };
     addAccount(acc);
+    recordLogin(acc, clientIp(req));
     loadShopState(acc.id);
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
@@ -70,6 +74,7 @@ export function registerAuthRoutes(app: Express): void {
       });
     }
     clearLoginAttempts(phone);
+    recordLogin(acc, clientIp(req));
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
     res.json({ success: true, account: publicAccount(acc) });

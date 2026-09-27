@@ -200,6 +200,17 @@ def main():
     code, data, _ = req("/api/data", cookie=cookieA2)
     check("ciktan sonra 401", code == 401, f"got {code}")
 
+    print("\n== 12) ADMIN ==")
+    code, data, _ = req("/api/admin/shops")
+    check("giris yokken /api/admin/shops 401", code == 401, f"got {code}")
+    code, data, _ = req("/api/admin/shops", cookie=cookieB)
+    check("normal kullaniciya /api/admin/shops 403", code == 403, f"got {code}: {data}")
+    code, me, _ = req("/api/auth/me", cookie=cookieB)
+    acct = (me.get("account") or {}) if isinstance(me, dict) else {}
+    check("/api/auth/me 200", code == 200, f"got {code}")
+    check("ozette passwordHash sizmis", "passwordHash" not in acct, str(sorted(acct.keys())))
+    check("ozette isAdmin alani var", "isAdmin" in acct, str(sorted(acct.keys())))
+
     print(f"\n===== SONUC: {len(PASSED)} PASS / {len(FAILED)} FAIL =====")
     if FAILED:
         print("Basarisiz:", ", ".join(FAILED))
