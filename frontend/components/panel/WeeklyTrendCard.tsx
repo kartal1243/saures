@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction } from '../../../shared/types.ts';
 import { formatCurrency } from '../../utils/formatters';
+import { dayKey, parseDay, midnight } from '../../utils/dates';
 import {
   TrendingUp,
   TrendingDown,
@@ -38,44 +39,60 @@ interface DayData {
   net: number;
 }
 
+// Onceki haftaya gore degisim rozeti
+function Compare({ cur, prev }: { cur: number; prev: number }) {
+  let text = '—';
+  let cls = 'text-stone-400 dark:text-stone-500';
+  if (prev === 0) {
+    if (cur > 0) {
+      text = 'geçen hafta: yeni';
+      cls = 'text-emerald-600 dark:text-emerald-400';
+    } else {
+      text = 'geçen hafta: —';
+    }
+  } else {
+    const p = Math.round(((cur - prev) / prev) * 100);
+    text = `geçen hafta: ${p > 0 ? '+' : ''}${p}%`;
+    cls = p >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+  }
+  return <span className={`text-[11px] font-bold ${cls}`}>{text}</span>;
+}
+
 export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }) => {
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
+  const [viewMode, setViewMode] = useState<'week' | 'last7'>('week');
 
-  // Compute current week's days (Monday to Sunday)
-  const { weekDays, totalWeekEarnings, totalWeekExpenditure, netWeekBalance, bestDay } = useMemo(() => {
+  // Gun kovasi + onceki hafta karsilastirmasi (tum tarihler YEREL, UTC yok)
+  const { weekDays, totalWeekEarnings, totalWeekExpenditure, netWeekBalance, bestDay, prevEarnings, prevExpenditure, prevNet, isEmpty } = useMemo(() => {
     const now = new Date();
-    // In JS: 0=Sun, 1=Mon, ..., 6=Sat
-    // Convert to Monday as start:
-    const dayOfWeek = (now.getDay() + 6) % 7; // 0 for Monday, 6 for Sunday
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - dayOfWeek);
-    monday.setHours(0, 0, 0, 0);
+    const today = midnight(now);
+    const todayStr = dayKey(today);
 
-    const todayStr = now.toISOString().split('T')[0];
+    const shorts = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+    const fulls = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
-    const dayNames = [
-      { short: 'Pzt', full: 'Pazartesi' },
-      { short: 'Sal', full: 'Salı' },
-      { short: 'Çar', full: 'Çarşamba' },
-      { short: 'Per', full: 'Perşembe' },
-      { short: 'Cum', full: 'Cuma' },
-      { short: 'Cmt', full: 'Cumartesi' },
-      { short: 'Paz', full: 'Pazar' },
-    ];
+    const windowStarts: Date[] = [];
+    if (viewMode === 'last7') {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        windowStarts.push(d);
+      }
+    } else {
+      const dayOfWeek = (today.getDay() + 6) % 7; // 0=Pzt, 6=Paz
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - dayOfWeek);
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        windowStarts.push(d);
+      }
+    }
 
-    const days: DayData[] = [];
-    let weekEarnings = 0;
-    let weekExpenditure = 0;
-
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
-      const isToday = dateStr === todayStr;
-
+    const bucket = (d: Date): DayData => {
+      const dateStr = dayKey(d);
       let dayEarnings = 0;
       let dayExpenditure = 0;
-
       for (const tx of transactions) {
         if (tx.date && tx.date.startsWith(dateStr)) {
           if (tx.type === 'tahsilat') {
@@ -85,27 +102,37 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
           }
         }
       }
-
-      weekEarnings += dayEarnings;
-      weekExpenditure += dayExpenditure;
-
-      days.push({
+      return {
         dateStr,
-        dayShort: dayNames[i].short,
-        dayFull: dayNames[i].full,
-        isToday,
+        dayShort: shorts[d.getDay()],
+        dayFull: fulls[d.getDay()],
+        isToday: dateStr === todayStr,
         earnings: dayEarnings,
         expenditure: dayExpenditure,
         net: dayEarnings - dayExpenditure,
-      });
+      };
+    };
+
+    const days = windowStarts.map(bucket);
+    const weekEarnings = days.reduce((t, d) => t + d.earnings, 0);
+    const weekExpenditure = days.reduce((t, d) => t + d.expenditure, 0);
+
+    // Onceki 7 gun (pencerenin ilk gununden geriye)
+    const first = windowStarts[0];
+    let pE = 0;
+    let pX = 0;
+    for (let i = 7; i >= 1; i--) {
+      const d = new Date(first);
+      d.setDate(first.getDate() - i);
+      const b = bucket(d);
+      pE += b.earnings;
+      pX += b.expenditure;
     }
 
-    // Find best earning day
+    // En yuksek kazancli gun
     let best: DayData | null = null;
     for (const d of days) {
-      if (!best || d.earnings > best.earnings) {
-        if (d.earnings > 0) best = d;
-      }
+      if (d.earnings > 0 && (!best || d.earnings > best.earnings)) best = d;
     }
 
     return {
@@ -114,17 +141,26 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
       totalWeekExpenditure: weekExpenditure,
       netWeekBalance: weekEarnings - weekExpenditure,
       bestDay: best,
+      prevEarnings: pE,
+      prevExpenditure: pX,
+      prevNet: pE - pX,
+      isEmpty: weekEarnings === 0 && weekExpenditure === 0,
     };
-  }, [transactions]);
+  }, [transactions, viewMode]);
 
-  // Formatter for date range label
+  // Y ekseni kompakt (12000 -> 12B)
+  const compactTick = (val: number): string =>
+    `${new Intl.NumberFormat('tr-TR', { notation: 'compact', maximumFractionDigits: 1 }).format(val)}₺`;
+
+  // Formatter for date range label (yerel parse, UTC kaymasi yok)
   const weekRangeLabel = useMemo(() => {
-    if (weekDays.length < 7) return 'Bu Hafta';
-    const first = new Date(weekDays[0].dateStr);
-    const last = new Date(weekDays[6].dateStr);
+    if (weekDays.length < 7) return viewMode === 'last7' ? 'Son 7 Gün' : 'Bu Hafta';
+    const first = parseDay(weekDays[0].dateStr);
+    const last = parseDay(weekDays[6].dateStr);
     const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    return `${first.getDate()} ${months[first.getMonth()]} - ${last.getDate()} ${months[last.getMonth()]} (Bu Hafta)`;
-  }, [weekDays]);
+    const tag = viewMode === 'last7' ? 'Son 7 Gün' : 'Bu Hafta';
+    return `${first.getDate()} ${months[first.getMonth()]} - ${last.getDate()} ${months[last.getMonth()]} (${tag})`;
+  }, [weekDays, viewMode]);
 
   // Custom Tooltip component
   const CustomTooltip = ({ active, payload }: any) => {
@@ -195,7 +231,7 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
         </div>
 
         {/* Chart View Toggle & Legend */}
-        <div className="flex items-center gap-2.5 self-start md:self-center">
+        <div className="flex flex-wrap items-center gap-2.5 self-start md:self-center">
           <div className="flex items-center gap-3 text-xs mr-2">
             <span className="inline-flex items-center gap-1.5 font-medium text-stone-700 dark:text-stone-300">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
@@ -205,6 +241,33 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
               Harcama
             </span>
+          </div>
+
+          <div className="inline-flex items-center bg-stone-200/70 dark:bg-stone-800 p-0.5 rounded-lg text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setViewMode('week')}
+              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                viewMode === 'week'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+              }`}
+              title="Pazartesi-Pazar bu hafta"
+            >
+              Hafta
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('last7')}
+              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                viewMode === 'last7'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+              }`}
+              title="Kayan son 7 gün"
+            >
+              Son 7 gün
+            </button>
           </div>
 
           <div className="inline-flex items-center bg-stone-200/70 dark:bg-stone-800 p-0.5 rounded-lg text-xs font-semibold">
@@ -252,6 +315,9 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
             <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1">
               Bu hafta kasaya giren tahsilatlar
             </p>
+            <div className="mt-1">
+              <Compare cur={totalWeekEarnings} prev={prevEarnings} />
+            </div>
           </div>
           <span className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <ArrowUpRight className="w-5 h-5 stroke-[2.5]" />
@@ -270,6 +336,9 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
             <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1">
               Toptancı, fatura ve dükkan masrafları
             </p>
+            <div className="mt-1">
+              <Compare cur={totalWeekExpenditure} prev={prevExpenditure} />
+            </div>
           </div>
           <span className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 flex items-center justify-center shrink-0">
             <ArrowDownRight className="w-5 h-5 stroke-[2.5]" />
@@ -294,6 +363,9 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
                 ? 'Harcamalar düşüldükten sonra kalan net'
                 : 'Harcama ciroyu aştı'}
             </p>
+            <div className="mt-1">
+              <Compare cur={netWeekBalance} prev={prevNet} />
+            </div>
           </div>
           <span className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 flex items-center justify-center shrink-0">
             <Wallet className="w-5 h-5" />
@@ -303,6 +375,11 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
 
       {/* Simple Data Visualization (Recharts) */}
       <div className="p-4 sm:p-5 bg-stone-50/20 dark:bg-stone-800/20">
+        {isEmpty && (
+          <div className="mb-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-4 py-3 text-xs font-bold text-amber-800 dark:text-amber-300">
+            Bu dönemde henüz kazanç ya da harcama yok. İlk işlemi ekleyince grafik canlanır.
+          </div>
+        )}
         <div className="h-56 sm:h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             {chartType === 'area' ? (
@@ -335,7 +412,7 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 11, fill: '#a8a29e' }}
-                  tickFormatter={(val) => `${val}₺`}
+                  tickFormatter={compactTick}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Area
@@ -379,7 +456,7 @@ export const WeeklyTrendCard: React.FC<WeeklyTrendCardProps> = ({ transactions }
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 11, fill: '#a8a29e' }}
-                  tickFormatter={(val) => `${val}₺`}
+                  tickFormatter={compactTick}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction } from '../../../shared/types.ts';
 import { formatCurrency } from '../../utils/formatters';
+import { dayKey, midnight } from '../../utils/dates';
 import {
   TrendingUp,
   BarChart3,
@@ -57,8 +58,8 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
     profitableDaysCount,
     bestRevenueDay,
   } = useMemo(() => {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const today = midnight(new Date());
+    const todayStr = dayKey(today);
 
     const dayShortNames = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
     const dayFullNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
@@ -67,16 +68,17 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
     const datesList: Date[] = [];
 
     if (viewMode === 'last7days') {
-      // Rolling 7 days: 6 days ago through today
+      // Rolling 7 days: 6 days ago through today (yerel gunler)
       for (let i = 6; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 86400000);
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
         datesList.push(d);
       }
     } else {
       // Current calendar week (Monday to Sunday)
-      const dayOfWeek = (now.getDay() + 6) % 7; // 0=Mon, 6=Sun
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - dayOfWeek);
+      const dayOfWeek = (today.getDay() + 6) % 7; // 0=Mon, 6=Sun
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - dayOfWeek);
       monday.setHours(0, 0, 0, 0);
 
       for (let i = 0; i < 7; i++) {
@@ -92,7 +94,7 @@ export const RevenueVsExpensesChart: React.FC<RevenueVsExpensesChartProps> = ({ 
     let profitableCount = 0;
 
     for (const dateObj of datesList) {
-      const dateStr = dateObj.toISOString().split('T')[0];
+      const dateStr = dayKey(dateObj);
       const isToday = dateStr === todayStr;
       const dayIndex = dateObj.getDay();
 
