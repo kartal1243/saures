@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 
 // İletişim e-postası tek noktada. Değişirse sadece burası güncellenir.
-export const CONTACT_EMAIL = 'destek@dükkanımyanımda.com.tr';
-const CONTACT_MAILTO = 'mailto:destek@xn--dkkanmyanmda-dlb06eea.com.tr';
+export const CONTACT_EMAIL = 'omeryaman6@hotmail.com';
+const CONTACT_MAILTO = 'mailto:omeryaman6@hotmail.com';
 
 export type PublicRouteKey =
   | 'gizlilik'
