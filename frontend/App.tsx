@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
 import {
   Customer,
   Transaction,
@@ -26,8 +26,6 @@ import { HomeDashboard } from './components/panel/HomeDashboard';
 import { SECTORS } from './components/sector/SectorSwitcherBar';
 
 import { CashSummary } from './components/panel/CashSummary';
-import { RevenueVsExpensesChart } from './components/panel/RevenueVsExpensesChart';
-import { WeeklyTrendCard } from './components/panel/WeeklyTrendCard';
 import { QuickActionBar } from './components/panel/QuickActionBar';
 import { UpcomingReminders } from './components/panel/UpcomingReminders';
 import { CustomerList } from './components/customers/CustomerList';
@@ -35,10 +33,27 @@ import { AuthPage } from './components/auth/AuthPage';
 import { LandingPage } from './components/auth/LandingPage';
 import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
-import { AppModals } from './components/layout/AppModals';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
 import { DEFAULT_SERVICES } from './components/sector/ServicesModal';
-import { SectorModuleSwitch } from './components/sector/SectorModuleSwitch';
+
+// Agir moduller ayri chunk olarak tembel yuklenir: ilk acilis hizli olsun.
+// (recharts + 6 sektor gorunumu + tum modallar ana pakete girmez.)
+const RevenueVsExpensesChart = lazy(() =>
+  import('./components/panel/RevenueVsExpensesChart').then((m) => ({ default: m.RevenueVsExpensesChart })),
+);
+const WeeklyTrendCard = lazy(() =>
+  import('./components/panel/WeeklyTrendCard').then((m) => ({ default: m.WeeklyTrendCard })),
+);
+const SectorModuleSwitch = lazy(() =>
+  import('./components/sector/SectorModuleSwitch').then((m) => ({ default: m.SectorModuleSwitch })),
+);
+const AppModals = lazy(() =>
+  import('./components/layout/AppModals').then((m) => ({ default: m.AppModals })),
+);
+
+function ChunkFallback() {
+  return <div className="animate-pulse rounded-2xl bg-stone-200 dark:bg-stone-800 h-24" />;
+}
 import type { LawyerTab } from './components/sector/LawyerCasesView';
 import { formatCurrency } from './utils/formatters';
 import { deriveSector } from './utils/sector';
@@ -1494,8 +1509,10 @@ export default function App() {
         />
 
         {/* 4. Eski grafikler: kar/zarar karşılaştırma + haftalık trend */}
-        <RevenueVsExpensesChart transactions={transactions} />
-        <WeeklyTrendCard transactions={transactions} />
+        <Suspense fallback={<ChunkFallback />}>
+          <RevenueVsExpensesChart transactions={transactions} />
+          <WeeklyTrendCard transactions={transactions} />
+        </Suspense>
 
         </>
         )}
@@ -1590,6 +1607,7 @@ export default function App() {
         )}
 
         {/* 7. View Content: SectorModuleSwitch (sektör) OR Activity Feed OR ... */}
+        <Suspense fallback={<ChunkFallback />}>
         <SectorModuleSwitch
           sector={currentSector}
           activeTab={activeTab}
@@ -1627,6 +1645,7 @@ export default function App() {
           onCompleteCustody={handleCompleteCustody}
           onDeleteCustody={handleDeleteCustody}
         />
+        </Suspense>
         {activeTab === 'activity' ? (
           <div className="space-y-4">
             {/* Patron akışı: Gün Sonu özet kartı */}
@@ -1996,6 +2015,7 @@ export default function App() {
       </main>
 
       {/* MODALS — hepsi components/layout/AppModals içinde */}
+      <Suspense fallback={null}>
       <AppModals
         isShopProfileModalOpen={isShopProfileModalOpen}
         onCloseShopProfile={() => setIsShopProfileModalOpen(false)}
@@ -2076,6 +2096,7 @@ export default function App() {
         productToEdit={productToEdit}
         onSaveProduct={handleSaveProduct}
       />
+      </Suspense>
       </div>
     </div>
     </ErrorBoundary>
