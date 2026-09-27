@@ -2,6 +2,7 @@ import type { Express, Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { S } from '../context';
 import { calculateCashRegister } from '../cash';
+import { GEMINI_MODEL } from '../config';
 
 export function registerVipRoutes(app: Express): void {
   // 11. VIP AI Shop Consultant & Live Support (Yapay Zeka Esnaf Danışmanı)
@@ -98,7 +99,7 @@ Kurallar:
 4. Çıktını temiz ve maddeli hazırla.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: GEMINI_MODEL,
         contents: systemPrompt,
       });
 
@@ -113,7 +114,7 @@ Kurallar:
           'Giderleri %15 kısmak için ne yapayım?',
           'Müşteriyi veresiyeden nakite nasıl alıştırırım?',
         ],
-        source: 'gemini-2.5-flash',
+        source: GEMINI_MODEL,
       });
     } catch (err) {
       console.error('VIP AI Consultant error:', err);

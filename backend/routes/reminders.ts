@@ -2,6 +2,7 @@ import type { Express, Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import type { ReminderLog } from '../../shared/types';
 import { S, saveState } from '../context';
+import { GEMINI_MODEL } from '../config';
 import { broadcast } from '../realtime';
 
 export function registerReminderRoutes(app: Express): void {
@@ -80,7 +81,7 @@ Kurallar:
 3. Kaba, icra dili gibi soğuk ifadeler ASLA kullanma; esnaf nezaketiyle yaz.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: GEMINI_MODEL,
         contents: prompt,
       });
 

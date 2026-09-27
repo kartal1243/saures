@@ -18,6 +18,10 @@ export const JSON_BODY_LIMIT = '1mb';
 // Auth uçları için kaba hız limiti (IP başına pencere)
 export const AUTH_RATE_LIMIT = { windowMs: 60 * 1000, max: 40 };
 
+// gemini-2.5-flash yeni API anahtarlarına kapalı (404 NOT_FOUND). GEMINI_MODEL
+// ile geçici olarak başka modele geçilebilir.
+export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+
 // Klasörler hazır olsun (uygulama açılışındaki davranışla aynı)
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
