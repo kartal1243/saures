@@ -26,6 +26,7 @@ import { HomeDashboard } from './components/panel/HomeDashboard';
 import { SECTORS } from './components/sector/SectorSwitcherBar';
 
 import { CashSummary } from './components/panel/CashSummary';
+import { CollectionPanel } from './components/panel/CollectionPanel';
 import { QuickActionBar } from './components/panel/QuickActionBar';
 import { UpcomingReminders } from './components/panel/UpcomingReminders';
 import { CustomerList } from './components/customers/CustomerList';
@@ -1532,6 +1533,14 @@ export default function App() {
             const el = document.getElementById('section-upcoming-reminders');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }}
+        />
+
+        {/* VIP Borç Toplama: bekleyen alacak + toplu WhatsApp turu */}
+        <CollectionPanel
+          customers={customers}
+          shopName={shopProfile.storeName}
+          onOpenWhatsApp={(cust) => openWhatsAppForCustomer(cust)}
+          onOpenPayment={(cust) => openTransactionForCustomer(cust, 'tahsilat')}
         />
 
         {/* 4. Eski grafikler: kar/zarar karşılaştırma + haftalık trend */}

@@ -135,7 +135,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
             {(
               [
                 { Icon: Bot, t: 'Yapay Zeka Danışman', d: '7/24 ciro, gider ve vitrin önerileri', on: true },
-                { Icon: MessageSquare, t: 'Otomatik Hatırlatma Paketi', d: 'Geciken borca toplu WhatsApp takibi', on: false },
+                { Icon: MessageSquare, t: 'Borç Toplama Ekranı', d: 'Bekleyen alacak listesi + toplu WhatsApp turu', on: true },
                 { Icon: TrendingUp, t: 'Patron Raporları', d: 'Haftalık kâr/zarar PDF özeti', on: false },
                 { Icon: FileCheck, t: 'Muhasebeciye Tek Tık', d: 'Defteri müşavire hazır dosya olarak gönder', on: false },
                 { Icon: LifeBuoy, t: 'Öncelikli Destek', d: 'Sorunda sıra beklemeden yardım', on: false },
@@ -438,14 +438,14 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-800/40 space-y-1">
-                  <p className="font-bold text-stone-900 dark:text-white">WhatsApp Hızlı Destek</p>
-                  <p className="text-stone-500 dark:text-stone-400">Hafta içi ve Cumartesi 08:00 - 22:00 arası canlı destek.</p>
-                  <p className="font-bold text-emerald-600 dark:text-emerald-400 pt-1">0850 123 45 67</p>
+                  <p className="font-bold text-stone-900 dark:text-white">E-posta Destek</p>
+                  <p className="text-stone-500 dark:text-stone-400">Sorunu yaz, genelde aynı gün dönüş yapalım. Yazarken dükkan adını ekle.</p>
+                  <p className="font-bold text-emerald-600 dark:text-emerald-400 pt-1 break-all">omeryaman6@hotmail.com</p>
                 </div>
                 <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-800/40 space-y-1">
                   <p className="font-bold text-stone-900 dark:text-white">Dükkan Profil Danışmanı</p>
-                  <p className="text-stone-500 dark:text-stone-400">Harita kaydı ve tabela danışmanlığı randevusu oluşturun.</p>
-                  <p className="font-bold text-amber-600 dark:text-amber-400 pt-1">vip@esnafportali.com</p>
+                  <p className="text-stone-500 dark:text-stone-400">Harita kaydı ve tabela danışmanlığı için e-posta ile randevu oluştur.</p>
+                  <p className="font-bold text-amber-600 dark:text-amber-400 pt-1 break-all">omeryaman6@hotmail.com</p>
                 </div>
               </div>
             </div>

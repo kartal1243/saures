@@ -249,42 +249,107 @@ function IletisimPage(props: PageProps) {
   );
 }
 
+const VIP_FREE = [
+  'Kasa ve gün sonu (nakit, kart, havale)',
+  'Veresiye defteri ve müşteri cari kartları',
+  'Stok takibi ve kritik stok uyarısı',
+  'Sektör paneli (randevu, masa, servis fişi, dava, emanet)',
+  'Kasiyer modu ve çalışan yetkisi',
+  'Tek dosya yedekleme ve geri yükleme',
+];
+
+const VIP_PAID = [
+  'Borç Toplama ekranı: bekleyen alacağı tek listede gör, toplu WhatsApp turuyla sırayla gönder',
+  'Yapay Zeka Danışman: ciro, gider ve vitrin için dükkanına özel tavsiyeler',
+  'AI hatırlatma metinleri: her müşteriye uygun tonda hazır mesaj',
+  'Öncelikli destek: sorunda sıra beklemeden yardım',
+  'Yakında: haftalık Patron Raporu (PDF) ve muhasebeciye tek tık dosya',
+];
+
 function FiyatPage(props: PageProps) {
   const { onRegister } = props;
-  const items = [
-    'Kasa ve gün sonu (nakit, kart, havale)',
-    'Veresiye defteri ve müşteri cari kartları',
-    'Stok takibi ve kritik stok uyarısı',
-    'Sektör paneli (randevu, masa, servis fişi, dava, emanet)',
-    'Kasiyer modu ve çalışan yetkisi',
-    'WhatsApp hatırlatma mesajı',
-    'Tek dosya yedekleme ve geri yükleme',
-  ];
   return (
-    <Shell title="Fiyatlandırma" {...props}>
-      <H1>Fiyatlandırma</H1>
+    <Shell title="VIP Paketler" {...props}>
+      <H1>Dükkanına göre paket seç</H1>
       <Lead>
-        Lansman döneminde tüm temel özellikler ücretsiz. Kredi kartı istemeyiz,
-        sözleşme yoktur. İleride ekip ve çok şubeli kullanım için uygun fiyatlı
-        planlar gelecek; erken katılanlar avantajlı olacak.
+        Temel defter her zaman ücretsiz. Paraya dönüşen işler — borcu toplamak,
+        gideri kısmak, ciroyu artırmak — VIP'de. Lansman döneminde VIP de ücretsiz,
+        kart istemeyiz.
       </Lead>
-      <div className="mt-8 rounded-3xl bg-white border border-stone-200 p-6 sm:p-8 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-widest text-amber-600">Başlangıç</p>
-        <p className="mt-2 text-4xl font-black tracking-tight">₺0 <span className="text-base font-bold text-stone-400">/ ücretsiz</span></p>
-        <Bullets items={items} />
-        <button
-          type="button"
-          onClick={onRegister}
-          className="mt-6 inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-amber-500 text-white text-base font-black shadow-lg hover:bg-amber-600 transition-colors cursor-pointer"
-        >
-          Hemen Ücretsiz Başla
-        </button>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 items-stretch">
+        {/* Çırak */}
+        <div className="rounded-3xl bg-white border border-stone-200 p-6 sm:p-7 shadow-sm flex flex-col">
+          <p className="text-xs font-black uppercase tracking-widest text-stone-400">Çırak</p>
+          <p className="mt-2 text-4xl font-black tracking-tight">₺0 <span className="text-base font-bold text-stone-400">/ hep ücretsiz</span></p>
+          <p className="mt-2 text-[13px] font-semibold text-stone-500">Kağıt defteri dijitale taşıyan temel panel.</p>
+          <ul className="mt-4 space-y-2 flex-1">
+            {VIP_FREE.map((t) => (
+              <li key={t} className="flex items-start gap-2 text-sm text-stone-700 font-semibold">
+                <span aria-hidden className="mt-1.5 w-2 h-2 rounded-full bg-stone-300 shrink-0" />
+                {t}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={onRegister}
+            className="mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl border-2 border-stone-200 hover:border-amber-500 hover:text-amber-700 text-stone-700 text-[15px] font-black transition-colors cursor-pointer"
+          >
+            Ücretsiz Başla
+          </button>
+        </div>
+
+        {/* Usta VIP */}
+        <div className="relative rounded-3xl bg-stone-900 text-white p-6 sm:p-7 shadow-xl overflow-hidden flex flex-col">
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: 'radial-gradient(500px 260px at 50% 0%, rgba(251,191,36,0.35), transparent 65%)' }}
+          />
+          <div className="relative flex items-center justify-between">
+            <p className="text-xs font-black uppercase tracking-widest text-amber-400">Usta · VIP</p>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-500 text-stone-900">LANSMANDA ÜCRETSİZ</span>
+          </div>
+          <p className="relative mt-2 text-4xl font-black tracking-tight">
+            ₺149 <span className="text-base font-bold text-stone-400">/ ay</span>
+          </p>
+          <p className="relative mt-2 text-[13px] font-semibold text-stone-300">
+            Borcunu toplayan, kârını artıran araçlar. Şimdi katıl, lansman boyunca ücret ödeme.
+          </p>
+          <ul className="relative mt-4 space-y-2 flex-1">
+            {VIP_PAID.map((t) => (
+              <li key={t} className="flex items-start gap-2 text-sm text-stone-100 font-semibold">
+                <span aria-hidden className="mt-1 w-4 h-4 rounded-full bg-amber-500 text-stone-900 text-[10px] font-black flex items-center justify-center shrink-0">✓</span>
+                {t}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={onRegister}
+            className="relative mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-amber-500 text-white text-[15px] font-black shadow-lg hover:bg-amber-600 transition-colors cursor-pointer"
+          >
+            VIP ile Başla
+          </button>
+          <p className="relative mt-2.5 text-center text-[11px] font-semibold text-stone-400">
+            Kredi kartı gerekmez · İstediğinde tek tıkla çık
+          </p>
+        </div>
       </div>
-      <H2>İleride ne olacak?</H2>
+
+      <H2>Neden VIP?</H2>
       <P>
-        Tek dükkan kullanımı ücretsiz kalacak şekilde planlıyoruz. Çok şubeli yapı,
-        toplu SMS/e-posta ve muhasebe entegrasyonları ücretli eklenti olabilir.
-        Fiyat değişmeden önce mevcut kullanıcılara önceden haber verilir.
+        Esnafın paraya dönüşen 3 şeyi var: geciken borcu toplamak, gideri kısmak,
+        ciroyu artırmak. Borç Toplama ekranı en büyük alacağı en üste koyar,
+        toplu turla tek tek WhatsApp'tan gönderirsin. Yapay Zeka Danışman da
+        dükkanının cirosuna ve giderine bakıp sana özel tavsiye verir.
+      </P>
+      <H2>Ödeme nasıl olacak?</H2>
+      <P>
+        Lansman bitmeden online ödeme açılacak. Şimdiden katılanlar ilk aydan
+        yararlanır, kart bilgisi alınmaz. Soruların için{' '}
+        <a className="text-amber-700 font-bold" href="/iletisim">iletişim</a> sayfasından yazman yeterli.
       </P>
     </Shell>
   );
