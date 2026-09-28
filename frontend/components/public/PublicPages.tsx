@@ -49,6 +49,10 @@ interface ShellProps {
   onLogin: () => void;
   onRegister: () => void;
   children: React.ReactNode;
+  ctaTitle?: string;
+  ctaText?: string;
+  ctaButton?: string;
+  ctaHref?: string;
 }
 
 const NAV_LINKS: { href: string; label: string }[] = [
@@ -68,7 +72,7 @@ const NAV_LINKS: { href: string; label: string }[] = [
 const linkCls =
   'hover:text-amber-600 transition-colors';
 
-function Shell({ title, onHome, onLogin, onRegister, children }: ShellProps) {
+function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText, ctaButton, ctaHref }: ShellProps) {
   useEffect(() => {
     document.title = `${title} · Dükkanım Yanımda`;
   }, [title]);
@@ -117,15 +121,24 @@ function Shell({ title, onHome, onLogin, onRegister, children }: ShellProps) {
             className="absolute inset-0 pointer-events-none"
             style={{ background: 'radial-gradient(600px 300px at 50% 0%, rgba(251,191,36,0.35), transparent 65%)' }}
           />
-          <h2 className="relative text-2xl sm:text-3xl font-black tracking-tight">Bugün başla, yarın rahat et.</h2>
-          <p className="relative mt-3 text-sm sm:text-base text-stone-300 font-medium">Kurulum yok. Kredi kartı gerekmez. 2 dakikada hazır.</p>
-          <button
-            type="button"
-            onClick={onRegister}
-            className="relative mt-6 inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-amber-500 text-white text-[15px] font-black shadow-lg hover:bg-amber-600 transition-colors cursor-pointer"
-          >
-            Ücretsiz Hesap Oluştur
-          </button>
+          <h2 className="relative text-2xl sm:text-3xl font-black tracking-tight">{ctaTitle || 'Bugün başla, yarın rahat et.'}</h2>
+          <p className="relative mt-3 text-sm sm:text-base text-stone-300 font-medium">{ctaText || 'Kurulum yok. Kredi kartı gerekmez. 2 dakikada hazır.'}</p>
+          {ctaHref ? (
+            <a
+              href={ctaHref}
+              className="relative mt-6 inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-amber-500 text-white text-[15px] font-black shadow-lg hover:bg-amber-600 transition-colors"
+            >
+              {ctaButton || 'Ücretsiz Hesap Oluştur'}
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={onRegister}
+              className="relative mt-6 inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-amber-500 text-white text-[15px] font-black shadow-lg hover:bg-amber-600 transition-colors cursor-pointer"
+            >
+              {ctaButton || 'Ücretsiz Hesap Oluştur'}
+            </button>
+          )}
         </div>
       </main>
 
@@ -221,30 +234,53 @@ function GizlilikPage(props: PageProps) {
 
 function IletisimPage(props: PageProps) {
   return (
-    <Shell title="İletişim" {...props}>
+    <Shell
+      title="İletişim"
+      ctaTitle="Konuşalım, dükkanını birlikte dijitale taşıyalım."
+      ctaText="Önce e-postayla yaz, aynı gün dönelim. Hesabın varsa dükkan adını ekle."
+      ctaButton="E-postayla Yaz"
+      ctaHref={CONTACT_MAILTO}
+      {...props}
+    >
       <H1>İletişim</H1>
       <Lead>
-        Sorunuz, öneriniz veya bir sorun bildiriminiz mi var? Bize e-posta ile ulaşın,
-        genelde aynı gün içinde dönüş yaparız.
+        Sorun bildirimi, özellik önerisi veya VIP hakkında soru — hepsi için tek adres
+        var. Yaz, genelde aynı gün içinde dönelim.
       </Lead>
       <div className="mt-8 rounded-2xl bg-white border border-stone-200 p-6 sm:p-8 text-center shadow-sm">
-        <p className="text-xs font-black uppercase tracking-widest text-stone-400">E-posta</p>
+        <p className="text-xs font-black uppercase tracking-widest text-stone-400">E-posta ile yaz</p>
         <a
           href={CONTACT_MAILTO}
           className="mt-2 inline-block text-lg sm:text-xl font-black text-amber-700 hover:text-amber-800 break-all"
         >
           {CONTACT_EMAIL}
         </a>
+        <div className="mt-5">
+          <a
+            href={`${CONTACT_MAILTO}?subject=${encodeURIComponent('Dükkanım Yanımda — destek talebi')}&body=${encodeURIComponent('Dükkan adı:\nTelefon:\nSorun/öneri:\n')}`}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-white text-sm font-black shadow hover:bg-amber-600 transition-colors"
+          >
+            E-postayı Şimdi Aç
+          </a>
+        </div>
         <p className="mt-4 text-sm text-stone-500 font-medium">
-          Yazarken dükkan adınızı eklemeyi unutmayın, size daha hızlı yardımcı olalım.
+          Konu ve dükkan adın hazır gelir — sen sadece sorunu yazarsın.
         </p>
       </div>
-      <H2>Sık sorulanlar</H2>
-      <P>
-        Kayıt, veri güvenliği ve telefonda kullanım hakkında hızlı cevaplar için ana
-        sayfadaki sık sorulan sorular bölümüne göz atın. Hesabınızla ilgili işlemleri
-        (şifre değiştirme, çalışan yetkisi, yedek indirme) uygulama içinden yapabilirsiniz.
-      </P>
+      <H2>Yazmadan önce hızlı cevaplar</H2>
+      <div className="mt-4 space-y-3">
+        {[
+          { q: 'Şifremi unuttum, ne yapmalıyım?', a: 'Şu an şifre sıfırlama e-postayla yapılıyor: kayıtlı telefon numaranı yaz, hesabını doğrulayıp yeni şifre oluşturalım.' },
+          { q: 'Verilerim silinir mi?', a: 'Hayır. Kayıtların her gece otomatik yedeklenir, ayrıca tek dosyada yedek indirip saklayabilirsin. Hesabını silmemizi istersen e-postayla bildirmen yeterli.' },
+          { q: 'VIP ücreti ne zaman başlıyor?', a: 'Lansman bitmeden duyurulacak. Şimdiden katılanlar lansman boyunca ücret ödemez, fiyat sayfasındaki ₺149/ay bilgisi şimdiden belli olsun diye yazıyor.' },
+          { q: 'Hangi telefonda çalışır?', a: 'Tarayıcısı olan her telefonda: Android, iPhone fark etmez. Ana ekrana ekleyince uygulama gibi açılır.' },
+        ].map((f) => (
+          <div key={f.q} className="rounded-2xl bg-white border border-stone-200 p-5">
+            <p className="text-sm font-black">{f.q}</p>
+            <p className="mt-1.5 text-sm text-stone-600 font-medium leading-relaxed">{f.a}</p>
+          </div>
+        ))}
+      </div>
     </Shell>
   );
 }
@@ -338,6 +374,27 @@ function FiyatPage(props: PageProps) {
         </div>
       </div>
 
+      <H2>Sektörüne göre VIP ne kazandırır?</H2>
+      <P>
+        Her dükkanın parası farklı yerde takılıyor. VIP, senin sektöründeki
+        tıkanıklığı çözen araçları öne çıkarır:
+      </P>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {[
+          { h: '/berber', t: 'Berber & Kuaför', d: '“Yarın uğrarım” diyenlerin borcunu toplu turla topla, ölü günlere AI ile kampanya günü koy.' },
+          { h: '/kafe-restoran', t: 'Kafe & Restoran', d: 'Açık masa ve abonman bakiyelerini büyükten küçüğe diz, happy-hour saatlerini AI ile bul.' },
+          { h: '/bakkal-market', t: 'Bakkal & Market', d: 'Mahallenin veresiyesini tek listede gör, kapı kapı dolaşmadan kibar hatırlatmayla tahsil et.' },
+          { h: '/teknik-servis', t: 'Teknik Servis', d: 'Teslim edip ücreti alınmamış işleri biriktirme; en kârlı iş tipini AI raporunda gör.' },
+          { h: '/hukuk', t: 'Hukuk & Avukat', d: 'Ödenmemiş müvekkil alacaklarını resmi tonda hatırlat, avans politikanı AI ile düzenle.' },
+          { h: '/terzi', t: 'Terzi', d: 'Teslim edip ücreti kalmış emanetleri toplu turla kapat, yoğun günlere randevu yay.' },
+        ].map((c) => (
+          <a key={c.h} href={c.h} className="rounded-2xl bg-white border border-stone-200 p-5 hover:border-amber-400 hover:shadow-md transition-all">
+            <p className="text-sm font-black text-amber-700">{c.t}</p>
+            <p className="mt-1.5 text-[13px] text-stone-600 font-medium leading-relaxed">{c.d}</p>
+          </a>
+        ))}
+      </div>
+
       <H2>Neden VIP?</H2>
       <P>
         Esnafın paraya dönüşen 3 şeyi var: geciken borcu toplamak, gideri kısmak,
@@ -395,97 +452,213 @@ interface SectorDef {
   title: string;
   intro: string;
   bullets: string[];
+  modules: string[];
+  vip: string;
+  faq: { q: string; a: string }[];
   closing: string;
+  ctaTitle: string;
+  ctaText: string;
+  ctaButton: string;
 }
 
 const SECTORS: Record<string, SectorDef> = {
   berber: {
     title: 'Berber ve Kuaför Programı',
     intro:
-      'Randevu defteri, koltuk sırası ve gün sonu kasası tek ekranda. Kağıt ajandayı bırak: müşteri aradığında boş saati anında gör, koltuğa oturt, çıkarken ücreti kasaya işle.',
+      'Randevu defteri, koltuk sırası ve gün sonu kasası tek ekranda. Kağıt ajandayı bırak: müşteri aradığında boş saati anında gör, koltuğa oturt, çıkarken ücreti kasaya işle. No-show yüzünden boş kalan koltuk tarihe karışır.',
     bullets: [
       'Randevu takvimi: günün randevuları, bekleyenler ve koltuktakiler ayrı listede',
-      'Müşteri kartı: telefon, not ve geçmiş işlemler tek dokunuşla önde',
-      'Veresiye takibi: “sonra verir” diyen müşterinin borcu deftere işlenir',
-      'Gün sonu özeti: ciro, gider ve net kazanç akşam tek bakışta',
+      'Hizmet tarifesi: saç, sakal, cilt bakımı fiyatları tek tıkla satışa dönüşür',
+      'Müşteri kartı: telefon, tıraş notu ve geçmiş işlemler tek dokunuşla önde',
+      '“Sonra verir” diyenin borcu veresiye defterine işlenir, ay sonunda tek liste',
+      'Usta/çırak ayrımı: kasiyere kısıtlı yetki, ayarlara dokunamaz',
+      'Gün sonu özeti: koltuk başına ciro, gider ve net kazanç akşam tek bakışta',
+    ],
+    modules: ['Randevu Takvimi', 'Hizmet Tarifesi', 'Veresiye Defteri', 'Borç Toplama', 'Kasiyer Modu', 'Gün Sonu'],
+    vip:
+      'Koltuk boş kalmasın: Borç Toplama ekranı “abi yarın uğrarım” diyenlerin listesini önüne koyar, toplu turla hepsine WhatsApp hatırlatması gönderirsin. AI Danışman hangi günlerin ölü geçtiğini görüp kampanya günü önerir.',
+    faq: [
+      { q: 'Randevuyu müşteri kendisi alabiliyor mu?', a: 'Şimdilik randevuyu sen giriyorsun; telefonla arayan müşteriyi 10 saniyede takvime işlersin. Online müşteri randevusu yol haritasında.' },
+      { q: 'Birden fazla koltuk/usta var, olur mu?', a: 'Olur. Her ustaya kasiyer hesabı açarsın, kendi satışını girer; kasanın tamamını sadece sen görürsün.' },
     ],
     closing:
-      'Tek koltuklu dükkandan çok ustalı salona kadar aynı panel çalışır. Çalışanına kasiyer yetkisi ver, ayarlara dokunamasın.',
+      'Tek koltuklu dükkandan çok ustalı salona kadar aynı panel çalışır. Akşam kasayı say, farkı gör, günü kapat.',
+    ctaTitle: 'Koltukların dolsun, defterin kendiliğinden tutulsun.',
+    ctaText: 'İlk randevunu 2 dakikada gir. Kredi kartı gerekmez.',
+    ctaButton: 'Berber Panelini Aç',
   },
   'kafe-restoran': {
     title: 'Kafe ve Restoran Adisyon Takibi',
     intro:
-      'Masa adisyonları, açık hesaplar ve hızlı kapatma. Garson masayı açar, ürünleri ekler; kasa tek tuşla kapatır. Gecenin sonunda hangi masa ne bıraktı, hepsi kayıtlı.',
+      'Masa adisyonları, açık hesaplar ve hızlı kapatma tek panelde. Garson masayı açar, ürünleri ekler; kasa tek tuşla kapatır. Yoğun saatte “o masa ödedi mi?” kaosu biter, gecenin sonunda hangi masa ne bıraktı hepsi kayıtlı.',
     bullets: [
       'Masa görünümü: dolu, boş ve hesabı açık masalar renkleriyle belli',
-      'Hızlı ürün ekleme ve tek tuşla adisyon kapatma',
-      'Veresiye ve abonman (öğretmen, esnaf öğle yemeği) takibi',
+      'Adisyona hızlı ürün ekleme, tek tuşla kapatma ve tahsilat',
+      'Abonman takibi: öğretmen/esnaf öğle yemeği hesapları ayrı defterde',
+      'Personel satışları kasiyere zimmetli, açıklar anında görünür',
+      'Tedarikçi borcu (et, süt, içecek toptancısı) vadeleriyle kayıtlı',
       'Gün sonu: masa cirosu, gider ve kasa farkı otomatik hesaplanır',
+    ],
+    modules: ['Masa Adisyon', 'Hızlı Satış', 'Abonman Defteri', 'Tedarikçi Borcu', 'Personel Zimmeti', 'Gün Sonu'],
+    vip:
+      'Açık hesaplar birikmesin: Borç Toplama ekranı abonman ve açık masa bakiyelerini en büyükten dizer, toplu turla tahsilata çıkarsın. AI Danışman ölü saatlere happy-hour, yavaş ürünlere menü önerisi verir.',
+    faq: [
+      { q: 'Garson telefondan kullanabilir mi?', a: 'Evet. Panel mobil uyumlu; garsona kasiyer yetkisi verirsin, sadece satış ve adisyon açar, ayarları göremez.' },
+      { q: 'Paket servis ve gel-al ayrı mı?', a: 'Masadan bağımsız hızlı satış fişi kesersin; hepsi aynı gün sonu cirosuna akar.' },
     ],
     closing:
       'Yoğun saatte tek elle kullanılacak kadar sade; telefondan da kasadan da aynı defter görünür.',
+    ctaTitle: 'Masalar dönsün, hesaplar şaşmasın.',
+    ctaText: 'İlk masanı şimdi aç, adisyonu dijitale taşı.',
+    ctaButton: 'Kafe Panelini Aç',
   },
   'bakkal-market': {
     title: 'Bakkal ve Market Veresiye Defteri',
     intro:
-      'Mahallenin veresiye defteri artık cebinde. Kim ne aldı, ne ödedi, kalan borç ne — tartışma biter. Barkodlu ürünlerde stok da kendiliğinden düşer.',
+      'Mahallenin veresiye defteri artık cebinde. Kim ne aldı, ne ödedi, kalan borç ne — tartışma biter. Barkodlu üründe stok kendiliğinden düşer, biten ürün (un, şeker, çay) kritik uyarıyla önüne gelir.',
     bullets: [
       'Müşteri cari kartı: borç, ödeme geçmişi ve tek tuşla tahsilat',
-      'Barkod ve kategori ile hızlı ürün bulma',
-      'Kritik stok uyarısı: biten ürün gözünden kaçmaz',
+      'Barkod ve kategori ile tezgahta 3 saniyede ürün bulma',
+      'Kritik stok uyarısı: biten ürün gözünden kaçmaz, toptancıya liste hazır',
+      'Veresiye satış kasadan düşer, tahsilat günü kasaya eklenir — kasa hep tutar',
       'WhatsApp hatırlatma: geciken ödemeye kibar mesaj tek dokunuşla',
+      'Ay sonu tek liste: kim ne kadar borçlu, kim düzenli ödüyor',
+    ],
+    modules: ['Veresiye Defteri', 'Barkod & Stok', 'Kritik Stok Uyarısı', 'Borç Toplama', 'WhatsApp Hatırlatma', 'Gün Sonu'],
+    vip:
+      'Ay sonu kapı kapı dolaşma: Borç Toplama ekranı mahallenin borcunu büyükten küçüğe dizer, toplu turla herkese kibar hatırlatma gider. Düzenli ödeyenleri görür, veresiye limitini ona göre açarsın.',
+    faq: [
+      { q: 'Eski defterdeki borçları nasıl aktarırım?', a: 'Her müşteriye açılış bakiyesi olarak girersin, 5 dakika sürer. Bugünden sonraki her işlem otomatik işlenir.' },
+      { q: 'Borç limiti koyabiliyor muyum?', a: 'Müşteri notuna limiti yazıp takip edersin; limit aşım uyarısı yol haritasında, önce Borç Toplama ile tahsilatı hızlandırırsın.' },
     ],
     closing:
-      'Eski borçları açılış bakiyesi olarak gir, bugünden itibaren her işlem deftere işlensin. Ay sonunda kim ne kadar borçlu, tek liste.',
+      'Eski borçları açılış bakiyesi olarak gir, bugünden itibaren her işlem deftere işlensin.',
+    ctaTitle: 'Veresiye defterin artık kavga çıkarmasın.',
+    ctaText: 'Mahalleni kaydet, ilk borcu şimdi işle.',
+    ctaButton: 'Bakkal Panelini Aç',
   },
   'teknik-servis': {
     title: 'Teknik Servis Takip Programı',
     intro:
-      'Cihaz kabul fişinden teslimata kadar her iş kayıt altında. “Benim telefon ne oldu?” sorusuna cevap aramakla uğraşma; fiş numarasından durumu anında söyle.',
+      'Cihaz kabul fişinden teslimata kadar her iş kayıt altında. “Benim telefon ne oldu?” sorusuna cevap aramakla uğraşma; fiş numarasından durumu anında söyle. Parça maliyeti fişe işlenir, her işin kârı net görünür.',
     bullets: [
-      'Servis fişi: müşteri, cihaz, arıza notu ve durum takibi',
-      'Durum adımları: bekliyor, işlemde, teslime hazır, teslim edildi',
-      'Parça ve işçilik maliyetini fişe işle, karı gör',
-      'Teslimde tek tuşla tahsilat ve gün sonu cirosuna otomatik ekleme',
+      'Servis fişi: müşteri, cihaz, arıza notu ve durum takibi (bekliyor → işlemde → hazır → teslim)',
+      'Parça + işçilik maliyetini fişe işle, iş başına kârı gör',
+      'Teslimde tek tuşla tahsilat, tutar gün sonu cirosuna otomatik eklenir',
+      'Bekleyen cihaz listesi: rafta unutulan iş kalmaz',
+      'Müşteri kartı: eski arızalar ve “kronik sorunlu” notları önde',
+      'Garanti/söz takibi notlarla fişe bağlı',
+    ],
+    modules: ['Servis Fişi', 'Durum Takibi', 'Parça Maliyeti', 'Veresiye Defteri', 'Borç Toplama', 'Gün Sonu'],
+    vip:
+      'Alacaklar rafta beklemesin: teslim edip ödemesini almadıkların Borç Toplama listesinde birikir, toplu turla “cihazınız hazır, ücreti bekliyoruz” mesajı gider. AI Danışman en kârlı iş tipini (ekran mı, batarya mı?) gösterir.',
+    faq: [
+      { q: 'Fiş numarası otomatik mi?', a: 'Evet, her kabul fişi numaralı açılır; müşteri sorduğunda numaradan 5 saniyede bulursun.' },
+      { q: 'Parça stoğu tutuyor mu?', a: 'Ürün stoğuna ekran, batarya gibi parçaları eklersin; kritik seviyeye düşünce uyarı alırsın.' },
     ],
     closing:
       'Telefoncu, bilgisayarcı, beyaz eşya servisi: cihazı al, fişi kes, durumu güncelle, teslim et. Hepsi 2 dakikada.',
+    ctaTitle: 'Raftaki her cihazın durumu cebinde olsun.',
+    ctaText: 'İlk kabul fişini şimdi kes.',
+    ctaButton: 'Servis Panelini Aç',
   },
   hukuk: {
     title: 'Avukat ve Hukuk Bürosu Programı',
     intro:
-      'Dava dosyaları, müvekkil cari hesapları ve duruşma hatırlatmaları tek panelde. Klasör karışıklığı bitsin: dosya numarasından davayı, müvekkilden alacağı anında gör.',
+      'Dava dosyaları, müvekkil cari hesapları ve duruşma hatırlatmaları tek panelde. Klasör karışıklığı bitsin: dosya numarasından davayı, müvekkilden alacağı anında gör. Duruşma günü sürprizi tarihe karışır.',
     bullets: [
       'Dava dosyası: müvekkil, karşı taraf, mahkeme ve duruşma tarihi takibi',
+      'Duruşma takvimi: yaklaşan celseler otomatik listede, kaçırma yok',
       'Müvekkil cari kartı: alınan avans, kalan alacak ve tahsilat kaydı',
-      'Yaklaşan duruşma ve iş hatırlatmaları otomatik listede',
-      'Vekalet ücreti ve masraf kalemleri dosya bazında kayıtlı',
+      'Vekalet ücreti + masraf kalemleri dosya bazında kayıtlı',
+      'Danışmanlık saati takibi: saatlik işlerin karşılığı defterde',
+      'Dosya notları: her celse çıkışı 1 dakikada not düş',
+    ],
+    modules: ['Dava Dosyası', 'Duruşma Takvimi', 'Müvekkil Cari Hesabı', 'Borç Toplama', 'Hatırlatmalar', 'Gün Sonu'],
+    vip:
+      'Vekalet ücreti peşinde koşma: ödenmemiş müvekkil alacakları Borç Toplama ekranında birikir, toplu turla resmi tonda hatırlatma gönderirsin. AI Danışman tahsilat sırası ve avans politikası önerir.',
+    faq: [
+      { q: 'Baro/e-imza entegrasyonu var mı?', a: 'Henüz yok; burası büronun iç defteri: dosya, duruşma ve para takibi. UYAP işlerin aynen orada yürür.' },
+      { q: 'Müvekkil gizliliği nasıl korunuyor?', a: 'Veriler şifreli bağlantıyla taşınır, şifren özet olarak saklanır. Hesabını kimseyle paylaşma, kasiyere gerek yoksa açma.' },
     ],
     closing:
-      'Tek avukatlık bürodan çok ortaklı ofise kadar aynı defter çalışır. Müvekkil aradığında dosyayı saniyede aç, duruşmayı kaçırma.',
+      'Tek avukatlık bürodan çok ortaklı ofise kadar aynı defter çalışır. Müvekkil aradığında dosyayı saniyede aç.',
+    ctaTitle: 'Dosyan da alacağın da tek ekranda olsun.',
+    ctaText: 'İlk dava dosyanı şimdi aç.',
+    ctaButton: 'Hukuk Panelini Aç',
   },
   terzi: {
     title: 'Terzi Emanet ve Sipariş Takibi',
     intro:
-      'Emanet fişinden teslimata kadar her iş kayıt altında. “Benim pantolon ne oldu?” sorusu tarih olur; fişten durumu ve teslim gününü anında söyle.',
+      'Emanet fişinden teslimata kadar her iş kayıt altında. “Benim pantolon ne oldu?” sorusu tarih olur; fişten durumu ve teslim gününü anında söyle. Teslim günü gelen müşteri kasaya ücret bırakır, defter kendiliğinden tutulur.',
     bullets: [
       'Emanet fişi: müşteri, ürün, tadilat notu ve teslim tarihi',
-      'Durum takibi: bekliyor, işlemde, hazır, teslim edildi',
-      'Ölçü ve model notları müşteri kartında saklı',
+      'Durum takibi: bekliyor → işlemde → hazır → teslim edildi',
+      'Ölçü ve model notları müşteri kartında saklı, her seferinde yeniden alma',
       'Teslimde tek tuşla tahsilat, gün sonu cirosuna otomatik eklenir',
+      'Geciken teslimler ayrı listede: “yarın düğünü var” acelesi kaçmaz',
+      'Sezon işleri (perde, ütü paketi) toplu fişle hızlı giriş',
+    ],
+    modules: ['Emanet Fişi', 'Teslim Takvimi', 'Ölçü Kartı', 'Veresiye Defteri', 'Borç Toplama', 'Gün Sonu'],
+    vip:
+      '“Sonra öderim”ler birikmesin: teslim edip ücreti alınmamış işler Borç Toplama listesine düşer, toplu turla kibar hatırlatma gider. AI Danışman yoğun günlere randevu yayma ve fiyat güncelleme önerir.',
+    faq: [
+      { q: 'Ölçüleri her seferinde mi gireceğim?', a: 'Hayır. Ölçü bir kez müşteri kartına yazılır, sonraki fişlerde otomatik önünde olur.' },
+      { q: 'Kuru temizleme fişleri de olur mu?', a: 'Olur, aynı emanet mantığı: al, fişi kes, hazır olunca teslim et ve tahsilatı işle.' },
     ],
     closing:
-      'Tadilat ve dikim işleri karışmaz: al, fişi kes, durumu güncelle, gününde teslim et. Mahallenin terzisi dijitale geçer.',
+      'Tadilat ve dikim işleri karışmaz: al, fişi kes, durumu güncelle, gününde teslim et.',
+    ctaTitle: 'Emanetler karışmasın, teslim günü şaşmasın.',
+    ctaText: 'İlk emanet fişini şimdi kes.',
+    ctaButton: 'Terzi Panelini Aç',
   },
 };
 
 function SectorPage({ route, ...props }: PageProps & { route: 'berber' | 'kafe-restoran' | 'bakkal-market' | 'teknik-servis' | 'hukuk' | 'terzi' }) {
   const s = SECTORS[route];
   return (
-    <Shell title={s.title} {...props}>
+    <Shell
+      title={s.title}
+      ctaTitle={s.ctaTitle}
+      ctaText={s.ctaText}
+      ctaButton={s.ctaButton}
+      {...props}
+    >
       <H1>{s.title}</H1>
       <Lead>{s.intro}</Lead>
+
+      <div className="mt-6 flex flex-wrap gap-2">
+        {s.modules.map((m) => (
+          <span key={m} className="px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 text-xs font-black">
+            {m}
+          </span>
+        ))}
+      </div>
+
+      <H2>Bu panelde neler var?</H2>
       <Bullets items={s.bullets} />
+
+      <div className="mt-8 rounded-2xl bg-stone-900 text-white p-6 relative overflow-hidden">
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(500px 240px at 50% 0%, rgba(251,191,36,0.3), transparent 65%)' }}
+        />
+        <p className="relative text-xs font-black uppercase tracking-widest text-amber-400">VIP ile ne kazanırsın?</p>
+        <p className="relative mt-2 text-sm leading-relaxed text-stone-200 font-medium">{s.vip}</p>
+        <a href="/fiyat" className="relative mt-4 inline-block px-5 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-black hover:bg-amber-600 transition-colors">
+          VIP Paketlere Bak
+        </a>
+      </div>
+
+      <H2>Merak edilenler</H2>
+      {s.faq.map((f) => (
+        <div key={f.q} className="mt-4 rounded-2xl bg-white border border-stone-200 p-5">
+          <p className="text-sm font-black">{f.q}</p>
+          <p className="mt-1.5 text-sm text-stone-600 font-medium leading-relaxed">{f.a}</p>
+        </div>
+      ))}
+
       <H2>Neden Dükkanım Yanımda?</H2>
       <P>{s.closing}</P>
       <P>
