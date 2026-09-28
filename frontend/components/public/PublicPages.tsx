@@ -527,10 +527,10 @@ const SECTORS: Record<string, SectorDef> = {
     ],
     modules: ['Veresiye Defteri', 'Barkod & Stok', 'Kritik Stok Uyarısı', 'Tahsilat Turu', 'WhatsApp Hatırlatma', 'Gün Sonu'],
     vip:
-      'Ay sonu kapı kapı dolaşma: Borç Toplama ekranı mahallenin borcunu büyükten küçüğe dizer, toplu turla herkese kibar hatırlatma gider. Düzenli ödeyenleri görür, veresiye limitini ona göre açarsın.',
+      'Ay sonu kapı kapı dolaşma: Tahsilat Turu mahallenin borcunu büyükten küçüğe dizer, toplu turla herkese kibar hatırlatma gider. Düzenli ödeyenleri görür, veresiye limitini ona göre açarsın.',
     faq: [
       { q: 'Eski defterdeki borçları nasıl aktarırım?', a: 'Her müşteriye açılış bakiyesi olarak girersin, 5 dakika sürer. Bugünden sonraki her işlem otomatik işlenir.' },
-      { q: 'Borç limiti koyabiliyor muyum?', a: 'Müşteri notuna limiti yazıp takip edersin; limit aşım uyarısı yol haritasında, önce Borç Toplama ile tahsilatı hızlandırırsın.' },
+      { q: 'Borç limiti koyabiliyor muyum?', a: 'Müşteri notuna limiti yazıp takip edersin; limit aşım uyarısı yol haritasında, önce Tahsilat Turu ile tahsilatı hızlandırırsın.' },
     ],
     closing:
       'Eski borçları açılış bakiyesi olarak gir, bugünden itibaren her işlem deftere işlensin.',
