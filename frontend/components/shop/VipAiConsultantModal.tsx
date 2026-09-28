@@ -116,7 +116,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                 <Crown className="w-4 h-4 text-amber-500" /> Neden VIP?
               </p>
               <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 font-medium">
-                Esnafın paraya dönüşen 3 şeyi: <b>geciken borcu toplamak</b>, <b>gideri kısmak</b>, <b>ciroyu artırmak</b>. VIP araçlar tam bunun için geliyor.
+                Esnafın günlük 10 dakikalık para rutini: <b>sabah tahsilat turu</b>, <b>pazar patron raporu</b>. Borçlar toplanır, kâr görünür, defter toparlanır.
               </p>
             </div>
             <button
@@ -134,9 +134,9 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
           <div className="grid sm:grid-cols-2 gap-2.5">
             {(
               [
-                { Icon: Bot, t: 'Yapay Zeka Danışman', d: '7/24 ciro, gider ve vitrin önerileri', on: true },
-                { Icon: MessageSquare, t: 'Borç Toplama Ekranı', d: 'Bekleyen alacak listesi + toplu WhatsApp turu', on: true },
-                { Icon: TrendingUp, t: 'Patron Raporları', d: 'Haftalık kâr/zarar PDF özeti', on: false },
+                { Icon: MessageSquare, t: 'Tahsilat Turu', d: 'Borçlular + vadeler + yarınki randevular, toplu WhatsApp', on: true },
+                { Icon: TrendingUp, t: 'Patron Raporu', d: 'Haftalık tahsilat, kâr, en borçlu 5 ve kritik stok', on: true },
+                { Icon: Bot, t: 'Yapay Zeka Danışman', d: 'Ciro ve gider sorularına dükkana özel yanıt', on: true },
                 { Icon: FileCheck, t: 'Muhasebeciye Tek Tık', d: 'Defteri müşavire hazır dosya olarak gönder', on: false },
                 { Icon: LifeBuoy, t: 'Öncelikli Destek', d: 'Sorunda sıra beklemeden yardım', on: false },
                 { Icon: Store, t: 'Sınırsız Kayıt', d: 'Müşteri, ürün ve fiş limiti yok', on: false },

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Customer } from '../../../shared/types.ts';
+import { Customer, Appointment } from '../../../shared/types.ts';
 import { formatCurrency, formatPhoneNumber, cleanPhoneForWhatsApp } from '../../utils/formatters';
 import { dayKey } from '../../utils/dates';
 import {
@@ -11,10 +11,12 @@ import {
   X,
   Crown,
   ChevronRight,
+  Phone,
 } from 'lucide-react';
 
 interface CollectionPanelProps {
   customers: Customer[];
+  appointments?: Appointment[];
   shopName?: string;
   onOpenWhatsApp: (customer: Customer) => void;
   onOpenPayment: (customer: Customer) => void;
@@ -32,10 +34,26 @@ function presetMessage(c: Customer, shopName?: string): string {
 
 export const CollectionPanel: React.FC<CollectionPanelProps> = ({
   customers,
+  appointments,
   shopName,
   onOpenWhatsApp,
   onOpenPayment,
 }) => {
+  const [tab, setTab] = useState<'debt' | 'due' | 'appt'>(() => {
+    try {
+      return (localStorage.getItem('collection-tab') as 'debt' | 'due' | 'appt') || 'debt';
+    } catch {
+      return 'debt';
+    }
+  });
+  const switchTab = (t: 'debt' | 'due' | 'appt') => {
+    setTab(t);
+    setQueue(null);
+    setQueueIdx(0);
+    try {
+      localStorage.setItem('collection-tab', t);
+    } catch { /* yoksay */ }
+  };
   const [queue, setQueue] = useState<QueueItem[] | null>(null);
   const [queueIdx, setQueueIdx] = useState(0);
 
@@ -51,6 +69,30 @@ export const CollectionPanel: React.FC<CollectionPanelProps> = ({
     () => debtors.reduce((s, c) => s + (c.balance || 0), 0),
     [debtors],
   );
+
+  // Vadesi gelenler: abonelik/bakım günü bugünden 3 gün sonrasına kadar olanlar
+  const dueList = useMemo(() => {
+    const todayStr = dayKey(new Date());
+    return customers
+      .filter((c) => {
+        if (!c.subscriptionPlan?.enabled || !c.subscriptionPlan.nextDueDate) return false;
+        const diffDays = Math.ceil(
+          (new Date(c.subscriptionPlan.nextDueDate).getTime() - new Date(todayStr).getTime()) / 86400000,
+        );
+        return diffDays <= 3;
+      })
+      .sort((a, b) => (a.subscriptionPlan?.nextDueDate || '').localeCompare(b.subscriptionPlan?.nextDueDate || ''));
+  }, [customers]);
+
+  // Yarınki randevular: no-show'u önlemek için önceki gün onayı
+  const tomorrowAppts = useMemo(() => {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    const tomorrow = dayKey(t);
+    return (appointments || [])
+      .filter((a) => a.appointmentDate === tomorrow && a.status === 'bekliyor')
+      .sort((a, b) => (a.timeSlot || '').localeCompare(b.timeSlot || ''));
+  }, [appointments]);
 
   const startQueue = () => {
     if (debtors.length === 0) return;
@@ -98,12 +140,12 @@ export const CollectionPanel: React.FC<CollectionPanelProps> = ({
           <span className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center">
             <HandCoins className="w-4 h-4" />
           </span>
-          Borç Toplama
+          Tahsilat Turu
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white">
             <Crown className="w-3 h-3" /> VIP
           </span>
         </h2>
-        {debtors.length > 0 && !queue && (
+        {tab === 'debt' && debtors.length > 0 && !queue && (
           <button
             type="button"
             onClick={startQueue}
@@ -114,7 +156,33 @@ export const CollectionPanel: React.FC<CollectionPanelProps> = ({
         )}
       </div>
 
+      {/* Sekmeler */}
+      <div className="mt-3 grid grid-cols-3 gap-1.5 p-1.5 bg-stone-100 dark:bg-stone-800/70 rounded-xl">
+        {(
+          [
+            { k: 'debt', t: `Borçlular (${debtors.length})` },
+            { k: 'due', t: `Vade (${dueList.length})` },
+            { k: 'appt', t: `Yarın (${tomorrowAppts.length})` },
+          ] as const
+        ).map((s) => (
+          <button
+            key={s.k}
+            type="button"
+            onClick={() => switchTab(s.k)}
+            className={`py-2 px-1 rounded-lg text-[11px] sm:text-xs font-black transition-all cursor-pointer ${
+              tab === s.k
+                ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900 shadow'
+                : 'text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
+            }`}
+          >
+            {s.t}
+          </button>
+        ))}
+      </div>
+
       {/* Özet */}
+      {tab === 'debt' && (
+      <>
       <div className="mt-3 grid grid-cols-2 gap-2.5">
         <div className="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/50 px-3.5 py-3">
           <p className="text-[10px] font-black uppercase tracking-widest text-rose-400">Bekleyen alacak</p>
@@ -131,9 +199,11 @@ export const CollectionPanel: React.FC<CollectionPanelProps> = ({
           Bekleyen alacak yok — kasa rahat. 🎉
         </p>
       )}
+      </>
+      )}
 
       {/* Toplu tur modu */}
-      {queue && !queueFinished && current && (
+      {tab === 'debt' && queue && !queueFinished && current && (
         <div className="mt-3 rounded-xl border-2 border-emerald-500/60 bg-emerald-50/60 dark:bg-emerald-950/20 p-3.5">
           <div className="flex items-center justify-between text-[11px] font-black text-emerald-700 dark:text-emerald-300">
             <span>Toplu tur: {queueIdx + 1}/{queue.length}</span>
@@ -180,7 +250,7 @@ export const CollectionPanel: React.FC<CollectionPanelProps> = ({
         </div>
       )}
 
-      {queueFinished && (
+      {tab === 'debt' && queueFinished && (
         <div className="mt-3 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 px-3.5 py-3 flex items-center justify-between gap-2">
           <p className="text-xs font-black text-emerald-700 dark:text-emerald-300">
             Tur bitti: {doneCount}/{queue?.length || 0} kişiye hatırlatma gönderildi. 👏
@@ -196,7 +266,7 @@ export const CollectionPanel: React.FC<CollectionPanelProps> = ({
       )}
 
       {/* Borçlu listesi */}
-      {(!queue || queueFinished) && debtors.length > 0 && (
+      {tab === 'debt' && (!queue || queueFinished) && debtors.length > 0 && (
         <ul className="mt-3 divide-y divide-stone-100 dark:divide-stone-800">
           {debtors.slice(0, 8).map((c) => (
             <li key={c.id} className="py-2.5 flex items-center gap-2.5">
@@ -237,12 +307,102 @@ export const CollectionPanel: React.FC<CollectionPanelProps> = ({
           ))}
         </ul>
       )}
-      {(!queue || queueFinished) && debtors.length > 8 && (
+      {tab === 'debt' && (!queue || queueFinished) && debtors.length > 8 && (
         <p className="mt-1 text-[11px] font-bold text-stone-400 flex items-center gap-1">
           +{debtors.length - 8} borçlu daha var — tamamını Veresiye sekmesinde gör
           <ChevronRight className="w-3.5 h-3.5" />
         </p>
       )}
+
+      {/* Vadesi gelenler */}
+      {tab === 'due' && (
+        dueList.length === 0 ? (
+          <p className="mt-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-xl px-3.5 py-3">
+            Yaklaşan vade yok — aidat ve bakımlar güncel. ✅
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-stone-100 dark:divide-stone-800">
+            {dueList.slice(0, 8).map((c) => (
+              <li key={c.id} className="py-2.5 flex items-center gap-2.5">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-bold text-stone-800 dark:text-stone-100 truncate">
+                    {c.name}
+                  </span>
+                  <span className="block text-[11px] font-semibold text-stone-400 truncate">
+                    {c.subscriptionPlan?.title || 'Aidat'} · vade {c.subscriptionPlan?.nextDueDate} · {formatCurrency(c.subscriptionPlan?.amount || 0)}
+                  </span>
+                </span>
+                <span className="shrink-0 flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onOpenWhatsApp(c)}
+                    title="WhatsApp ile hatırlat"
+                    className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenPayment(c)}
+                    title="Tahsilat gir"
+                    className="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400 flex items-center justify-center hover:bg-amber-500/25 transition-colors cursor-pointer"
+                  >
+                    <Wallet className="w-4 h-4" />
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+
+      {/* Yarınki randevular */}
+      {tab === 'appt' && (
+        tomorrowAppts.length === 0 ? (
+          <p className="mt-3 text-xs font-bold text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 py-3">
+            Yarın bekleyen randevu yok. Randevular sektör panelinden girilir.
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-stone-100 dark:divide-stone-800">
+            {tomorrowAppts.slice(0, 8).map((a) => (
+              <li key={a.id} className="py-2.5 flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center text-[11px] font-black shrink-0">
+                  {a.timeSlot || '--:--'}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-bold text-stone-800 dark:text-stone-100 truncate">
+                    {a.customerName} · {a.serviceName}
+                  </span>
+                  <span className="block text-[11px] font-semibold text-stone-400 truncate">
+                    {formatPhoneNumber(a.phone)}{a.staffName ? ` · ${a.staffName}` : ''}
+                  </span>
+                </span>
+                <span className="shrink-0 flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const msg = `Selamlar ${a.customerName}, yarın saat ${a.timeSlot} ${shopName || 'dükkanımızda'} ${a.serviceName} randevunuz bulunmaktadır. Onaylıyor musunuz? Hayırlı günler.`;
+                      window.open(`https://wa.me/${cleanPhoneForWhatsApp(a.phone)}?text=${encodeURIComponent(msg)}`, '_blank');
+                    }}
+                    title="Randevu onayı iste"
+                    className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                  </button>
+                  <a
+                    href={`tel:${a.phone.replace(/\s+/g, '')}`}
+                    title="Ara"
+                    className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center hover:bg-sky-500/20 transition-colors"
+                  >
+                    <Phone className="w-4 h-4" />
+                  </a>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+
       <p className="mt-2 text-[10px] font-semibold text-stone-400">
         Bugün {dayKey(new Date())} · en yüksek borçtan sıralı
       </p>

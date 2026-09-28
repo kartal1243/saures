@@ -296,11 +296,11 @@ const VIP_FREE = [
 ];
 
 const VIP_PAID = [
-  'Borç Toplama ekranı: bekleyen alacağı tek listede gör, toplu WhatsApp turuyla sırayla gönder',
-  'Yapay Zeka Danışman: ciro, gider ve vitrin için dükkanına özel tavsiyeler',
-  'AI hatırlatma metinleri: her müşteriye uygun tonda hazır mesaj',
+  'Tahsilat Turu: borçlular, vadesi gelen aidatlar ve yarınki randevular tek listede; toplu WhatsApp turuyla sırayla gönder',
+  'Patron Raporu: haftalık tahsilat, gider, net kâr, en borçlu 5 ve kritik stok — yazdır, duvara as',
+  'Hazır hatırlatma metinleri: her müşteriye uygun tonda, tek dokunuşla WhatsApp mesajı',
   'Öncelikli destek: sorunda sıra beklemeden yardım',
-  'Yakında: haftalık Patron Raporu (PDF) ve muhasebeciye tek tık dosya',
+  'Yakında: muhasebeciye tek tık dönem dosyası ve çok şubeli takip',
 ];
 
 function FiyatPage(props: PageProps) {
@@ -399,9 +399,10 @@ function FiyatPage(props: PageProps) {
       <H2>Neden VIP?</H2>
       <P>
         Esnafın paraya dönüşen 3 şeyi var: geciken borcu toplamak, gideri kısmak,
-        ciroyu artırmak. Borç Toplama ekranı en büyük alacağı en üste koyar,
-        toplu turla tek tek WhatsApp'tan gönderirsin. Yapay Zeka Danışman da
-        dükkanının cirosuna ve giderine bakıp sana özel tavsiye verir.
+        ciroyu artırmak. VIP bunun günlük rutini: sabah Tahsilat Turu'nu açarsın
+        (borçlular + vadeler + yarınki randevular), toplu turla hatırlatmaları
+        gönderirsin; pazar sabahı Patron Raporu'nda haftanın kârını görürsün.
+        Günde 10 dakika, defter kendiliğinden toparlanır.
       </P>
       <H2>Ödeme nasıl olacak?</H2>
       <P>
@@ -477,7 +478,7 @@ const SECTORS: Record<string, SectorDef> = {
     ],
     modules: ['Randevu Takvimi', 'Hizmet Tarifesi', 'Veresiye Defteri', 'Borç Toplama', 'Kasiyer Modu', 'Gün Sonu'],
     vip:
-      'Koltuk boş kalmasın: Borç Toplama ekranı “abi yarın uğrarım” diyenlerin listesini önüne koyar, toplu turla hepsine WhatsApp hatırlatması gönderirsin. AI Danışman hangi günlerin ölü geçtiğini görüp kampanya günü önerir.',
+      'Koltuk boş kalmasın: Borç Toplama ekranı “abi yarın uğrarım” diyenlerin listesini önüne koyar, toplu turla hepsine WhatsApp hatırlatması gönderirsin. Pazar sabahı Patron Raporu hangi günlerin ölü geçtiğini gösterir.',
     faq: [
       { q: 'Randevuyu müşteri kendisi alabiliyor mu?', a: 'Şimdilik randevuyu sen giriyorsun; telefonla arayan müşteriyi 10 saniyede takvime işlersin. Online müşteri randevusu yol haritasında.' },
       { q: 'Birden fazla koltuk/usta var, olur mu?', a: 'Olur. Her ustaya kasiyer hesabı açarsın, kendi satışını girer; kasanın tamamını sadece sen görürsün.' },
@@ -502,7 +503,7 @@ const SECTORS: Record<string, SectorDef> = {
     ],
     modules: ['Masa Adisyon', 'Hızlı Satış', 'Abonman Defteri', 'Tedarikçi Borcu', 'Personel Zimmeti', 'Gün Sonu'],
     vip:
-      'Açık hesaplar birikmesin: Borç Toplama ekranı abonman ve açık masa bakiyelerini en büyükten dizer, toplu turla tahsilata çıkarsın. AI Danışman ölü saatlere happy-hour, yavaş ürünlere menü önerisi verir.',
+      'Açık hesaplar birikmesin: Borç Toplama ekranı abonman ve açık masa bakiyelerini en büyükten dizer, toplu turla tahsilata çıkarsın. Patron Raporu haftanın kârını ve yavaş günleri önüne koyar.',
     faq: [
       { q: 'Garson telefondan kullanabilir mi?', a: 'Evet. Panel mobil uyumlu; garsona kasiyer yetkisi verirsin, sadece satış ve adisyon açar, ayarları göremez.' },
       { q: 'Paket servis ve gel-al ayrı mı?', a: 'Masadan bağımsız hızlı satış fişi kesersin; hepsi aynı gün sonu cirosuna akar.' },
@@ -552,7 +553,7 @@ const SECTORS: Record<string, SectorDef> = {
     ],
     modules: ['Servis Fişi', 'Durum Takibi', 'Parça Maliyeti', 'Veresiye Defteri', 'Borç Toplama', 'Gün Sonu'],
     vip:
-      'Alacaklar rafta beklemesin: teslim edip ödemesini almadıkların Borç Toplama listesinde birikir, toplu turla “cihazınız hazır, ücreti bekliyoruz” mesajı gider. AI Danışman en kârlı iş tipini (ekran mı, batarya mı?) gösterir.',
+      'Alacaklar rafta beklemesin: teslim edip ödemesini almadıkların Borç Toplama listesinde birikir, toplu turla “cihazınız hazır, ücreti bekliyoruz” mesajı gider. Patron Raporu haftanın tahsilatını ve bekleyenleri listeler.',
     faq: [
       { q: 'Fiş numarası otomatik mi?', a: 'Evet, her kabul fişi numaralı açılır; müşteri sorduğunda numaradan 5 saniyede bulursun.' },
       { q: 'Parça stoğu tutuyor mu?', a: 'Ürün stoğuna ekran, batarya gibi parçaları eklersin; kritik seviyeye düşünce uyarı alırsın.' },
@@ -577,7 +578,7 @@ const SECTORS: Record<string, SectorDef> = {
     ],
     modules: ['Dava Dosyası', 'Duruşma Takvimi', 'Müvekkil Cari Hesabı', 'Borç Toplama', 'Hatırlatmalar', 'Gün Sonu'],
     vip:
-      'Vekalet ücreti peşinde koşma: ödenmemiş müvekkil alacakları Borç Toplama ekranında birikir, toplu turla resmi tonda hatırlatma gönderirsin. AI Danışman tahsilat sırası ve avans politikası önerir.',
+      'Vekalet ücreti peşinde koşma: ödenmemiş müvekkil alacakları Borç Toplama ekranında birikir, toplu turla resmi tonda hatırlatma gönderirsin. Patron Raporu ödenmemiş alacakları her hafta önüne dizer.',
     faq: [
       { q: 'Baro/e-imza entegrasyonu var mı?', a: 'Henüz yok; burası büronun iç defteri: dosya, duruşma ve para takibi. UYAP işlerin aynen orada yürür.' },
       { q: 'Müvekkil gizliliği nasıl korunuyor?', a: 'Veriler şifreli bağlantıyla taşınır, şifren özet olarak saklanır. Hesabını kimseyle paylaşma, kasiyere gerek yoksa açma.' },
@@ -602,7 +603,7 @@ const SECTORS: Record<string, SectorDef> = {
     ],
     modules: ['Emanet Fişi', 'Teslim Takvimi', 'Ölçü Kartı', 'Veresiye Defteri', 'Borç Toplama', 'Gün Sonu'],
     vip:
-      '“Sonra öderim”ler birikmesin: teslim edip ücreti alınmamış işler Borç Toplama listesine düşer, toplu turla kibar hatırlatma gider. AI Danışman yoğun günlere randevu yayma ve fiyat güncelleme önerir.',
+      '“Sonra öderim”ler birikmesin: teslim edip ücreti alınmamış işler Borç Toplama listesine düşer, toplu turla kibar hatırlatma gider. Patron Raporu haftanın kârını ve yoğun günleri gösterir.',
     faq: [
       { q: 'Ölçüleri her seferinde mi gireceğim?', a: 'Hayır. Ölçü bir kez müşteri kartına yazılır, sonraki fişlerde otomatik önünde olur.' },
       { q: 'Kuru temizleme fişleri de olur mu?', a: 'Olur, aynı emanet mantığı: al, fişi kes, hazır olunca teslim et ve tahsilatı işle.' },
