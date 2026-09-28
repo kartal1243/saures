@@ -133,7 +133,7 @@ export const CollectionPanel: React.FC<CollectionPanelProps> = ({
   const current = queue && !queueFinished ? queue[queueIdx] : null;
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-4 sm:p-5 shadow-xs">
+    <div id="vip-tahsilat" className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-4 sm:p-5 shadow-xs scroll-mt-20">
       {/* Başlık */}
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
