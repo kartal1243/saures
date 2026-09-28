@@ -24,6 +24,8 @@ export function calculateCashRegister(): CashRegister {
 
   const todayTotalIncome = todayCash + todayCard + todayBank;
   const netTodayCash = todayCash - todayExpense;
+  // Cepte kalan: nakit + POS (havale bankada, cebinde değil) - masraflar
+  const inPocketToday = todayCash + todayCard - todayExpense;
 
   let totalReceivables = 0;
   let overdueCount = 0;
@@ -49,6 +51,7 @@ export function calculateCashRegister(): CashRegister {
     todayTotalIncome,
     todayExpense,
     netTodayCash,
+    inPocketToday,
     totalReceivables,
     overdueCount,
     dueTodayCount,

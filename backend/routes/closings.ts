@@ -12,12 +12,15 @@ export function registerClosingRoutes(app: Express): void {
   });
 
   app.post('/api/daily-closings', (req: Request, res: Response) => {
-    const { actualCashCount, note, closedBy } = req.body;
+    const { note, closedBy } = req.body;
     const cash = calculateCashRegister();
 
-    const expectedCash = cash.netTodayCash;
-    const actual = Number(actualCashCount) || 0;
-    const diff = actual - expectedCash;
+    // Kapanışta patron TOPLAM CİROYU bildirir (nakit + POS + havale), sadece nakit değil.
+    // Eski istemciler actualCashCount gönderiyordu — geriye dönük kabul.
+    const reported = req.body.actualTotalIncome !== undefined ? req.body.actualTotalIncome : req.body.actualCashCount;
+    const expectedTotalIncome = cash.todayTotalIncome;
+    const actualTotalIncome = Number(reported) || 0;
+    const totalDiff = actualTotalIncome - expectedTotalIncome;
 
     // Kapanan gün = açık olan iş günü; kapanışla yeni iş günü açılır (Z-raporu)
     const closingDay = S().businessDate || localDay();
@@ -26,15 +29,19 @@ export function registerClosingRoutes(app: Express): void {
       id: `close_${Date.now()}`,
       date: todayStr,
       closedAt: new Date().toISOString(),
-      expectedCash,
-      actualCashCount: actual,
-      diffAmount: diff,
+      // Eski alanlar da toplam ciro mantığıyla doldurulur (aynı üçlü, tek hesap)
+      expectedCash: expectedTotalIncome,
+      actualCashCount: actualTotalIncome,
+      diffAmount: totalDiff,
       totalIncomeToday: cash.todayTotalIncome,
       todayCash: cash.todayCash,
       todayCard: cash.todayCard,
       todayBank: cash.todayBank,
       todayExpense: cash.todayExpense,
       netProfitToday: cash.todayTotalIncome - cash.todayExpense,
+      expectedTotalIncome,
+      actualTotalIncome,
+      totalDiff,
       note: note || '',
       closedBy: closedBy || S().shopProfile?.ownerName || 'Kasiyer / Esnaf',
     };

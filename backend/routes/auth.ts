@@ -77,6 +77,13 @@ export function registerAuthRoutes(app: Express): void {
         error: 'Telefon veya sifre hatali.' + (left > 0 && left <= 2 ? ` (${left} deneme hakkiniz kaldi)` : ''),
       });
     }
+    // Personel artik giris yapamaz — sadece dukkan sahibi (owner) girer.
+    if (acc.role && acc.role !== 'owner') {
+      logAuthEvent('login_fail', phone, clientIp(req));
+      return res.status(403).json({
+        error: 'Personel girisi kapali. Panele sadece dukkan sahibi girer.',
+      });
+    }
     clearLoginAttempts(phone);
     recordLogin(acc, clientIp(req));
     logAuthEvent('login_ok', phone, clientIp(req));
@@ -121,26 +128,30 @@ export function registerAuthRoutes(app: Express): void {
     res.json({ account: publicAccount(acc) });
   });
 
-  // Personel (kasiyer) ekle
+  // Personel ekle — sadece KAYIT. Personel giremez (sifre alanı yoktur),
+  // patron personelin bilgilerini panelden gorur.
   app.post('/api/auth/add-staff', (req: Request, res: Response) => {
     const owner = requireOwner(req, res);
     if (!owner) return;
     const body = req.body || {};
     const phone = String(body.phone || '').replace(/\s+/g, '');
-    const password = String(body.password || '');
     const name = String(body.name || '').trim();
-    if (!phone || password.length < 4 || !name) {
-      return res.status(400).json({ error: 'Ad, telefon ve en az 4 haneli sifre gerekli.' });
+    if (!name) {
+      return res.status(400).json({ error: 'Personel adi gerekli.' });
     }
-    if (findAccountByPhone(phone)) {
-      return res.status(409).json({ error: 'Bu telefon ile kayitli bir hesap var.' });
+    // Ayni isimde kayit var mi?
+    const dupe = getAccounts().find(
+      (a) => a.parentAccountId === owner.id && a.ownerName.toLowerCase() === name.toLowerCase()
+    );
+    if (dupe) {
+      return res.status(409).json({ error: 'Bu isimde bir personel zaten kayitli.' });
     }
     const staff: Account = {
       id: 'acc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       shopName: owner.shopName,
       ownerName: name,
-      phone,
-      passwordHash: hashPassword(password),
+      phone: phone || `tel_${Date.now().toString(36)}`,
+      passwordHash: '',
       createdAt: new Date().toISOString(),
       role: 'cashier',
       parentAccountId: owner.id,
@@ -152,13 +163,22 @@ export function registerAuthRoutes(app: Express): void {
     res.json({ success: true, account: publicAccount(staff) });
   });
 
-  // Personel listesi
+  // Personel listesi — patron icin detayli kartlar
   app.get('/api/auth/staff', (req: Request, res: Response) => {
     const owner = requireOwner(req, res);
     if (!owner) return;
     const list = getAccounts()
       .filter((a) => a.parentAccountId === owner.id)
-      .map((a) => ({ ...publicAccount(a), createdAt: a.createdAt }));
+      .map((a) => {
+        const added = new Date(a.createdAt).getTime();
+        const days = Number.isFinite(added) ? Math.max(0, Math.floor((Date.now() - added) / 86400000)) : 0;
+        return {
+          ...publicAccount(a),
+          createdAt: a.createdAt,
+          daysEmployed: days,
+          canLogin: false, // personel giris yapamaz
+        };
+      });
     res.json({ staff: list });
   });
 

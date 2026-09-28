@@ -5,9 +5,8 @@ import { als } from './context';
 import { AUTH_RATE_LIMIT } from './config';
 
 // Koruma: /api/* icin giris zorunlu (auth ve health haric) + rol kisitlari
-const CASHIER_FORBIDDEN_ALWAYS = ['/backup'];
-const CASHIER_FORBIDDEN_MUTATION = ['/shop-profile', '/products', '/vip/', '/cases'];
-
+// NOT: Personel girisi kaldirildi — panelde sadece dukkan sahibi (owner) olur.
+// Personel kaydi olan hesaplar API'ye erisemez (eski oturumlar da gecersiz).
 export function apiGuard(req: Request, res: Response, next: NextFunction): void {
   const p = req.path;
   if (p === '/health' || p.startsWith('/auth/')) return next();
@@ -17,15 +16,9 @@ export function apiGuard(req: Request, res: Response, next: NextFunction): void 
     return;
   }
   const accRole = acc.role || 'owner';
-  if (accRole === 'cashier') {
-    if (CASHIER_FORBIDDEN_ALWAYS.some((o) => p.startsWith(o))) {
-      res.status(403).json({ error: 'Bu islem sadece dukkan sahibine aciktir.' });
-      return;
-    }
-    if (req.method !== 'GET' && CASHIER_FORBIDDEN_MUTATION.some((o) => p.startsWith(o))) {
-      res.status(403).json({ error: 'Bu islem sadece dukkan sahibine aciktir.' });
-      return;
-    }
+  if (accRole !== 'owner') {
+    res.status(403).json({ error: 'Personel girisi kapali. Bu panel sadece dukkan sahibine aciktir.' });
+    return;
   }
   als.run({ accountId: acc.id, role: accRole, state: loadShopState(acc.id) }, next);
 }

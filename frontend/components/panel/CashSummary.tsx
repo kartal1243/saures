@@ -5,6 +5,7 @@ import {
   Wallet,
   CreditCard,
   Banknote,
+  Landmark,
   ArrowDownRight,
   AlertCircle,
   TrendingUp,
@@ -110,7 +111,10 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
                 <Banknote className="w-3 h-3" /> Nakit: {formatCurrency(cash.todayCash)}
               </span>
               <span className="inline-flex items-center gap-1 font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded-md">
-                <CreditCard className="w-3 h-3" /> Kart: {formatCurrency(cash.todayCard)}
+                <CreditCard className="w-3 h-3" /> POS: {formatCurrency(cash.todayCard)}
+              </span>
+              <span className="inline-flex items-center gap-1 font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 px-1.5 py-0.5 rounded-md">
+                <Landmark className="w-3 h-3" /> Havale: {formatCurrency(cash.todayBank)}
               </span>
             </div>
 
@@ -165,9 +169,9 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
           </div>
         </motion.div>
 
-        {/* 3. Cepte Kalan Net Para (Ciro - Harcama) */}
+        {/* 3. Cepte Kalan (Nakit + POS - Masraf) */}
         <motion.div
-          key={`net-${cash.netTodayCash}`}
+          key={`net-${cash.inPocketToday}`}
           initial={{ scale: 0.98 }}
           animate={{ scale: 1 }}
           transition={{ duration: 0.2 }}
@@ -175,8 +179,8 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
         >
           <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-2">
             <div>
-              <span className="text-xs font-bold text-stone-700 dark:text-stone-200">Cepte Kalan Net</span>
-              <span className="block text-[11px] text-stone-400 dark:text-stone-500">Cirodan masraf düşünce</span>
+              <span className="text-xs font-bold text-stone-700 dark:text-stone-200">Cepte Kalan</span>
+              <span className="block text-[11px] text-stone-400 dark:text-stone-500">Nakit + POS − masraf</span>
             </div>
             <span className="w-8 h-8 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 flex items-center justify-center">
               <ShoppingBag className="w-4 h-4" />
@@ -185,17 +189,27 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
           <div>
             <div
               className={`text-xl sm:text-2xl font-black tracking-tight ${
-                cash.netTodayCash >= 0 ? 'text-stone-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'
+                cash.inPocketToday >= 0 ? 'text-stone-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'
               }`}
             >
-              {formatCurrency(cash.netTodayCash)}
+              {formatCurrency(cash.inPocketToday)}
             </div>
-            <div className="flex items-center gap-1 mt-2 text-[11px] text-stone-500 dark:text-stone-400">
-              <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-              <span>
-                Bugünkü Masraf: <strong className="text-rose-600 dark:text-rose-400">{formatCurrency(cash.todayExpense)}</strong>
+            <div className="flex items-center gap-1 mt-2 text-[11px] text-stone-500 dark:text-stone-400 flex-wrap">
+              <span className="font-semibold">
+                Nakit + POS: {formatCurrency(cash.todayCash + cash.todayCard)}
+              </span>
+              <span className="flex items-center gap-1">
+                <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                <span>
+                  Masraf: <strong className="text-rose-600 dark:text-rose-400">{formatCurrency(cash.todayExpense)}</strong>
+                </span>
               </span>
             </div>
+            {cash.todayBank > 0 && (
+              <div className="mt-1 text-[10px] font-semibold text-cyan-600 dark:text-cyan-400">
+                Havale {formatCurrency(cash.todayBank)} bankada — cepte sayılmaz
+              </div>
+            )}
           </div>
         </motion.div>
 

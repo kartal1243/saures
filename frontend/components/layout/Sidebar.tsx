@@ -17,6 +17,7 @@ import {
   KeyRound,
   UserPlus,
   Crown,
+  HandCoins,
   LogOut,
   Wifi,
   WifiOff,
@@ -169,6 +170,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <Activity className="w-4 h-4 shrink-0" />
         <span>Gün Sonu</span>
       </button>
+      <button
+        id="nav-tab-money-routine"
+        type="button"
+        onClick={() => onNavigate('money_routine')}
+        className={tabBtn(activeTab === 'money_routine')}
+      >
+        <HandCoins className="w-4 h-4 shrink-0" />
+        <span>Para Rutinim</span>
+      </button>
     </>
   );
 
@@ -179,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <Store className="w-4 h-4 shrink-0 text-stone-500" /> Dükkan Bilgileri
       </button>
       <button type="button" onClick={onOpenStaff} className={menuBtn}>
-        <UserPlus className="w-4 h-4 shrink-0 text-stone-500" /> Personel (Kasiyer)
+        <UserPlus className="w-4 h-4 shrink-0 text-stone-500" /> Personel
       </button>
       <button type="button" onClick={onChangePassword} className={menuBtn}>
         <KeyRound className="w-4 h-4 shrink-0 text-stone-500" /> Şifre Değiştir
@@ -222,7 +232,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {avatarChar}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-black text-white truncate">{storeName}</span>
+              {/* Dükkan adi tek yerde: ust Header. Burada sadece patron + baglanti. */}
+              <span className="block text-xs font-black text-white truncate">
+                {ownerName || 'Dükkan Sahibi'}
+              </span>
               <span className="flex items-center gap-1 text-[10px] font-bold text-stone-500">
                 {connected ? (
                   <>
@@ -235,7 +248,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <WifiOff className="w-3 h-3" /> Bağlanıyor
                   </>
                 )}
-                {ownerName && <span className="truncate"> · {ownerName}</span>}
               </span>
             </span>
           </div>

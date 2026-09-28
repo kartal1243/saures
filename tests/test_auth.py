@@ -151,14 +151,20 @@ def main():
           str(st.get("customers", [])[:1]))
     check("netTodayCash -75 (75 tahsilat - 150 gider)",
           float(cash.get("netTodayCash", -99)) == -75.0, str(cash))
+    check("inPocketToday -75 (nakit 75 + POS 0 - gider 150)",
+          float(cash.get("inPocketToday", -999)) == -75.0, str(cash))
 
     print("\n== 7) GUN SONU ==")
+    # Kapanis TOPLAM CIRO ister (nakit + POS + havale), sadece nakit degil
+    total_income = float(cash.get("todayTotalIncome", 0))
     code, d, _ = req("/api/daily-closings", "POST",
-                     {"actualCashCount": -75, "note": "gun sonu"}, cookie=cookie)
+                     {"actualTotalIncome": total_income, "note": "gun sonu"}, cookie=cookie)
     closing = (d.get("closing") or {}) if isinstance(d, dict) else {}
     check("gun sonu 200", code == 200 and closing.get("id"), f"got {code}: {d}")
-    check("gun sonu diff 0 (sayilan = beklenen)",
-          float(closing.get("diffAmount", 99)) == 0.0, str(closing))
+    check("beklenen toplam ciro = bugunku ciro",
+          float(closing.get("expectedTotalIncome", -1)) == total_income, str(closing))
+    check("gun sonu diff 0 (bildirilen = beklenen)",
+          float(closing.get("totalDiff", 99)) == 0.0, str(closing))
     code, st, _ = req("/api/data", cookie=cookie)
     check("dailyClosings 1 kayit", len(st.get("dailyClosings", [])) == 1,
           str(len(st.get("dailyClosings", []))))
@@ -222,6 +228,33 @@ def main():
     acct = (me.get("account") or {}) if isinstance(me, dict) else {}
     check("/api/auth/me 200", code == 200, f"got {code}")
     check("ozette passwordHash sizmis", "passwordHash" not in acct, str(sorted(acct.keys())))
+
+    print("\n== 13) PERSONEL (giris yok, sadece kayit) ==")
+    staff_phone = "0555" + str(uuid.uuid4().int)[-7:]
+    code, data, _ = req("/api/auth/add-staff", "POST",
+                        {"name": "Test Usta", "phone": staff_phone,
+                         "position": "Usta", "salary": 12000}, cookie=cookie)
+    check("personel ekleme 200 (sifresiz)", code == 200, f"got {code}: {data}")
+    code, slist, _ = req("/api/auth/staff", cookie=cookie)
+    st_list = (slist.get("staff") or []) if isinstance(slist, dict) else []
+    check("personel listesi 1 kisi", len(st_list) == 1, str(len(st_list)))
+    if st_list:
+        s0 = st_list[0]
+        check("personel canLogin=false", s0.get("canLogin") is False, str(s0.get("canLogin")))
+        check("personel passwordHash sizmis", "passwordHash" not in s0, str(sorted(s0.keys())))
+        check("personel maas + pozisyon geldi",
+              s0.get("salary") == 12000 and s0.get("position") == "Usta", str(s0))
+    # Personel giremez
+    code, data, _ = req("/api/auth/login", "POST",
+                        {"phone": staff_phone, "password": "herhangi-bir-sifre"})
+    check("personel girisi engellendi 401/403", code in (401, 403), f"got {code}: {data}")
+    # Personel oturumu API'ye erisemez
+    code, data, _ = req("/api/auth/staff")
+    check("personel oturumu yokken /api/auth/staff reddedildi", code in (401, 403), f"got {code}")
+    # Kaldir
+    if st_list:
+        code, _, _ = req(f"/api/auth/staff/{st_list[0]['id']}", "DELETE", cookie=cookie)
+        check("personel silme 200", code == 200, f"got {code}")
 
     print(f"\n===== SONUC: {len(PASSED)} PASS / {len(FAILED)} FAIL =====")
     if FAILED:

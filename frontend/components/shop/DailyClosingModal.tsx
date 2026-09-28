@@ -25,7 +25,7 @@ interface DailyClosingModalProps {
   cash: CashRegister;
   shopProfile?: ShopProfile;
   closings: DailyClosing[];
-  onSaveClosing: (data: { actualCashCount: number; note: string; closedBy?: string }) => Promise<void>;
+  onSaveClosing: (data: { actualTotalIncome: number; note: string; closedBy?: string }) => Promise<void>;
 }
 
 export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
@@ -37,7 +37,8 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   onSaveClosing,
 }) => {
   const [activeTab, setActiveTab] = useState<'close_today' | 'history'>('close_today');
-  const [actualCashInput, setActualCashInput] = useState<string>(String(Math.max(0, cash.netTodayCash)));
+  // Kapanış TOPLAM CİRO sorar (nakit + POS + havale) — sadece nakit değil
+  const [actualTotalInput, setActualTotalInput] = useState<string>(String(Math.max(0, cash.todayTotalIncome)));
   const [note, setNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -45,9 +46,9 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
   if (!isOpen) return null;
 
-  const expectedCash = cash.netTodayCash;
-  const actualCash = Number(actualCashInput) || 0;
-  const diff = actualCash - expectedCash;
+  const expectedTotal = cash.todayTotalIncome;
+  const actualTotal = Number(actualTotalInput) || 0;
+  const diff = actualTotal - expectedTotal;
   const todayFormatted = new Date().toLocaleDateString('tr-TR', {
     weekday: 'long',
     year: 'numeric',
@@ -61,7 +62,7 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     setIsSubmitting(true);
     try {
       await onSaveClosing({
-        actualCashCount: actualCash,
+        actualTotalIncome: actualTotal,
         note: note.trim(),
         closedBy: shopProfile?.ownerName || 'Dükkan Sahibi',
       });
@@ -85,13 +86,12 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 -----------------------------
 💵 Toplam Satış / Ciro: ${formatCurrency(cash.todayTotalIncome)}
    • Nakit: ${formatCurrency(cash.todayCash)}
-   • Kart / POS: ${formatCurrency(cash.todayCard)}
-   • IBAN: ${formatCurrency(cash.todayBank)}
+   • POS: ${formatCurrency(cash.todayCard)}
+   • Havale: ${formatCurrency(cash.todayBank)}
 🔴 Toplam Masraf / Gider: ${formatCurrency(cash.todayExpense)}
 💰 Net Kasa Kârı: ${formatCurrency(cash.todayTotalIncome - cash.todayExpense)}
 -----------------------------
-🗄️ Kasada Beklenen Nakit: ${formatCurrency(expectedCash)}
-🖐️ Fiili Sayılan Nakit: ${formatCurrency(actualCash)}
+🧾 Bildirilen Toplam Ciro: ${formatCurrency(actualTotal)}
 ${diff === 0 ? '✅ KASA TAM DENK' : diff > 0 ? `✨ KASA FAZLASI: +${formatCurrency(diff)}` : `⚠️ KASA AÇIĞI: -${formatCurrency(Math.abs(diff))}`}
 ${note ? `📝 Not: ${note}` : ''}`;
 
@@ -180,24 +180,30 @@ ${note ? `📝 Not: ${note}` : ''}`;
 
           {activeTab === 'close_today' ? (
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Daily Financial Overview Bento */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {/* Günün ciro kırılımı: nakit + POS + havale */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
-                  <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Bugün Toplam Ciro</p>
+                  <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Nakit</p>
                   <p className="text-lg font-black text-emerald-900 dark:text-emerald-200 mt-0.5">
-                    {formatCurrency(cash.todayTotalIncome)}
+                    {formatCurrency(cash.todayCash)}
                   </p>
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">
-                    Nakit: {formatCurrency(cash.todayCash)}
-                  </p>
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">Çekmecede</p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60">
-                  <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 uppercase">POS & Kartlı Satış</p>
+                  <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 uppercase">POS / Kart</p>
                   <p className="text-lg font-black text-indigo-900 dark:text-indigo-200 mt-0.5">
                     {formatCurrency(cash.todayCard)}
                   </p>
-                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-1">Banka hesabına geçer</p>
+                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-1">Bankaya geçer</p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/60">
+                  <p className="text-[11px] font-bold text-cyan-700 dark:text-cyan-400 uppercase">Havale / EFT</p>
+                  <p className="text-lg font-black text-cyan-900 dark:text-cyan-200 mt-0.5">
+                    {formatCurrency(cash.todayBank)}
+                  </p>
+                  <p className="text-[10px] text-cyan-600 dark:text-cyan-400 mt-1">Hesaba yattı</p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60">
@@ -215,23 +221,31 @@ ${note ? `📝 Not: ${note}` : ''}`;
                   </p>
                   <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">Ciro - Masraflar</p>
                 </div>
+
+                <div className="p-3 rounded-xl bg-stone-100 dark:bg-stone-800 border-2 border-stone-300 dark:border-stone-700">
+                  <p className="text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase">Bugün Toplam Ciro</p>
+                  <p className="text-lg font-black text-stone-900 dark:text-white mt-0.5">
+                    {formatCurrency(cash.todayTotalIncome)}
+                  </p>
+                  <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-1">Nakit + POS + Havale</p>
+                </div>
               </div>
 
-              {/* Physical Cash Count Section */}
+              {/* Toplam Ciro Sayımı */}
               <div className="p-4 sm:p-5 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border-2 border-stone-200 dark:border-stone-700">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <div>
                     <label className="text-sm font-black text-stone-900 dark:text-white uppercase tracking-wider">
-                      Kasada Fiili Nakit Sayımı
+                      Günün Toplam Ciro Sayımı
                     </label>
                     <p className="text-xs text-stone-500 dark:text-stone-400">
-                      Çekmecedeki nakiti sayıp tam tutarı giriniz
+                      Nakit + POS + havale toplamını giriniz
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-stone-500 dark:text-stone-400">Kasada Beklenen Nakit: </span>
+                    <span className="text-xs text-stone-500 dark:text-stone-400">Beklenen Toplam Ciro: </span>
                     <span className="text-xs font-bold text-stone-900 dark:text-white">
-                      {formatCurrency(expectedCash)}
+                      {formatCurrency(expectedTotal)}
                     </span>
                   </div>
                 </div>
@@ -241,15 +255,24 @@ ${note ? `📝 Not: ${note}` : ''}`;
                     ₺
                   </span>
                   <input
-                    id="input-actual-cash-count"
+                    id="input-actual-total-income"
                     type="number"
                     step="any"
                     min="0"
                     required
-                    value={actualCashInput}
-                    onChange={(e) => setActualCashInput(e.target.value)}
+                    value={actualTotalInput}
+                    onChange={(e) => setActualTotalInput(e.target.value)}
                     className="w-full pl-12 pr-4 py-3.5 text-2xl font-black rounded-xl border-2 border-amber-500/60 bg-white dark:bg-stone-900 text-stone-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
                   />
+                </div>
+
+                {/* Kırılım hatırlatması */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+                  <span className="text-emerald-600 dark:text-emerald-400">Nakit {formatCurrency(cash.todayCash)}</span>
+                  <span className="text-stone-300">+</span>
+                  <span className="text-indigo-600 dark:text-indigo-400">POS {formatCurrency(cash.todayCard)}</span>
+                  <span className="text-stone-300">+</span>
+                  <span className="text-cyan-600 dark:text-cyan-400">Havale {formatCurrency(cash.todayBank)}</span>
                 </div>
 
                 {/* Diff Result Badge */}
@@ -257,7 +280,7 @@ ${note ? `📝 Not: ${note}` : ''}`;
                   {diff === 0 ? (
                     <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 flex items-center gap-2 text-xs font-bold">
                       <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      <span>Kasa Kuruşu Kuruşuna Denk! Hiçbir açık veya fazla yok.</span>
+                      <span>Ciro Kuruşu Kuruşuna Denk! Hiçbir açık veya fazla yok.</span>
                     </div>
                   ) : diff > 0 ? (
                     <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-200 flex items-center justify-between text-xs font-bold">
@@ -350,7 +373,12 @@ ${note ? `📝 Not: ${note}` : ''}`;
                   <p className="text-xs mt-1">Bugün ilk gün sonunuzu kapatarak başlayabilirsiniz.</p>
                 </div>
               ) : (
-                closings.map((c) => (
+                closings.map((c) => {
+                  // Eski kayitlarda total alanlari yok -> eski uclus geriye donuk kullanilir
+                  const expTotal = c.expectedTotalIncome ?? c.expectedCash;
+                  const actTotal = c.actualTotalIncome ?? c.actualCashCount;
+                  const dTotal = c.totalDiff ?? c.diffAmount;
+                  return (
                   <div
                     key={c.id}
                     className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-800/40 space-y-2.5"
@@ -363,26 +391,38 @@ ${note ? `📝 Not: ${note}` : ''}`;
                       </div>
                       <span
                         className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          c.diffAmount === 0
+                          dTotal === 0
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            : c.diffAmount > 0
+                            : dTotal > 0
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
                             : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
                         }`}
                       >
-                        {c.diffAmount === 0
-                          ? 'Denk Kasa'
-                          : c.diffAmount > 0
-                          ? `+${formatCurrency(c.diffAmount)} Fazla`
-                          : `-${formatCurrency(Math.abs(c.diffAmount))} Açık`}
+                        {dTotal === 0
+                          ? 'Denk Ciro'
+                          : dTotal > 0
+                          ? `+${formatCurrency(dTotal)} Fazla`
+                          : `-${formatCurrency(Math.abs(dTotal))} Açık`}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                       <div>
-                        <span className="text-stone-400 text-[10px] block">Ciro</span>
+                        <span className="text-stone-400 text-[10px] block">Nakit</span>
                         <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                          {formatCurrency(c.totalIncomeToday)}
+                          {formatCurrency(c.todayCash)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 text-[10px] block">POS</span>
+                        <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                          {formatCurrency(c.todayCard)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 text-[10px] block">Havale</span>
+                        <span className="font-bold text-cyan-600 dark:text-cyan-400">
+                          {formatCurrency(c.todayBank)}
                         </span>
                       </div>
                       <div>
@@ -391,18 +431,15 @@ ${note ? `📝 Not: ${note}` : ''}`;
                           {formatCurrency(c.todayExpense)}
                         </span>
                       </div>
-                      <div>
-                        <span className="text-stone-400 text-[10px] block">Beklenen Nakit</span>
-                        <span className="font-bold text-stone-700 dark:text-stone-300">
-                          {formatCurrency(c.expectedCash)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-stone-400 text-[10px] block">Fiili Sayılan</span>
-                        <span className="font-bold text-stone-900 dark:text-white">
-                          {formatCurrency(c.actualCashCount)}
-                        </span>
-                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-stone-200 dark:border-stone-700/60">
+                      <span className="text-stone-400 text-[10px]">
+                        Beklenen {formatCurrency(expTotal)} · Bildirilen {formatCurrency(actTotal)}
+                      </span>
+                      <span className="font-black text-stone-900 dark:text-white">
+                        Ciro {formatCurrency(c.totalIncomeToday)}
+                      </span>
                     </div>
 
                     {c.note && (
@@ -411,7 +448,8 @@ ${note ? `📝 Not: ${note}` : ''}`;
                       </p>
                     )}
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}

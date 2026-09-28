@@ -126,55 +126,37 @@ def main():
           (st.get("shopProfile") or {}).get("sectorKey") == "berber_kuafor",
           str((st.get("shopProfile") or {}).get("sectorKey")))
 
-    cashier_phone = f"0504{tag}"
+    staff_phone = f"0504{tag}"
     code, d, _ = req("/api/auth/add-staff", "POST",
-                     {"name": "Kasiyer Kiz", "phone": cashier_phone, "password": "4321"},
+                     {"name": "Kasiyer Kiz", "phone": staff_phone, "position": "Kasiyer"},
                      cookie=owner_cookie)
     staff_id = (d.get("account") or {}).get("id") if isinstance(d, dict) else None
-    check("kasiyer eklendi", code == 200 and staff_id, f"{code} {d}")
+    check("personel eklendi (sifresiz)", code == 200 and staff_id, f"{code} {d}")
 
     code, d, _ = req("/api/auth/staff", cookie=owner_cookie)
     check("personel listesi 1 kisi", code == 200 and len(d.get("staff", [])) == 1, str(d))
 
     # Kayitsiz telefondan add-staff denerse (auth yok) 401
     code, d, _ = req("/api/auth/add-staff", "POST",
-                     {"name": "Seri", "phone": f"0505{tag}", "password": "1234"})
+                     {"name": "Seri", "phone": f"0505{tag}"})
     check("giris yokken personel eklenemez 401", code == 401, f"{code}")
 
+    # Personel artik GIREMEZ — sadece kayit
     code, d, h = req("/api/auth/login", "POST",
-                     {"phone": cashier_phone, "password": "4321"})
+                     {"phone": staff_phone, "password": "4321"})
     cash_cookie = sid_of(h.get("Set-Cookie", ""))
-    check("kasiyer giris 200", code == 200 and bool(cash_cookie), f"{code}")
+    check("personel girisi reddedildi 401/403", code in (401, 403) and not cash_cookie, f"{code} {d}")
 
-    code, d, _ = req("/api/auth/me", cookie=cash_cookie)
-    check("kasiyer rol='cashier'", code == 200 and d.get("account", {}).get("role") == "cashier",
-          str(d))
-
-    # Kasiyer serbest isler
-    code, d, _ = req("/api/data", cookie=cash_cookie)
-    check("kasiyer /api/data gorebilir 200", code == 200, f"{code}")
-    code, d, _ = req("/api/transactions", "POST",
-                     {"type": "masraf", "amount": 10}, cookie=cash_cookie)
-    check("kasiyer masraf girebilir 200", code == 200, f"{code} {d}")
-    code, d, _ = req("/api/customers", "POST",
-                     {"name": "Kasa Musteri", "phone": f"0556{tag}"}, cookie=cash_cookie)
-    check("kasiyer musteri ekleyebilir 200", code == 200, f"{code}")
-    code, d, _ = req("/api/daily-closings", "POST",
-                     {"actualCashCount": -10}, cookie=cash_cookie)
-    check("kasiyer gun sonu kapatabilir 200", code == 200, f"{code}")
-
-    # Kasiyer yasak isler
-    code, d, _ = req("/api/shop-profile", "POST",
-                     {"storeName": "Kaciyer Gunci", "isConfigured": True}, cookie=cash_cookie)
-    check("kasiyer profil degistiremez 403", code == 403, f"{code} {d}")
-    code, d, _ = req("/api/backup", cookie=cash_cookie)
-    check("kasiyer yedek alamaz 403", code == 403, f"{code}")
-    code, d, _ = req("/api/products", "POST",
-                     {"name": "X", "price": 10, "currentStock": 5, "minStock": 1},
-                     cookie=cash_cookie)
-    check("kasiyer urun ekleyemez 403", code == 403, f"{code} {d}")
+    # Personel oturumu acilamadigi icin API'ye erisemez
+    code, d, _ = req("/api/data")
+    check("personel oturumsuz /api/data 401", code == 401, f"{code}")
     code, d, _ = req("/api/auth/staff", cookie=cash_cookie)
-    check("kasiyer personel yonetemez 403", code == 403, f"{code}")
+    check("personel oturumu /api/auth/staff reddedildi", code in (401, 403), f"{code}")
+
+    # Sifre zorunlu degil: ayni isimle ikinci kayit acilmaz
+    code, d, _ = req("/api/auth/add-staff", "POST",
+                     {"name": "Kasiyer Kiz", "phone": f"0507{tag}"}, cookie=owner_cookie)
+    check("ayni isimde ikinci personel 409", code == 409, f"{code} {d}")
 
     print("\n== 3b) DAVA DOSYALARI (avukat) ==")
     code, d, _ = req("/api/cases", "POST", {"clientName": "Ali Veli"}, cookie=owner_cookie)
@@ -198,7 +180,7 @@ def main():
     check("dosya kapatilabiliyor",
           code == 200 and d.get("case", {}).get("status") == "kapali", f"{code} {d}")
     code, d, _ = req(f"/api/cases/{case_id}", "DELETE", cookie=cash_cookie)
-    check("kasiyer dosya silemez 403", code == 403, f"{code} {d}")
+    check("personel oturumu dosya silemez", code in (401, 403), f"{code} {d}")
     code, d, _ = req(f"/api/cases/{case_id}", "DELETE", cookie=owner_cookie)
     check("dosya silindi 200", code == 200, f"{code} {d}")
 
@@ -261,10 +243,10 @@ def main():
     print("\n== 5) PERSONEL SIL ==")
     code, d, _ = req(f"/api/auth/staff/{staff_id}", "DELETE", cookie=owner_cookie)
     check("personel silindi 200", code == 200, f"{code} {d}")
-    code, d, _ = req("/api/data", cookie=cash_cookie)
-    check("silinen kasiyerin oturumu dustu 401", code == 401, f"{code}")
-    code, d, _ = req("/api/auth/login", "POST", {"phone": cashier_phone, "password": "4321"})
-    check("silinen kasiyer giris yapamaz", code in (400, 401, 404), f"{code} {d}")
+    code, d, _ = req("/api/auth/staff", cookie=owner_cookie)
+    check("silinen personel listede yok", code == 200 and len(d.get("staff", [])) == 0, str(d))
+    code, d, _ = req("/api/auth/login", "POST", {"phone": staff_phone, "password": "4321"})
+    check("silinen personel giris yapamaz", code in (400, 401, 403, 404), f"{code} {d}")
 
     print("\n== 6) GIDER KATEGORISI + TEDARIKCI CARI HESAP ==")
     code, d, _ = req("/api/transactions", "POST",

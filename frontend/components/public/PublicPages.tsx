@@ -113,7 +113,7 @@ function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+      <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         {children}
 
         <div className="mt-12 rounded-3xl bg-stone-900 text-white px-6 sm:px-10 py-10 text-center relative overflow-hidden">
@@ -287,20 +287,21 @@ function IletisimPage(props: PageProps) {
 }
 
 const VIP_FREE = [
-  'Kasa ve gün sonu (nakit, kart, havale)',
+  'Kasa: nakit, POS ve havale ayrı ayrı',
   'Veresiye defteri ve müşteri cari kartları',
+  'Tahsilat Turu ve Patron Raporu',
   'Stok takibi ve kritik stok uyarısı',
   'Sektör paneli (randevu, masa, servis fişi, dava, emanet)',
-  'Kasiyer modu ve çalışan yetkisi',
-  'Tek dosya yedekleme ve geri yükleme',
+  'Yedekleme ve geri yükleme',
 ];
 
 const VIP_PAID = [
-  'Tahsilat Turu: borçlular, vadesi gelen aidatlar ve yarınki randevular tek listede; toplu WhatsApp turuyla sırayla gönder',
-  'Patron Raporu: haftalık tahsilat, gider, net kâr, en borçlu 5 ve kritik stok — yazdır, duvara as',
-  'Hazır hatırlatma metinleri: her müşteriye uygun tonda, tek dokunuşla WhatsApp mesajı',
-  'Öncelikli destek: sorunda sıra beklemeden yardım',
-  'Yakında: muhasebeciye tek tık dönem dosyası ve çok şubeli takip',
+  'Kritik stok alarmı — stok bitmeden haber',
+  'Tek tık WhatsApp — borçluya hazır mesaj',
+  'Veresiye avı — en borçlu 5 müşteri bir bakışta',
+  'Kâr takibi — hangi gün ne kazandın',
+  'Sınırsız kayıt — müşteri, ürün ve fiş limiti yok',
+  'Öncelikli destek — sıra beklemeden yardım',
 ];
 
 function FiyatPage(props: PageProps) {
@@ -309,9 +310,8 @@ function FiyatPage(props: PageProps) {
     <Shell title="VIP Paketler" {...props}>
       <H1>Dükkanına göre paket seç</H1>
       <Lead>
-        Temel defter her zaman ücretsiz. Paraya dönüşen işler — borcu toplamak,
-        gideri kısmak, ciroyu artırmak — VIP'de. Lansman döneminde VIP de ücretsiz,
-        kart istemeyiz.
+        Defter, kasa ve stok hep ücretsiz. Paraya dönüşen işler — borcu toplamak,
+        kârı görmek — VIP'de. Lansman bitmeden ücret ödemezsin.
       </Lead>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 items-stretch">
@@ -352,7 +352,7 @@ function FiyatPage(props: PageProps) {
             ₺149 <span className="text-base font-bold text-stone-400">/ ay</span>
           </p>
           <p className="relative mt-2 text-[13px] font-semibold text-stone-300">
-            Borcunu toplayan, kârını artıran araçlar. Şimdi katıl, lansman boyunca ücret ödeme.
+            Stok bitmeden haber, borçluya tek tık mesaj, kârın gün gün takibi.
           </p>
           <ul className="relative mt-4 space-y-2 flex-1">
             {VIP_PAID.map((t) => (
@@ -398,11 +398,10 @@ function FiyatPage(props: PageProps) {
 
       <H2>Neden VIP?</H2>
       <P>
-        Esnafın paraya dönüşen 3 şeyi var: geciken borcu toplamak, gideri kısmak,
-        ciroyu artırmak. VIP bunun günlük rutini: sabah Tahsilat Turu'nu açarsın
-        (borçlular + vadeler + yarınki randevular), toplu turla hatırlatmaları
-        gönderirsin; pazar sabahı Patron Raporu'nda haftanın kârını görürsün.
-        Günde 10 dakika, defter kendiliğinden toparlanır.
+        Defterini tutarsan veri durur; ama para kaçar. Stok bitince kaçırsın,
+        borçlu kaçınca geri gelmezsin, kârı görmeyen kârı da tutmaz. VIP bu üçünü
+        kapatır: stok bitmeden haber verir, borçluya tek dokunuşla mesaj gönderir,
+        kârı gün gün gösterir.
       </P>
       <H2>Ödeme nasıl olacak?</H2>
       <P>
@@ -473,15 +472,15 @@ const SECTORS: Record<string, SectorDef> = {
       'Hizmet tarifesi: saç, sakal, cilt bakımı fiyatları tek tıkla satışa dönüşür',
       'Müşteri kartı: telefon, tıraş notu ve geçmiş işlemler tek dokunuşla önde',
       '“Sonra verir” diyenin borcu veresiye defterine işlenir, ay sonunda tek liste',
-      'Usta/çırak ayrımı: kasiyere kısıtlı yetki, ayarlara dokunamaz',
+      'Usta/çırak ayrımı: personelin bilgileri panelde görünür, panele yalnızca sen girersin',
       'Gün sonu özeti: koltuk başına ciro, gider ve net kazanç akşam tek bakışta',
     ],
-    modules: ['Randevu Takvimi', 'Hizmet Tarifesi', 'Veresiye Defteri', 'Borç Toplama', 'Kasiyer Modu', 'Gün Sonu'],
+    modules: ['Randevu Takvimi', 'Hizmet Tarifesi', 'Veresiye Defteri', 'Tahsilat Turu', 'Personel Menüsü', 'Gün Sonu'],
     vip:
-      'Koltuk boş kalmasın: Borç Toplama ekranı “abi yarın uğrarım” diyenlerin listesini önüne koyar, toplu turla hepsine WhatsApp hatırlatması gönderirsin. Pazar sabahı Patron Raporu hangi günlerin ölü geçtiğini gösterir.',
+      'Koltuk boş kalmasın: Tahsilat Turu “abi yarın uğrarım” diyenlerin listesini önüne koyar, toplu turla hepsine WhatsApp hatırlatması gönderirsin. Patron Raporu hangi günlerin ölü geçtiğini gösterir.',
     faq: [
       { q: 'Randevuyu müşteri kendisi alabiliyor mu?', a: 'Şimdilik randevuyu sen giriyorsun; telefonla arayan müşteriyi 10 saniyede takvime işlersin. Online müşteri randevusu yol haritasında.' },
-      { q: 'Birden fazla koltuk/usta var, olur mu?', a: 'Olur. Her ustaya kasiyer hesabı açarsın, kendi satışını girer; kasanın tamamını sadece sen görürsün.' },
+      { q: 'Birden fazla koltuk/usta var, olur mu?', a: 'Olur. Usta, kalfa ve çırakları Personel Menüsü’nden tanımlarsın; kasa, müşteri ve stok kayıtları sadece senin gözünde kalır.' },
     ],
     closing:
       'Tek koltuklu dükkandan çok ustalı salona kadar aynı panel çalışır. Akşam kasayı say, farkı gör, günü kapat.',
@@ -497,15 +496,15 @@ const SECTORS: Record<string, SectorDef> = {
       'Masa görünümü: dolu, boş ve hesabı açık masalar renkleriyle belli',
       'Adisyona hızlı ürün ekleme, tek tuşla kapatma ve tahsilat',
       'Abonman takibi: öğretmen/esnaf öğle yemeği hesapları ayrı defterde',
-      'Personel satışları kasiyere zimmetli, açıklar anında görünür',
+      'Personel satışları ve açıklar Personel Menüsü’nden anında görünür',
       'Tedarikçi borcu (et, süt, içecek toptancısı) vadeleriyle kayıtlı',
       'Gün sonu: masa cirosu, gider ve kasa farkı otomatik hesaplanır',
     ],
     modules: ['Masa Adisyon', 'Hızlı Satış', 'Abonman Defteri', 'Tedarikçi Borcu', 'Personel Zimmeti', 'Gün Sonu'],
     vip:
-      'Açık hesaplar birikmesin: Borç Toplama ekranı abonman ve açık masa bakiyelerini en büyükten dizer, toplu turla tahsilata çıkarsın. Patron Raporu haftanın kârını ve yavaş günleri önüne koyar.',
+      'Açık hesaplar birikmesin: Tahsilat Turu abonman ve açık masa bakiyelerini en büyükten dizer, toplu turla tahsilata çıkarsın. Patron Raporu haftanın kârını ve yavaş günleri önüne koyar.',
     faq: [
-      { q: 'Garson telefondan kullanabilir mi?', a: 'Evet. Panel mobil uyumlu; garsona kasiyer yetkisi verirsin, sadece satış ve adisyon açar, ayarları göremez.' },
+      { q: 'Garson telefondan kullanabilir mi?', a: 'Telefonun kendisinde evet — panel mobil uyumlu, adisyon ve sipariş her ekranda düzgün. Ama kasa ve müşteri bilgileri sadece senin; garson panele giremez, sen girip satışı işlersin.' },
       { q: 'Paket servis ve gel-al ayrı mı?', a: 'Masadan bağımsız hızlı satış fişi kesersin; hepsi aynı gün sonu cirosuna akar.' },
     ],
     closing:
@@ -526,7 +525,7 @@ const SECTORS: Record<string, SectorDef> = {
       'WhatsApp hatırlatma: geciken ödemeye kibar mesaj tek dokunuşla',
       'Ay sonu tek liste: kim ne kadar borçlu, kim düzenli ödüyor',
     ],
-    modules: ['Veresiye Defteri', 'Barkod & Stok', 'Kritik Stok Uyarısı', 'Borç Toplama', 'WhatsApp Hatırlatma', 'Gün Sonu'],
+    modules: ['Veresiye Defteri', 'Barkod & Stok', 'Kritik Stok Uyarısı', 'Tahsilat Turu', 'WhatsApp Hatırlatma', 'Gün Sonu'],
     vip:
       'Ay sonu kapı kapı dolaşma: Borç Toplama ekranı mahallenin borcunu büyükten küçüğe dizer, toplu turla herkese kibar hatırlatma gider. Düzenli ödeyenleri görür, veresiye limitini ona göre açarsın.',
     faq: [
@@ -551,7 +550,7 @@ const SECTORS: Record<string, SectorDef> = {
       'Müşteri kartı: eski arızalar ve “kronik sorunlu” notları önde',
       'Garanti/söz takibi notlarla fişe bağlı',
     ],
-    modules: ['Servis Fişi', 'Durum Takibi', 'Parça Maliyeti', 'Veresiye Defteri', 'Borç Toplama', 'Gün Sonu'],
+    modules: ['Servis Fişi', 'Durum Takibi', 'Parça Maliyeti', 'Veresiye Defteri', 'Tahsilat Turu', 'Gün Sonu'],
     vip:
       'Alacaklar rafta beklemesin: teslim edip ödemesini almadıkların Borç Toplama listesinde birikir, toplu turla “cihazınız hazır, ücreti bekliyoruz” mesajı gider. Patron Raporu haftanın tahsilatını ve bekleyenleri listeler.',
     faq: [
@@ -576,12 +575,12 @@ const SECTORS: Record<string, SectorDef> = {
       'Danışmanlık saati takibi: saatlik işlerin karşılığı defterde',
       'Dosya notları: her celse çıkışı 1 dakikada not düş',
     ],
-    modules: ['Dava Dosyası', 'Duruşma Takvimi', 'Müvekkil Cari Hesabı', 'Borç Toplama', 'Hatırlatmalar', 'Gün Sonu'],
+    modules: ['Dava Dosyası', 'Duruşma Takvimi', 'Müvekkil Cari Hesabı', 'Tahsilat Turu', 'Hatırlatmalar', 'Gün Sonu'],
     vip:
-      'Vekalet ücreti peşinde koşma: ödenmemiş müvekkil alacakları Borç Toplama ekranında birikir, toplu turla resmi tonda hatırlatma gönderirsin. Patron Raporu ödenmemiş alacakları her hafta önüne dizer.',
+      'Vekalet ücreti peşinde koşma: ödenmemiş müvekkil alacakları Tahsilat Turu\'nda birikir, toplu turla resmi tonda hatırlatma gönderirsin. Patron Raporu ödenmemiş alacakları her hafta önüne dizer.',
     faq: [
       { q: 'Baro/e-imza entegrasyonu var mı?', a: 'Henüz yok; burası büronun iç defteri: dosya, duruşma ve para takibi. UYAP işlerin aynen orada yürür.' },
-      { q: 'Müvekkil gizliliği nasıl korunuyor?', a: 'Veriler şifreli bağlantıyla taşınır, şifren özet olarak saklanır. Hesabını kimseyle paylaşma, kasiyere gerek yoksa açma.' },
+      { q: 'Müvekkil gizliliği nasıl korunuyor?', a: 'Veriler şifreli bağlantıyla taşınır, şifren özet olarak saklanır. Panele sadece sen girersin; personel kaydı sadece bilgi olarak tutulur, giriş yetkisi verilmez.' },
     ],
     closing:
       'Tek avukatlık bürodan çok ortaklı ofise kadar aynı defter çalışır. Müvekkil aradığında dosyayı saniyede aç.',
@@ -601,9 +600,9 @@ const SECTORS: Record<string, SectorDef> = {
       'Geciken teslimler ayrı listede: “yarın düğünü var” acelesi kaçmaz',
       'Sezon işleri (perde, ütü paketi) toplu fişle hızlı giriş',
     ],
-    modules: ['Emanet Fişi', 'Teslim Takvimi', 'Ölçü Kartı', 'Veresiye Defteri', 'Borç Toplama', 'Gün Sonu'],
+    modules: ['Emanet Fişi', 'Teslim Takvimi', 'Ölçü Kartı', 'Veresiye Defteri', 'Tahsilat Turu', 'Gün Sonu'],
     vip:
-      '“Sonra öderim”ler birikmesin: teslim edip ücreti alınmamış işler Borç Toplama listesine düşer, toplu turla kibar hatırlatma gider. Patron Raporu haftanın kârını ve yoğun günleri gösterir.',
+      '"Sonra öderim"ler birikmesin: teslim edip ücreti alınmamış işler Tahsilat Turu listesine düşer, toplu turla kibar hatırlatma gider. Patron Raporu haftanın kârını ve yoğun günleri gösterir.',
     faq: [
       { q: 'Ölçüleri her seferinde mi gireceğim?', a: 'Hayır. Ölçü bir kez müşteri kartına yazılır, sonraki fişlerde otomatik önünde olur.' },
       { q: 'Kuru temizleme fişleri de olur mu?', a: 'Olur, aynı emanet mantığı: al, fişi kes, hazır olunca teslim et ve tahsilatı işle.' },

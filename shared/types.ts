@@ -124,7 +124,8 @@ export interface CashRegister {
   todayBank: number; // Bugün havale/EFT
   todayTotalIncome: number; // Bugün toplam tahsilat
   todayExpense: number; // Bugün toplam kasa çıkışı
-  netTodayCash: number; // Bugün net nakit
+  netTodayCash: number; // Bugün net nakit (çekmecedeki)
+  inPocketToday: number; // Cepte kalan = nakit + POS - gider (havale hariç)
   totalReceivables: number; // Toplam piyasada bekleyen veresiye alacağı
   overdueCount: number; // Günü geçen ödeme sayısı
   dueTodayCount: number; // Bugün günü gelen ödeme sayısı
@@ -157,6 +158,10 @@ export interface DailyClosing {
   todayBank: number;
   todayExpense: number;
   netProfitToday: number;
+  // Toplam ciro kapanışı (yeni): eski kayıtlarda yok, ekranda geriye dönük düşülür
+  expectedTotalIncome?: number; // Beklenen toplam ciro (nakit + POS + havale)
+  actualTotalIncome?: number; // Fiili toplam ciro (patronun girdiği)
+  totalDiff?: number; // actualTotalIncome - expectedTotalIncome
   note?: string;
   closedBy?: string;
 }

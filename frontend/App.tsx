@@ -26,8 +26,7 @@ import { HomeDashboard } from './components/panel/HomeDashboard';
 import { SECTORS } from './components/sector/SectorSwitcherBar';
 
 import { CashSummary } from './components/panel/CashSummary';
-import { CollectionPanel } from './components/panel/CollectionPanel';
-import { PatronReport } from './components/panel/PatronReport';
+import { ParaRutiniView } from './components/panel/ParaRutiniView';
 import { QuickActionBar } from './components/panel/QuickActionBar';
 import { UpcomingReminders } from './components/panel/UpcomingReminders';
 import { CustomerList } from './components/customers/CustomerList';
@@ -98,9 +97,10 @@ import {
   Plus,
   Trash2,
   Wallet,
+  HandCoins,
 } from 'lucide-react';
 
-export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock';
+export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock' | 'money_routine';
 
 // Aynı id'li çift kayıtları temizler (çift tıklama artıkları)
 function dedupeById<T extends { id: string }>(list: T[]): T[] {
@@ -162,6 +162,7 @@ export default function App() {
     todayBank: 0,
     todayTotalIncome: 0,
     todayExpense: 0,
+    inPocketToday: 0,
     netTodayCash: 0,
     totalReceivables: 0,
     overdueCount: 0,
@@ -462,7 +463,8 @@ export default function App() {
             setShopProfile(wsEvent.payload);
             setStoreName(wsEvent.payload.storeName);
           } else if (wsEvent.type === 'DAILY_CLOSING_CREATED') {
-            setDailyClosings((prev) => [wsEvent.payload, ...prev]);
+            // Ayni kapanis hem POST cevabinda hem WS ile gelir -> id ile tekilleştir
+            setDailyClosings((prev) => dedupeById([wsEvent.payload, ...prev]));
           } else if (wsEvent.type === 'PRODUCT_UPDATED') {
             setProducts((prev) => {
               const exists = prev.some((p) => p.id === wsEvent.payload.id);
@@ -648,7 +650,7 @@ export default function App() {
 
   // Handler: Gün Sonu Kapatma (Z Raporu)
   const handleSaveDailyClosing = async (data: {
-    actualCashCount: number;
+    actualTotalIncome: number;
     note: string;
     closedBy?: string;
   }) => {
@@ -1112,7 +1114,8 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.table) setTables((prev) => [...prev, data.table]);
+        // Masa hem POST cevabinda hem WS TABLE_UPDATED ile gelir -> id ile tekilleştir
+        if (data.table) setTables((prev) => dedupeById([...prev, data.table]));
       }
     } catch (err) {
       console.error('Error adding table:', err);
@@ -1454,6 +1457,7 @@ export default function App() {
           <div className="md:hidden fixed top-16 right-3 z-50 w-60 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xl overflow-hidden animate-pop">
             {(
               [
+                { label: 'Para Rutinim', Icon: HandCoins, fn: () => { setActiveTab('money_routine'); } },
                 { label: 'Dükkan Bilgileri', Icon: Store, fn: () => setIsShopProfileModalOpen(true) },
                 { label: 'Personel', Icon: UserPlus, fn: () => setIsStaffModalOpen(true) },
                 { label: 'Şifre Değiştir', Icon: KeyRound, fn: () => setIsChangePasswordOpen(true) },
@@ -1486,31 +1490,9 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 flex-1 w-full animate-fade-in">
         {activeTab === 'panel' && (
         <>
-        {/* Top Banner: Esnaf Sloganı & Hoş Geldin Notu */}
-        {shopProfile.isConfigured && (
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-linear-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 dark:border-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
-                <Store className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2">
-                  <span>{shopProfile.storeName}</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
-                    {shopProfile.businessField}
-                  </span>
-                </p>
-                <p className="text-xs text-stone-600 dark:text-stone-400 italic mt-0.5">
-                  "{shopProfile.slogan || 'Hayırlı ve bereketli işler dileriz.'}"
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* PANEL — SADE KASA MODU: hizli islemler, bugunku ciro, son islemler */}
 
-        {/* PANEL V4 - SADE KASA MODU */}
-
-        {/* 2. Hızlı işlem butonları en üstte: Para Al / Para Ver / Gün Sonu */}
+        {/* 1. Hızlı işlem butonları en üstte: Para Al / Para Ver / Gün Sonu */}
         <QuickActionBar
           onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
           onOpenMoneyOut={() => setIsMoneyOutModalOpen(true)}
@@ -1520,13 +1502,7 @@ export default function App() {
         />
         <style>{`#btn-quick-vip, #btn-quick-stock, #btn-quick-sector-view, #btn-toggle-customer-ledger { display: none !important; }`}</style>
 
-        {/* Son işlemler */}
-        <HomeDashboard
-          transactions={transactions}
-          onNavigate={setActiveTab}
-        />
-
-        {/* 3. Live Cash Registers & Daily Target Tracker */}
+        {/* 2. Bugünkü ciro balonları (nakit + POS + havale) */}
         <CashSummary
           cash={cash}
           profileTarget={shopProfile.dailyTarget}
@@ -1536,24 +1512,13 @@ export default function App() {
           }}
         />
 
-        {/* VIP Borç Toplama: bekleyen alacak + toplu WhatsApp turu */}
-        <CollectionPanel
-          customers={customers}
-          appointments={appointments}
-          shopName={shopProfile.storeName}
-          onOpenWhatsApp={(cust) => openWhatsAppForCustomer(cust)}
-          onOpenPayment={(cust) => openTransactionForCustomer(cust, 'tahsilat')}
-        />
-
-        {/* VIP Patron Raporu: haftalık özet */}
-        <PatronReport
+        {/* 3. Son işlemler — ciro balonlarının altında */}
+        <HomeDashboard
           transactions={transactions}
-          customers={customers}
-          products={products}
-          shopProfile={shopProfile}
+          onNavigate={setActiveTab}
         />
 
-        {/* 4. Eski grafikler: kar/zarar karşılaştırma + haftalık trend */}
+        {/* 4. Eski grafikler: kar/zarar karsilastirmasi + haftalik trend */}
         <Suspense fallback={<ChunkFallback />}>
           <RevenueVsExpensesChart transactions={transactions} />
           <WeeklyTrendCard transactions={transactions} />
@@ -1584,6 +1549,11 @@ export default function App() {
                   )}
                   <span>{currentSectorInfo.specialTabName}</span>
                 </>
+              ) : activeTab === 'money_routine' ? (
+                <>
+                  <HandCoins className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  <span>Para Rutinim</span>
+                </>
               ) : activeTab === 'activity' ? (
                 <>
                   <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -1609,6 +1579,8 @@ export default function App() {
             <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
               {activeTab === 'sector_view'
                 ? currentSectorInfo.description
+                : activeTab === 'money_routine'
+                ? 'Tahsilat turu ve patron raporu — günlük para rutinin'
                 : activeTab === 'activity'
                 ? 'Kapanış arşivi, kâr/zarar ve fişler'
                 : activeTab === 'stock'
@@ -1649,6 +1621,18 @@ export default function App() {
             </button>
           </div>
         </div>
+        )}
+
+        {activeTab === 'money_routine' && (
+          <ParaRutiniView
+            transactions={transactions}
+            customers={customers}
+            products={products}
+            appointments={appointments}
+            shopProfile={shopProfile}
+            onOpenWhatsApp={(cust) => openWhatsAppForCustomer(cust)}
+            onOpenPayment={(cust) => openTransactionForCustomer(cust, 'tahsilat')}
+          />
         )}
 
         {/* 7. View Content: SectorModuleSwitch (sektör) OR Activity Feed OR ... */}

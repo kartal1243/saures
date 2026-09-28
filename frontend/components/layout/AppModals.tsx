@@ -77,7 +77,7 @@ interface AppModalsProps {
   onCloseDailyClosing: () => void;
   cash: CashRegister;
   dailyClosings: DailyClosing[];
-  onSaveDailyClosing: (data: { actualCashCount: number; note: string; closedBy?: string }) => Promise<void>;
+  onSaveDailyClosing: (data: { actualTotalIncome: number; note: string; closedBy?: string }) => Promise<void>;
   // 5. VIP
   isVipModalOpen: boolean;
   onCloseVip: () => void;

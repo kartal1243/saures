@@ -40,7 +40,7 @@ const FEATURES: { icon: React.ComponentType<{ className?: string }>; title: stri
   { icon: LayoutDashboard, title: 'Sektörüne Özel Panel', text: 'Berber randevusu, kafe masası, tezgah satışı, servis fişi — dükkanına göre açılır.' },
   { icon: BellRing, title: 'WhatsApp Hatırlatma', text: 'Ödemesi geciken müşteriye tek dokunuşla kibar hatırlatma mesajı gönder.' },
   { icon: ChartColumn, title: 'Kar/Zarar Özeti', text: 'Ciro, gider ve net karı günlük-haftalık grafiklerle anında gör.' },
-  { icon: Users, title: 'Kasiyer Modu', text: 'Çalışanına kısıtlı yetki ver: satış yapar, ayarlara ve yedeğe dokunamaz.' },
+    { icon: Users, title: 'Personel Menüsü', text: 'Usta, kalfa, çırak bilgilerini tek yerde tut; kasa ve müşteri kayıtları sadece senin gözünde.' },
   { icon: DatabaseBackup, title: 'Yedekleme', text: 'Tüm defterin tek dosyada yedeklenir, istediğinde geri yüklenir.' },
 ];
 
