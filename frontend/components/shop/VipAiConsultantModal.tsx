@@ -1,6 +1,5 @@
 import React from 'react';
 import { ShopProfile, CashRegister } from '../../../shared/types.ts';
-import { formatCurrency } from '../../utils/formatters';
 import {
   Crown,
   X,
@@ -19,7 +18,8 @@ interface VipAiConsultantModalProps {
   isOpen: boolean;
   onClose: () => void;
   shopProfile?: ShopProfile;
-  cash: CashRegister;
+  // cash: artik kullanilmiyor (Bugun-ne-kazandin kutusu kaldirildi), uyumluluk icin durur
+  cash?: CashRegister;
   onApplyProfileTip?: (newSlogan: string) => Promise<void>;
 }
 
@@ -67,7 +67,6 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
   isOpen,
   onClose,
   shopProfile,
-  cash,
 }) => {
   if (!isOpen) return null;
 
@@ -102,21 +101,6 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
         </div>
 
         <div className="p-5 sm:p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-          {/* Bugünün özeti — nakit / POS / havale */}
-          <div className="rounded-2xl bg-stone-900 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 p-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">
-              Bugün ne kazandın
-            </p>
-            <p className="text-3xl font-black text-white tracking-tight mt-1">
-              {formatCurrency(cash.todayTotalIncome - cash.todayExpense)}
-            </p>
-            <div className="flex items-center gap-3 flex-wrap mt-2 text-[11px] font-bold">
-              <span className="text-emerald-400">Nakit {formatCurrency(cash.todayCash)}</span>
-              <span className="text-indigo-400">POS {formatCurrency(cash.todayCard)}</span>
-              <span className="text-cyan-400">Havale {formatCurrency(cash.todayBank)}</span>
-            </div>
-          </div>
-
           {/* VIP araçları */}
           <div>
             <p className="mb-2.5 text-[11px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-1.5">
