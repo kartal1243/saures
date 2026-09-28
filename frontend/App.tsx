@@ -1611,14 +1611,17 @@ export default function App() {
                 + Yeni Müşteri Ekle
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setIsDailyClosingModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
-            >
-              <Moon className="w-3.5 h-3.5 text-amber-400" />
-              <span>Kasa Kapat &amp; Z Raporu</span>
-            </button>
+            {/* Kasa Kapat & Z Raporu sadece Gun Sonu sekmesinde (ana sayfada QuickActionBar'da var) */}
+            {activeTab === 'activity' && (
+              <button
+                type="button"
+                onClick={() => setIsDailyClosingModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              >
+                <Moon className="w-4 h-4 text-amber-400" />
+                <span>Kasa Kapat &amp; Z Raporu</span>
+              </button>
+            )}
           </div>
         </div>
         )}
