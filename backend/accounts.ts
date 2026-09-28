@@ -166,7 +166,7 @@ export function recordLogin(acc: Account, ip: string): void {
 // ---------------- Kimlik olay gunlugu (admin paneli "Olaylar" sekmesi) ----------------
 export interface AuthEvent {
   at: string;
-  type: 'register' | 'login_ok' | 'login_fail' | 'locked';
+  type: 'register' | 'login_ok' | 'login_fail' | 'locked' | 'admin_kick' | 'admin_delete';
   phone: string;
   ip: string;
 }

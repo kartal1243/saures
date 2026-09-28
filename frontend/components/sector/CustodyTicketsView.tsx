@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { dayKey } from '../../utils/dates';
 import {
   Shirt,
   Plus,
@@ -64,7 +65,7 @@ export const CustodyTicketsView: React.FC<CustodyTicketsViewProps> = ({
   );
   const waiting = useMemo(() => tickets.filter((t) => t.status !== 'teslim').length, [tickets]);
   const ready = useMemo(() => tickets.filter((t) => t.status === 'hazir').length, [tickets]);
-  const today = new Date().toISOString().split('T')[0];
+  const today = dayKey(new Date());
 
   const openNew = () => {
     setEditing(null);

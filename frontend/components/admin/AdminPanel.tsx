@@ -252,6 +252,40 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
                   </div>
                 )}
 
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm(`${s.shopName} oturumları kapatılsın mı? Dükkan tüm cihazlardan çıkış yapar.`)) return;
+                      const res = await fetch(`/api/admin/shops/${s.id}/kick`, { method: 'POST' });
+                      if (!res.ok) { alert('Oturum kapatılamadı.'); return; }
+                      load();
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-black hover:bg-amber-500/25 transition-colors cursor-pointer"
+                  >
+                    Oturumları kapat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const first = confirm(`${s.shopName} TAMAMEN silinsin mi? Bu işlem geri alınamaz!`);
+                      if (!first) return;
+                      const second = prompt(`Onay için dükkan telefonunu yaz: ${s.phone}`);
+                      if (second === null || second.replace(/\s+/g, '') !== s.phone.replace(/\s+/g, '')) {
+                        alert('Telefon eşleşmedi, silme iptal edildi.');
+                        return;
+                      }
+                      const res = await fetch(`/api/admin/shops/${s.id}`, { method: 'DELETE' });
+                      if (!res.ok) { alert('Silinemedi.'); return; }
+                      setOpenId(null);
+                      load();
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-300 text-xs font-black hover:bg-rose-500/20 transition-colors cursor-pointer"
+                  >
+                    Dükkanı sil
+                  </button>
+                </div>
+
                 <p className="text-[10px] font-mono text-stone-400 break-all">ID: {s.id}</p>
               </div>
             )}

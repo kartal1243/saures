@@ -10,6 +10,8 @@ import {
   UtensilsCrossed,
   ShoppingCart,
   Wrench,
+  Scale,
+  Shirt,
   LayoutDashboard,
   BellRing,
   ShieldCheck,
@@ -24,6 +26,7 @@ import {
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
+import { demoLogin } from '../../utils/demo';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -46,6 +49,8 @@ const SECTORS: { icon: React.ComponentType<{ className?: string }>; title: strin
   { icon: UtensilsCrossed, title: 'Kafe & Restoran', text: 'Masa adisyonları, açık hesaplar ve hızlı kapatma.' },
   { icon: ShoppingCart, title: 'Bakkal & Market', text: 'Hızlı tezgah satışı, sepet fişi ve stok uyarısı.' },
   { icon: Wrench, title: 'Teknik Servis', text: 'Cihaz kabul fişi, arıza durumu ve parça maliyeti.' },
+  { icon: Scale, title: 'Hukuk & Avukat', text: 'Dava dosyası, müvekkil cari hesabı ve duruşma hatırlatma.' },
+  { icon: Shirt, title: 'Terzi', text: 'Emanet fişi, tadilat takibi ve teslim günü.' },
   { icon: Store, title: 'Genel Esnaf', text: 'Kasa akışı, veresiye defteri ve günlük özet.' },
 ];
 
@@ -119,6 +124,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <div className="mt-6 flex flex-wrap gap-3">
               <button type="button" onClick={onRegister} className="btn-primary px-6 py-3 text-[15px]">
                 Ücretsiz Başla <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => { demoLogin(); }}
+                className="btn px-6 py-3 text-[15px]"
+              >
+                Demoyu Dene
               </button>
               <a href="#ozellikler" className="btn px-6 py-3 text-[15px]">
                 Özellikleri Gör
@@ -201,7 +213,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
           </div>
           <div className="grid grid-cols-3 gap-3 text-center">
             {[
-              { n: '5', t: 'Sektör paneli' },
+              { n: '7', t: 'Sektör paneli' },
               { n: '8', t: 'Ana modül' },
               { n: '3', t: 'Adımda kurulum' },
             ].map((s) => (
@@ -240,7 +252,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
         <p className="text-[11px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 text-center">Sektörel panel</p>
         <h2 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight text-center">Dükkanına göre şekillenir</h2>
         <p className="mt-2 text-sm text-stone-500 dark:text-stone-400 font-medium text-center">Dükkan tipini seç, panel o işe göre açılsın.</p>
-        <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {SECTORS.map((s) => {
             const Icon = s.icon;
             return (

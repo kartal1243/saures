@@ -1,6 +1,7 @@
 import React from 'react';
 import { Customer } from '../../../shared/types.ts';
 import { formatCurrency, formatPhoneNumber, getCategoryColor, getCategoryLabel } from '../../utils/formatters';
+import { dayKey } from '../../utils/dates';
 import { MessageSquare, CheckCircle2, Clock, BellRing, ArrowDownLeft } from 'lucide-react';
 
 interface UpcomingRemindersProps {
@@ -14,7 +15,7 @@ export const UpcomingReminders: React.FC<UpcomingRemindersProps> = ({
   onOpenWhatsApp,
   onOpenPayment,
 }) => {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = dayKey(new Date());
 
   // Filter customers with subscriptions or due dates that are overdue, due today, or due in the next 3 days
   const dueCustomers = customers.filter((c) => {

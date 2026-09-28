@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Customer, BusinessType, SubscriptionInterval } from '../../../shared/types.ts';
 import { X, UserPlus, Clock } from 'lucide-react';
+import { dayKey } from '../../utils/dates';
 
 interface NewCustomerModalProps {
   onClose: () => void;
@@ -23,7 +24,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
   const [subTitle, setSubTitle] = useState('Aylık Üyelik / Aidat');
   const [subAmount, setSubAmount] = useState('');
   const [subNextDate, setSubNextDate] = useState(
-    new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
+    dayKey(new Date(Date.now() + 30 * 86400000))
   );
 
   const [submitting, setSubmitting] = useState(false);
@@ -42,7 +43,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
       setHasSubscription(true);
       setSubTitle('6 Aylık Periyodik Bakım');
       setSubInterval('periyodik_bakim');
-      setSubNextDate(new Date(Date.now() + 180 * 86400000).toISOString().split('T')[0]);
+      setSubNextDate(dayKey(new Date(Date.now() + 180 * 86400000)));
     } else {
       setHasSubscription(false);
     }

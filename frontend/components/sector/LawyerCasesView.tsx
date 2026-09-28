@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { CaseFile, Customer, Hearing } from '../../../shared/types.ts';
 import { formatCurrency } from '../../utils/formatters';
+import { dayKey } from '../../utils/dates';
 
 export type LawyerTab = 'cases' | 'hearings';
 
@@ -128,7 +129,7 @@ export const LawyerCasesView: React.FC<LawyerCasesViewProps> = ({
   const totalHours = useMemo(() => cases.reduce((s, c) => s + (c.consultancyHours || 0), 0), [cases]);
 
   const upcomingHearings = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = dayKey(new Date());
     return cases
       .flatMap((c) =>
         (c.hearings || []).map((h) => ({ ...h, fileNo: c.fileNo, clientName: c.clientName, caseId: c.id }))

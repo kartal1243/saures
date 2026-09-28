@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing } from 'lucide-react';
+import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing, PlayCircle } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
+import { demoLogin } from '../../utils/demo';
 
 interface AuthPageProps {
   onSuccess: () => void;
@@ -54,6 +55,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const switchMode = (m: 'login' | 'register') => {
     setMode(m);
     setError(null);
+  };
+
+  const [demoLoading, setDemoLoading] = useState(false);
+  const tryDemo = async () => {
+    setDemoLoading(true);
+    setError(null);
+    const err = await demoLogin();
+    if (err) {
+      setError(err);
+      setDemoLoading(false);
+    }
+    // başarılıysa demoLogin sayfayı yeniler
   };
 
   return (
@@ -284,6 +297,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     <><UserPlus className="w-4 h-4" /> Ücretsiz dükkan oluştur</>
                   ) : (
                     <><LogIn className="w-4 h-4" /> Zaten hesabım var, giriş yap</>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={tryDemo}
+                  disabled={demoLoading || loading}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-extrabold text-sm transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  {demoLoading ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Demo açılıyor…</>
+                  ) : (
+                    <><PlayCircle className="w-4 h-4" /> Kaydolmadan demoyu dene</>
                   )}
                 </button>
 

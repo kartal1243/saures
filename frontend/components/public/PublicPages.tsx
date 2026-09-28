@@ -9,10 +9,13 @@ export type PublicRouteKey =
   | 'gizlilik'
   | 'iletisim'
   | 'kayit'
+  | 'fiyat'
   | 'berber'
   | 'kafe-restoran'
   | 'bakkal-market'
-  | 'teknik-servis';
+  | 'teknik-servis'
+  | 'hukuk'
+  | 'terzi';
 
 /** URL yolunu herkese açık sayfa anahtarına çevirir. Eşleşmezse null. */
 export function matchPublicRoute(pathname: string): PublicRouteKey | null {
@@ -24,10 +27,16 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
       return 'gizlilik';
     case 'iletisim':
     case 'kayit':
+    case 'fiyat':
+    case 'fiyatlandirma':
     case 'berber':
     case 'kafe-restoran':
     case 'bakkal-market':
     case 'teknik-servis':
+    case 'hukuk':
+    case 'avukat':
+      return 'hukuk';
+    case 'terzi':
       return key;
     default:
       return null;
@@ -44,11 +53,14 @@ interface ShellProps {
 
 const NAV_LINKS: { href: string; label: string }[] = [
   { href: '/', label: 'Ana Sayfa' },
+  { href: '/fiyat', label: 'Fiyat' },
   { href: '/kayit', label: 'Ücretsiz Kayıt' },
   { href: '/berber', label: 'Berber' },
   { href: '/kafe-restoran', label: 'Kafe & Restoran' },
   { href: '/bakkal-market', label: 'Bakkal & Market' },
   { href: '/teknik-servis', label: 'Teknik Servis' },
+  { href: '/hukuk', label: 'Hukuk' },
+  { href: '/terzi', label: 'Terzi' },
   { href: '/iletisim', label: 'İletişim' },
   { href: '/gizlilik', label: 'Gizlilik' },
 ];
@@ -237,6 +249,47 @@ function IletisimPage(props: PageProps) {
   );
 }
 
+function FiyatPage(props: PageProps) {
+  const { onRegister } = props;
+  const items = [
+    'Kasa ve gün sonu (nakit, kart, havale)',
+    'Veresiye defteri ve müşteri cari kartları',
+    'Stok takibi ve kritik stok uyarısı',
+    'Sektör paneli (randevu, masa, servis fişi, dava, emanet)',
+    'Kasiyer modu ve çalışan yetkisi',
+    'WhatsApp hatırlatma mesajı',
+    'Tek dosya yedekleme ve geri yükleme',
+  ];
+  return (
+    <Shell title="Fiyatlandırma" {...props}>
+      <H1>Fiyatlandırma</H1>
+      <Lead>
+        Lansman döneminde tüm temel özellikler ücretsiz. Kredi kartı istemeyiz,
+        sözleşme yoktur. İleride ekip ve çok şubeli kullanım için uygun fiyatlı
+        planlar gelecek; erken katılanlar avantajlı olacak.
+      </Lead>
+      <div className="mt-8 rounded-3xl bg-white border border-stone-200 p-6 sm:p-8 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-widest text-amber-600">Başlangıç</p>
+        <p className="mt-2 text-4xl font-black tracking-tight">₺0 <span className="text-base font-bold text-stone-400">/ ücretsiz</span></p>
+        <Bullets items={items} />
+        <button
+          type="button"
+          onClick={onRegister}
+          className="mt-6 inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-amber-500 text-white text-base font-black shadow-lg hover:bg-amber-600 transition-colors cursor-pointer"
+        >
+          Hemen Ücretsiz Başla
+        </button>
+      </div>
+      <H2>İleride ne olacak?</H2>
+      <P>
+        Tek dükkan kullanımı ücretsiz kalacak şekilde planlıyoruz. Çok şubeli yapı,
+        toplu SMS/e-posta ve muhasebe entegrasyonları ücretli eklenti olabilir.
+        Fiyat değişmeden önce mevcut kullanıcılara önceden haber verilir.
+      </P>
+    </Shell>
+  );
+}
+
 function KayitPage(props: PageProps) {
   const { onRegister } = props;
   return (
@@ -333,9 +386,35 @@ const SECTORS: Record<string, SectorDef> = {
     closing:
       'Telefoncu, bilgisayarcı, beyaz eşya servisi: cihazı al, fişi kes, durumu güncelle, teslim et. Hepsi 2 dakikada.',
   },
+  hukuk: {
+    title: 'Avukat ve Hukuk Bürosu Programı',
+    intro:
+      'Dava dosyaları, müvekkil cari hesapları ve duruşma hatırlatmaları tek panelde. Klasör karışıklığı bitsin: dosya numarasından davayı, müvekkilden alacağı anında gör.',
+    bullets: [
+      'Dava dosyası: müvekkil, karşı taraf, mahkeme ve duruşma tarihi takibi',
+      'Müvekkil cari kartı: alınan avans, kalan alacak ve tahsilat kaydı',
+      'Yaklaşan duruşma ve iş hatırlatmaları otomatik listede',
+      'Vekalet ücreti ve masraf kalemleri dosya bazında kayıtlı',
+    ],
+    closing:
+      'Tek avukatlık bürodan çok ortaklı ofise kadar aynı defter çalışır. Müvekkil aradığında dosyayı saniyede aç, duruşmayı kaçırma.',
+  },
+  terzi: {
+    title: 'Terzi Emanet ve Sipariş Takibi',
+    intro:
+      'Emanet fişinden teslimata kadar her iş kayıt altında. “Benim pantolon ne oldu?” sorusu tarih olur; fişten durumu ve teslim gününü anında söyle.',
+    bullets: [
+      'Emanet fişi: müşteri, ürün, tadilat notu ve teslim tarihi',
+      'Durum takibi: bekliyor, işlemde, hazır, teslim edildi',
+      'Ölçü ve model notları müşteri kartında saklı',
+      'Teslimde tek tuşla tahsilat, gün sonu cirosuna otomatik eklenir',
+    ],
+    closing:
+      'Tadilat ve dikim işleri karışmaz: al, fişi kes, durumu güncelle, gününde teslim et. Mahallenin terzisi dijitale geçer.',
+  },
 };
 
-function SectorPage({ route, ...props }: PageProps & { route: 'berber' | 'kafe-restoran' | 'bakkal-market' | 'teknik-servis' }) {
+function SectorPage({ route, ...props }: PageProps & { route: 'berber' | 'kafe-restoran' | 'bakkal-market' | 'teknik-servis' | 'hukuk' | 'terzi' }) {
   const s = SECTORS[route];
   return (
     <Shell title={s.title} {...props}>
@@ -348,7 +427,9 @@ function SectorPage({ route, ...props }: PageProps & { route: 'berber' | 'kafe-r
         Diğer sektörlerde de çalışır: <a className="text-amber-700 font-bold" href="/berber">berber</a>,{' '}
         <a className="text-amber-700 font-bold" href="/kafe-restoran">kafe &amp; restoran</a>,{' '}
         <a className="text-amber-700 font-bold" href="/bakkal-market">bakkal &amp; market</a>,{' '}
-        <a className="text-amber-700 font-bold" href="/teknik-servis">teknik servis</a> — hepsi aynı hesapta,
+        <a className="text-amber-700 font-bold" href="/teknik-servis">teknik servis</a>,{' '}
+        <a className="text-amber-700 font-bold" href="/hukuk">hukuk</a>,{' '}
+        <a className="text-amber-700 font-bold" href="/terzi">terzi</a> — hepsi aynı hesapta,
         sektörünü dilediğinde değiştirebilirsin.
       </P>
     </Shell>
@@ -374,10 +455,14 @@ export function PublicPage({
       return <IletisimPage {...props} />;
     case 'kayit':
       return <KayitPage {...props} />;
+    case 'fiyat':
+      return <FiyatPage {...props} />;
     case 'berber':
     case 'kafe-restoran':
     case 'bakkal-market':
     case 'teknik-servis':
+    case 'hukuk':
+    case 'terzi':
       return <SectorPage route={route} {...props} />;
   }
 }

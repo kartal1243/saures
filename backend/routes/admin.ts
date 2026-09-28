@@ -4,9 +4,14 @@ import path from 'path';
 import type { Express, Request, Response } from 'express';
 import {
   getAccounts,
+  findAccountById,
+  removeAccount,
+  removeSessionsForAccount,
   clientIp,
   countActiveSessions,
   getAuthEvents,
+  logAuthEvent,
+  isLoginLocked,
 } from '../accounts';
 import { loadShopState } from '../shopState';
 import {
@@ -234,6 +239,10 @@ export function registerAdminRoutes(app: Express): void {
         ip: e.ip,
         at: e.at,
       }));
+    const failedToday = events.filter(
+      (e) => (e.type === 'login_fail' || e.type === 'locked') && e.at.slice(0, 10) === today
+    ).length;
+    const lockedPhones = owners.filter((o) => isLoginLocked(o.phone) > 0).map((o) => o.phone);
     res.json({
       shops: owners.length,
       online,
@@ -241,11 +250,46 @@ export function registerAdminRoutes(app: Express): void {
       transactions,
       eventsTotal: events.length,
       eventsToday: events.filter((e) => e.at.slice(0, 10) === today).length,
+      failedToday,
+      lockedCount: lockedPhones.length,
+      lockedPhones: lockedPhones.slice(0, 10),
       uniqueIps: ipSet.size,
       week,
       recentRegisters,
       recentLogins,
     });
+  });
+
+  // Dükkan oturumlarını kapat (şüpheli durumda uzaktan at). Personel dahil.
+  app.post('/api/admin/shops/:id/kick', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const acc = findAccountById(req.params.id);
+    if (!acc) return res.status(404).json({ error: 'Dükkan bulunamadı.' });
+    removeSessionsForAccount(acc.id);
+    for (const s of getAccounts().filter((x) => x.parentAccountId === acc.id)) {
+      removeSessionsForAccount(s.id);
+    }
+    logAuthEvent('admin_kick', acc.phone, clientIp(req));
+    res.json({ success: true, shopName: acc.shopName });
+  });
+
+  // Dükkanı tamamen sil (hesap + personel + veri dosyası). Geri alınamaz.
+  app.delete('/api/admin/shops/:id', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const acc = findAccountById(req.params.id);
+    if (!acc) return res.status(404).json({ error: 'Dükkan bulunamadı.' });
+    if ((acc.role || 'owner') !== 'owner') {
+      return res.status(400).json({ error: 'Sadece ana dükkan hesabı silinebilir.' });
+    }
+    for (const s of getAccounts().filter((x) => x.parentAccountId === acc.id)) {
+      removeAccount(s.id);
+    }
+    removeAccount(acc.id);
+    try {
+      fs.unlinkSync(path.join(SHOPS_DIR, acc.id + '.json'));
+    } catch { /* dosya yoksa sorun değil */ }
+    logAuthEvent('admin_delete', acc.phone, clientIp(req));
+    res.json({ success: true, shopName: acc.shopName });
   });
 
   // Sunucu loglari: nginx | app | app-error (son N satir)

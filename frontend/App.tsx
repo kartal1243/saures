@@ -32,7 +32,6 @@ import { CustomerList } from './components/customers/CustomerList';
 import { AuthPage } from './components/auth/AuthPage';
 import { LandingPage } from './components/auth/LandingPage';
 import { matchPublicRoute, PublicPage } from './components/public/PublicPages';
-import { AdminSite } from './components/admin/AdminSite';
 import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
@@ -51,6 +50,9 @@ const SectorModuleSwitch = lazy(() =>
 );
 const AppModals = lazy(() =>
   import('./components/layout/AppModals').then((m) => ({ default: m.AppModals })),
+);
+const AdminSite = lazy(() =>
+  import('./components/admin/AdminSite').then((m) => ({ default: m.AdminSite })),
 );
 
 function ChunkFallback() {
@@ -1347,8 +1349,13 @@ export default function App() {
 
   // ---- Auth gate: giris yoksa sadece AuthPage goster ----
   // Ayri admin sayfasi: /admin (kendi sifreli girisi, dukkan oturumunden bagimsiz)
+  // Lazy: normal dükkan açılışına admin kodu girmez, /admin'de ayrı chunk yüklenir.
   if (window.location.pathname.replace(/\/+$/, '') === '/admin') {
-    return <AdminSite />;
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-[#0b1220] flex items-center justify-center text-slate-400 text-sm font-bold">Yükleniyor...</div>}>
+        <AdminSite />
+      </Suspense>
+    );
   }
   if (authStatus === 'checking') {
     return (

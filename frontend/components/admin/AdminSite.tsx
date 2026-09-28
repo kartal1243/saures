@@ -25,7 +25,7 @@ type Tab = 'panel' | 'shops' | 'events' | 'logs';
 
 interface AuthEvent {
   at: string;
-  type: 'register' | 'login_ok' | 'login_fail' | 'locked';
+  type: 'register' | 'login_ok' | 'login_fail' | 'locked' | 'admin_kick' | 'admin_delete';
   phone: string;
   ip: string;
 }
@@ -37,6 +37,8 @@ interface Overview {
   transactions: number;
   eventsTotal: number;
   eventsToday: number;
+  failedToday?: number;
+  lockedCount?: number;
   uniqueIps: number;
   week: { day: string; label: string; registers: number; logins: number }[];
   recentRegisters: { shopName: string; ownerName: string; phone: string; createdAt: string; createdIp: string | null }[];
@@ -48,6 +50,8 @@ const EVENT_LABEL: Record<AuthEvent['type'], { text: string; cls: string }> = {
   login_ok: { text: 'Giriş', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300' },
   login_fail: { text: 'Hatalı giriş', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
   locked: { text: 'Kilit', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' },
+  admin_kick: { text: 'Oturum kapatma', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300' },
+  admin_delete: { text: 'Silme', cls: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
 };
 
 function fmtDate(iso: string | null): string {
@@ -89,8 +93,16 @@ function OverviewTab({ data, loading }: { data: Overview | null; loading: boolea
     return <p className="text-sm font-bold text-rose-400">Özet alınamadı. Yenile'ye bas.</p>;
   }
   const maxBar = Math.max(1, ...data.week.map((w) => Math.max(w.registers, w.logins)));
+  const alert = (data.failedToday || 0) >= 10 || (data.lockedCount || 0) > 0;
   return (
     <div className="space-y-4">
+      {alert && (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-bold text-rose-300">
+          Uyarı: bugün {data.failedToday || 0} başarısız giriş
+          {(data.lockedCount || 0) > 0 ? `, ${data.lockedCount} hesap kilitli` : ''}.
+          Olaylar sekmesinden IP'leri kontrol et.
+        </div>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         <StatCard icon={Radio} value={data.online} label="Çevrimiçi" tint="bg-emerald-500/10 border-emerald-500/20 text-emerald-400" />
         <StatCard icon={Store} value={data.shops} label="Toplam Dükkan" tint="bg-blue-500/10 border-blue-500/20 text-blue-400" />
