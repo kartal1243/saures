@@ -552,7 +552,7 @@ const SECTORS: Record<string, SectorDef> = {
     ],
     modules: ['Servis Fişi', 'Durum Takibi', 'Parça Maliyeti', 'Veresiye Defteri', 'Tahsilat Turu', 'Gün Sonu'],
     vip:
-      'Alacaklar rafta beklemesin: teslim edip ödemesini almadıkların Borç Toplama listesinde birikir, toplu turla “cihazınız hazır, ücreti bekliyoruz” mesajı gider. Patron Raporu haftanın tahsilatını ve bekleyenleri listeler.',
+      'Alacaklar rafta beklemesin: teslim edip ödemesini almadıkların Tahsilat Turu listesinde birikir, toplu turla “cihazınız hazır, ücreti bekliyoruz” mesajı gider. Patron Raporu haftanın tahsilatını ve bekleyenleri listeler.',
     faq: [
       { q: 'Fiş numarası otomatik mi?', a: 'Evet, her kabul fişi numaralı açılır; müşteri sorduğunda numaradan 5 saniyede bulursun.' },
       { q: 'Parça stoğu tutuyor mu?', a: 'Ürün stoğuna ekran, batarya gibi parçaları eklersin; kritik seviyeye düşünce uyarı alırsın.' },
