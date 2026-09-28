@@ -28,16 +28,17 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
     case 'iletisim':
     case 'kayit':
     case 'fiyat':
-    case 'fiyatlandirma':
     case 'berber':
     case 'kafe-restoran':
     case 'bakkal-market':
     case 'teknik-servis':
     case 'hukuk':
-    case 'avukat':
-      return 'hukuk';
     case 'terzi':
       return key;
+    case 'fiyatlandirma':
+      return 'fiyat';
+    case 'avukat':
+      return 'hukuk';
     default:
       return null;
   }

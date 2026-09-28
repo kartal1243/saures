@@ -12,6 +12,7 @@
     "test": "node tests/test_ws.mjs",
     "test:auth": "python3 tests/test_auth.py",
     "test:features": "python3 tests/test_features.py",
+    "test:routes": "node tests/test_public_routes.mjs",
     "test:ws": "node tests/test_ws.mjs",
     "typecheck": "tsc --noEmit"
   },
