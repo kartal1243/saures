@@ -36,6 +36,14 @@
       "model": "gemini-3.8-flash",
       "skills": ["automated-testing", "security-audit", "rate-limiting", "backups"],
       "config": "./agents/qa-security.json"
+    },
+    {
+      "id": "zen-ui-designer",
+      "name": "Zen UI/UX & Brand Designer",
+      "role": "Modern Landing Page, Logo, Tipografi ve Esnaf Arayüz Tasarımı",
+      "model": "gemini-3.8-flash",
+      "skills": ["landing-page-design", "svg-branding", "tailwind-css", "ui-ux", "cro"],
+      "config": "./agents/ui-designer.json"
     }
   ]
 }

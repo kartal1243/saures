@@ -1,42 +1,72 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 104" width="360" height="104">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 84" width="340" height="84" fill="none">
   <defs>
-    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fbbf24"/>
-      <stop offset="1" stop-color="#f59e0b"/>
+    <!-- Zengin Altın Kehribar (Amber) Degrade -->
+    <linearGradient id="storeBadge" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="35%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
     </linearGradient>
-    <linearGradient id="amberDeep" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f59e0b"/>
-      <stop offset="1" stop-color="#d97706"/>
+
+    <!-- Tente Gölgelendirmesi (Zarif Altın Şeritler) -->
+    <linearGradient id="awningStripe" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
     </linearGradient>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#b45309" flood-opacity="0.35"/>
+
+    <!-- Cam Vitrin Parıltısı -->
+    <linearGradient id="glassGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#FEF3C7" stop-opacity="0.8"/>
+    </linearGradient>
+
+    <!-- Koyu Grafit (Asla Çiğ Siyah Değil) -->
+    <linearGradient id="luxeText" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+
+    <!-- Yumuşak Prestij Gölgesi -->
+    <filter id="softElevation" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#D97706" flood-opacity="0.32"/>
     </filter>
   </defs>
 
-  <!-- Mark: turuncu zemin -->
-  <g filter="url(#soft)">
-    <rect x="6" y="14" width="76" height="76" rx="20" fill="url(#amber)"/>
+  <!-- AMBLEM: Şık, Modern, Profesyonel Dükkan Simgesi (68x68) -->
+  <g transform="translate(6, 8)" filter="url(#softElevation)">
+    <!-- Squircle Altın Zemin -->
+    <rect x="0" y="0" width="68" height="68" rx="20" fill="url(#storeBadge)"/>
+    <!-- İç İnce Işık Çerçevesi -->
+    <rect x="1" y="1" width="66" height="66" rx="19" stroke="#FFFFFF" stroke-opacity="0.4" stroke-width="1.5"/>
+
+    <!-- MODERN DÜKKAN MİMARİSİ -->
+    <!-- 1. Tente (Zarif Kavisli Kanopiler) -->
+    <path d="M14 26C14 23.7909 15.7909 22 18 22H50C52.2091 22 54 23.7909 54 26V30C54 32.7614 51.7614 35 49 35C46.7 35 44.8 33.4 44.2 31.3C43.5 33.5 41.5 35 39 35C36.5 35 34.5 33.5 33.8 31.3C33.1 33.5 31.1 35 28.6 35C26.1 35 24.1 33.5 23.4 31.3C22.8 33.4 20.9 35 18.6 35C16.1 35 14 32.7614 14 30V26Z" fill="#FFFFFF"/>
+    
+    <!-- Tente İçi İpeksi Altın Dalgalar (Gölge derinliği) -->
+    <path d="M22 22H26V33.5C25.2 34.5 24 35 22.8 35C22.3 35 22 34.8 22 34.5V22Z" fill="url(#awningStripe)" opacity="0.85"/>
+    <path d="M32 22H36V33.5C35.2 34.5 34 35 32.8 35C32.3 35 32 34.8 32 34.5V22Z" fill="url(#awningStripe)" opacity="0.85"/>
+    <path d="M42 22H46V33.5C45.2 34.5 44 35 42.8 35C42.3 35 42 34.8 42 34.5V22Z" fill="url(#awningStripe)" opacity="0.85"/>
+
+    <!-- 2. Dükkan Gövdesi (Beyaz Sağlam Kaide) -->
+    <rect x="17" y="36" width="34" height="20" rx="3.5" fill="#FFFFFF"/>
+
+    <!-- 3. Vitrin (Lüks Cam Işıltısı) -->
+    <rect x="20.5" y="39.5" width="14" height="13" rx="2.5" fill="url(#glassGlow)" stroke="#F59E0B" stroke-opacity="0.35" stroke-width="1"/>
+    <!-- Vitrin İçi Ürün / Kasa Vurgusu -->
+    <path d="M23 47H32" stroke="#D97706" stroke-width="1.5" stroke-linecap="round"/>
+    <rect x="23" y="42" width="4" height="3" rx="0.8" fill="#F59E0B"/>
+
+    <!-- 4. Giriş Kapısı (Koyu Grafit & Altın Kol) -->
+    <rect x="37.5" y="39.5" width="10.5" height="16.5" rx="2" fill="#1E293B"/>
+    <circle cx="39.5" cy="48" r="1" fill="#FCD34D"/>
   </g>
 
-  <!-- Sade dükkan: düz tente + gövde -->
-  <g transform="translate(6,14)">
-    <!-- tente bandı -->
-    <rect x="14" y="16" width="48" height="13" rx="3.5" fill="#ffffff"/>
-    <!-- tente şeritleri -->
-    <rect x="20" y="16" width="8" height="13" fill="url(#amberDeep)"/>
-    <rect x="34" y="16" width="8" height="13" fill="url(#amberDeep)"/>
-    <rect x="48" y="16" width="8" height="13" fill="url(#amberDeep)"/>
-    <!-- tente alt gölge çizgisi -->
-    <rect x="14" y="29" width="48" height="3.5" rx="1.75" fill="#1c1917" opacity="0.16"/>
-    <!-- gövde -->
-    <rect x="20" y="34" width="36" height="24" rx="4" fill="#ffffff"/>
-    <!-- vitrin -->
-    <rect x="24" y="39" width="13" height="10" rx="2.5" fill="url(#amberDeep)"/>
-    <!-- kapı -->
-    <rect x="40" y="39" width="12" height="19" rx="2.5" fill="#1c1917"/>
-  </g>
+  <!-- LOGOTYPE: SADECE "Dükkânım" ve "YANIMDA" -->
+  <g transform="translate(90, 16)">
+    <!-- 1. Satır: Dükkânım (Koyu Lüks Grafit, Asla Simsiyah Değil) -->
+    <text x="0" y="32" font-family="system-ui, -apple-system, 'Plus Jakarta Sans', Inter, sans-serif" font-size="32" font-weight="900" fill="url(#luxeText)" letter-spacing="-0.7">Dükkânım</text>
 
-  <!-- Wordmark -->
-  <text x="98" y="56" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-size="34" font-weight="800" fill="#1c1917" letter-spacing="-0.5">Dükkânım</text>
-  <text x="99" y="80" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-size="15" font-weight="800" fill="#d97706" letter-spacing="6">YANIMDA</text>
+    <!-- 2. Satır: YANIMDA (Sıcak Altın Amber) -->
+    <text x="1" y="52" font-family="system-ui, -apple-system, 'Plus Jakarta Sans', Inter, sans-serif" font-size="14.5" font-weight="900" fill="#D97706" letter-spacing="5">YANIMDA</text>
+  </g>
 </svg>
