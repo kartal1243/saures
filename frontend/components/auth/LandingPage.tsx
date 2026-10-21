@@ -31,12 +31,9 @@ import {
   TrendingUp,
   Receipt,
   Layers,
-  Palette,
   CheckCircle2,
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
-import logoV2Raw from '../../public/brand/logo-dukkanim-v2.svg?raw';
-import logoV3Raw from '../../public/brand/logo-dukkanim-v3.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
 import { demoLogin } from '../../utils/demo';
 
@@ -179,8 +176,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
   const [selectedSector, setSelectedSector] = useState<string>('berber');
-  const [activeLogoTab, setActiveLogoTab] = useState<'v1' | 'v2' | 'v3'>('v1');
-  const [logoBgDark, setLogoBgDark] = useState<boolean>(false);
 
   const handleDemo = async () => {
     setDemoLoading(true);
@@ -207,9 +202,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               title="Dükkânım Yanımda - Esnaf Portalı"
             />
-            <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[11px] font-black border border-amber-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Canlı Sürüm v2.0
-            </span>
           </div>
 
           {/* Menü Linkleri */}
@@ -217,9 +209,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <a href="#ozellikler" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">Özellikler</a>
             <a href="#sektorler" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">Sektörler</a>
             <a href="#nasil-calisir" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">Nasıl Çalışır</a>
-            <a href="#logolar" className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-extrabold hover:underline">
-              <Palette className="w-3.5 h-3.5" /> Logo Konseptleri
-            </a>
             <a href="#sss" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">SSS</a>
           </nav>
 
@@ -653,106 +642,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
         </div>
       </section>
 
-      {/* LOGO TASARIM KONSEPTLERİ VİTRİNİ (ÖZEL TALEP BÖLÜMÜ) */}
-      <section id="logolar" className="bg-amber-50/50 dark:bg-stone-900/60 border-y border-amber-200/70 dark:border-stone-800 py-16 sm:py-20 scroll-mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-3xl mx-auto">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-black border border-amber-500/20">
-              <Palette className="w-3.5 h-3.5" /> MARKA & LOGO TASARIM KONSEPTLERİ
-            </span>
-            <h2 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-stone-900 dark:text-white">
-              Sarı / Kehribar Konseptli Alternatif Logolar
-            </h2>
-            <p className="mt-2 text-sm sm:text-base text-stone-600 dark:text-stone-400 font-medium">
-              Sizin için hazırlanan 3 farklı mimari dükkan amblemini hem aydınlık hem koyu zemin üzerinde canlı olarak inceleyebilirsiniz.
-            </p>
-          </div>
-
-          {/* Logo Seçim Tabları ve Koyu Zemin Anahtarı */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => setActiveLogoTab('v1')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
-                activeLogoTab === 'v1'
-                  ? 'bg-amber-500 text-white shadow-md'
-                  : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700'
-              }`}
-            >
-              Konsept 1: Lüks Butik Vitrin (Ana Logo)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveLogoTab('v2')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
-                activeLogoTab === 'v2'
-                  ? 'bg-amber-500 text-white shadow-md'
-                  : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700'
-              }`}
-            >
-              Konsept 2: Minimalist Çizgisel Tente
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveLogoTab('v3')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
-                activeLogoTab === 'v3'
-                  ? 'bg-amber-500 text-white shadow-md'
-                  : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700'
-              }`}
-            >
-              Konsept 3: İkonik Çember Rozet
-            </button>
-            <button
-              type="button"
-              onClick={() => setLogoBgDark(!logoBgDark)}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors cursor-pointer"
-            >
-              Zemin: {logoBgDark ? '🌙 Koyu (#0F172A)' : '☀️ Aydınlık (Beyaz)'}
-            </button>
-          </div>
-
-          {/* Logo Önizleme Sahnesi */}
-          <div className="mt-8 max-w-2xl mx-auto">
-            <div
-              className={`rounded-3xl p-10 sm:p-14 border border-stone-200/80 dark:border-stone-800 shadow-xl flex flex-col items-center justify-center transition-colors ${
-                logoBgDark ? 'bg-[#0F172A]' : 'bg-white'
-              }`}
-            >
-              <div
-                className="w-full max-w-[340px] select-none [&>svg]:w-full [&>svg]:h-auto transition-transform hover:scale-105"
-                dangerouslySetInnerHTML={{
-                  __html:
-                    activeLogoTab === 'v1'
-                      ? logoRaw
-                      : activeLogoTab === 'v2'
-                      ? logoV2Raw
-                      : logoV3Raw,
-                }}
-              />
-            </div>
-
-            {/* Konsept Açıklaması */}
-            <div className="mt-4 p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 text-center">
-              {activeLogoTab === 'v1' && (
-                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-medium">
-                  <strong>Konsept 1 (Seçili):</strong> Sıcak kehribar degrade squircle içinde akrilik dalgalı tente, ışıldayan cam vitrin ve pirinç tokmaklı grafit dükkan kapısı. Yazı: Koyu grafit "Dükkânım" + Altın "YANIMDA".
-                </p>
-              )}
-              {activeLogoTab === 'v2' && (
-                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-medium">
-                  <strong>Konsept 2:</strong> Modern geometrik üçgen tente çatısı, geniş ikili vitrin camı ve modern çizgisel mimari. Sade ve dijital esnaf kimliği.
-                </p>
-              )}
-              {activeLogoTab === 'v3' && (
-                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-medium">
-                  <strong>Konsept 3:</strong> Dairesel altın mühür/madalyon içinde dükkan silueti ve tente çizgileri. Güven ve esnaf geleneğini simgeler.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* SIKÇA SORULAN SORULAR */}
       <section id="sss" className="max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-24 scroll-mt-20">
