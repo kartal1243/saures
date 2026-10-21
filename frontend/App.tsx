@@ -37,6 +37,7 @@ import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
 import { DEFAULT_SERVICES } from './components/sector/ServicesModal';
+import { demoLogin } from './utils/demo';
 
 // Agir moduller ayri chunk olarak tembel yuklenir: ilk acilis hizli olsun.
 // (recharts + 6 sektor gorunumu + tum modallar ana pakete girmez.)
@@ -269,6 +270,12 @@ export default function App() {
 
   const bootstrapSession = async () => {
     try {
+      // /demo veya /demo/ rotası girildiyse doğrudan demoyu başlat
+      if (window.location.pathname.toLowerCase().replace(/\/+$/, '') === '/demo') {
+        const demoErr = await demoLogin();
+        if (!demoErr) return;
+      }
+
       const me = await fetch('/api/auth/me');
       if (!me.ok) {
         authedRef.current = false;

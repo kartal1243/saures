@@ -23,6 +23,8 @@ import {
   Zap,
   ChevronDown,
   Check,
+  Loader2,
+  PlayCircle,
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
@@ -64,6 +66,19 @@ const FAQS: { q: string; a: string }[] = [
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
   useForceLightTheme();
+  const [demoLoading, setDemoLoading] = React.useState(false);
+  const [demoError, setDemoError] = React.useState<string | null>(null);
+
+  const handleDemo = async () => {
+    setDemoLoading(true);
+    setDemoError(null);
+    const err = await demoLogin();
+    if (err) {
+      setDemoError(err);
+      setDemoLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans scroll-smooth transition-colors">
       {/* Üst bar */}
@@ -127,15 +142,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               </button>
               <button
                 type="button"
-                onClick={() => { demoLogin(); }}
-                className="btn px-6 py-3 text-[15px]"
+                onClick={handleDemo}
+                disabled={demoLoading}
+                className="btn px-6 py-3 text-[15px] inline-flex items-center gap-2"
               >
-                Demoyu Dene
+                {demoLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin text-amber-500" /> Demo Açılıyor…</>
+                ) : (
+                  <><PlayCircle className="w-4 h-4 text-amber-500" /> Demoyu Dene</>
+                )}
               </button>
               <a href="#ozellikler" className="btn px-6 py-3 text-[15px]">
                 Özellikleri Gör
               </a>
             </div>
+            {demoError && (
+              <p className="mt-2 text-xs font-bold text-rose-500">⚠️ {demoError}</p>
+            )}
             <div className="mt-6 flex flex-wrap gap-2 text-[11px] font-bold text-stone-500 dark:text-stone-400">
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/70 dark:bg-stone-900/70 border border-stone-200 dark:border-stone-800">
                 <BadgeCheck className="w-3.5 h-3.5 text-emerald-500" /> Ücretsiz

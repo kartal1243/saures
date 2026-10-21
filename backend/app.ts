@@ -10,6 +10,7 @@ import { als } from './context';
 import { addClient, removeClient, buildInitEvent } from './realtime';
 import { apiGuard, rateLimit } from './guards';
 import { startMaintenance } from './maintenance';
+import { ensureDemoAccount } from './demoSeed';
 import { registerAuthRoutes } from './routes/auth';
 import { registerCoreRoutes } from './routes/core';
 import { registerCustomerRoutes } from './routes/customers';
@@ -47,6 +48,7 @@ export async function startServer(): Promise<void> {
 
   // ---------------- Otomatik bakim: oturum temizligi + gunluk yedek ----------------
   startMaintenance();
+  ensureDemoAccount();
 
   const server = http.createServer(app);
 

@@ -1,0 +1,41 @@
+{
+  "project": "dukkanim-yanimda",
+  "name": "Dükkanım Yanımda - Otonom Esnaf Portalı",
+  "manager": "Antigravity Executive Orchestrator",
+  "version": "2.0.0",
+  "agent_framework": "OpenCode Zen Multi-Agent Squad",
+  "agents": [
+    {
+      "id": "zen-fullstack-dev",
+      "name": "Zen Lead Software Engineer",
+      "role": "Frontend & Backend Mimari, Demo & UX",
+      "model": "gemini-3.8-flash",
+      "skills": ["react", "typescript", "tailwind", "express", "websockets", "pwa"],
+      "config": "./agents/fullstack-dev.json"
+    },
+    {
+      "id": "zen-payment-engineer",
+      "name": "Zen Payment & FinTech Architect",
+      "role": "Ödeme Sistemleri, Sanal POS, İyzico & PayTR, FAST QR",
+      "model": "gemini-3.8-flash",
+      "skills": ["payments", "iyzico", "paytr", "subscriptions", "security"],
+      "config": "./agents/payment-engineer.json"
+    },
+    {
+      "id": "zen-growth-marketer",
+      "name": "Zen Growth & Performance Marketer",
+      "role": "Meta Ads, Google Ads, Esnaf Saha Satışı, CRO, WhatsApp",
+      "model": "gemini-3.8-flash",
+      "skills": ["performance-marketing", "copywriting", "sales-scripts", "seo"],
+      "config": "./agents/growth-marketer.json"
+    },
+    {
+      "id": "zen-qa-security",
+      "name": "Zen QA & Security Auditor",
+      "role": "Regresyon Testleri, Brute-Force Koruması, Veri Bütünlüğü",
+      "model": "gemini-3.8-flash",
+      "skills": ["automated-testing", "security-audit", "rate-limiting", "backups"],
+      "config": "./agents/qa-security.json"
+    }
+  ]
+}

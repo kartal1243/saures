@@ -24,6 +24,7 @@ import {
   type Account,
 } from '../accounts';
 import { loadShopState } from '../shopState';
+import { ensureDemoAccount, DEMO_PHONE } from '../demoSeed';
 import { requireOwner } from '../guards';
 
 export function registerAuthRoutes(app: Express): void {
@@ -57,10 +58,34 @@ export function registerAuthRoutes(app: Express): void {
     res.json({ success: true, account: publicAccount(acc) });
   });
 
+  // Tek tıkla demo girişi: şifre gerektirmeden hazır örnek dükkana oturum açar
+  const handleDemoLogin = (req: Request, res: Response) => {
+    const acc = ensureDemoAccount();
+    clearLoginAttempts(DEMO_PHONE);
+    recordLogin(acc, clientIp(req));
+    logAuthEvent('login_ok', DEMO_PHONE, clientIp(req));
+    loadShopState(acc.id);
+    const session = createSession(acc.id);
+    res.setHeader('Set-Cookie', sessionCookie(session.token));
+    if (req.method === 'GET') {
+      return res.redirect('/');
+    }
+    return res.json({ success: true, account: publicAccount(acc) });
+  };
+
+  app.post('/api/auth/demo', handleDemoLogin);
+  app.get('/api/auth/demo', handleDemoLogin);
+
   app.post('/api/auth/login', (req: Request, res: Response) => {
     const body = req.body || {};
     const phone = String(body.phone || '').replace(/\s+/g, '');
     const password = String(body.password || '');
+
+    if (phone === DEMO_PHONE) {
+      ensureDemoAccount();
+      clearLoginAttempts(phone);
+    }
+
     const lockedMs = isLoginLocked(phone);
     if (lockedMs > 0) {
       logAuthEvent('locked', phone, clientIp(req));
