@@ -26,7 +26,6 @@ import { HomeDashboard } from './components/panel/HomeDashboard';
 import { SECTORS } from './components/sector/SectorSwitcherBar';
 
 import { CashSummary } from './components/panel/CashSummary';
-import { ParaRutiniView } from './components/panel/ParaRutiniView';
 import { QuickActionBar } from './components/panel/QuickActionBar';
 import { UpcomingReminders } from './components/panel/UpcomingReminders';
 import { CustomerList } from './components/customers/CustomerList';
@@ -101,7 +100,7 @@ import {
   HandCoins,
 } from 'lucide-react';
 
-export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock' | 'money_routine';
+export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock';
 
 // Aynı id'li çift kayıtları temizler (çift tıklama artıkları)
 function dedupeById<T extends { id: string }>(list: T[]): T[] {
@@ -1464,11 +1463,10 @@ export default function App() {
           <div className="md:hidden fixed top-16 right-3 z-50 w-60 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xl overflow-hidden animate-pop">
             {(
               [
-                { label: 'Para Rutinim', Icon: HandCoins, fn: () => { setActiveTab('money_routine'); } },
                 { label: 'Dükkan Bilgileri', Icon: Store, fn: () => setIsShopProfileModalOpen(true) },
                 { label: 'Personel', Icon: UserPlus, fn: () => setIsStaffModalOpen(true) },
                 { label: 'Şifre Değiştir', Icon: KeyRound, fn: () => setIsChangePasswordOpen(true) },
-                { label: 'VIP Danışman', Icon: Crown, fn: () => setIsVipModalOpen(true) },
+                { label: 'VIP Özel Panel', Icon: Crown, fn: () => setIsVipModalOpen(true) },
               ] as const
             ).map(({ label, Icon, fn }) => (
               <button
@@ -1557,11 +1555,6 @@ export default function App() {
                   )}
                   <span>{currentSectorInfo.specialTabName}</span>
                 </>
-              ) : activeTab === 'money_routine' ? (
-                <>
-                  <HandCoins className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                  <span>Para Rutinim</span>
-                </>
               ) : activeTab === 'activity' ? (
                 <>
                   <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -1587,8 +1580,6 @@ export default function App() {
             <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
               {activeTab === 'sector_view'
                 ? currentSectorInfo.description
-                : activeTab === 'money_routine'
-                ? 'Tahsilat turu ve patron raporu — günlük para rutinin'
                 : activeTab === 'activity'
                 ? 'Kapanış arşivi, kâr/zarar ve fişler'
                 : activeTab === 'stock'
@@ -1632,18 +1623,6 @@ export default function App() {
             )}
           </div>
         </div>
-        )}
-
-        {activeTab === 'money_routine' && (
-          <ParaRutiniView
-            transactions={transactions}
-            customers={customers}
-            products={products}
-            appointments={appointments}
-            shopProfile={shopProfile}
-            onOpenWhatsApp={(cust) => openWhatsAppForCustomer(cust)}
-            onOpenPayment={(cust) => openTransactionForCustomer(cust, 'tahsilat')}
-          />
         )}
 
         {/* 7. View Content: SectorModuleSwitch (sektör) OR Activity Feed OR ... */}

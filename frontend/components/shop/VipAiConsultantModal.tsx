@@ -1,70 +1,57 @@
 import React, { useState } from 'react';
-import { ShopProfile, CashRegister } from '../../../shared/types.ts';
+import { ShopProfile } from '../../../shared/types.ts';
 import {
   Crown,
   X,
   LifeBuoy,
   ShieldCheck,
-  BellRing,
-  MessageSquare,
-  Boxes,
-  Users,
-  TrendingUp,
-  Sparkles,
-  Bot,
-  Send,
-  Loader2,
+  LayoutGrid,
+  Sliders,
   CheckCircle2,
   CreditCard,
   QrCode,
   Flame,
+  Loader2,
+  Wrench,
+  Send,
+  Sparkles,
+  PhoneCall,
+  Laptop,
 } from 'lucide-react';
 
 interface VipAiConsultantModalProps {
   isOpen: boolean;
   onClose: () => void;
   shopProfile?: ShopProfile;
-  cash?: CashRegister;
+  cash?: any;
   onApplyProfileTip?: (newSlogan: string) => Promise<void>;
   onVipStatusChanged?: (isVip: boolean) => void;
 }
 
-const VIP_FEATURES = [
+const CUSTOM_PANEL_PERKS = [
   {
-    Icon: Bot,
-    title: '7/24 AI Dükkan Danışmanı',
-    desc: 'Ciro hedefleri, toptancı iskontoları ve mahalle pazarlama tavsiyeleri.',
-    badge: 'Yapay Zeka',
+    Icon: LayoutGrid,
+    title: 'İşletmenize %100 Özel Panel',
+    desc: 'Standart kalıplara sıkışmayın. Dükkanınızın tam ihtiyaç duyduğu ekranları, butonları ve iş akışını size özel tasarlıyoruz.',
+    badge: 'Terzi Usulü',
   },
   {
-    Icon: MessageSquare,
-    title: 'Toplu WhatsApp Alacak Turu',
-    desc: 'Veresiye defterindeki borçlulara tek tıkla nazik hatırlatma gönderimi.',
-    badge: 'Hızlı Tahsilat',
+    Icon: Sliders,
+    title: 'Özel Fiş, Form ve Hesaplama',
+    desc: 'Sektörünüze özel tartı, parça kodu, emanet fişi, randevu saati veya iskonto mantıklarını sisteme ekliyoruz.',
+    badge: 'Sınırsız Özelleştirme',
   },
   {
-    Icon: Boxes,
-    title: 'Kritik Stok & Erken Sipariş',
-    desc: 'Tükenmeye yaklaşan ürünleri ve tedarikçi maliyetlerini anlık takip edin.',
-    badge: 'Stok Kalkanı',
-  },
-  {
-    Icon: TrendingUp,
-    title: 'Patron Kâr/Zarar Raporu',
-    desc: 'Haftalık net kâr, kasa açığı denkleştirme ve gelir-gider trendleri.',
-    badge: 'Finans Raporu',
-  },
-  {
-    Icon: Users,
-    title: 'Çoklu Personel & Prim',
-    desc: 'Usta, kalfa ve çırakların yaptığı işlemleri ve prim hakedişlerini yönetin.',
-    badge: 'Ekip Yönetimi',
+    Icon: Laptop,
+    title: 'Doğrudan Yazılımcı Desteği',
+    desc: 'Robotlarla veya yapay zekayla uğraşmayın. Doğrudan dükkanınızı anlayan yazılım ekibimizle birebir iletişim kurun.',
+    badge: 'Öncelikli Ekip',
   },
   {
     Icon: ShieldCheck,
-    title: 'Bulut Yedekleme & Sınırsız Kayıt',
-    desc: 'Telefon bozulsa bile tüm müşteri carisi ve kasa hareketleri güvende.',
-    badge: 'Banka Güvenliği',
+    title: 'Banka Güvenliği & Özel Bulut',
+    desc: 'Tüm kasa ve müşteri defteriniz kesintisiz yedeklenir, telefon değiştirseniz bile hiçbir veriniz kaybolmaz.',
+    badge: 'Güvenli Altyapı',
   },
 ];
 
@@ -74,21 +61,17 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
   shopProfile,
   onVipStatusChanged,
 }) => {
-  const [activeTab, setActiveTab] = useState<'benefits' | 'ai_chat' | 'payment'>('benefits');
+  const [activeTab, setActiveTab] = useState<'request' | 'pricing'>('request');
   const [selectedPlan, setSelectedPlan] = useState<'aylik' | 'yillik'>('yillik');
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
 
-  // AI Chat States
-  const [chatMessage, setChatMessage] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatHistory, setChatHistory] = useState<Array<{ sender: 'user' | 'ai'; text: string; title?: string }>>([
-    {
-      sender: 'ai',
-      title: 'Hoş Geldiniz Ahmet Usta!',
-      text: 'Ben Dükkanım Yanımda VIP Esnaf Danışmanınız. Dükkanınızın cirosunu artırmak, toptancı giderlerini düşürmek veya veresiyeleri hızla toplamak için bana istediğinizi sorabilirsiniz.',
-    },
-  ]);
+  // Talep formu alanları
+  const [requestedFeatures, setRequestedFeatures] = useState('');
+  const [contactPhone, setContactPhone] = useState(shopProfile?.phone || '');
+  const [requestNotes, setRequestNotes] = useState('');
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   if (!isOpen) return null;
 
@@ -106,9 +89,6 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
       if (res.ok && data.success) {
         setUpgradeSuccess(true);
         if (onVipStatusChanged) onVipStatusChanged(true);
-        setTimeout(() => {
-          setActiveTab('ai_chat');
-        }, 1500);
       }
     } catch (err) {
       console.error('VIP upgrade error:', err);
@@ -117,61 +97,50 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
     }
   };
 
-  const handleSendAiMessage = async (customText?: string, topic?: string) => {
-    const textToSend = customText || chatMessage;
-    if (!textToSend.trim()) return;
+  const handleSendCustomRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requestedFeatures.trim()) return;
 
-    const newHistory = [...chatHistory, { sender: 'user' as const, text: textToSend }];
-    setChatHistory(newHistory);
-    if (!customText) setChatMessage('');
-    setChatLoading(true);
-
+    setRequestSubmitting(true);
     try {
-      const res = await fetch('/api/vip/ai-consultant', {
+      const res = await fetch('/api/vip/request-custom-panel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: textToSend, topic: topic || 'general' }),
+        body: JSON.stringify({
+          sector: shopProfile?.businessField,
+          requestedFeatures,
+          phone: contactPhone,
+          notes: requestNotes,
+        }),
       });
-      const data = await res.json();
-      if (data && data.advice) {
-        setChatHistory([
-          ...newHistory,
-          { sender: 'ai' as const, text: data.advice, title: data.title },
-        ]);
+      if (res.ok) {
+        setRequestSubmitted(true);
       }
-    } catch {
-      setChatHistory([
-        ...newHistory,
-        {
-          sender: 'ai' as const,
-          text: 'Bağlantı sırasında bir aksaklık oldu ancak esnaf tavsiyemiz hazır: Günlük kasanızı sıkı tutun ve müşterilerinizle güler yüzlü iletişimi elden bırakmayın.',
-        },
-      ]);
+    } catch (err) {
+      console.error('Custom request error:', err);
     } finally {
-      setChatLoading(false);
+      setRequestSubmitting(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in">
-      <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-2xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden transition-all flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-2xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden transition-all flex flex-col max-h-[92vh]">
         {/* VIP Başlık */}
         <div className="p-5 sm:p-6 bg-linear-to-r from-amber-500 via-amber-600 to-yellow-600 text-white flex items-center justify-between shrink-0 relative overflow-hidden">
-          <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
-
           <div className="flex items-center gap-3.5 relative">
             <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shadow-inner shrink-0">
               <Crown className="w-6 h-6 text-yellow-200" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black tracking-tight">VIP Esnaf Kulübü</h2>
+                <h2 className="text-xl font-black tracking-tight">İşletmenize Özel VIP Panel</h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-white text-amber-800 uppercase tracking-wider shadow-xs">
-                  {isAlreadyVip ? 'AKTİF ÜYE' : 'ÖZEL AYRICALIK'}
+                  {isAlreadyVip ? 'VIP ÜYESİ' : 'ÖZEL GELİŞTİRME'}
                 </span>
               </div>
               <p className="text-xs text-amber-100 mt-0.5 font-medium">
-                {shopProfile?.storeName || 'Dükkanınız'} için kâr artıran ve zaman kazandıran dijital güç
+                {shopProfile?.storeName || 'Dükkanınız'} için ne gerekiyorsa birebir panelinize ekleyelim
               </p>
             </div>
           </div>
@@ -185,60 +154,47 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
           </button>
         </div>
 
-        {/* Sekme Butonları */}
+        {/* Sekmeler */}
         <div className="flex border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 p-2 gap-1.5 shrink-0">
           <button
             type="button"
-            onClick={() => setActiveTab('benefits')}
+            onClick={() => setActiveTab('request')}
             className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'benefits'
+              activeTab === 'request'
                 ? 'bg-white dark:bg-stone-800 text-amber-600 dark:text-amber-400 shadow-xs'
                 : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            Ayrıcalıklar &amp; Özellikler
+            <Wrench className="w-3.5 h-3.5" />
+            Özel Panel İstiyorum
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveTab('ai_chat')}
+            onClick={() => setActiveTab('pricing')}
             className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'ai_chat'
-                ? 'bg-white dark:bg-stone-800 text-amber-600 dark:text-amber-400 shadow-xs'
-                : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
-            }`}
-          >
-            <Bot className="w-3.5 h-3.5" />
-            Yapay Zeka Danışmanı
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('payment')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'payment'
+              activeTab === 'pricing'
                 ? 'bg-white dark:bg-stone-800 text-amber-600 dark:text-amber-400 shadow-xs'
                 : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
             <CreditCard className="w-3.5 h-3.5" />
-            Paket &amp; Ödeme Planı
+            Paketler &amp; Fiyat
           </button>
         </div>
 
-        {/* Gövde İçeriği */}
+        {/* Gövde */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
-          {/* SEKME 1: AYRICALIKLAR */}
-          {activeTab === 'benefits' && (
+          {activeTab === 'request' && (
             <div className="space-y-4">
+              {/* Bilgilendirme Kartları */}
               <div className="grid sm:grid-cols-2 gap-3">
-                {VIP_FEATURES.map((item) => {
+                {CUSTOM_PANEL_PERKS.map((item) => {
                   const Icon = item.Icon;
                   return (
                     <div
                       key={item.title}
-                      className="p-3.5 rounded-2xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-800/40 hover:border-amber-300 transition-all flex items-start gap-3"
+                      className="p-3.5 rounded-2xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-800/40 flex items-start gap-3"
                     >
                       <span className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5 font-bold">
                         <Icon className="w-5 h-5" />
@@ -248,7 +204,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                           <h4 className="text-xs font-black text-stone-900 dark:text-white truncate">
                             {item.title}
                           </h4>
-                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 whitespace-nowrap">
+                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300">
                             {item.badge}
                           </span>
                         </div>
@@ -261,129 +217,106 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                 })}
               </div>
 
-              {/* Alt Hızlı Eylem Banner'ı */}
-              <div className="p-4 rounded-2xl bg-linear-to-r from-amber-50 via-yellow-50 to-amber-50/50 dark:from-stone-800 dark:to-stone-800/70 border border-amber-200 dark:border-amber-800/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black text-amber-950 dark:text-amber-200">
-                    VIP Üyeliğiyle Dükkanınızın Kazancını Katlayın
-                  </p>
-                  <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 font-medium mt-0.5">
-                    Ayda sadece 1 bardak çay parasına tüm profesyonel modüller açık.
-                  </p>
+              {/* Panel Talep Formu */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <h4 className="text-xs font-black text-stone-900 dark:text-white uppercase tracking-wider">
+                    Panelinize Hangi Özelliklerin Eklenmesini İstersiniz?
+                  </h4>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('payment')}
-                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
-                >
-                  Paketleri İncele
-                </button>
-              </div>
-            </div>
-          )}
 
-          {/* SEKME 2: 7/24 AI DANIŞMAN SOHBETİ */}
-          {activeTab === 'ai_chat' && (
-            <div className="space-y-3 flex flex-col h-full min-h-[340px]">
-              {/* Hızlı Tavsiye Butonları */}
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleSendAiMessage('Dükkanımın vitrinini ve tabelasını nasıl daha çekici yapabilirim?', 'profile')}
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-stone-700 dark:text-stone-300 transition-colors"
-                >
-                  💡 Vitrin &amp; Tabela Tüyosu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendAiMessage('Aylık toptancı ve dükkan giderlerini nasıl %15 düşürürüm?', 'expenses')}
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-stone-700 dark:text-stone-300 transition-colors"
-                >
-                  📉 Toptancı Masraf Tasarrufu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendAiMessage('Müşterileri veresiye yerine nakit veya FAST karekoda nasıl alıştırırım?', 'general')}
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-stone-700 dark:text-stone-300 transition-colors"
-                >
-                  💳 Hızlı Tahsilat Taktikleri
-                </button>
-              </div>
-
-              {/* Sohbet Akışı */}
-              <div className="flex-1 overflow-y-auto space-y-3 p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-800 max-h-[300px]">
-                {chatHistory.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex flex-col ${item.sender === 'user' ? 'items-end' : 'items-start'}`}
-                  >
-                    <div
-                      className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs ${
-                        item.sender === 'user'
-                          ? 'bg-amber-500 text-white font-bold rounded-tr-none'
-                          : 'bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 border border-stone-200/70 dark:border-stone-700 rounded-tl-none font-medium'
-                      }`}
-                    >
-                      {item.title && (
-                        <p className="font-black text-amber-600 dark:text-amber-400 mb-1 border-b border-stone-100 dark:border-stone-700 pb-1">
-                          {item.title}
-                        </p>
-                      )}
-                      <p className="whitespace-pre-line leading-relaxed">{item.text}</p>
+                {requestSubmitted ? (
+                  <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-center space-y-1">
+                    <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> Özel Panel Talebiniz Alındı!
+                    </p>
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                      Yazılım mühendisimiz en geç 24 saat içinde dükkanınız için prototip hazırlayıp sizinle iletişime geçecektir.
+                    </p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSendCustomRequest} className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 mb-1">
+                        İstediğiniz Özel Özellikler &amp; Ekranlar *
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={requestedFeatures}
+                        onChange={(e) => setRequestedFeatures(e.target.value)}
+                        placeholder="Örn: Masalarımıza QR menü bağlayalım, tartıdan ağırlığı otomatik alsın, teknik serviste cihaz fotoğrafı çekelim, toptancıya otomatik WhatsApp siparişi versin..."
+                        className="w-full px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        required
+                      />
                     </div>
-                  </div>
-                ))}
-                {chatLoading && (
-                  <div className="flex items-center gap-2 text-xs font-bold text-stone-400 p-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-                    Ahmet Usta için tavsiyeler hazırlanıyor…
-                  </div>
+
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 mb-1">
+                          İletişim Telefonunuz
+                        </label>
+                        <input
+                          type="tel"
+                          value={contactPhone}
+                          onChange={(e) => setContactPhone(e.target.value)}
+                          placeholder="05XX XXX XX XX"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 mb-1">
+                          Ek Açıklama / Not
+                        </label>
+                        <input
+                          type="text"
+                          value={requestNotes}
+                          onChange={(e) => setRequestNotes(e.target.value)}
+                          placeholder="Örn: Hafta içi saat 14:00'ten sonra arayabilirsiniz"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={requestSubmitting || !requestedFeatures.trim()}
+                      className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-transform active:scale-98"
+                    >
+                      {requestSubmitting ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Talebiniz İletiliyor…
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          Özel Panel Talebini Yazılım Ekibine Gönder
+                        </>
+                      )}
+                    </button>
+                  </form>
                 )}
               </div>
-
-              {/* Giriş Alanı */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="text"
-                  value={chatMessage}
-                  onChange={(e) => setChatMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSendAiMessage();
-                  }}
-                  placeholder="Danışmana sor: Ciro nasıl artar, toptancı indirimi nasıl istenir..."
-                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleSendAiMessage()}
-                  disabled={chatLoading || !chatMessage.trim()}
-                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-transform active:scale-95"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  Gönder
-                </button>
-              </div>
             </div>
           )}
 
-          {/* SEKME 3: PAKETLER & ÖDEME PLANI */}
-          {activeTab === 'payment' && (
+          {activeTab === 'pricing' && (
             <div className="space-y-4">
               <div className="text-center max-w-sm mx-auto">
                 <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
-                  ESNAFA ÖZEL ŞEFFAF FİYATLANDIRMA
+                  ŞEFFAF VE TAAHHÜTSÜZ
                 </span>
                 <h3 className="mt-1.5 text-base font-black text-stone-900 dark:text-white">
-                  Size En Uygun VIP Paketini Seçin
+                  İşletmenize Özel VIP Paket Seçenekleri
                 </h3>
               </div>
 
-              {/* Paket Karşılaştırma Kartları */}
               <div className="grid sm:grid-cols-2 gap-3">
                 {/* Aylık Paket */}
                 <div
                   onClick={() => setSelectedPlan('aylik')}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
                     selectedPlan === 'aylik'
                       ? 'border-amber-500 bg-amber-50/40 dark:bg-amber-950/20 shadow-md'
                       : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800/40'
@@ -391,25 +324,25 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                 >
                   <p className="text-xs font-black uppercase text-stone-500 dark:text-stone-400">Aylık VIP</p>
                   <p className="mt-1 text-2xl font-black text-stone-900 dark:text-white">
-                    ₺149 <span className="text-xs font-bold text-stone-400">/ ay</span>
+                    ₺249 <span className="text-xs font-bold text-stone-400">/ ay</span>
                   </p>
                   <p className="text-[11px] text-stone-500 mt-1 font-medium">
-                    Taahhüt yok, dilediğiniz ay iptal edilebilir.
+                    İstediğiniz zaman iptal edebilirsiniz.
                   </p>
                   <ul className="mt-3 space-y-1.5 text-[11px] font-bold text-stone-700 dark:text-stone-300">
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 7/24 AI Dükkan Danışmanı
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> İşletmeye Özel Panel Modifikasyonu
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Sınırsız Veresiye Defteri
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Sınırsız Müşteri &amp; Kasa Girişi
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> WhatsApp Toplu Hatırlatma
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Öncelikli Yazılım Desteği
                     </li>
                   </ul>
                 </div>
 
-                {/* Yıllık Paket (Avantajlı) */}
+                {/* Yıllık Paket */}
                 <div
                   onClick={() => setSelectedPlan('yillik')}
                   className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
@@ -423,34 +356,33 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                   </span>
                   <p className="text-xs font-black uppercase text-amber-600 dark:text-amber-400">Yıllık Avantajlı VIP</p>
                   <p className="mt-1 text-2xl font-black text-stone-900 dark:text-white">
-                    ₺1.490 <span className="text-xs font-bold text-stone-400">/ yıl</span>
+                    ₺2.490 <span className="text-xs font-bold text-stone-400">/ yıl</span>
                   </p>
                   <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-bold">
-                    Aylık ₺124'ye gelir, net ₺298 tasarruf.
+                    Net ₺498 kâr, tam yıl kesintisiz panel.
                   </p>
                   <ul className="mt-3 space-y-1.5 text-[11px] font-bold text-stone-700 dark:text-stone-300">
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Tüm Aylık Özellikler
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Tüm Özel Panel Düzenlemeleri
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Öncelikli VIP Telefon &amp; WhatsApp Destek
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Özel FAST Karekod &amp; IBAN Kurulumu
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Özel FAST Karekod Entegrasyonu
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Birebir Telefon &amp; WhatsApp Ekip Hattı
                     </li>
                   </ul>
                 </div>
               </div>
 
-              {/* Ödeme / Aktivasyon Eylemi */}
-              <div className="pt-2">
+              <div>
                 {upgradeSuccess ? (
                   <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-center space-y-1">
                     <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4" /> VIP Üyeliğiniz Aktif Edildi!
                     </p>
                     <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                      Tüm modüller açıldı, danışman sohbetine yönlendiriliyorsunuz.
+                      Dilediğiniz zaman "Özel Panel İstiyorum" sekmesinden yeni ekran veya özellik talep edebilirsiniz.
                     </p>
                   </div>
                 ) : (
@@ -463,12 +395,12 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                     {isUpgrading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Üyelik Tanımlanıyor…
+                        Tanımlanıyor…
                       </>
                     ) : (
                       <>
                         <Crown className="w-4 h-4" />
-                        {selectedPlan === 'yillik' ? 'Yıllık VIP Paketini Başlat (₺1.490)' : 'Aylık VIP Paketini Başlat (₺149)'}
+                        {selectedPlan === 'yillik' ? 'Yıllık VIP Paketini Başlat (₺2.490)' : 'Aylık VIP Paketini Başlat (₺249)'}
                       </>
                     )}
                   </button>
@@ -476,17 +408,17 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
 
                 <p className="text-[10px] text-stone-400 text-center mt-2 flex items-center justify-center gap-1">
                   <QrCode className="w-3 h-3 text-emerald-500" />
-                  Kredi Kartı veya TR-Karekod (FAST) ile anında güvenli aktivasyon
+                  Kredi Kartı veya FAST Karekod ile anında güvenli aktivasyon
                 </p>
               </div>
 
               {/* Destek Kutusu */}
               <div className="rounded-2xl bg-linear-to-r from-emerald-600 to-teal-700 text-white p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <LifeBuoy className="w-5 h-5 text-emerald-200 shrink-0" />
+                  <PhoneCall className="w-5 h-5 text-emerald-200 shrink-0" />
                   <div>
-                    <h5 className="text-xs font-black">Sorunuz mu var?</h5>
-                    <p className="text-[11px] text-emerald-100">Kasa, yedekleme veya fatura için direkt esnaf hattımız:</p>
+                    <h5 className="text-xs font-black">Yazılım Ekibine Ulaşın</h5>
+                    <p className="text-[11px] text-emerald-100">Dükkanınıza özel ek modül ve sorularınız için:</p>
                   </div>
                 </div>
                 <span className="text-xs font-black bg-white/20 px-3 py-1.5 rounded-xl whitespace-nowrap">

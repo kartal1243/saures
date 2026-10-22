@@ -170,15 +170,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <Activity className="w-4 h-4 shrink-0" />
         <span>Gün Sonu</span>
       </button>
-      <button
-        id="nav-tab-money-routine"
-        type="button"
-        onClick={() => onNavigate('money_routine')}
-        className={tabBtn(activeTab === 'money_routine')}
-      >
-        <HandCoins className="w-4 h-4 shrink-0" />
-        <span>Para Rutinim</span>
-      </button>
     </>
   );
 

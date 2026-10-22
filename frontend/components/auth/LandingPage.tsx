@@ -32,6 +32,7 @@ import {
   Receipt,
   Layers,
   CheckCircle2,
+  Crown,
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
@@ -151,7 +152,11 @@ const BENTO_FEATURES = [
 const FAQS = [
   {
     q: 'Dükkanım Yanımda tamamen ücretsiz mi?',
-    a: 'Evet. Hemen 1 dakikada telefon numaranızla kayıt olabilir ve tüm temel modülleri (Kasa, Veresiye, Stok, Müşteriler) ücretsiz olarak kullanabilirsiniz. Kredi kartı bilgisi asla talep edilmez.',
+    a: 'Evet! Hemen 1 dakikada telefon numaranızla kayıt olarak Kasa, Veresiye, Stok ve Müşteri Defteri gibi tüm temel özellikleri ücretsiz kullanabilirsiniz. Dükkanınıza özel terzi usulü ekran ve modül isterseniz de çok uygun fiyatlı VIP Özel Panel paketimizden faydalanabilirsiniz.',
+  },
+  {
+    q: 'İşletmeme özel VIP panel üretimini nasıl talep ederim?',
+    a: 'Çok kolay! Giriş yaptıktan sonra VIP sekmesinden veya doğrudan bize ulaşarak işletmenizin ihtiyacı olan ekranları (özel fiş, adisyon, usta primi veya tartı entegrasyonu) iletmeniz yeterlidir. Mühendis ekibimiz doğrudan sizin dükkanınıza özel ekranları hızla kodlar ve yayına alır.',
   },
   {
     q: 'Telefonumda uygulama gibi çalışır mı?',
@@ -209,6 +214,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <a href="#ozellikler" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">Özellikler</a>
             <a href="#sektorler" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">Sektörler</a>
             <a href="#nasil-calisir" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">Nasıl Çalışır</a>
+            <a href="#vip" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 transition-all">
+              <Crown className="w-3.5 h-3.5 text-amber-500" />
+              <span>VIP Panel &amp; Fiyatlar</span>
+            </a>
             <a href="#sss" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">SSS</a>
           </nav>
 
@@ -642,6 +651,153 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
         </div>
       </section>
 
+      {/* İŞLETMEYE ÖZEL VIP PANEL & ŞEFFAF FİYATLANDIRMA */}
+      <section id="vip" className="bg-stone-100/70 dark:bg-stone-900/40 border-y border-stone-200/80 dark:border-stone-800/80 py-16 sm:py-24 scroll-mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center max-w-3xl mx-auto">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-black uppercase tracking-widest border border-amber-500/20">
+              <Crown className="w-3.5 h-3.5 text-amber-500" />
+              TERZİ USULÜ GELİŞTİRME &amp; VIP
+            </span>
+            <h2 className="mt-3 text-3xl sm:text-5xl font-black tracking-tight text-stone-900 dark:text-white">
+              İşletmenize Özel Panel Üretimi
+            </h2>
+            <p className="mt-3 text-sm sm:text-base text-stone-600 dark:text-stone-300 font-medium max-w-2xl mx-auto">
+              Standart kalıplara sıkışmayın. Dükkanınızın tam ihtiyacı olan ekranları, butonları, özel fişleri ve donanım bağlantılarını <strong className="text-stone-900 dark:text-white font-black">birebir size özel kodluyoruz</strong>.
+            </p>
+          </div>
+
+          <div className="mt-12 grid md:grid-cols-2 gap-8 max-w-5xl mx-auto items-stretch">
+            {/* 1. KART: STANDART ESNAF PAKETİ (ÜCRETSİZ) */}
+            <div className="p-7 sm:p-9 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/90 dark:border-stone-800 shadow-xs flex flex-col justify-between transition-all">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-stone-400">Temel Sürüm</span>
+                  <span className="px-3 py-1 rounded-full text-[11px] font-black bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700">
+                    Sonsuza Dek
+                  </span>
+                </div>
+                <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white">Standart Esnaf</h3>
+                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
+                  Hemen dükkanını cebine alıp kağıt defteri çöpe atmak isteyenler için.
+                </p>
+
+                <div className="mt-6 pb-6 border-b border-stone-100 dark:border-stone-800">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl sm:text-5xl font-black text-stone-900 dark:text-white">₺0</span>
+                    <span className="text-xs font-bold text-stone-500">/ sonsuza kadar ücretsiz</span>
+                  </div>
+                  <p className="mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                    ✓ Kredi kartı veya taahhüt gerekmez
+                  </p>
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  <p className="text-[11px] font-black text-stone-400 uppercase tracking-wider">Neler Dahil?</p>
+                  {[
+                    'Kasa & Gün Sonu Denkleştirme (Nakit/Kart/Gider)',
+                    'Sınırsız Veresiye Defteri & Müşteri Carisi',
+                    'WhatsApp ile Tek Tıkla Kibar Borç Hatırlatması',
+                    'Telefon Kamerası ile Otomatik Barkod Okutma',
+                    'Temel Sektör Şablonları (Berber, Kafe, Bakkal vb.)',
+                    'Mobil Uyumlu PWA & Şifreli Bulut Yedekleme',
+                  ].map((feat) => (
+                    <div key={feat} className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold text-stone-700 dark:text-stone-200">
+                      <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5" />
+                      </span>
+                      <span>{feat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-stone-100 dark:border-stone-800">
+                <button
+                  type="button"
+                  onClick={onRegister}
+                  className="w-full py-3.5 px-4 rounded-xl text-sm font-black text-stone-800 dark:text-stone-100 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200/80 dark:border-stone-700 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  Ücretsiz Başla
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* 2. KART: İŞLETMEYE ÖZEL VIP PANEL */}
+            <div className="relative p-7 sm:p-9 rounded-3xl bg-linear-to-b from-amber-500/5 via-white to-amber-500/10 dark:from-stone-900 dark:via-stone-900 dark:to-amber-950/20 border-2 border-amber-500/80 shadow-xl flex flex-col justify-between transition-all">
+              {/* Üst Rozet */}
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-linear-to-r from-amber-500 to-amber-600 text-white text-[11px] font-black uppercase tracking-wider shadow-md shadow-amber-500/30 flex items-center gap-1.5 whitespace-nowrap">
+                <Sparkles className="w-3.5 h-3.5" />
+                Dükkanınıza Özel Kodlanır
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">VIP Avantajı</span>
+                  <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                    Öncelikli Yazılım Ekibi
+                  </span>
+                </div>
+                <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white flex items-center gap-2">
+                  İşletmeye Özel Panel
+                  <Crown className="w-5 h-5 text-amber-500" />
+                </h3>
+                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
+                  "Şu düğme de olsun, şu fiş böyle çıksın" dediğiniz her şeyi doğrudan panelinize ekliyoruz.
+                </p>
+
+                <div className="mt-6 pb-6 border-b border-amber-200/60 dark:border-amber-800/40">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="text-4xl sm:text-5xl font-black text-stone-900 dark:text-white">₺249</span>
+                    <span className="text-xs font-bold text-stone-500">/ ay</span>
+                    <span className="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                      Yıllıkta 2 Ay Hediye (₺2.490)
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                    ✓ Yapay zeka botu değil, doğrudan gerçek yazılım mühendisi desteği
+                  </p>
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  <p className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider">VIP Ekstra Ayrıcalıkları</p>
+                  {[
+                    'Standart paketteki tüm özellikler eksiksiz dahil',
+                    'Dükkanınıza Özel Ekran & Modül Geliştirme (Terzi Usulü)',
+                    'Özel Fiş, Servis Kabul Formu veya Fatura Tasarımı',
+                    'Barkodlu Terazi, Termal Fiş Yazıcısı Entegrasyonu',
+                    'Doğrudan Yazılımcı & Telefonla Öncelikli Destek Hattı',
+                    'İstediğiniz Zaman Yeni Buton & Fonksiyon Talep Edebilme',
+                  ].map((feat, idx) => (
+                    <div key={feat} className={`flex items-center gap-2.5 text-xs sm:text-sm font-bold ${idx === 1 ? 'text-amber-900 dark:text-amber-200' : 'text-stone-800 dark:text-stone-100'}`}>
+                      <span className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <Check className="w-3.5 h-3.5" />
+                      </span>
+                      <span>{feat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-amber-200/60 dark:border-amber-800/40">
+                <button
+                  type="button"
+                  onClick={onRegister}
+                  className="w-full py-3.5 px-4 rounded-xl text-sm font-black text-white bg-linear-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 shadow-lg shadow-amber-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Crown className="w-4 h-4 text-yellow-200" />
+                  VIP Özel Panelimi İstiyorum
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <p className="mt-2 text-center text-[10px] text-stone-400 font-medium">
+                  Kayıt sonrası panelinizdeki VIP sekmesinden dilediğiniz özellikleri iletebilirsiniz
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* SIKÇA SORULAN SORULAR */}
       <section id="sss" className="max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-24 scroll-mt-20">
