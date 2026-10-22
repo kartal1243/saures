@@ -32,6 +32,7 @@ import { CustomerList } from './components/customers/CustomerList';
 import { AuthPage } from './components/auth/AuthPage';
 import { LandingPage } from './components/auth/LandingPage';
 import { matchPublicRoute, PublicPage } from './components/public/PublicPages';
+import { PublicQrMenuView } from './components/public/PublicQrMenuView';
 import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
@@ -1367,6 +1368,12 @@ export default function App() {
         <AdminSite />
       </Suspense>
     );
+  }
+
+  // ---- Herkese açık restoran dijital QR menüsü (/m/:slug veya /menu) ----
+  const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+  if (pathname.startsWith('/m/') || pathname === '/menu') {
+    return <PublicQrMenuView />;
   }
   if (authStatus === 'checking') {
     return (

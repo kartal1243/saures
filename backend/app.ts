@@ -29,6 +29,7 @@ import { registerServiceRoutes } from './routes/services';
 import { registerCaseRoutes } from './routes/cases';
 import { registerCustodyRoutes } from './routes/custody';
 import { registerAdminRoutes } from './routes/admin';
+import { registerPublicMenuRoutes, registerProtectedMenuRoutes } from './routes/menu';
 
 export async function startServer(): Promise<void> {
   const app = express();
@@ -83,6 +84,9 @@ export async function startServer(): Promise<void> {
   // ---------------- Admin: kendi sifreli oturumu var, guard'dan once ----------------
   registerAdminRoutes(app);
 
+  // ---------------- Herkese açık menü ucu (QR okutan müşteriler şifresiz girer) ----------------
+  registerPublicMenuRoutes(app);
+
   // ---------------- Koruma: sonrası için giriş + rol zorunlu ----------------
   app.use('/api', apiGuard);
 
@@ -102,6 +106,7 @@ export async function startServer(): Promise<void> {
   registerServiceRoutes(app);
   registerCaseRoutes(app);
   registerCustodyRoutes(app);
+  registerProtectedMenuRoutes(app);
 
   // Vite middleware in development vs static serving in production
   if (process.env.NODE_ENV !== 'production') {

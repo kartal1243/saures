@@ -69,8 +69,8 @@ const SECTOR_DATA: SectorInfo[] = [
     title: 'Kafe & Restoran',
     tagline: 'Masa adisyonları, açık hesaplar ve hızlı fiş',
     description: 'Açık masaları tek dokunuşla yönet. Masaya sipariş ekle, parçalı ödeme al veya hesabı anında kapat. Karmaşık POS cihazlarına servet ödeme.',
-    badge: 'Masa & Adisyon',
-    highlights: ['Canlı Masa Düzeni', 'Masa Taşıma & Birleştirme', 'Nakit / Kart / Açık Hesap Kapatma', 'Gün Sonu Z Raporu'],
+    badge: 'Masa & QR Menü',
+    highlights: ['Masalara Özel Fotoğraflı QR Menü', 'Canlı Masa & Adisyon Takibi', 'Nakit / Kart / Açık Hesap Kapatma', 'Garson & Hesap Çağrı Zili'],
   },
   {
     id: 'bakkal',

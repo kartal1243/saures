@@ -143,6 +143,17 @@ export interface ShopProfile {
   slogan?: string;
   isConfigured: boolean;
   isVip: boolean;
+  slug?: string;
+}
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  description?: string;
+  imageUrl?: string;
+  isAvailable?: boolean;
 }
 
 export interface DailyClosing {
@@ -257,6 +268,7 @@ export interface AppState {
   services: ServiceItem[];
   cases: CaseFile[];
   custody: CustodyTicket[];
+  menuItems?: MenuItem[];
   businessDate: string; // İş günü (YYYY-MM-DD) — "Gün Sonu Kapat" ile devrer
   lastUpdated: string;
 }
@@ -280,6 +292,7 @@ export type WSEvent =
         services?: ServiceItem[];
         cases?: CaseFile[];
         custody?: CustodyTicket[];
+        menuItems?: MenuItem[];
         businessDate?: string;
       };
     }
@@ -306,5 +319,6 @@ export type WSEvent =
   | { type: 'CASE_UPSERTED'; payload: CaseFile }
   | { type: 'CASE_DELETED'; payload: { id: string } }
   | { type: 'CUSTODY_UPDATED'; payload: CustodyTicket }
-  | { type: 'CUSTODY_DELETED'; payload: { id: string } };
+  | { type: 'CUSTODY_DELETED'; payload: { id: string } }
+  | { type: 'MENU_UPDATED'; payload: MenuItem[] };
 

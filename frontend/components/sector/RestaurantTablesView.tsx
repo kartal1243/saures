@@ -15,8 +15,11 @@ import {
   ShoppingBag,
   TrendingDown,
   X,
+  QrCode,
 } from 'lucide-react';
 import { RestaurantTable, TableOrderItem } from '../../../shared/types.ts';
+import { RestaurantMenuManager } from './RestaurantMenuManager';
+import { TableQrMenuModal } from './TableQrMenuModal';
 
 interface RestaurantTablesViewProps {
   tables: RestaurantTable[];
@@ -59,6 +62,9 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState<number | ''>('');
+  const [mainTab, setMainTab] = useState<'tables' | 'qr_menu'>('tables');
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [qrTargetTable, setQrTargetTable] = useState<RestaurantTable | null>(null);
 
   // Keep selectedTable updated with latest table from props
   const activeTable = selectedTable
@@ -102,41 +108,86 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header & Metrics */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400">
-              <UtensilsCrossed className="w-5 h-5" />
-            </span>
-            <h2 className="text-xl font-black text-stone-900 dark:text-white tracking-tight">
-              Restoran, Kafe & Lokanta Masaları
-            </h2>
-          </div>
-          <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-1">
-            Görsel masa planı, anlık açık adisyonlar, sipariş ekleme ve tek tıkla hesap kapatma.
-          </p>
-        </div>
+      {/* 2 Temel Sekme: Masalar & Adisyonlar VS. QR Menü Yönetimi */}
+      <div className="flex border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-1.5 rounded-2xl gap-2 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setMainTab('tables')}
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            mainTab === 'tables'
+              ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <UtensilsCrossed className="w-4 h-4" />
+          <span>Masalar &amp; Canlı Adisyonlar ({occupiedCount} Dolu)</span>
+        </button>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => setIsAddOpen((v) => !v)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white transition-colors cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Masa Ekle</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsExpenseModalOpen(true)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 hover:bg-rose-100 transition-colors cursor-pointer"
-          >
-            <TrendingDown className="w-4 h-4" />
-            <span>Hal / Mutfak Masrafı Ekle</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setMainTab('qr_menu')}
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            mainTab === 'qr_menu'
+              ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+          }`}
+        >
+          <QrCode className="w-4 h-4" />
+          <span>QR Menü &amp; Yemek Yönetimi</span>
+        </button>
       </div>
+
+      {mainTab === 'qr_menu' ? (
+        <RestaurantMenuManager tables={tables} />
+      ) : (
+        <>
+          {/* Header & Metrics */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400">
+                  <UtensilsCrossed className="w-5 h-5" />
+                </span>
+                <h2 className="text-xl font-black text-stone-900 dark:text-white tracking-tight">
+                  Restoran, Kafe &amp; Lokanta Masaları
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-1">
+                Görsel masa planı, anlık açık adisyonlar, sipariş ekleme ve tek tıkla hesap kapatma.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setQrTargetTable(null);
+                  setIsQrModalOpen(true);
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors cursor-pointer"
+                title="Masalar için yazdırılabilir QR standı çıkar"
+              >
+                <QrCode className="w-4 h-4" />
+                <span>Masa QR Standları</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddOpen((v) => !v)}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white transition-colors cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Masa Ekle</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsExpenseModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 hover:bg-rose-100 transition-colors cursor-pointer"
+              >
+                <TrendingDown className="w-4 h-4" />
+                <span>Hal / Mutfak Masrafı Ekle</span>
+              </button>
+            </div>
+          </div>
 
       {/* Summary KPI Badges */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -535,6 +586,16 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* QR MODAL */}
+      <TableQrMenuModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        tables={tables}
+        selectedTable={qrTargetTable}
+      />
+        </>
       )}
     </div>
   );

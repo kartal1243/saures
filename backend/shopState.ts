@@ -35,6 +35,7 @@ export function emptyState(seed?: { storeName: string; ownerName: string; phone:
     services: [],
     cases: [],
     custody: [],
+    menuItems: [],
     businessDate: localDay(),
     lastUpdated: new Date().toISOString(),
   };
@@ -69,6 +70,7 @@ export function loadShopState(accountId: string): AppState {
   if (!Array.isArray((st as any).services)) (st as any).services = [];
   if (!Array.isArray((st as any).cases)) (st as any).cases = [];
   if (!Array.isArray((st as any).custody)) (st as any).custody = [];
+  if (!Array.isArray((st as any).menuItems)) (st as any).menuItems = [];
   if (typeof st.businessDate !== 'string' || !st.businessDate) st.businessDate = localDay();
   if (!Array.isArray(st.reminderLogs)) st.reminderLogs = [];
   shopStateCache.set(accountId, st);
