@@ -1,11 +1,63 @@
 import type { Express, Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
-import { S } from '../context';
+import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { GEMINI_MODEL } from '../config';
+import { broadcast } from '../realtime';
 
 export function registerVipRoutes(app: Express): void {
-  // 11. VIP AI Shop Consultant & Live Support (Yapay Zeka Esnaf Danışmanı)
+  // 1. VIP Durumu & Paket Bilgisi Sorgulama
+  app.get('/api/vip/status', (_req: Request, res: Response) => {
+    const profile = S().shopProfile;
+    res.json({
+      success: true,
+      isVip: Boolean(profile?.isVip),
+      plan: profile?.isVip ? 'usta_vip' : 'cirak_standart',
+      features: [
+        { id: 'stock_alarm', name: 'Kritik Stok Erken Alarmı', active: true },
+        { id: 'wa_batch', name: 'Tek Tıkla WhatsApp Alacak Hatırlatma', active: true },
+        { id: 'patron_report', name: 'Detaylı Patron & Kâr/Zarar Özeti', active: true },
+        { id: 'ai_consultant', name: '7/24 AI Esnaf Büyüme & Kâr Danışmanı', active: Boolean(profile?.isVip) },
+        { id: 'cloud_backup', name: 'Otomatik Bulut Yedekleme & Geri Yükleme', active: true },
+        { id: 'multi_staff', name: 'Sınırsız Personel & Usta Prim Takibi', active: Boolean(profile?.isVip) },
+      ],
+      pricing: {
+        monthly: 149,
+        yearly: 1490, // 2 ay bedava
+        currency: 'TRY',
+      },
+    });
+  });
+
+  // 2. VIP Üyelik Başlatma / Yükseltme (Sanal POS / FAST Entegrasyon Noktası)
+  app.post('/api/vip/upgrade', (req: Request, res: Response) => {
+    const { planPeriod = 'aylik', paymentChannel = 'demo_activate' } = req.body || {};
+    const profile = S().shopProfile;
+
+    if (!profile) {
+      return res.status(400).json({ error: 'Dükkan profili bulunamadı.' });
+    }
+
+    profile.isVip = true;
+    saveState();
+
+    broadcast({ type: 'SHOP_PROFILE_UPDATED', payload: profile });
+
+    res.json({
+      success: true,
+      message: 'Tebrikler! VIP Esnaf Kulübü üyeliğiniz başarıyla aktif edildi.',
+      profile,
+      membership: {
+        status: 'active',
+        plan: 'usta_vip',
+        period: planPeriod,
+        activatedAt: new Date().toISOString(),
+        channel: paymentChannel,
+      },
+    });
+  });
+
+  // 3. VIP AI Shop Consultant & Live Support (Yapay Zeka Esnaf Danışmanı)
   app.post('/api/vip/ai-consultant', async (req: Request, res: Response) => {
     const { message, topic } = req.body;
     const profile = S().shopProfile;
@@ -21,6 +73,7 @@ Dükkan Sahibi: ${profile?.ownerName || 'Esnaf'}
 Bugünkü Toplam Gelir: ${cash.todayTotalIncome} TL (Nakit: ${cash.todayCash} TL, Kart: ${cash.todayCard} TL, IBAN: ${cash.todayBank} TL)
 Bugünkü Dükkan Harcamaları / Masraf: ${cash.todayExpense} TL
 Bugünkü Net Kasa Kârı: ${cash.todayTotalIncome - cash.todayExpense} TL
+Toplam Bekleyen Veresiye: ${cash.totalReceivables} TL
 Günlük Ciro Hedefi: ${profile?.dailyTarget || 2500} TL
 `;
 
@@ -29,7 +82,7 @@ Günlük Ciro Hedefi: ${profile?.dailyTarget || 2500} TL
       if (t === 'profile') {
         return {
           title: 'Dükkan Profil & Vitrin İyileştirme Tavsiyeleri',
-          advice: `Sayın ${profile?.ownerName || 'Esnaf'}, ${profile?.storeName || 'Dükkanınız'} için mahallede müşteri çekim gücünü artıracak 3 öncelikli adım:
+          advice: `Sayın ${profile?.ownerName || 'Esnaf'}, ${profile?.storeName || 'Dükkanınız'} için müşteri çekim gücünü artıracak 3 öncelikli adım:
 1. **Google Haritalar & Tabela:** Dükkan tabelanızda ve Google Haritalar profilinizde "${profile?.businessField}" anahtar kelimesini ve çalışma saatlerinizi güncelleyin. Fotoğraflı profiller %45 daha çok müşteri çeker.
 2. **Kasa Önü Hızlı Ürün Alanı:** Kasa yanına sakız, atıştırmalık, kolonya gibi anlık satın alınan 10-50 TL'lik sepet genişletici ürünler yerleştirin.
 3. **Müşteri Hitap Sloganı:** Vitrininize "${profile?.slogan || 'Güler yüzlü hizmet, bereketli alışveriş'}" afişi asarak samimiyeti ön plana çıkarın.`,
@@ -90,7 +143,7 @@ ${shopContext}
 
 Kullanıcı Konusu / Talebi:
 Konu: ${topic || 'Genel Danışmanlık'}
-Esnafın Sorusu / Notu: ${message || 'Dükkanımı büyütmek ve profili iyileştirmek için öneriler ver.'}
+Esnafın Sorusu / Notu: ${message || 'Dükkanımı büyütmek ve kârımı artırmak için öneriler ver.'}
 
 Kurallar:
 1. Türkçe olarak, esnafın dilinden konuş; samimi, motive edici, pratik ve hemen uygulanabilir 3-4 somut tavsiye ver.

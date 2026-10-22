@@ -1523,6 +1523,7 @@ export default function App() {
         <HomeDashboard
           transactions={transactions}
           onNavigate={setActiveTab}
+          onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
         />
 
         {/* 4. Eski grafikler: kar/zarar karsilastirmasi + haftalik trend */}
@@ -2093,6 +2094,9 @@ export default function App() {
         isVipModalOpen={isVipModalOpen}
         onCloseVip={() => setIsVipModalOpen(false)}
         onApplySlogan={handleApplySlogan}
+        onVipStatusChanged={(newVip) => {
+          setShopProfile((prev) => ({ ...prev, isVip: newVip }));
+        }}
         isChangePasswordOpen={isChangePasswordOpen}
         onCloseChangePassword={() => setIsChangePasswordOpen(false)}
         isStaffModalOpen={isStaffModalOpen}

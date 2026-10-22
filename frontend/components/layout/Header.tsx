@@ -104,12 +104,19 @@ export const Header: React.FC<HeaderProps> = ({
             id="btn-open-vip-club"
             type="button"
             onClick={onOpenVip}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-linear-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white shadow-xs transition-transform active:scale-95 cursor-pointer"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black shadow-xs transition-transform active:scale-95 cursor-pointer ${
+              shopProfile?.isVip
+                ? 'bg-linear-to-r from-amber-500 via-amber-600 to-yellow-600 text-white ring-2 ring-amber-400/40'
+                : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
+            }`}
             title="VIP Esnaf Kulübü & Yapay Zeka Danışmanı"
           >
-            <Crown className="w-3.5 h-3.5" />
+            <Crown className={`w-3.5 h-3.5 ${shopProfile?.isVip ? 'text-yellow-200' : 'text-amber-500'}`} />
             <span className="hidden sm:inline">VIP Danışman</span>
             <span className="sm:hidden">VIP</span>
+            {shopProfile?.isVip && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            )}
           </button>
 
           {/* Dark Mode Toggle */}

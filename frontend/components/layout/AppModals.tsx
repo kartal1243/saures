@@ -82,6 +82,7 @@ interface AppModalsProps {
   isVipModalOpen: boolean;
   onCloseVip: () => void;
   onApplySlogan: (slogan: string) => Promise<void>;
+  onVipStatusChanged?: (isVip: boolean) => void;
   // Şifre + personel
   isChangePasswordOpen: boolean;
   onCloseChangePassword: () => void;
@@ -204,6 +205,7 @@ export const AppModals: React.FC<AppModalsProps> = (p) => {
         shopProfile={p.shopProfile}
         cash={p.cash}
         onApplyProfileTip={p.onApplySlogan}
+        onVipStatusChanged={p.onVipStatusChanged}
       />
 
       <ChangePasswordModal
