@@ -26,6 +26,8 @@ import { CustodyTicketsView } from './CustodyTicketsView';
 interface SectorModuleSwitchProps {
   sector: BusinessSector;
   activeTab: ActiveTab;
+  shopSlug?: string;
+  storeName?: string;
   // Berber
   appointments: Appointment[];
   services: ServiceItem[];
@@ -82,6 +84,8 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
       <BarberAppointmentsView
         appointments={props.appointments}
         services={props.services}
+        shopSlug={props.shopSlug}
+        storeName={props.storeName}
         onAddAppointment={props.onAddAppointment}
         onCompleteAppointment={props.onCompleteAppointment}
         onUpdateStatus={props.onUpdateAppointmentStatus}

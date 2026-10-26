@@ -33,6 +33,7 @@ import { AuthPage } from './components/auth/AuthPage';
 import { LandingPage } from './components/auth/LandingPage';
 import { matchPublicRoute, PublicPage } from './components/public/PublicPages';
 import { PublicQrMenuView } from './components/public/PublicQrMenuView';
+import { PublicBarberBookingView } from './components/public/PublicBarberBookingView';
 import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
@@ -1375,6 +1376,12 @@ export default function App() {
   if (pathname.startsWith('/m/') || pathname === '/menu') {
     return <PublicQrMenuView />;
   }
+
+  // ---- Herkese açık berber online randevu sayfası (/r/:slug veya /randevu/:slug) ----
+  if (pathname.startsWith('/r/') || pathname.startsWith('/randevu/') || pathname === '/randevu' || pathname === '/r') {
+    const rawSlug = pathname.replace(/^\/(r|randevu)\/?/, '') || 'demo';
+    return <PublicBarberBookingView identifier={rawSlug} />;
+  }
   if (authStatus === 'checking') {
     return (
       <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center gap-3">
@@ -1637,6 +1644,8 @@ export default function App() {
         <SectorModuleSwitch
           sector={currentSector}
           activeTab={activeTab}
+          shopSlug={shopProfile?.slug || 'demo'}
+          storeName={shopProfile?.storeName || storeName}
           appointments={appointments}
           services={serviceList}
           onAddAppointment={handleAddAppointment}

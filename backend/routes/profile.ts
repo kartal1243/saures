@@ -11,23 +11,40 @@ export function registerProfileRoutes(app: Express): void {
 
   app.post('/api/shop-profile', (req: Request, res: Response) => {
     const data = req.body;
-    if (!data.storeName) {
+    if (!data.storeName || !data.storeName.trim()) {
       return res.status(400).json({ error: 'Dükkan adı zorunludur.' });
     }
 
-    const updatedProfile: ShopProfile = {
-      storeName: data.storeName.trim(),
-      ownerName: (data.ownerName || 'Esnaf').trim(),
-      businessField: data.businessField || 'Bakkal / Market',
-      sectorKey: data.sectorKey || S().shopProfile?.sectorKey || 'bakkal_market',
-      employeeCount: data.employeeCount || '1',
-      phone: (data.phone || '').trim(),
-      cityDistrict: (data.cityDistrict || '').trim(),
-      dailyTarget: Number(data.dailyTarget) || 2500,
-      slogan: (data.slogan || '').trim(),
-      isConfigured: true,
-      isVip: data.isVip !== undefined ? Boolean(data.isVip) : (S().shopProfile?.isVip ?? true),
-    };
+    const currentProfile = S().shopProfile;
+    const isAlreadyConfigured = currentProfile && currentProfile.isConfigured;
+
+    let updatedProfile: ShopProfile;
+
+    if (isAlreadyConfigured) {
+      // Kural: İlk kurulumdan sonra SADECE dükkan adı ve günlük ciro hedefi değiştirilebilir!
+      // Sektör, sahip adı, telefon, şehir, çalışan sayısı kilitlidir.
+      updatedProfile = {
+        ...currentProfile,
+        storeName: data.storeName.trim(),
+        dailyTarget: Number(data.dailyTarget) || currentProfile.dailyTarget || 2500,
+        // Diğer alanlar kilitli ve korunur
+      };
+    } else {
+      // İlk kurulum aşaması: Tüm bilgiler ilk kez belirlenir ve kilitlenir
+      updatedProfile = {
+        storeName: data.storeName.trim(),
+        ownerName: (data.ownerName || 'Esnaf').trim(),
+        businessField: data.businessField || 'Berber / Kuaför',
+        sectorKey: data.sectorKey || 'berber_kuafor',
+        employeeCount: data.employeeCount || '1',
+        phone: (data.phone || '').trim(),
+        cityDistrict: (data.cityDistrict || '').trim(),
+        dailyTarget: Number(data.dailyTarget) || 2500,
+        slogan: (data.slogan || '').trim(),
+        isConfigured: true,
+        isVip: data.isVip !== undefined ? Boolean(data.isVip) : true,
+      };
+    }
 
     S().shopProfile = updatedProfile;
     S().storeName = updatedProfile.storeName;

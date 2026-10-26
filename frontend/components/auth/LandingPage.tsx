@@ -457,11 +457,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
       <section className="border-y border-stone-200/70 dark:border-stone-800/80 bg-white/70 dark:bg-stone-900/50 backdrop-blur-sm py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
           <div>
-            <p className="text-3xl sm:text-4xl font-black text-amber-600 dark:text-amber-400">3.000+</p>
+            <p className="text-3xl sm:text-4xl font-black text-amber-600 dark:text-amber-400">180+</p>
             <p className="mt-1 text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400">Aktif Esnaf & Dükkan</p>
           </div>
           <div>
-            <p className="text-3xl sm:text-4xl font-black text-[#0F172A] dark:text-white">₺15M+</p>
+            <p className="text-3xl sm:text-4xl font-black text-[#0F172A] dark:text-white">₺850K+</p>
             <p className="mt-1 text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400">Aylık Takip Edilen Ciro</p>
           </div>
           <div>

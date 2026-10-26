@@ -1,82 +1,93 @@
-export type BusinessType = 'bakkal_market' | 'spor_salonu' | 'ozel_ders' | 'teknik_servis' | 'diger';
+// Dükkânım Yanımda — Evrensel Veri Modeli
+// Her sektör (Bakkal, Berber, Restoran, Terzi, Teknik Servis vb.) bu ortak tipleri kullanır.
 
 export type BusinessSector =
+  | 'bakkal_market'
   | 'berber_kuafor'
   | 'kafe_restoran'
-  | 'bakkal_market'
+  | 'giyim_butik'
   | 'teknik_servis'
-  | 'avukat_danisman'
-  | 'terzi_kurutemizleme'
-  | 'diger_esnaf';
-
-export type TransactionType = 'veresiye' | 'tahsilat' | 'gider' | 'masraf';
-
-export type PaymentMethod = 'nakit' | 'kart' | 'havale' | 'veresiye';
-
-export type SubscriptionInterval = 'none' | 'aylik' | 'haftalik' | '3_aylik' | 'yillik' | 'periyodik_bakim';
+  | 'manav_kasap'
+  | 'kirtasiye'
+  | 'aktar_baharat'
+  | 'hirdavat'
+  | 'diger';
 
 export interface Customer {
   id: string;
   name: string;
   phone: string;
-  businessCategory: BusinessType;
-  balance: number; // Positive = customer owes money (alacak/veresiye), Negative = customer has credit
-  notes?: string;
-  subscriptionPlan?: {
-    enabled: boolean;
-    interval: SubscriptionInterval;
-    amount: number;
-    nextDueDate: string; // YYYY-MM-DD
-    title: string; // e.g. "Aylık Fitness Üyeliği" or "Kombi Bakım Periyodu"
-  };
-  createdAt: string;
-  updatedAt: string;
+  totalDebt: number; // Piyasadaki güncel veresiye borcu
   lastPaymentDate?: string;
+  notes?: string;
+  createdAt: string;
+  riskScore?: 'dusuk' | 'orta' | 'yuksek'; // Geri ödeme performansı
 }
+
+export type TransactionType = 'veresiye' | 'tahsilat' | 'gider' | 'nakit_satis';
+export type PaymentMethod = 'nakit' | 'kart' | 'havale' | 'diger';
 
 export interface Transaction {
   id: string;
-  customerId: string;
+  customerId: string; // nakit_satis / gider için boş olabilir
   customerName: string;
   type: TransactionType;
   amount: number;
   paymentMethod: PaymentMethod;
   description: string;
-  category?: string; // Gider kalemi (örn. "Toptancı Ödemesi / Mal Alımı")
-  date: string; // ISO string or YYYY-MM-DD HH:mm
+  date: string; // "2026-10-21 14:30"
+  dueDate?: string; // Veresiye vade tarihi (opsiyonel)
   createdAt: string;
 }
 
-// Hizmet tarifesi: berber/güzellik salonu fiyat listesi (tek-tık satış için)
-export interface ServiceItem {
+export interface Product {
   id: string;
+  barcode: string;
   name: string;
-  price: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Sektöre Özel: Avukat / Danışman Dava Dosyası & Duruşma Takvimi
-export interface Hearing {
-  id: string;
-  date: string; // YYYY-MM-DD
-  note?: string;
-}
-
-export interface CaseFile {
-  id: string;
-  fileNo: string; // Dosya No
-  clientName: string; // Müvekkil
-  customerId?: string; // Müşteri Defteri bağlantısı (cari bilgi için)
-  court?: string; // Mahkeme / kurum
-  hearingDate?: string; // Sonraki duruşma tarihi (YYYY-MM-DD)
-  hearings: Hearing[]; // Duruşma geçmişi
-  consultancyHours: number; // Takip edilen danışmanlık saati
-  hourlyRate?: number; // Saatlik ücret
-  status: 'acik' | 'kapali';
+  category: string;
+  buyPrice: number; // Alış fiyatı (kâr hesabı için)
+  sellPrice: number; // Satış fiyatı
+  stock: number; // Mevcut stok adedi/kg
+  criticalLevel: number; // Kritik stok uyarısı eşiği (örn: 5)
+  unit: 'adet' | 'kg' | 'paket' | 'koli' | 'metre' | 'litre';
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Sektöre Özel: Restoran & Kafe Masa Modeli
+export interface RestaurantTable {
+  id: string;
+  name: string; // "Masa 1", "Bahçe 3", "Teras 2"
+  section: 'Salon' | 'Bahçe' | 'Teras' | 'VIP';
+  capacity: number;
+  status: 'bos' | 'dolu' | 'hesap_istendi' | 'rezerve';
+  activeBillTotal: number;
+  openedAt?: string;
+  customerName?: string;
+  orders: {
+    id: string;
+    productName: string;
+    quantity: number;
+    price: number;
+    time: string;
+  }[];
+}
+
+// Sektöre Özel: Teknik Servis & Tamir Kayıt Modeli
+export interface RepairTicket {
+  id: string;
+  customerName: string;
+  phone: string;
+  customerId?: string; // Müşteri Defteri cari bağlantısı (opsiyonel)
+  deviceModel: string; // "iPhone 11", "Bosch Matkap", "Arçelik Süpürge"
+  issueDesc: string; // "Ekran kırık, şarj almıyor"
+  estimatedCost: number;
+  advance: number; // Alınan kapora / avans
+  status: 'teslim_alindi' | 'parca_bekliyor' | 'tamirde' | 'hazir' | 'teslim_edildi' | 'iade';
+  technicianNotes?: string;
+  createdAt: string;
+  completedAt?: string;
 }
 
 // Sektöre Özel: Terzi / Kuru Temizleme Emanet (bırakılan eşya) Takibi
@@ -140,53 +151,54 @@ export interface ShopProfile {
   phone: string;
   cityDistrict: string;
   dailyTarget: number;
-  slogan?: string;
+  slogan: string;
   isConfigured: boolean;
-  isVip: boolean;
+  isVip?: boolean;
+  vipExpiresAt?: string;
+  iban?: string;
+  receiptFooter?: string;
   slug?: string;
 }
 
-export interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  description?: string;
-  imageUrl?: string;
-  isAvailable?: boolean;
-}
-
 export interface DailyClosing {
-  id: string;
-  date: string; // YYYY-MM-DD
-  closedAt: string; // ISO string
-  expectedCash: number;
-  actualCashCount: number;
-  diffAmount: number; // actualCashCount - expectedCash (0: exact, >0: surplus, <0: deficit)
-  totalIncomeToday: number;
-  todayCash: number;
-  todayCard: number;
-  todayBank: number;
-  todayExpense: number;
-  netProfitToday: number;
-  // Toplam ciro kapanışı (yeni): eski kayıtlarda yok, ekranda geriye dönük düşülür
-  expectedTotalIncome?: number; // Beklenen toplam ciro (nakit + POS + havale)
-  actualTotalIncome?: number; // Fiili toplam ciro (patronun girdiği)
-  totalDiff?: number; // actualTotalIncome - expectedTotalIncome
+  date: string;
+  closedAt: string;
+  cashIncome: number;
+  cardIncome: number;
+  bankIncome: number;
+  totalIncome: number;
+  totalExpense: number;
+  netCash: number;
+  totalReceivablesSnapshot: number;
+  closedBy: string;
   note?: string;
-  closedBy?: string;
 }
 
-export interface Product {
+// Sektöre Özel: Oto Yıkama / Halı Yıkama / Temizlik Hizmet Listesi
+export interface ServiceItem {
   id: string;
-  name: string;
-  category: string;
-  currentStock: number;
-  unit: string;
-  criticalThreshold: number;
-  purchasePrice?: number;
-  salePrice?: number;
-  barcode?: string;
+  name: string; // "İç-Dış Detaylı Yıkama", "Motor Yıkama", "6m² Makine Halısı"
+  price: number;
+  category?: string;
+  durationMinutes?: number;
+  description?: string;
+  createdAt: string;
+}
+
+// Dava / İcra Takip Dosyası (Hukuk Büroları için)
+export interface LegalCase {
+  id: string;
+  caseNumber: string; // "2024/142 E."
+  court: string; // "İstanbul 3. Asliye Ticaret"
+  clientName: string;
+  opposingParty: string;
+  caseType: 'dava' | 'icra' | 'arabuluculuk' | 'danismanlik';
+  status: 'derdest' | 'karara_cikti' | 'istinafta' | 'kapandi';
+  nextHearingDate?: string; // YYYY-MM-DD
+  totalFee: number;
+  paidFee: number;
+  notes?: string;
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -202,63 +214,162 @@ export interface StockMovement {
   date: string;
 }
 
-// Sektöre Özel: Berber / Kuaför Randevu & Koltuk Modeli
+// Sektöre Özel: Berber / Kuaför Randevu & Koltuk & Ekip Modeli
+export type AppointmentStatus =
+  | 'bekliyor'
+  | 'onayli'
+  | 'koltukta'
+  | 'tamamlandi'
+  | 'gelmedi'
+  | 'iptal'
+  | 'arsiv';
+
+export interface BarberStaff {
+  id: string;
+  name: string;
+  title?: string; // 'Baş Usta', 'Kuaför', 'Cilt & Bakım Uzmanı', 'Kalfa'
+  role?: string; // 'master' | 'stylist' | 'apprentice' | 'specialist' | 'Usta' | 'Kalfa' | 'Çırak'
+  phone?: string;
+  email?: string;
+  password?: string;
+  commissionRate?: number; // Prim oranı (%)
+  offDays: number[]; // 0: Pazar, 1: Pazartesi, ... 6: Cumartesi
+  workStart?: string; // "09:00"
+  workEnd?: string; // "20:00"
+  workingHours?: { start: string; end: string };
+  skills: string[]; // Hizmet adları (örn: 'Saç Kesimi', 'Sakal Tıraşı', 'Manikür', 'Cilt Bakımı')
+  customPricing?: Record<string, { price: number; duration: number }>;
+  color?: string; // Takvimde usta rengi (#3b82f6, #10b981 vb.)
+  avatar?: string;
+  active?: boolean;
+}
+
+export interface BarberService {
+  id: string;
+  name: string;
+  duration?: number; // dakika
+  durationMinutes?: number; // dakika
+  price: number;
+  category: string; // 'Saç', 'Sakal', 'Cilt & Bakım', 'Paketler', 'Çocuk'
+  isBundle?: boolean;
+  bundleItems?: string[];
+  bundleItemNames?: string[];
+  allowedStaffIds?: string[]; // Boş ise herkes yapabilir
+  description?: string;
+  isPopular?: boolean;
+}
+
+export interface BarberTimeBlock {
+  id: string;
+  staffId: string; // Usta ID veya 'all'
+  staffName?: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // "14:00"
+  endTime: string; // "15:30"
+  reason: string; // "Öğle Molası", "Malzeme Alımı", "Eğitim"
+  fullDay?: boolean;
+  createdAt?: string;
+}
+
+export interface CustomerPackage {
+  id: string;
+  customerId?: string;
+  customerName: string;
+  phone: string;
+  packageName?: string;
+  serviceName: string;
+  totalSessions: number;
+  remainingSessions: number;
+  price?: number;
+  staffName?: string;
+  notes?: string;
+  expiryDate?: string;
+  createdAt: string;
+}
+
+export interface BarberSalonSettings {
+  slotIntervalMinutes?: number;
+  slotDuration?: number; // 15, 30 dk
+  openingTime?: string; // "09:00"
+  closingTime?: string; // "21:00"
+  openHour?: string; // "09:00"
+  closeHour?: string; // "21:00"
+  closedDays: number[]; // [0] -> Pazar kapalı
+  closedReason?: string; // "Pazar Günleri Salon Kapalı"
+  bookingLeadDays?: number; // Kaç gün önceden randevu alınabilir (varsayılan: 14)
+  autoAssignStrategy?: 'least_busy' | 'first_available' | 'round_robin';
+  requireOtp?: boolean;
+  enableWhatsAppReminders?: boolean;
+  allowCancellationHoursBefore?: number;
+  slug?: string;
+  autoConfirm?: boolean;
+  notes?: string;
+}
+
+export interface AppointmentStep {
+  serviceId: string;
+  serviceName: string;
+  staffId: string;
+  staffName: string;
+  durationMinutes: number;
+  startTime: string;
+  endTime: string;
+  price: number;
+}
+
 export interface Appointment {
   id: string;
   customerName: string;
   phone: string;
+  email?: string;
   staffName: string; // Koltuk / Usta
+  staffId?: string;
   serviceName: string; // Saç, Sakal, Damat Tıraşı vb.
+  serviceIds?: string[];
   price: number;
   appointmentDate: string; // YYYY-MM-DD
   timeSlot: string; // "14:30"
-  status: 'bekliyor' | 'koltukta' | 'tamamlandi' | 'iptal';
+  duration?: number; // dakika
+  durationMinutes?: number; // dakika
+  status: AppointmentStatus;
   notes?: string;
+  isOnlineBooking?: boolean;
+  kvkkApproved?: boolean;
+  allowWhatsApp?: boolean;
+  steps?: AppointmentStep[];
+  packageSession?: {
+    packageId: string;
+    sessionIndex: number;
+    totalSessions: number;
+  };
+  recurring?: {
+    frequency: 'weekly' | 'biweekly' | 'monthly';
+    count: number;
+    parentAptId?: string;
+  };
   createdAt: string;
 }
 
-// Sektöre Özel: Restoran & Kafe Masa & Adisyon Modeli
-export interface TableOrderItem {
+// Sektöre Özel: Restoran & Kafe Fotoğraflı Menü Modeli
+export interface MenuItem {
   id: string;
   name: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
+  price: number;
+  category: string;
+  description?: string;
+  imageUrl?: string;
+  isAvailable: boolean;
+  prepTimeMinutes?: number;
 }
 
-export interface RestaurantTable {
-  id: string;
-  name: string; // "Masa 1", "Bahçe 2"
-  isOccupied: boolean;
-  openedAt?: string;
-  guestCount?: number;
-  orders: TableOrderItem[];
-  totalAmount: number;
-  note?: string;
-}
-
-// Sektöre Özel: Teknik Servis & Oto Tamir Kabul Fişi
-export interface RepairTicket {
-  id: string;
-  customerName: string;
-  phone: string;
-  deviceOrVehicle: string; // "iPhone 12 Pro", "Renault Clio 34 ABC 123"
-  complaint: string; // Arıza / İstek
-  estimatedCost: number; // Müşteriye teklif
-  partCost: number; // Parça maliyeti
-  status: 'kabul_edildi' | 'parca_bekleniyor' | 'tamirde' | 'teslime_hazir' | 'teslim_edildi';
-  createdAt: string;
-  completedAt?: string;
-  notes?: string;
-}
-
+// Kapsamlı Uygulama State'i
 export interface AppState {
   storeName: string;
   shopProfile: ShopProfile;
-  dailyClosings: DailyClosing[];
   customers: Customer[];
   transactions: Transaction[];
   reminderLogs: ReminderLog[];
+  dailyClosings: DailyClosing[];
   products: Product[];
   stockMovements: StockMovement[];
   appointments: Appointment[];
@@ -266,59 +377,37 @@ export interface AppState {
   repairTickets: RepairTicket[];
   suppliers: Supplier[];
   services: ServiceItem[];
-  cases: CaseFile[];
+  cases: LegalCase[];
   custody: CustodyTicket[];
-  menuItems?: MenuItem[];
-  businessDate: string; // İş günü (YYYY-MM-DD) — "Gün Sonu Kapat" ile devrer
+  menuItems: MenuItem[];
+  barberStaff?: BarberStaff[];
+  barberServices?: BarberService[];
+  barberTimeBlocks?: BarberTimeBlock[];
+  customerPackages?: CustomerPackage[];
+  barberSettings?: BarberSalonSettings;
+  businessDate: string; // YYYY-MM-DD
   lastUpdated: string;
 }
 
+// Realtime WebSocket Event Tipleri
 export type WSEvent =
-  | {
-      type: 'INIT';
-      payload: {
-        customers: Customer[];
-        transactions: Transaction[];
-        cash: CashRegister;
-        reminderLogs: ReminderLog[];
-        shopProfile?: ShopProfile;
-        dailyClosings?: DailyClosing[];
-        products?: Product[];
-        stockMovements?: StockMovement[];
-        appointments?: Appointment[];
-        tables?: RestaurantTable[];
-        repairTickets?: RepairTicket[];
-        suppliers?: Supplier[];
-        services?: ServiceItem[];
-        cases?: CaseFile[];
-        custody?: CustodyTicket[];
-        menuItems?: MenuItem[];
-        businessDate?: string;
-      };
-    }
-  | { type: 'TRANSACTION_CREATED'; payload: { transaction: Transaction; customer?: Customer; cash: CashRegister } }
-  | { type: 'CUSTOMER_UPDATED'; payload: { customer: Customer; cash: CashRegister } }
-  | { type: 'CUSTOMER_DELETED'; payload: { customerId: string; cash: CashRegister } }
-  | { type: 'REMINDER_SENT'; payload: ReminderLog }
-  | { type: 'CASH_UPDATED'; payload: CashRegister }
-  | { type: 'SHOP_PROFILE_UPDATED'; payload: ShopProfile }
-  | { type: 'DAILY_CLOSING_CREATED'; payload: DailyClosing }
-  | { type: 'PRODUCT_UPDATED'; payload: Product }
-  | { type: 'PRODUCT_DELETED'; payload: { productId: string } }
-  | { type: 'STOCK_MOVEMENT_CREATED'; payload: { movement: StockMovement; product: Product } }
+  | { type: 'INIT_STATE'; payload: AppState }
+  | { type: 'CUSTOMER_CREATED'; payload: Customer }
+  | { type: 'CUSTOMER_UPDATED'; payload: Customer }
+  | { type: 'CUSTOMER_DELETED'; payload: { id: string } }
+  | { type: 'TRANSACTION_CREATED'; payload: { transaction: Transaction; cash: CashRegister } }
+  | { type: 'TRANSACTION_DELETED'; payload: { id: string; customerId?: string } }
+  | { type: 'CLOSING_COMPLETED'; payload: { closing: DailyClosing; state: AppState } }
+  | { type: 'PROFILE_UPDATED'; payload: ShopProfile }
+  | { type: 'STATE_RESET'; payload: AppState }
+  | { type: 'STOCK_MOVEMENT_CREATED'; payload: StockMovement }
   | { type: 'APPOINTMENT_UPDATED'; payload: Appointment }
   | { type: 'APPOINTMENT_DELETED'; payload: { id: string } }
   | { type: 'TABLE_UPDATED'; payload: RestaurantTable }
-  | { type: 'TABLE_DELETED'; payload: { id: string } }
-  | { type: 'REPAIR_TICKET_UPDATED'; payload: RepairTicket }
-  | { type: 'REPAIR_TICKET_DELETED'; payload: { id: string } }
+  | { type: 'REPAIR_UPDATED'; payload: RepairTicket }
   | { type: 'SUPPLIER_UPDATED'; payload: Supplier }
-  | { type: 'SUPPLIER_DELETED'; payload: { id: string } }
   | { type: 'SERVICE_UPDATED'; payload: ServiceItem }
-  | { type: 'SERVICE_DELETED'; payload: { id: string } }
-  | { type: 'CASE_UPSERTED'; payload: CaseFile }
-  | { type: 'CASE_DELETED'; payload: { id: string } }
+  | { type: 'CASE_UPDATED'; payload: LegalCase }
   | { type: 'CUSTODY_UPDATED'; payload: CustodyTicket }
-  | { type: 'CUSTODY_DELETED'; payload: { id: string } }
-  | { type: 'MENU_UPDATED'; payload: MenuItem[] };
-
+  | { type: 'MENU_ITEM_UPDATED'; payload: MenuItem }
+  | { type: 'MENU_ITEM_DELETED'; payload: { id: string } };

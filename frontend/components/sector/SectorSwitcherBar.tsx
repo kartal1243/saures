@@ -8,8 +8,7 @@ import {
   Scale,
   Shirt,
   Check,
-  Sparkles,
-  Info,
+  Lock,
 } from 'lucide-react';
 import { BusinessSector, ShopProfile } from '../../../shared/types.ts';
 
@@ -34,7 +33,7 @@ export const SECTORS: {
     label: 'Kuaför & Berber Salonu',
     shortLabel: 'Berber & Kuaför',
     icon: Scissors,
-    description: 'Randevu saatleri, koltuk sırası ve usta/kalfa takibi',
+    description: 'Randevu saatleri, usta zaman çizelgesi ve koltuk takibi',
     badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800',
     activeColor: 'bg-indigo-600 text-white shadow-indigo-500/25',
     specialTabName: '✂️ Randevu & Koltuklar',
@@ -44,10 +43,10 @@ export const SECTORS: {
     label: 'Kafe & Restoran & Lokanta',
     shortLabel: 'Kafe & Restoran',
     icon: UtensilsCrossed,
-    description: 'Masa siparişleri, açık adisyonlar ve mutfak/hal masrafları',
+    description: 'Masa siparişleri, açık adisyonlar ve QR menü',
     badgeColor: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800',
     activeColor: 'bg-orange-600 text-white shadow-orange-500/25',
-    specialTabName: '🍽️ Masalar & Adisyon',
+    specialTabName: '🍽️ Masalar & QR Menü',
   },
   {
     key: 'bakkal_market',
@@ -107,6 +106,7 @@ export const SectorSwitcherBar: React.FC<SectorSwitcherBarProps> = ({
   shopProfile,
 }) => {
   const currentSectorData = SECTORS.find((s) => s.key === currentSector) || SECTORS[0];
+  const isSectorLocked = Boolean(shopProfile?.isConfigured);
 
   return (
     <div className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 transition-colors">
@@ -116,42 +116,51 @@ export const SectorSwitcherBar: React.FC<SectorSwitcherBarProps> = ({
           <div className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
             <span className="flex h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
             <span className="font-semibold text-stone-900 dark:text-white">İşletme Tipi:</span>
-            <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] border ${currentSectorData.badgeColor}`}>
-              {currentSectorData.label}
+            <span className={`px-2.5 py-1 rounded-md font-bold text-xs border flex items-center gap-1.5 ${currentSectorData.badgeColor}`}>
+              <currentSectorData.icon className="w-3.5 h-3.5 shrink-0" />
+              <span>{currentSectorData.label}</span>
             </span>
             <span className="hidden md:inline text-stone-400 dark:text-stone-500">
               — {currentSectorData.description}
             </span>
           </div>
 
-          {/* Quick Sector Switching Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
-            <span className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 whitespace-nowrap mr-1 hidden lg:inline">
-              Dükkan Değiştir:
-            </span>
-            {SECTORS.map((sec) => {
-              const Icon = sec.icon;
-              const isActive = currentSector === sec.key;
+          {/* Sektör Kilidi: Eğer işletme kurulduysa değiştirilemez! */}
+          {isSectorLocked ? (
+            <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800/60 px-3 py-1 rounded-lg border border-stone-200 dark:border-stone-700/60">
+              <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="font-semibold text-stone-700 dark:text-stone-300">İşletme Türü Kilitli</span>
+              <span className="text-[11px] text-stone-400 hidden sm:inline">(Dükkan verileri korunmaktadır)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
+              <span className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 whitespace-nowrap mr-1 hidden lg:inline">
+                Sektör Seç:
+              </span>
+              {SECTORS.map((sec) => {
+                const Icon = sec.icon;
+                const isActive = currentSector === sec.key;
 
-              return (
-                <button
-                  key={sec.key}
-                  type="button"
-                  onClick={() => onSelectSector(sec.key)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                    isActive
-                      ? `${sec.activeColor} shadow-xs scale-102`
-                      : 'bg-stone-100 hover:bg-stone-200 dark:bg-stone-800/80 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-700/80'
-                  }`}
-                  title={`${sec.label} moduna geç (${sec.description})`}
-                >
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span>{sec.shortLabel}</span>
-                  {isActive && <Check className="w-3 h-3 ml-0.5 opacity-90" />}
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={sec.key}
+                    type="button"
+                    onClick={() => onSelectSector(sec.key)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      isActive
+                        ? `${sec.activeColor} shadow-xs scale-102`
+                        : 'bg-stone-100 hover:bg-stone-200 dark:bg-stone-800/80 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-700/80'
+                    }`}
+                    title={`${sec.label} modunu seç`}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span>{sec.shortLabel}</span>
+                    {isActive && <Check className="w-3 h-3 ml-0.5 opacity-90" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

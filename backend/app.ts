@@ -20,7 +20,7 @@ import { registerProfileRoutes } from './routes/profile';
 import { registerClosingRoutes } from './routes/closings';
 import { registerVipRoutes } from './routes/vip';
 import { registerProductRoutes } from './routes/products';
-import { registerAppointmentRoutes } from './routes/appointments';
+import { registerAppointmentRoutes, registerPublicBarberRoutes } from './routes/appointments';
 import { registerTableRoutes } from './routes/tables';
 import { registerRepairRoutes } from './routes/repair';
 import { registerPosRoutes } from './routes/pos';
@@ -86,6 +86,9 @@ export async function startServer(): Promise<void> {
 
   // ---------------- Herkese açık menü ucu (QR okutan müşteriler şifresiz girer) ----------------
   registerPublicMenuRoutes(app);
+
+  // ---------------- Herkese açık berber randevu ucu (Müşteriler şifresiz randevu alır) ----------------
+  registerPublicBarberRoutes(app);
 
   // ---------------- Koruma: sonrası için giriş + rol zorunlu ----------------
   app.use('/api', apiGuard);
