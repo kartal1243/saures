@@ -33,7 +33,7 @@ const CUSTOM_PANEL_PERKS = [
     Icon: LayoutGrid,
     title: 'İşletmenize %100 Özel Panel',
     desc: 'Standart kalıplara sıkışmayın. Dükkanınızın tam ihtiyaç duyduğu ekranları, butonları ve iş akışını size özel tasarlıyoruz.',
-    badge: 'Terzi Usulü',
+    badge: 'Size Özel Tasarım',
   },
   {
     Icon: Sliders,

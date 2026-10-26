@@ -18,6 +18,7 @@ interface BarberVoiceAssistantProps {
   staffList: BarberStaff[];
   onAddAppointment: (data: Partial<Appointment>) => Promise<void>;
   onUpdateTimeBlock: (date: string, start: string, end: string, reason: string, staffId?: string) => Promise<void>;
+  onRemoveTimeBlock: (date: string, hour?: string) => Promise<boolean>;
   onRescheduleAppointment: (customerName: string, newDate: string, newTime: string) => Promise<boolean>;
   onCancelAppointment: (customerName: string) => Promise<boolean>;
   onStaffOffDay: (staffName: string, dayName: string) => Promise<boolean>;
@@ -171,7 +172,7 @@ export const BarberVoiceAssistant: React.FC<BarberVoiceAssistantProps> = ({
     }
 
     // 2. "... sonrasını kapat" (örn: "Bugün 5'ten sonrasını kapat", "Bugün 17'den sonrasını kapat")
-    if (text.includes('kapat') || text.includes('mola')) {
+    if (text.includes('kapat') && !text.includes('aç') && !text.includes('ac')) {
       let closeHour = '17:00';
       const matchHour = text.match(/(\d{1,2})/);
       if (matchHour) {
@@ -185,6 +186,41 @@ export const BarberVoiceAssistant: React.FC<BarberVoiceAssistantProps> = ({
       setLastResponse(resp);
       setLastActionStatus('success');
       speakText(resp);
+      return;
+    }
+
+    // 2.1 "... sonrasını aç / saati aç / molayı kaldır" (örn: "Bugün 5'ten sonrasını aç", "17'den sonrasını aç", "molayı kaldır")
+    if (
+      (text.includes('aç') || text.includes('ac') || text.includes('kaldır') || text.includes('kaldir')) &&
+      (text.includes('sonra') || text.includes('mola') || text.includes('saat') || text.includes('blok') || text.includes('kapalı'))
+    ) {
+      let openHour = '';
+      const matchHour = text.match(/(\d{1,2})/);
+      if (matchHour) {
+        let num = parseInt(matchHour[1], 10);
+        if (num < 8) num += 12; // 5 -> 17
+        openHour = `${String(num).padStart(2, '0')}:00`;
+      }
+
+      let targetDate = getTodayDate();
+      if (text.includes('yarın') || text.includes('yarin')) {
+        targetDate = getTomorrowDate();
+      }
+
+      const ok = await onRemoveTimeBlock(targetDate, openHour);
+      if (ok) {
+        const resp = openHour
+          ? `${targetDate === getTodayDate() ? 'Bugün' : 'Yarın'} saat ${openHour}'den sonrası tekrar randevulara açıldı.`
+          : 'Kapatılan saatler ve molalar tekrar randevulara açıldı.';
+        setLastResponse(resp);
+        setLastActionStatus('success');
+        speakText(resp);
+      } else {
+        const resp = 'Açılacak kapalı saat veya mola bulunamadı.';
+        setLastResponse(resp);
+        setLastActionStatus('error');
+        speakText(resp);
+      }
       return;
     }
 
@@ -450,6 +486,8 @@ export const BarberVoiceAssistant: React.FC<BarberVoiceAssistantProps> = ({
               <div className="space-y-1">
                 <p>• &quot;Cuma 14:00 Mehmet saç kesimi&quot; <span className="text-stone-400">→ Randevu ekler</span></p>
                 <p>• &quot;Bugün 5&apos;ten sonrasını kapat&quot; <span className="text-stone-400">→ Mola/blok koyar</span></p>
+                <p>• &quot;Bugün 5&apos;ten sonrasını aç&quot; <span className="text-stone-400">→ Kapatılan saati geri açar</span></p>
+                <p>• &quot;Molayı kaldır / Saatleri aç&quot; <span className="text-stone-400">→ Randevulara açar</span></p>
                 <p>• &quot;Ahmet&apos;in randevusunu yarın 4&apos;e al&quot; <span className="text-stone-400">→ Saati günceller</span></p>
                 <p>• &quot;Sıradaki müşterim kim?&quot; <span className="text-stone-400">→ Sesli cevaplar</span></p>
                 <p>• &quot;Emre&apos;ye perşembe izin ver&quot; <span className="text-stone-400">→ İzin tanımlar</span></p>

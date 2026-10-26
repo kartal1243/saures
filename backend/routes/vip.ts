@@ -11,7 +11,7 @@ export function registerVipRoutes(app: Express): void {
       isVip: Boolean(profile?.isVip),
       plan: profile?.isVip ? 'isletmeye_ozel_vip' : 'standart_esnaf',
       features: [
-        { id: 'custom_panel', name: 'İşletmenize Özel Terzi Usulü Panel Tasarımı', active: true },
+        { id: 'custom_panel', name: 'İşletmenize Özel Birebir Panel Tasarımı', active: true },
         { id: 'custom_fields', name: 'Sektörünüze Özel Form, Fiş ve Alan Ekleme', active: true },
         { id: 'priority_dev', name: 'Öncelikli Yazılım Ekibi & Canlı Destek', active: true },
         { id: 'fast_qr', name: 'Özel FAST / TR-Karekod ile Komisyonsuz Tahsilat', active: true },

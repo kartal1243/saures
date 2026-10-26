@@ -83,6 +83,7 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
     return (
       <BarberAppointmentsView
         appointments={props.appointments}
+        customers={props.customers}
         services={props.services}
         shopSlug={props.shopSlug}
         storeName={props.storeName}

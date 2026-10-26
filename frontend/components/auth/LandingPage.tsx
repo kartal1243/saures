@@ -152,7 +152,7 @@ const BENTO_FEATURES = [
 const FAQS = [
   {
     q: 'Dükkanım Yanımda tamamen ücretsiz mi?',
-    a: 'Evet! Hemen 1 dakikada telefon numaranızla kayıt olarak Kasa, Veresiye, Stok ve Müşteri Defteri gibi tüm temel özellikleri ücretsiz kullanabilirsiniz. Dükkanınıza özel terzi usulü ekran ve modül isterseniz de çok uygun fiyatlı VIP Özel Panel paketimizden faydalanabilirsiniz.',
+    a: 'Evet! Hemen 1 dakikada telefon numaranızla kayıt olarak Kasa, Veresiye, Stok ve Müşteri Defteri gibi tüm temel özellikleri ücretsiz kullanabilirsiniz. Dükkanınıza özel birebir ekran ve modül isterseniz de çok uygun fiyatlı VIP Özel Panel paketimizden faydalanabilirsiniz.',
   },
   {
     q: 'İşletmeme özel VIP panel üretimini nasıl talep ederim?',
@@ -657,7 +657,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
           <div className="text-center max-w-3xl mx-auto">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-black uppercase tracking-widest border border-amber-500/20">
               <Crown className="w-3.5 h-3.5 text-amber-500" />
-              TERZİ USULÜ GELİŞTİRME &amp; VIP
+              İŞLETMEYE ÖZEL GELİŞTİRME &amp; VIP
             </span>
             <h2 className="mt-3 text-3xl sm:text-5xl font-black tracking-tight text-stone-900 dark:text-white">
               İşletmenize Özel Panel Üretimi
@@ -764,7 +764,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                   <p className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider">VIP Ekstra Ayrıcalıkları</p>
                   {[
                     'Standart paketteki tüm özellikler eksiksiz dahil',
-                    'Dükkanınıza Özel Ekran & Modül Geliştirme (Terzi Usulü)',
+                    'Dükkanınıza Özel Ekran & Modül Geliştirme (Size Özel Kodlama)',
                     'Özel Fiş, Servis Kabul Formu veya Fatura Tasarımı',
                     'Barkodlu Terazi, Termal Fiş Yazıcısı Entegrasyonu',
                     'Doğrudan Yazılımcı & Telefonla Öncelikli Destek Hattı',

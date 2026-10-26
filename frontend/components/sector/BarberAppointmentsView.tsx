@@ -40,6 +40,8 @@ import {
   Send,
   Eye,
   Percent,
+  Search,
+  Users,
 } from 'lucide-react';
 import type {
   Appointment,
@@ -49,11 +51,13 @@ import type {
   BarberTimeBlock,
   BarberSalonSettings,
   CustomerPackage,
+  Customer,
 } from '../../../shared/types.ts';
 import { BarberVoiceAssistant } from './BarberVoiceAssistant';
 
 interface BarberAppointmentsViewProps {
   appointments: Appointment[];
+  customers?: Customer[];
   shopSlug?: string;
   storeName?: string;
   onAddAppointment: (data: Partial<Appointment>) => Promise<void>;
@@ -80,6 +84,7 @@ function timeToMin(t: string): number {
 
 export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   appointments = [],
+  customers = [],
   shopSlug = 'demo',
   storeName = 'Berber & Kuaför Salonu',
   onAddAppointment,
@@ -88,8 +93,8 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   onDeleteAppointment,
   onImportCustomers,
 }) => {
-  // Aktif Sekme: 'timeline' | 'staff' | 'services' | 'import' | 'settings_qr'
-  const [activeTab, setActiveTab] = useState<'timeline' | 'staff' | 'services' | 'import' | 'settings_qr'>('timeline');
+  // Aktif Sekme: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'
+  const [activeTab, setActiveTab] = useState<'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'>('timeline');
 
   // Backend'den çekilen berber verileri
   const [staffList, setStaffList] = useState<BarberStaff[]>([]);
@@ -158,13 +163,15 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   const [blockEndTime, setBlockEndTime] = useState('14:00');
   const [blockReason, setBlockReason] = useState('Öğle Molası');
 
-  // Personel Ekle Formu (Ad, e-posta, şifre, prim %, rol)
+  // Personel Ekle / Düzenle Formu (Ad, e-posta, şifre, prim %, rol)
   const [staffFormName, setStaffFormName] = useState('');
   const [staffFormEmail, setStaffFormEmail] = useState('');
   const [staffFormPassword, setStaffFormPassword] = useState('');
   const [staffFormCommission, setStaffFormCommission] = useState(30);
   const [staffFormRole, setStaffFormRole] = useState('Usta');
   const [staffFormPhone, setStaffFormPhone] = useState('');
+  const [editingStaff, setEditingStaff] = useState<BarberStaff | null>(null);
+  const [isEditStaffModalOpen, setIsEditStaffModalOpen] = useState(false);
 
   // Hizmet Ekle / Düzenle Formu (Ad, fiyat, süre)
   const [srvFormName, setSrvFormName] = useState('');
@@ -179,8 +186,10 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // CSV İçe Aktarma
+  // CSV İçe Aktarma & Müşteri Arama
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [isCsvDrawerOpen, setIsCsvDrawerOpen] = useState(false);
 
   // Günün Randevuları
   const dayAppointments = useMemo(() => {
@@ -298,6 +307,36 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     } catch {}
   };
 
+  const handleVoiceRemoveTimeBlock = async (date: string, hour?: string): Promise<boolean> => {
+    try {
+      const matching = timeBlocks.filter((b) => {
+        if (b.date !== date) return false;
+        if (!hour) return true;
+        return (hour >= b.startTime && hour <= b.endTime) || b.startTime === hour;
+      });
+
+      if (matching.length === 0) {
+        const anyOnDate = timeBlocks.filter((b) => b.date === date);
+        if (anyOnDate.length > 0) {
+          for (const b of anyOnDate) {
+            await fetch(`/api/barber/time-blocks/${b.id}`, { method: 'DELETE' });
+          }
+          reloadFullData();
+          return true;
+        }
+        return false;
+      }
+
+      for (const b of matching) {
+        await fetch(`/api/barber/time-blocks/${b.id}`, { method: 'DELETE' });
+      }
+      reloadFullData();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleVoiceReschedule = async (custName: string, newDate: string, newTime: string): Promise<boolean> => {
     const target = appointments.find(
       (a) => a.customerName.toLowerCase().includes(custName.toLowerCase()) && a.status !== 'iptal'
@@ -379,6 +418,60 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     setStaffFormName('');
     setStaffFormEmail('');
     setStaffFormPassword('');
+  };
+
+  // Personel Düzenle
+  const handleOpenEditStaff = (st: BarberStaff) => {
+    setEditingStaff(st);
+    setStaffFormName(st.name);
+    setStaffFormEmail(st.email || '');
+    setStaffFormPassword(st.password || '');
+    setStaffFormCommission(st.commissionRate ?? 30);
+    setStaffFormRole(st.role || st.title || 'Usta');
+    setStaffFormPhone(st.phone || '');
+    setIsEditStaffModalOpen(true);
+  };
+
+  const handleSaveEditedStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStaff || !staffFormName.trim()) return;
+
+    const updated = staffList.map((s) =>
+      s.id === editingStaff.id
+        ? {
+            ...s,
+            name: staffFormName.trim(),
+            email: staffFormEmail.trim(),
+            password: staffFormPassword.trim(),
+            commissionRate: Number(staffFormCommission) || 30,
+            role: staffFormRole,
+            title: staffFormRole,
+            phone: staffFormPhone.trim(),
+          }
+        : s
+    );
+
+    setStaffList(updated);
+    setIsEditStaffModalOpen(false);
+    setEditingStaff(null);
+
+    await fetch('/api/barber/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staff: updated }),
+    });
+  };
+
+  // Personel Sil
+  const handleDeleteStaff = async (staffId: string) => {
+    if (!confirm('Bu personeli/ustayı silmek istediğinize emin misiniz?')) return;
+    const updated = staffList.filter((s) => s.id !== staffId);
+    setStaffList(updated);
+    await fetch('/api/barber/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staff: updated }),
+    });
   };
 
   // Hizmet Ekle
@@ -658,15 +751,15 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
             <button
               type="button"
-              onClick={() => setActiveTab('import')}
+              onClick={() => setActiveTab('customers')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                activeTab === 'import'
+                activeTab === 'customers'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                   : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
               }`}
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Müşteri Aktar</span>
+              <Users className="w-4 h-4" />
+              <span>Müşteriler</span>
             </button>
 
             <button
@@ -795,6 +888,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 staffList={staffList}
                 onAddAppointment={onAddAppointment}
                 onUpdateTimeBlock={handleVoiceTimeBlock}
+                onRemoveTimeBlock={handleVoiceRemoveTimeBlock}
                 onRescheduleAppointment={handleVoiceReschedule}
                 onCancelAppointment={handleVoiceCancel}
                 onStaffOffDay={handleVoiceStaffOffDay}
@@ -855,14 +949,23 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                       <tr key={hour} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors">
                         <td className="p-3 font-bold text-stone-400 select-none whitespace-nowrap">{hour}</td>
                         {staffList.map((st) => {
-                          // Bu saatte ve bu ustada randevu var mı?
-                          const apt = dayAppointments.find((a) => {
+                          const currentHourMin = timeToMin(hour);
+
+                          // Bu saatte başlayan veya devam eden randevu (örn: 90 dk Damat Tıraşı 14:00-15:30 arasını komple kaplar!)
+                          const activeApt = dayAppointments.find((a) => {
+                            if (a.status === 'iptal') return false;
                             const matchStaff = a.staffId === st.id || a.staffName.includes(st.name);
-                            return matchStaff && a.timeSlot === hour;
+                            if (!matchStaff) return false;
+                            const aStart = timeToMin(a.timeSlot);
+                            const aDuration = a.durationMinutes || a.duration || 30;
+                            const aEnd = aStart + aDuration;
+                            return currentHourMin >= aStart && currentHourMin < aEnd;
                           });
 
+                          const isStartingSlot = activeApt && activeApt.timeSlot === hour;
+
                           // Bu saatte mola bloğu var mı?
-                          const isBlocked = timeBlocks.some((b) => {
+                          const matchingBlock = timeBlocks.find((b) => {
                             if (b.date !== selectedDate) return false;
                             const matchStaff = !b.staffId || b.staffId === 'all' || b.staffId === st.id;
                             return matchStaff && hour >= b.startTime && hour < b.endTime;
@@ -873,71 +976,96 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                               key={st.id}
                               className="p-2 border-l border-stone-200 dark:border-stone-800 relative align-top min-h-[52px]"
                             >
-                              {apt ? (
-                                <div
-                                  className={`p-2.5 rounded-xl border transition-all shadow-xs ${
-                                    apt.status === 'koltukta'
-                                      ? 'bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-200'
-                                      : apt.status === 'tamamlandi'
-                                      ? 'bg-emerald-500/15 border-emerald-500 text-emerald-900 dark:text-emerald-200'
-                                      : apt.status === 'gelmedi'
-                                      ? 'bg-rose-500/10 border-rose-400 text-rose-700 dark:text-rose-300'
-                                      : 'bg-indigo-500/10 border-indigo-400 text-indigo-900 dark:text-indigo-200'
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="font-black text-xs line-clamp-1">{apt.customerName}</span>
-                                    <span className="font-bold text-[11px] text-amber-600 dark:text-amber-400">
-                                      ₺{apt.price}
-                                    </span>
-                                  </div>
-                                  <p className="text-[11px] text-stone-600 dark:text-stone-300 line-clamp-1">
-                                    {apt.serviceName}
-                                  </p>
+                              {activeApt ? (
+                                isStartingSlot ? (
+                                  <div
+                                    className={`p-2.5 rounded-xl border transition-all shadow-xs ${
+                                      activeApt.status === 'koltukta'
+                                        ? 'bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-200'
+                                        : activeApt.status === 'tamamlandi'
+                                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-900 dark:text-emerald-200'
+                                        : activeApt.status === 'gelmedi'
+                                        ? 'bg-rose-500/10 border-rose-400 text-rose-700 dark:text-rose-300'
+                                        : 'bg-indigo-500/10 border-indigo-400 text-indigo-900 dark:text-indigo-200'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="font-black text-xs line-clamp-1">{activeApt.customerName}</span>
+                                      <span className="font-bold text-[11px] text-amber-600 dark:text-amber-400">
+                                        ₺{activeApt.price}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] text-stone-600 dark:text-stone-300 mb-1">
+                                      <span className="truncate">{activeApt.serviceName}</span>
+                                      {(activeApt.durationMinutes || activeApt.duration || 30) > 30 && (
+                                        <span className="text-[10px] font-black px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0 ml-1">
+                                          {activeApt.durationMinutes || activeApt.duration} dk
+                                        </span>
+                                      )}
+                                    </div>
 
-                                  {/* Hızlı Butonlar */}
-                                  <div className="flex items-center gap-1 mt-2 pt-1.5 border-t border-black/10 dark:border-white/10">
-                                    {apt.status === 'bekliyor' && (
+                                    {/* Hızlı Butonlar */}
+                                    <div className="flex items-center gap-1 mt-2 pt-1.5 border-t border-black/10 dark:border-white/10">
+                                      {activeApt.status === 'bekliyor' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => onUpdateStatus(activeApt.id, 'koltukta')}
+                                          className="px-2 py-0.5 rounded-md bg-amber-500 text-white font-bold text-[10px] cursor-pointer hover:bg-amber-600"
+                                        >
+                                          Geldi
+                                        </button>
+                                      )}
+                                      {activeApt.status === 'koltukta' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setCompletingApt(activeApt)}
+                                          className="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-bold text-[10px] cursor-pointer hover:bg-emerald-500"
+                                        >
+                                          Tahsil Et
+                                        </button>
+                                      )}
+                                      {activeApt.status !== 'tamamlandi' && activeApt.status !== 'gelmedi' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => onUpdateStatus(activeApt.id, 'gelmedi')}
+                                          className="px-1.5 py-0.5 rounded-md bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 font-medium text-[10px] cursor-pointer"
+                                          title="Gelmedi (No-show)"
+                                        >
+                                          Gelmedi
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
-                                        onClick={() => onUpdateStatus(apt.id, 'koltukta')}
-                                        className="px-2 py-0.5 rounded-md bg-amber-500 text-white font-bold text-[10px] cursor-pointer hover:bg-amber-600"
+                                        onClick={() => handleSendWhatsApp(activeApt)}
+                                        className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer ml-auto"
+                                        title="WhatsApp Hatırlatması Gönder"
                                       >
-                                        Geldi
+                                        <MessageCircle className="w-3.5 h-3.5" />
                                       </button>
-                                    )}
-                                    {apt.status === 'koltukta' && (
-                                      <button
-                                        type="button"
-                                        onClick={() => setCompletingApt(apt)}
-                                        className="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-bold text-[10px] cursor-pointer hover:bg-emerald-500"
-                                      >
-                                        Tahsil Et
-                                      </button>
-                                    )}
-                                    {apt.status !== 'tamamlandi' && apt.status !== 'gelmedi' && (
-                                      <button
-                                        type="button"
-                                        onClick={() => onUpdateStatus(apt.id, 'gelmedi')}
-                                        className="px-1.5 py-0.5 rounded-md bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 font-medium text-[10px] cursor-pointer"
-                                        title="Gelmedi (No-show)"
-                                      >
-                                        Gelmedi
-                                      </button>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSendWhatsApp(apt)}
-                                      className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer ml-auto"
-                                      title="WhatsApp Hatırlatması Gönder"
-                                    >
-                                      <MessageCircle className="w-3.5 h-3.5" />
-                                    </button>
+                                    </div>
                                   </div>
-                                </div>
-                              ) : isBlocked ? (
-                                <div className="py-2.5 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-400 text-center font-bold text-[11px] border border-stone-200 dark:border-stone-700">
-                                  Mola / Kapalı
+                                ) : (
+                                  <div className="p-2 rounded-xl border border-dashed border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+                                    <div className="flex items-center justify-between text-[11px] font-bold">
+                                      <span className="truncate">⏳ {activeApt.serviceName}</span>
+                                      <span className="text-[10px] font-black opacity-80">{activeApt.durationMinutes || 90} dk</span>
+                                    </div>
+                                    <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate mt-0.5">
+                                      {activeApt.customerName} ({activeApt.timeSlot} başlangıç)
+                                    </p>
+                                  </div>
+                                )
+                              ) : matchingBlock ? (
+                                <div className="py-2 px-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-center font-bold text-[11px] border border-stone-200 dark:border-stone-700 flex items-center justify-between gap-1">
+                                  <span className="truncate">{matchingBlock.reason || 'Mola / Kapalı'}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteTimeBlock(matchingBlock.id)}
+                                    className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer shrink-0"
+                                    title="Saati Tekrar Randevulara Aç"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               ) : (
                                 <button
@@ -1001,6 +1129,24 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                       <h3 className="text-sm font-black text-stone-900 dark:text-white">{st.name}</h3>
                       <p className="text-xs text-stone-400">{st.role || st.title || 'Usta'}</p>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditStaff(st)}
+                      className="p-1.5 rounded-xl text-stone-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                      title="Usta Profilini Düzenle"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteStaff(st.id)}
+                      className="p-1.5 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                      title="Ustayı Sil"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
 
@@ -1111,42 +1257,198 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* 4. SEKME: MÜŞTERİ LİSTESİNİ EXCEL/CSV İLE İÇE AKTAR */}
+      {/* 4. SEKME: MÜŞTERİ LİSTESİ & DEFTER */}
       {/* ========================================================= */}
-      {activeTab === 'import' && (
-        <div className="max-w-xl mx-auto bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-xs">
-          <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
-            <Upload className="w-8 h-8" />
+      {activeTab === 'customers' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-stone-900 dark:text-white">Müşteri Defteri &amp; Kayıtları</h2>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Salonunuza gelen müşteriler, iletişim bilgileri, randevu geçmişi ve hızlı WhatsApp iletişimi
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCsvDrawerOpen(!isCsvDrawerOpen)}
+                className="px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-colors"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>{isCsvDrawerOpen ? 'CSV Kutusunu Kapat' : 'Excel / CSV İçe Aktar'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetTime('12:00');
+                  setCustName('');
+                  setCustPhone('');
+                  setIsNewModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Yeni Randevu Yaz</span>
+              </button>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-lg font-black text-stone-900 dark:text-white">Müşteri Listesini İçe Aktar</h2>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-md mx-auto">
-              Eski defterinizi, rehberinizi veya Excel tablonuzu sisteme tek tıkla yükleyin. Sütunlar: <strong>Ad Soyad, Telefon, Not</strong>
-            </p>
+          {/* CSV İçe Aktarma Kutusu (Açılır/Kapanır) */}
+          {isCsvDrawerOpen && (
+            <div className="bg-stone-50 dark:bg-stone-800/40 border-2 border-dashed border-stone-300 dark:border-stone-700 rounded-3xl p-6 text-center space-y-4 animate-in fade-in">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+                <Upload className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-stone-900 dark:text-white">Müşteri Rehberini Toplu Aktar</h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                  CSV formatında Ad Soyad, Telefon ve Not içeren dosyanızı yükleyin.
+                </p>
+              </div>
+              <div>
+                <input
+                  type="file"
+                  id="csvFileInput"
+                  accept=".csv,.txt"
+                  onChange={handleCsvUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="csvFileInput"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-2 shadow-md shadow-indigo-600/20"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Dosya Seç (.CSV)</span>
+                </label>
+              </div>
+              {importStatus && (
+                <div className="p-3 max-w-md mx-auto rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                  {importStatus}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Müşteri Arama & Özet */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                placeholder="Müşteri adı veya telefon ara..."
+                className="w-full pl-10 pr-4 py-2 rounded-2xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white text-xs font-medium focus:outline-hidden"
+              />
+            </div>
+            <div className="text-xs font-bold text-stone-500 dark:text-stone-400">
+              Toplam {customers.length} Kayıtlı Müşteri
+            </div>
           </div>
 
-          <div className="p-6 border-2 border-dashed border-stone-300 dark:border-stone-700 rounded-2xl space-y-3">
-            <input
-              type="file"
-              id="csvFileInput"
-              accept=".csv,.txt"
-              onChange={handleCsvUpload}
-              className="hidden"
-            />
-            <label
-              htmlFor="csvFileInput"
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-2 shadow-md shadow-indigo-600/20"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>CSV Dosyası Seç</span>
-            </label>
-            <p className="text-[11px] text-stone-400">Virgülle veya noktalı virgülle ayrılmış CSV formatı</p>
-          </div>
-
-          {importStatus && (
-            <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold">
-              {importStatus}
+          {/* Müşteri Tablosu */}
+          {customers.length === 0 ? (
+            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-12 text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-400 flex items-center justify-center mx-auto">
+                <Users className="w-7 h-7" />
+              </div>
+              <h3 className="text-sm font-black text-stone-900 dark:text-white">Henüz Kayıtlı Müşteri Yok</h3>
+              <p className="text-xs text-stone-500 max-w-md mx-auto">
+                Müşterileriniz online randevu linkinden randevu aldıkça veya siz yeni randevu girdikçe buraya otomatik kaydedilir.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCsvDrawerOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Rehberi / CSV Yükle</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800 text-stone-500 font-bold uppercase tracking-wider text-[11px]">
+                      <th className="p-3.5">Müşteri</th>
+                      <th className="p-3.5">İletişim</th>
+                      <th className="p-3.5">Bakiye / Borç</th>
+                      <th className="p-3.5">Notlar</th>
+                      <th className="p-3.5 text-right">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+                    {customers
+                      .filter((c) => {
+                        if (!customerSearch.trim()) return true;
+                        const q = customerSearch.toLowerCase();
+                        return c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q));
+                      })
+                      .map((c) => {
+                        const cleanPhone = (c.phone || '').replace(/\D/g, '');
+                        return (
+                          <tr key={c.id} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors">
+                            <td className="p-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                                  {c.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-stone-900 dark:text-white">{c.name}</div>
+                                  <div className="text-[11px] text-stone-400">Müşteri #{c.id.slice(-4)}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-stone-700 dark:text-stone-300">{c.phone || '-'}</span>
+                                {cleanPhone && (
+                                  <a
+                                    href={`https://wa.me/90${cleanPhone}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                                    title="WhatsApp'tan Yaz"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3.5">
+                              <span className={`font-bold ${c.balance && c.balance > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                {c.balance ? `₺${c.balance.toLocaleString('tr-TR')}` : '₺0'}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-stone-500 max-w-xs truncate">
+                              {c.notes || '-'}
+                            </td>
+                            <td className="p-3.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCustName(c.name);
+                                  setCustPhone(c.phone || '');
+                                  setTargetTime('12:00');
+                                  setIsNewModalOpen(true);
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 font-bold text-xs cursor-pointer inline-flex items-center gap-1 transition-colors"
+                              >
+                                <Calendar className="w-3.5 h-3.5" />
+                                <span>Randevu Yaz</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -1639,6 +1941,127 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                   className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer"
                 >
                   Personeli Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 3.1: PERSONEL / USTA PROFİLİNİ DÜZENLE */}
+      {/* ========================================================= */}
+      {isEditStaffModalOpen && editingStaff && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
+          <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-indigo-600" />
+                <span>Usta Profilini Düzenle</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditStaffModalOpen(false);
+                  setEditingStaff(null);
+                }}
+                className="p-1 rounded-xl text-stone-400 hover:text-stone-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedStaff} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                  Ad Soyad *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={staffFormName}
+                  onChange={(e) => setStaffFormName(e.target.value)}
+                  placeholder="Örn: Eren Usta"
+                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Rol / Unvan
+                  </label>
+                  <select
+                    value={staffFormRole}
+                    onChange={(e) => setStaffFormRole(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-semibold text-stone-900 dark:text-white"
+                  >
+                    <option value="Baş Usta">Baş Usta</option>
+                    <option value="Usta">Usta</option>
+                    <option value="Kuaför">Kuaför / Stilist</option>
+                    <option value="Kalfa">Kalfa</option>
+                    <option value="Çırak">Çırak</option>
+                    <option value="Uzman">Cilt / Bakım Uzmanı</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Prim Oranı (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={staffFormCommission}
+                    onChange={(e) => setStaffFormCommission(Number(e.target.value))}
+                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                  Telefon
+                </label>
+                <input
+                  type="tel"
+                  value={staffFormPhone}
+                  onChange={(e) => setStaffFormPhone(e.target.value)}
+                  placeholder="05XX XXX XX XX"
+                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs text-stone-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                  E-Posta (Giriş İçin)
+                </label>
+                <input
+                  type="email"
+                  value={staffFormEmail}
+                  onChange={(e) => setStaffFormEmail(e.target.value)}
+                  placeholder="usta@salondukkan.com"
+                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs text-stone-900 dark:text-white"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditStaffModalOpen(false);
+                    setEditingStaff(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 cursor-pointer"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer shadow-md shadow-indigo-600/20"
+                >
+                  Değişiklikleri Kaydet
                 </button>
               </div>
             </form>

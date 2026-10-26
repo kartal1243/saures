@@ -1,16 +1,11 @@
 import React from 'react';
 import {
   Store,
-  Wifi,
-  WifiOff,
-  FileSpreadsheet,
   Calendar,
-  Crown,
-  Users,
-  Building2,
-  ChevronDown,
   Sun,
   Moon,
+  ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 import { ShopProfile } from '../../../shared/types.ts';
 
@@ -21,10 +16,10 @@ interface HeaderProps {
   darkMode: boolean;
   onToggleDarkMode: () => void;
   onOpenMenu: () => void;
-  onOpenVip: () => void;
+  onOpenVip?: () => void;
   onToggleProfileMenu?: () => void;
   onLogout: () => void;
-  onExportCsv: () => void;
+  onExportCsv?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,9 +29,6 @@ export const Header: React.FC<HeaderProps> = ({
   darkMode,
   onToggleDarkMode,
   onOpenMenu,
-  onOpenVip,
-  onLogout,
-  onExportCsv,
 }) => {
   const todayFormatted = new Date().toLocaleDateString('tr-TR', {
     weekday: 'long',
@@ -49,117 +41,69 @@ export const Header: React.FC<HeaderProps> = ({
   const avatarChar = (displayName || 'D').trim().charAt(0).toUpperCase();
 
   return (
-    <header className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-40 shadow-xs transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Left: Brand & Shop Info */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div
-            className="w-11 h-11 rounded-xl bg-linear-to-b from-amber-400 to-amber-500 text-white flex items-center justify-center shadow-[0_2px_10px_rgba(245,158,11,0.45)] font-bold text-lg shrink-0"
-          >
-            <Store className="w-5 h-5" />
+    <header className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200/80 dark:border-stone-800/80 sticky top-0 z-40 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+        {/* Sol Taraf: Dükkan İsmi ve Bilgileri */}
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-amber-400 via-amber-500 to-amber-600 text-stone-950 flex items-center justify-center shadow-md shadow-amber-500/20 font-black text-lg shrink-0">
+            <Store className="w-5 h-5 text-white" />
           </div>
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="text-base sm:text-lg font-black text-stone-900 dark:text-white tracking-tight text-left truncate"
-              >
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-base sm:text-lg font-black text-stone-900 dark:text-white tracking-tight truncate">
                 {displayName}
+              </h1>
+
+              {/* Canlı Bağlantı / Durum Rozeti */}
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{connected ? 'Canlı Panel' : 'Bağlanıyor'}</span>
               </span>
-
-              {shopProfile && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
-                    <Building2 className="w-3 h-3" />
-                    {(shopProfile.businessField || '').split('/')[0].trim() || 'Esnaf'}
-                  </span>
-
-                  <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700">
-                    <Users className="w-3 h-3 text-stone-400" />
-                    {shopProfile.employeeCount === '1' ? 'Tek Kişi' : `${shopProfile.employeeCount} Kişi`}
-                  </span>
-                </div>
-              )}
             </div>
 
             <p className="text-xs text-stone-500 dark:text-stone-400 flex items-center gap-2 mt-0.5">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
+              <span className="flex items-center gap-1 font-medium">
+                <Calendar className="w-3.5 h-3.5 text-stone-400" />
                 <span>{todayFormatted}</span>
               </span>
               {shopProfile?.ownerName && (
                 <>
-                  <span className="opacity-40">•</span>
-                  <span>{shopProfile.ownerName}</span>
+                  <span className="opacity-30">•</span>
+                  <span className="font-semibold text-stone-700 dark:text-stone-300">{shopProfile.ownerName}</span>
                 </>
               )}
             </p>
           </div>
         </div>
 
-        {/* Right side: VIP, Dark Mode, Excel & Profile trigger */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
-          {/* VIP AI Club Button */}
-          <button
-            id="btn-open-vip-club"
-            type="button"
-            onClick={onOpenVip}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black shadow-xs transition-transform active:scale-95 cursor-pointer ${
-              shopProfile?.isVip
-                ? 'bg-linear-to-r from-amber-500 via-amber-600 to-yellow-600 text-white ring-2 ring-amber-400/40'
-                : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
-            }`}
-            title="VIP Esnaf Kulübü & Yapay Zeka Danışmanı"
-          >
-            <Crown className={`w-3.5 h-3.5 ${shopProfile?.isVip ? 'text-yellow-200' : 'text-amber-500'}`} />
-            <span className="hidden sm:inline">VIP Danışman</span>
-            <span className="sm:hidden">VIP</span>
-            {shopProfile?.isVip && (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            )}
-          </button>
-
-          {/* Dark Mode Toggle */}
+        {/* Sağ Taraf: Sadece Şık Tema Değiştirici ve Mobil Menü */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Gece / Gündüz Tema Değiştirici */}
           <button
             id="btn-toggle-dark-mode"
             type="button"
             onClick={onToggleDarkMode}
-            className="p-2 rounded-xl text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
-            title={darkMode ? 'Gündüz Moduna Geç (Açık Tema)' : 'Gece Moduna Geç (Karanlık Tema)'}
+            className="p-2.5 rounded-2xl text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 border border-stone-200 dark:border-stone-800 transition-all cursor-pointer shadow-xs active:scale-95"
+            title={darkMode ? 'Açık Temaya Geç' : 'Karanlık Temaya Geç'}
           >
             {darkMode ? (
-              <Sun className="w-4 h-4 text-amber-500" />
+              <Sun className="w-4 h-4 text-amber-400" />
             ) : (
-              <Moon className="w-4 h-4" />
+              <Moon className="w-4 h-4 text-stone-700" />
             )}
           </button>
 
-          {/* Excel / CSV Export Button */}
-          <button
-            id="btn-export-excel"
-            onClick={onExportCsv}
-            type="button"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
-            title="Excel uyumlu CSV indir"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="hidden lg:inline">Excel</span>
-          </button>
-
-          {/* Mobil ayar menüsü (tek ayar noktası — telefonda) */}
+          {/* Mobil Menü Butonu */}
           <div className="relative md:hidden">
             <button
               id="btn-profile-menu"
               type="button"
               onClick={onOpenMenu}
-              className="flex items-center gap-1.5 pl-1.5 pr-2 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
-              title="Menü"
+              className="flex items-center gap-1.5 pl-1.5 pr-2 py-1.5 rounded-2xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-colors cursor-pointer"
             >
-              <span className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs font-black">
+              <span className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xs font-black">
                 {avatarChar}
-              </span>
-              <span className="hidden md:inline text-xs font-bold text-stone-700 dark:text-stone-300 max-w-[110px] truncate">
-                {displayName}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
             </button>
