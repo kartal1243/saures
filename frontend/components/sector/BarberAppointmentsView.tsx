@@ -196,10 +196,24 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     return appointments.filter((a) => {
       if (a.appointmentDate !== selectedDate) return false;
       if (filterStatus !== 'all' && a.status !== filterStatus) return false;
-      if (filterStaff !== 'all' && a.staffId !== filterStaff && a.staffName !== filterStaff) return false;
+      if (filterStaff !== 'all') {
+        const targetSt = staffList.find((s) => s.id === filterStaff || s.name === filterStaff);
+        const matchId = a.staffId === filterStaff || (targetSt && a.staffId === targetSt.id);
+        const matchName = targetSt
+          ? (a.staffName?.toLowerCase().includes(targetSt.name.toLowerCase()) || targetSt.name.toLowerCase().includes(a.staffName?.toLowerCase() || ''))
+          : a.staffName === filterStaff;
+        if (!matchId && !matchName) return false;
+      }
       return true;
     });
-  }, [appointments, selectedDate, filterStatus, filterStaff]);
+  }, [appointments, selectedDate, filterStatus, filterStaff, staffList]);
+
+  // Çizelgede Gösterilecek Personeller (Filtre seçilirse sadece o usta, yoksa hepsi)
+  const displayedStaff = useMemo(() => {
+    if (filterStaff === 'all') return staffList;
+    const filtered = staffList.filter((s) => s.id === filterStaff || s.name === filterStaff);
+    return filtered.length > 0 ? filtered : staffList;
+  }, [staffList, filterStaff]);
 
   // Personel Müsaitlik Paneli
   const staffAvailability = useMemo(() => {
@@ -709,14 +723,14 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
           </div>
 
           {/* Sekme Butonları */}
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 scrollbar-none">
+          <div className="p-1 rounded-2xl bg-stone-100 dark:bg-stone-800/80 flex items-center gap-1 overflow-x-auto w-full lg:w-auto scrollbar-none">
             <button
               type="button"
               onClick={() => setActiveTab('timeline')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'timeline'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
+                  : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
               <Calendar className="w-4 h-4" />
@@ -726,10 +740,10 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('staff')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'staff'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
+                  : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
               <User className="w-4 h-4" />
@@ -739,10 +753,10 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('services')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'services'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
+                  : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
               <Scissors className="w-4 h-4" />
@@ -752,23 +766,23 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('customers')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'customers'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
+                  : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Müşteriler</span>
+              <span>Müşteriler ({customers.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('settings_qr')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'settings_qr'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
+                  : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
               <QrCode className="w-4 h-4" />
@@ -817,33 +831,34 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             ))}
           </div>
 
-          {/* Kontrol & Filtre Çubuğu */}
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
-            {/* Tarih Gezinme */}
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white text-xs font-bold focus:outline-hidden"
-              />
-              <button
-                type="button"
-                onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-                className="px-3 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 text-xs font-bold cursor-pointer"
-              >
-                Bugün
-              </button>
-            </div>
+          {/* Kontrol & Filtre Çubuğu (Mobilde ve PC'de tam responsive, taşmayan modern tasarım) */}
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-4 shadow-xs space-y-3">
+            {/* 1. Sıra: Tarih Seçimi & Durum Filtreleri */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {/* Tarih Gezinme */}
+              <div className="flex items-center gap-1.5 w-full">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white text-xs font-bold focus:outline-hidden min-w-0"
+                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                  className="px-3 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold cursor-pointer shrink-0 transition-colors"
+                >
+                  Bugün
+                </button>
+              </div>
 
-            {/* Görünüm & Filtreler */}
-            <div className="flex items-center gap-2">
+              {/* Usta Filtresi */}
               <select
                 value={filterStaff}
                 onChange={(e) => setFilterStaff(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white text-xs font-semibold"
+                className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white text-xs font-semibold"
               >
-                <option value="all">Tüm Ustalar</option>
+                <option value="all">Tüm Ustalar ({staffList.length})</option>
                 {staffList.map((st) => (
                   <option key={st.id} value={st.id}>
                     {st.name}
@@ -851,10 +866,11 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 ))}
               </select>
 
+              {/* Durum Filtresi */}
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white text-xs font-semibold"
+                className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white text-xs font-semibold"
               >
                 <option value="all">Tüm Durumlar</option>
                 <option value="bekliyor">Bekliyor (Onay Bekleyen)</option>
@@ -864,43 +880,46 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 <option value="gelmedi">Gelmedi (No-show)</option>
               </select>
 
-              {/* Dışa Aktarma & Yazdırma */}
-              <button
-                type="button"
-                onClick={handleExportCsv}
-                className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
-                title="Excel / CSV İndir"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
-                title="Yazdır"
-              >
-                <Printer className="w-4 h-4" />
-              </button>
+              {/* Hızlı Araçlar (Sesli Asistan & Excel & Yazdır) */}
+              <div className="flex items-center gap-2 justify-start sm:justify-end">
+                <BarberVoiceAssistant
+                  appointments={appointments}
+                  staffList={staffList}
+                  onAddAppointment={onAddAppointment}
+                  onUpdateTimeBlock={handleVoiceTimeBlock}
+                  onRemoveTimeBlock={handleVoiceRemoveTimeBlock}
+                  onRescheduleAppointment={handleVoiceReschedule}
+                  onCancelAppointment={handleVoiceCancel}
+                  onStaffOffDay={handleVoiceStaffOffDay}
+                />
 
-              {/* Sesli Asistan Butonu */}
-              <BarberVoiceAssistant
-                appointments={appointments}
-                staffList={staffList}
-                onAddAppointment={onAddAppointment}
-                onUpdateTimeBlock={handleVoiceTimeBlock}
-                onRemoveTimeBlock={handleVoiceRemoveTimeBlock}
-                onRescheduleAppointment={handleVoiceReschedule}
-                onCancelAppointment={handleVoiceCancel}
-                onStaffOffDay={handleVoiceStaffOffDay}
-              />
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer shrink-0"
+                  title="Excel / CSV İndir"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer shrink-0"
+                  title="Yazdır"
+                >
+                  <Printer className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
-              {/* Butonlar */}
+            {/* 2. Sıra: Randevu & Mola Ekleme Butonları (Mobilde tam sığan grid) */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-stone-100 dark:border-stone-800">
               <button
                 type="button"
                 onClick={() => setIsTimeBlockModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-colors"
               >
-                <Clock className="w-4 h-4" />
+                <Clock className="w-4 h-4 text-amber-500" />
                 <span>Saati Kapat / Mola</span>
               </button>
 
@@ -910,7 +929,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                   setTargetTime('12:00');
                   setIsNewModalOpen(true);
                 }}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>Randevu Ekle</span>
@@ -927,7 +946,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                     <th className="w-24 p-3.5 text-left text-xs font-black uppercase tracking-wider text-stone-500">
                       Saat
                     </th>
-                    {staffList.map((st) => (
+                    {displayedStaff.map((st) => (
                       <th
                         key={st.id}
                         className="p-3.5 text-left text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200 border-l border-stone-200 dark:border-stone-800"
@@ -948,7 +967,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                     return (
                       <tr key={hour} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors">
                         <td className="p-3 font-bold text-stone-400 select-none whitespace-nowrap">{hour}</td>
-                        {staffList.map((st) => {
+                        {displayedStaff.map((st) => {
                           const currentHourMin = timeToMin(hour);
 
                           // Bu saatte başlayan veya devam eden randevu (örn: 90 dk Damat Tıraşı 14:00-15:30 arasını komple kaplar!)

@@ -80,9 +80,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
         />
         <div className="relative">
           <span className="inline-block bg-white rounded-2xl px-5 py-3 shadow-lg">
-            <span
-              className="block w-[190px] select-none [&>svg]:w-full [&>svg]:h-auto"
-              dangerouslySetInnerHTML={{ __html: logoRaw }}
+            <img
+              src="/brand/logo-dukkanim.svg"
+              alt="Dükkânım Yanımda"
+              className="h-10 w-auto max-w-[200px] object-contain block"
             />
           </span>
         </div>
@@ -127,14 +128,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
       {/* Sağ giriş kartı */}
       <div className="flex flex-col items-center justify-center px-4 py-8 sm:px-8 bg-stone-100">
         {/* Mobil mini vitrin */}
-        <div className="lg:hidden w-full max-w-md mb-5 rounded-3xl bg-linear-to-br from-amber-500 to-orange-600 text-white p-6 text-center">
-          <span className="inline-block bg-white rounded-2xl px-4 py-2.5 shadow">
-            <span
-              className="block w-[150px] select-none [&>svg]:w-full [&>svg]:h-auto"
-              dangerouslySetInnerHTML={{ __html: logoRaw }}
+        <div className="lg:hidden w-full max-w-md mb-5 rounded-3xl bg-linear-to-br from-amber-500 via-amber-600 to-orange-600 text-white p-6 text-center shadow-lg">
+          <div className="inline-flex items-center justify-center bg-white rounded-2xl px-5 py-3 shadow-md">
+            <img
+              src="/brand/logo-dukkanim.svg"
+              alt="Dükkânım Yanımda"
+              className="h-9 w-auto max-w-[170px] object-contain block"
             />
-          </span>
-          <p className="mt-3 text-xl font-black">Dükkanını Cebinden Yönet</p>
+          </div>
+          <p className="mt-3.5 text-xl font-black">Dükkanını Cebinden Yönet</p>
           <p className="text-xs text-amber-100 font-semibold mt-1">Kasa, veresiye ve gün sonu tek panelde</p>
         </div>
 

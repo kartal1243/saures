@@ -1460,7 +1460,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans pb-16 md:pb-0 transition-colors md:flex">
+    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans pb-28 md:pb-0 transition-colors md:flex overflow-x-hidden">
       {/* Sol menü: desktop sidebar + mobil alt bar */}
       <Sidebar
         activeTab={activeTab}

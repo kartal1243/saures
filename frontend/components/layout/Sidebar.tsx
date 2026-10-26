@@ -245,8 +245,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </aside>
 
-      {/* Mobil alt bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-stone-950/95 backdrop-blur border-t border-stone-800">
+      {/* Mobil alt bar (Sabit, asla kaybolmaz) */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-stone-950/95 dark:bg-stone-950/95 backdrop-blur-md border-t border-stone-800 shadow-[0_-4px_25px_rgba(0,0,0,0.4)] pb-[env(safe-area-inset-bottom,0px)]">
         <div
           className="grid"
           style={{
