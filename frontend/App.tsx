@@ -244,6 +244,9 @@ export default function App() {
   const [whatsAppTargetCustomer, setWhatsAppTargetCustomer] = useState<Customer | null>(null);
   const [whatsAppReminderType, setWhatsAppReminderType] = useState<'veresiye' | 'aidat' | 'bakim'>('veresiye');
 
+  // Canlı Online Randevu Bildirim State'i
+  const [liveBookingAlert, setLiveBookingAlert] = useState<Appointment | null>(null);
+
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
@@ -411,12 +414,36 @@ export default function App() {
               setCustody(wsEvent.payload.custody);
             }
           } else if (wsEvent.type === 'APPOINTMENT_UPDATED') {
+            const apt = wsEvent.payload;
             setAppointments((prev) => {
-              const exists = prev.some((a) => a.id === wsEvent.payload.id);
-              if (exists) {
-                return prev.map((a) => (a.id === wsEvent.payload.id ? wsEvent.payload : a));
+              const exists = prev.some((a) => a.id === apt.id);
+              if (!exists || apt.isOnlineBooking) {
+                // Yeni randevu geldiğinde çan sesi çal ve ekranda toast göster
+                try {
+                  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+                  if (AudioCtx) {
+                    const ctx = new AudioCtx();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.8);
+                  }
+                } catch {}
+
+                setLiveBookingAlert(apt);
+                setTimeout(() => setLiveBookingAlert(null), 8000);
               }
-              return [wsEvent.payload, ...prev];
+
+              if (exists) {
+                return prev.map((a) => (a.id === apt.id ? apt : a));
+              }
+              return [apt, ...prev];
             });
           } else if (wsEvent.type === 'APPOINTMENT_DELETED') {
             setAppointments((prev) => prev.filter((a) => a.id !== wsEvent.payload.id));
@@ -1006,9 +1033,12 @@ export default function App() {
   };
 
   const handleUpdateAppointmentStatus = async (id: string, status: Appointment['status']) => {
+    // İyimser (optimistic) anında arayüz güncellemesi
+    setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+
     try {
       const res = await fetch(`/api/appointments/${id}/status`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
@@ -1451,12 +1481,52 @@ export default function App() {
         onOpenStaff={() => setIsStaffModalOpen(true)}
         onChangePassword={() => setIsChangePasswordOpen(true)}
         onOpenVip={() => setIsVipModalOpen(true)}
-        onOpenServices={() => setIsServicesModalOpen(true)}
+        onOpenServices={() => {
+          if (isBarber) {
+            setActiveTab('sector_view');
+          } else {
+            setIsServicesModalOpen(true);
+          }
+        }}
         onOpenLawyer={(sub) => { setLawyerTab(sub); setActiveTab('sector_view'); }}
         onOpenStock={openStock}
         onLogout={handleLogout}
       />
       <div className="flex-1 min-w-0 flex flex-col">
+      {/* Canlı Online Randevu Toast Bildirimi */}
+      {liveBookingAlert && (
+        <div
+          onClick={() => {
+            setActiveTab('sector_view');
+            setLiveBookingAlert(null);
+          }}
+          className="fixed top-4 right-4 z-50 max-w-sm w-full bg-linear-to-r from-emerald-600 to-teal-600 text-white p-4 rounded-2xl shadow-2xl border border-white/20 flex items-center justify-between gap-3 animate-in slide-in-from-top-4 cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <span className="text-xl">🔔</span>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-emerald-100">Yeni Randevu Alındı!</p>
+              <h4 className="text-sm font-black">{liveBookingAlert.customerName}</h4>
+              <p className="text-xs text-emerald-100">
+                {liveBookingAlert.appointmentDate} • {liveBookingAlert.timeSlot} ({liveBookingAlert.serviceName})
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLiveBookingAlert(null);
+            }}
+            className="p-1 rounded-lg hover:bg-white/20 text-white cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* 1. Header with Store Profile Badge, Dark Mode Switch & VIP Button */}
       <Header
         storeName={storeName}

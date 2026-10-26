@@ -11,7 +11,7 @@ import type {
 } from '../../shared/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
-import { broadcast } from '../realtime';
+import { broadcast, broadcastToAccount } from '../realtime';
 import { localDay } from '../day';
 import { getAccounts } from '../accounts';
 import { loadShopState, persistShopState, defaultBarberSettings, defaultBarberStaff, defaultBarberServices } from '../shopState';
@@ -311,9 +311,9 @@ export function registerPublicBarberRoutes(app: Express): void {
 
     persistShopState(account.id, shopState);
 
-    // Canlı WebSocket bildirimi (Dükkan sahibi paneline anında düşer)
+    // Canlı WebSocket bildirimi (Dükkan sahibi paneline anında düşer ve çan çalar)
     try {
-      broadcast({ type: 'APPOINTMENT_UPDATED', payload: newAppointment });
+      broadcastToAccount(account.id, { type: 'APPOINTMENT_UPDATED', payload: newAppointment });
     } catch {}
 
     const storeTitle = shopState.shopProfile?.storeName || account.shopName;
@@ -439,7 +439,7 @@ export function registerAppointmentRoutes(app: Express): void {
   });
 
   // 4. Randevu Durumu Güncelle (Bekliyor, Onaylı, Koltukta, Tamamlandı, Gelmedi, İptal, Arşiv)
-  app.post('/api/appointments/:id/status', (req: Request, res: Response) => {
+  const handleStatusUpdate = (req: Request, res: Response) => {
     const { id } = req.params;
     const { status } = req.body;
     if (!S().appointments) S().appointments = [];
@@ -450,7 +450,10 @@ export function registerAppointmentRoutes(app: Express): void {
     saveState();
     broadcast({ type: 'APPOINTMENT_UPDATED', payload: apt });
     res.json({ success: true, appointment: apt });
-  });
+  };
+
+  app.post('/api/appointments/:id/status', handleStatusUpdate);
+  app.patch('/api/appointments/:id/status', handleStatusUpdate);
 
   // 5. Fark Etmez / Otomatik Gelen Randevuya Usta Ata
   app.post('/api/appointments/:id/assign-staff', (req: Request, res: Response) => {

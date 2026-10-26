@@ -15,6 +15,7 @@ import {
   Armchair,
   Sparkles,
   Trash2,
+  Pencil,
   DollarSign,
   ChevronRight,
   ChevronLeft,
@@ -49,6 +50,7 @@ import type {
   BarberSalonSettings,
   CustomerPackage,
 } from '../../../shared/types.ts';
+import { BarberVoiceAssistant } from './BarberVoiceAssistant';
 
 interface BarberAppointmentsViewProps {
   appointments: Appointment[];
@@ -164,11 +166,13 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   const [staffFormRole, setStaffFormRole] = useState('Usta');
   const [staffFormPhone, setStaffFormPhone] = useState('');
 
-  // Hizmet Ekle Formu (Ad, fiyat, süre)
+  // Hizmet Ekle / Düzenle Formu (Ad, fiyat, süre)
   const [srvFormName, setSrvFormName] = useState('');
   const [srvFormPrice, setSrvFormPrice] = useState(350);
   const [srvFormDuration, setSrvFormDuration] = useState(30);
   const [srvFormCategory, setSrvFormCategory] = useState('Saç');
+  const [editingService, setEditingService] = useState<BarberService | null>(null);
+  const [isEditServiceModalOpen, setIsEditServiceModalOpen] = useState(false);
 
   // AI Tarife Okuma State
   const [aiDetectedItems, setAiDetectedItems] = useState<{ name: string; price: number; duration: number; selected: boolean }[]>([]);
@@ -276,6 +280,73 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     } catch {}
   };
 
+  // Sesli Asistan Eylemleri
+  const handleVoiceTimeBlock = async (date: string, start: string, end: string, reason: string, staffId?: string) => {
+    try {
+      await fetch('/api/barber/time-blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          startTime: start,
+          endTime: end,
+          staffId: staffId || 'all',
+          reason,
+        }),
+      });
+      reloadFullData();
+    } catch {}
+  };
+
+  const handleVoiceReschedule = async (custName: string, newDate: string, newTime: string): Promise<boolean> => {
+    const target = appointments.find(
+      (a) => a.customerName.toLowerCase().includes(custName.toLowerCase()) && a.status !== 'iptal'
+    );
+    if (!target) return false;
+    await onAddAppointment({
+      ...target,
+      appointmentDate: newDate,
+      timeSlot: newTime,
+    });
+    return true;
+  };
+
+  const handleVoiceCancel = async (custName: string): Promise<boolean> => {
+    const target = appointments.find(
+      (a) => a.customerName.toLowerCase().includes(custName.toLowerCase()) && a.status !== 'iptal'
+    );
+    if (!target) return false;
+    await onUpdateStatus(target.id, 'iptal');
+    return true;
+  };
+
+  const handleVoiceStaffOffDay = async (staffName: string, dayName: string): Promise<boolean> => {
+    const st = staffList.find((s) => s.name.toLowerCase().includes(staffName.toLowerCase()));
+    if (!st) return false;
+    const daysMap: Record<string, number> = {
+      pazar: 0,
+      pazartesi: 1,
+      salı: 2,
+      sali: 2,
+      çarşamba: 3,
+      carsamba: 3,
+      perşembe: 4,
+      persembe: 4,
+      cuma: 5,
+      cumartesi: 6,
+    };
+    const dayNum = daysMap[dayName.toLowerCase()] ?? 0;
+    const newOffDays = Array.from(new Set([...st.offDays, dayNum]));
+    const updated = staffList.map((s) => (s.id === st.id ? { ...s, offDays: newOffDays } : s));
+    await fetch('/api/barber/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staff: updated }),
+    });
+    setStaffList(updated);
+    return true;
+  };
+
   // Personel Ekle (ad, e-posta, şifre, prim %, rol)
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,6 +405,56 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     setServiceList(updated);
     setIsServiceModalOpen(false);
     setSrvFormName('');
+  };
+
+  // Hizmet Düzenleme / Güncelleme
+  const handleOpenEditService = (srv: BarberService) => {
+    setEditingService(srv);
+    setSrvFormName(srv.name);
+    setSrvFormPrice(srv.price);
+    setSrvFormDuration(srv.durationMinutes || srv.duration || 30);
+    setSrvFormCategory(srv.category || 'Saç');
+    setIsEditServiceModalOpen(true);
+  };
+
+  const handleSaveEditedService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingService || !srvFormName.trim()) return;
+
+    const updated = serviceList.map((s) =>
+      s.id === editingService.id
+        ? {
+            ...s,
+            name: srvFormName.trim(),
+            price: Number(srvFormPrice) || 300,
+            durationMinutes: Number(srvFormDuration) || 30,
+            duration: Number(srvFormDuration) || 30,
+            category: srvFormCategory,
+          }
+        : s
+    );
+
+    setServiceList(updated);
+    setIsEditServiceModalOpen(false);
+    setEditingService(null);
+
+    await fetch('/api/barber/services', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ services: updated }),
+    });
+  };
+
+  // Hizmet Silme
+  const handleDeleteService = async (srvId: string) => {
+    if (!confirm('Bu hizmeti silmek istediğinize emin misiniz?')) return;
+    const updated = serviceList.filter((s) => s.id !== srvId);
+    setServiceList(updated);
+    await fetch('/api/barber/services', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ services: updated }),
+    });
   };
 
   // AI ile Fotoğraftan Fiyat Listesi Çıkarma (Akıllı OCR Simülasyonu)
@@ -668,6 +789,17 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 <Printer className="w-4 h-4" />
               </button>
 
+              {/* Sesli Asistan Butonu */}
+              <BarberVoiceAssistant
+                appointments={appointments}
+                staffList={staffList}
+                onAddAppointment={onAddAppointment}
+                onUpdateTimeBlock={handleVoiceTimeBlock}
+                onRescheduleAppointment={handleVoiceReschedule}
+                onCancelAppointment={handleVoiceCancel}
+                onStaffOffDay={handleVoiceStaffOffDay}
+              />
+
               {/* Butonlar */}
               <button
                 type="button"
@@ -949,8 +1081,28 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                     <span>{srv.category}</span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-base font-black text-amber-600 dark:text-amber-400">₺{srv.price}</span>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-base font-black text-amber-600 dark:text-amber-400">₺{srv.price}</span>
+                  </div>
+                  <div className="flex items-center gap-1 border-l border-stone-200 dark:border-stone-800 pl-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditService(srv)}
+                      className="p-1.5 rounded-xl text-stone-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                      title="Fiyat ve Bilgileri Düzenle"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteService(srv.id)}
+                      className="p-1.5 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                      title="Hizmeti Sil"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1568,6 +1720,107 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                   className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer"
                 >
                   Hizmeti Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 4.1: HİZMET DÜZENLE (Fiyat, Ad, Süre) */}
+      {/* ========================================================= */}
+      {isEditServiceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
+          <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-indigo-600" />
+                <span>Hizmet &amp; Fiyat Düzenle</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditServiceModalOpen(false);
+                  setEditingService(null);
+                }}
+                className="p-1 rounded-xl text-stone-400 hover:text-stone-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedService} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                  Hizmet Adı *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={srvFormName}
+                  onChange={(e) => setSrvFormName(e.target.value)}
+                  placeholder="Örn: Saç & Sakal Kombin"
+                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Fiyat (₺) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={srvFormPrice}
+                    onChange={(e) => setSrvFormPrice(Number(e.target.value))}
+                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Süre (Dk)
+                  </label>
+                  <input
+                    type="number"
+                    value={srvFormDuration}
+                    onChange={(e) => setSrvFormDuration(Number(e.target.value))}
+                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                  Kategori
+                </label>
+                <input
+                  type="text"
+                  value={srvFormCategory}
+                  onChange={(e) => setSrvFormCategory(e.target.value)}
+                  placeholder="Örn: Saç, Sakal, Bakım"
+                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs text-stone-900 dark:text-white"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditServiceModalOpen(false);
+                    setEditingService(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 cursor-pointer"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer shadow-md shadow-indigo-600/20"
+                >
+                  Değişiklikleri Kaydet
                 </button>
               </div>
             </form>

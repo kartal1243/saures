@@ -18,20 +18,23 @@ export function clientCount(): number {
   return clients.size;
 }
 
-export function broadcast(event: WSEvent): void {
-  const ctx = als.getStore();
-  if (!ctx) return;
+export function broadcastToAccount(targetAccountId: string, event: WSEvent): void {
   const payload = JSON.stringify(event);
   for (const [client, accountId] of clients) {
-    if (accountId !== ctx.accountId) continue;
-    if (client.readyState === WebSocket.OPEN) {
+    if (accountId === targetAccountId && client.readyState === WebSocket.OPEN) {
       try {
         client.send(payload);
       } catch (e) {
-        console.error('Error sending WS message:', e);
+        console.error('Error sending WS message to account:', e);
       }
     }
   }
+}
+
+export function broadcast(event: WSEvent): void {
+  const ctx = als.getStore();
+  if (!ctx) return;
+  broadcastToAccount(ctx.accountId, event);
 }
 
 // INIT olayı (ws açılışı + yedek geri yükleme sonrası aynı şekil)

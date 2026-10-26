@@ -83,68 +83,11 @@ export const CustomerList: React.FC<CustomerListProps> = ({
 
         {/* Category & Status Filter Pills */}
         <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-          {/* Categories */}
+          {/* Müşteri Sayısı Rozeti */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              id="filter-cat-all"
-              type="button"
-              onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                selectedCategory === 'all'
-                  ? 'bg-stone-900 text-white'
-                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
-              }`}
-            >
-              Tümü ({customers.length})
-            </button>
-            <button
-              id="filter-cat-bakkal"
-              type="button"
-              onClick={() => setSelectedCategory('bakkal_market')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                selectedCategory === 'bakkal_market'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
-              }`}
-            >
-              Bakkal / Market
-            </button>
-            <button
-              id="filter-cat-spor"
-              type="button"
-              onClick={() => setSelectedCategory('spor_salonu')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                selectedCategory === 'spor_salonu'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
-              }`}
-            >
-              Spor Salonu
-            </button>
-            <button
-              id="filter-cat-ders"
-              type="button"
-              onClick={() => setSelectedCategory('ozel_ders')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                selectedCategory === 'ozel_ders'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
-              }`}
-            >
-              Özel Ders
-            </button>
-            <button
-              id="filter-cat-servis"
-              type="button"
-              onClick={() => setSelectedCategory('teknik_servis')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                selectedCategory === 'teknik_servis'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
-              }`}
-            >
-              Teknik Servis
-            </button>
+            <span className="px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-bold border border-stone-200 dark:border-stone-700">
+              Kayıtlı Müşteriler ({customers.length})
+            </span>
           </div>
 
           {/* Balance & Subscription Filter Toggle */}
