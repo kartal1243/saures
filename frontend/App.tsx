@@ -1460,7 +1460,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans pb-28 md:pb-0 transition-colors md:flex overflow-x-hidden">
+    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans pb-28 md:pb-0 transition-colors md:flex">
       {/* Sol menü: desktop sidebar + mobil alt bar */}
       <Sidebar
         activeTab={activeTab}
@@ -1492,7 +1492,7 @@ export default function App() {
         onOpenStock={openStock}
         onLogout={handleLogout}
       />
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col overflow-x-hidden">
       {/* Canlı Online Randevu Toast Bildirimi */}
       {liveBookingAlert && (
         <div

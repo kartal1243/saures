@@ -200,8 +200,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Desktop sol menü */}
-      <aside className="hidden md:flex w-60 shrink-0 flex-col bg-stone-950 dark:bg-black border-r border-stone-800 sticky top-0 h-screen overflow-y-auto">
+      {/* Desktop sol menü (Sayfa aşağı kaysa bile her zaman sabit ve ekran boyunda kalır) */}
+      <aside className="hidden md:flex w-60 shrink-0 flex-col bg-stone-950 dark:bg-black border-r border-stone-800 sticky top-0 h-screen self-start overflow-y-auto z-30">
         <div className="p-4 pb-2 flex items-center gap-2.5">
           <span className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow-[0_2px_10px_rgba(245,158,11,0.45)] shrink-0">
             <Store className="w-5 h-5" />
