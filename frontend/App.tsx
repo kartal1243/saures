@@ -1415,7 +1415,7 @@ export default function App() {
   if (authStatus === 'checking') {
     return (
       <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center animate-pulse">
+        <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white flex items-center justify-center animate-pulse">
           <Store className="w-6 h-6" />
         </div>
         <p className="text-sm font-bold text-stone-500 dark:text-stone-400">Yükleniyor...</p>
@@ -1559,7 +1559,7 @@ export default function App() {
                 onClick={() => { setMobileMenuOpen(false); fn(); }}
                 className="w-full text-left px-4 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors cursor-pointer flex items-center gap-2"
               >
-                <Icon className="w-4 h-4 text-amber-500" />
+                <Icon className="w-4 h-4 text-orange-500" />
                 {label}
               </button>
             ))}
@@ -1646,7 +1646,7 @@ export default function App() {
                 </>
               ) : activeTab === 'stock' ? (
                 <>
-                  <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  <Package className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                   <span>Stok ({products.length})</span>
                   {criticalStockCount > 0 && (
                     <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
@@ -1680,7 +1680,7 @@ export default function App() {
                   setProductToEdit(null);
                   setIsProductFormModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                className="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
               >
                 + Yeni Ürün Ekle
               </button>
@@ -1689,7 +1689,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setIsNewCustomerModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                className="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
               >
                 + Yeni Müşteri Ekle
               </button>
@@ -1699,9 +1699,9 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setIsDailyClosingModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
               >
-                <Moon className="w-4 h-4 text-amber-400" />
+                <Moon className="w-4 h-4 text-orange-400" />
                 <span>Kasa Kapat &amp; Z Raporu</span>
               </button>
             )}
@@ -1757,7 +1757,7 @@ export default function App() {
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2">
-                  <Moon className="w-4 h-4 text-amber-500" /> Gün Sonu & Ciro
+                  <Moon className="w-4 h-4 text-orange-500" /> Gün Sonu & Ciro
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">Akşam kapanışı burada</p>
                 {dailyClosings.length > 0 && (
@@ -1769,9 +1769,9 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setIsDailyClosingModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm shadow-md shadow-amber-500/30 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-sm shadow-md shadow-orange-500/30 transition-colors cursor-pointer"
               >
-                <Moon className="w-4 h-4 text-amber-400" /> Gün Sonu Kapat
+                <Moon className="w-4 h-4 text-orange-400" /> Gün Sonu Kapat
               </button>
             </div>
 
@@ -1780,7 +1780,7 @@ export default function App() {
               <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2">
-                    <FileCheck className="w-4 h-4 text-amber-500" /> Geçmiş Gün Sonu Kapanışları
+                    <FileCheck className="w-4 h-4 text-orange-500" /> Geçmiş Gün Sonu Kapanışları
                   </h3>
                   <span className="text-xs text-stone-400">{dailyClosings.length} kayıt</span>
                 </div>
@@ -1805,7 +1805,7 @@ export default function App() {
                       <div className="flex items-center gap-3 sm:gap-4">
                         <span className="text-stone-400">Ciro <b className="text-emerald-600 dark:text-emerald-400">{formatCurrency(c.totalIncomeToday)}</b></span>
                         <span className="text-stone-400">Gider <b className="text-rose-600 dark:text-rose-400">{formatCurrency(c.todayExpense)}</b></span>
-                        <span className="text-stone-400">Net <b className="text-amber-700 dark:text-amber-400">{formatCurrency(c.netProfitToday)}</b></span>
+                        <span className="text-stone-400">Net <b className="text-orange-700 dark:text-orange-400">{formatCurrency(c.netProfitToday)}</b></span>
                       </div>
                     </div>
                   ))}
@@ -1821,7 +1821,7 @@ export default function App() {
               return (
                 <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-4 sm:p-5">
                   <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2 mb-3">
-                    <Wallet className="w-4 h-4 text-amber-500" /> Kasa Farkları Takibi
+                    <Wallet className="w-4 h-4 text-orange-500" /> Kasa Farkları Takibi
                     <span className="text-[11px] font-semibold text-stone-400">({dailyClosings.length} kapanış)</span>
                   </h3>
                   <div className="grid grid-cols-3 gap-2 text-center">
@@ -1847,7 +1847,7 @@ export default function App() {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h3 className="text-sm font-black text-stone-900 dark:text-white flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-amber-500" /> Tedarikçi Borçları
+                    <Truck className="w-4 h-4 text-orange-500" /> Tedarikçi Borçları
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
                     {suppliers.length === 0
@@ -1858,7 +1858,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => openSupplierModal('form')}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" /> Tedarikçi
                 </button>
@@ -1875,7 +1875,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => openSupplierModal('form', s)}
-                          className="text-xs font-black text-stone-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate cursor-pointer"
+                          className="text-xs font-black text-stone-900 dark:text-white hover:text-orange-600 dark:hover:text-orange-400 truncate cursor-pointer"
                           title="Düzenle"
                         >
                           {s.name}
@@ -2001,7 +2001,7 @@ export default function App() {
                       <div
                         className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold shrink-0 ${
                           tx.type === 'veresiye'
-                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                            ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300'
                             : tx.type === 'tahsilat'
                             ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
                             : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
@@ -2052,7 +2052,7 @@ export default function App() {
                       <div
                         className={`font-black text-sm sm:text-base ${
                           tx.type === 'veresiye'
-                            ? 'text-amber-600 dark:text-amber-400'
+                            ? 'text-orange-600 dark:text-orange-400'
                             : tx.type === 'tahsilat'
                             ? 'text-emerald-600 dark:text-emerald-400'
                             : 'text-rose-600 dark:text-rose-400'

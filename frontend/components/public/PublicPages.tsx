@@ -85,10 +85,15 @@ function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText
           <a
             href="/"
             onClick={(e) => { e.preventDefault(); onHome(); }}
-            className="w-[150px] sm:w-[180px] select-none [&>svg]:w-full [&>svg]:h-auto"
+            className="flex items-center select-none"
             aria-label="Dükkanım Yanımda ana sayfa"
-            dangerouslySetInnerHTML={{ __html: logoRaw }}
-          />
+          >
+            <img
+              src="/brand/logo-horizontal.png"
+              alt="Dükkânım Yanımda"
+              className="h-9 sm:h-10 w-auto object-contain block"
+            />
+          </a>
           <nav className="hidden lg:flex items-center gap-5 text-sm font-bold text-stone-500">
             {NAV_LINKS.slice(1, 6).map((l) => (
               <a key={l.href} href={l.href} className={linkCls}>{l.label}</a>
@@ -105,7 +110,7 @@ function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText
             <button
               type="button"
               onClick={onRegister}
-              className="px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-black shadow hover:bg-amber-600 transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-black shadow hover:bg-orange-600 transition-colors cursor-pointer"
             >
               Ücretsiz Başla
             </button>

@@ -45,8 +45,8 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         {/* Sol Taraf: Dükkan Başlığı & Canlı Gösterge */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-amber-400 via-amber-500 to-amber-600 text-white flex items-center justify-center shadow-md shadow-amber-500/20 font-black shrink-0">
-            <Store className="w-5 h-5 text-stone-950" />
+          <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-stone-800 border border-orange-200/80 dark:border-stone-700/80 flex items-center justify-center p-1 shadow-sm shrink-0">
+            <img src="/brand/logo-icon.png" alt="Dükkanım Yanımda" className="w-full h-full object-contain" />
           </div>
 
           <div className="min-w-0 flex flex-col justify-center">
@@ -93,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
             title={darkMode ? 'Açık Temaya Geç' : 'Karanlık Temaya Geç'}
           >
             {darkMode ? (
-              <Sun className="w-4 h-4 text-amber-400" />
+              <Sun className="w-4 h-4 text-orange-500" />
             ) : (
               <Moon className="w-4 h-4 text-stone-700" />
             )}
@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onOpenMenu}
               className="h-9 px-2 rounded-2xl bg-stone-100 dark:bg-stone-800 border border-stone-200/80 dark:border-stone-800 transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
             >
-              <span className="w-6 h-6 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center text-xs font-black">
+              <span className="w-6 h-6 rounded-xl bg-orange-500 text-white flex items-center justify-center text-xs font-black">
                 {avatarChar}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-stone-400" />

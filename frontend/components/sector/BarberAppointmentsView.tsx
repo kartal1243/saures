@@ -705,7 +705,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20">
+              <div className="w-10 h-10 rounded-2xl bg-orange-600 text-white flex items-center justify-center shadow-md shadow-orange-600/20">
                 <Scissors className="w-5 h-5" />
               </div>
               <div>
@@ -729,7 +729,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               onClick={() => setActiveTab('timeline')}
               className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'timeline'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20'
                   : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
@@ -742,7 +742,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               onClick={() => setActiveTab('staff')}
               className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'staff'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20'
                   : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
@@ -755,7 +755,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               onClick={() => setActiveTab('services')}
               className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'services'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20'
                   : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
@@ -768,7 +768,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               onClick={() => setActiveTab('customers')}
               className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'customers'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20'
                   : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
@@ -781,7 +781,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               onClick={() => setActiveTab('settings_qr')}
               className={`h-10 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'settings_qr'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20'
                   : 'text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
               }`}
             >
@@ -929,7 +929,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                   setTargetTime('12:00');
                   setIsNewModalOpen(true);
                 }}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
+                className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-orange-600/20 active:scale-95 transition-all"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>Randevu Ekle</span>
@@ -1005,7 +1005,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                                         ? 'bg-emerald-500/15 border-emerald-500 text-emerald-900 dark:text-emerald-200'
                                         : activeApt.status === 'gelmedi'
                                         ? 'bg-rose-500/10 border-rose-400 text-rose-700 dark:text-rose-300'
-                                        : 'bg-indigo-500/10 border-indigo-400 text-indigo-900 dark:text-indigo-200'
+                                        : 'bg-orange-500/10 border-orange-400 text-orange-900 dark:text-orange-200'
                                     }`}
                                   >
                                     <div className="flex items-center justify-between mb-1">
@@ -1090,7 +1090,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleSlotClick(hour, st.id)}
-                                  className="w-full h-full min-h-[44px] rounded-xl border border-dashed border-stone-200 dark:border-stone-800 hover:border-indigo-500 hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20 text-stone-400 hover:text-indigo-600 flex items-center justify-center transition-all cursor-pointer opacity-40 hover:opacity-100"
+                                  className="w-full h-full min-h-[44px] rounded-xl border border-dashed border-stone-200 dark:border-stone-800 hover:border-orange-500 hover:bg-orange-50/40 dark:hover:bg-orange-950/20 text-stone-400 hover:text-orange-600 flex items-center justify-center transition-all cursor-pointer opacity-40 hover:opacity-100"
                                 >
                                   <Plus className="w-3.5 h-3.5" />
                                 </button>
@@ -1123,7 +1123,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             <button
               type="button"
               onClick={() => setIsStaffModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
+              className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-orange-600/20"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
               <span>Personel Ekle</span>
@@ -1153,7 +1153,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleOpenEditStaff(st)}
-                      className="p-1.5 rounded-xl text-stone-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-xl text-stone-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors cursor-pointer"
                       title="Usta Profilini Düzenle"
                     >
                       <Pencil className="w-4 h-4" />
@@ -1222,7 +1222,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsServiceModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-orange-600/20"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>Hizmet Ekle</span>
@@ -1254,7 +1254,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleOpenEditService(srv)}
-                      className="p-1.5 rounded-xl text-stone-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-xl text-stone-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors cursor-pointer"
                       title="Fiyat ve Bilgileri Düzenle"
                     >
                       <Pencil className="w-4 h-4" />
@@ -1306,7 +1306,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                   setCustPhone('');
                   setIsNewModalOpen(true);
                 }}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-orange-600/20"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>Yeni Randevu Yaz</span>
@@ -1317,7 +1317,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
           {/* CSV İçe Aktarma Kutusu (Açılır/Kapanır) */}
           {isCsvDrawerOpen && (
             <div className="bg-stone-50 dark:bg-stone-800/40 border-2 border-dashed border-stone-300 dark:border-stone-700 rounded-3xl p-6 text-center space-y-4 animate-in fade-in">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+              <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center mx-auto">
                 <Upload className="w-6 h-6" />
               </div>
               <div>
@@ -1336,7 +1336,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 />
                 <label
                   htmlFor="csvFileInput"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-2 shadow-md shadow-indigo-600/20"
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-2 shadow-md shadow-orange-600/20"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   <span>Dosya Seç (.CSV)</span>
@@ -1381,7 +1381,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCsvDrawerOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Upload className="w-4 h-4" />
                   <span>Rehberi / CSV Yükle</span>
@@ -1414,7 +1414,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                           <tr key={c.id} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors">
                             <td className="p-3.5">
                               <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                                <div className="w-9 h-9 rounded-xl bg-orange-600 text-white font-black text-xs flex items-center justify-center shrink-0">
                                   {c.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
@@ -1456,7 +1456,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                                   setTargetTime('12:00');
                                   setIsNewModalOpen(true);
                                 }}
-                                className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 font-bold text-xs cursor-pointer inline-flex items-center gap-1 transition-colors"
+                                className="px-3 py-1.5 rounded-xl bg-orange-50 dark:bg-orange-950/50 hover:bg-orange-100 text-orange-600 dark:text-orange-400 font-bold text-xs cursor-pointer inline-flex items-center gap-1 transition-colors"
                               >
                                 <Calendar className="w-3.5 h-3.5" />
                                 <span>Randevu Yaz</span>
@@ -1561,7 +1561,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
       {isNewModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
           <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-lg w-full border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-5 bg-indigo-600 text-white flex items-center justify-between">
+            <div className="p-5 bg-orange-600 text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Calendar className="w-5 h-5" />
                 <h3 className="text-base font-black">Yeni Randevu Kaydı</h3>
@@ -1690,7 +1690,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                     type="checkbox"
                     checked={isRecurring}
                     onChange={(e) => setIsRecurring(e.target.checked)}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                    className="w-4 h-4 rounded text-orange-600 focus:ring-0 cursor-pointer"
                   />
                   <span>Tekrarlayan Randevu Serisi Oluştur</span>
                 </label>
@@ -1734,7 +1734,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black cursor-pointer shadow-md shadow-indigo-600/20"
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer shadow-md shadow-orange-600/20"
                 >
                   Randevuyu Kaydet
                 </button>
@@ -1861,7 +1861,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
           <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
-                <User className="w-5 h-5 text-indigo-600" />
+                <User className="w-5 h-5 text-orange-600" />
                 <span>Yeni Personel / Usta Ekle</span>
               </h3>
               <button
@@ -1957,7 +1957,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-black cursor-pointer"
                 >
                   Personeli Kaydet
                 </button>
@@ -1975,7 +1975,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
           <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
-                <Pencil className="w-5 h-5 text-indigo-600" />
+                <Pencil className="w-5 h-5 text-orange-600" />
                 <span>Usta Profilini Düzenle</span>
               </h3>
               <button
@@ -2078,7 +2078,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer shadow-md shadow-indigo-600/20"
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-black cursor-pointer shadow-md shadow-orange-600/20"
                 >
                   Değişiklikleri Kaydet
                 </button>
@@ -2096,7 +2096,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
           <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
-                <Scissors className="w-5 h-5 text-indigo-600" />
+                <Scissors className="w-5 h-5 text-orange-600" />
                 <span>Yeni Hizmet Ekle</span>
               </h3>
               <button
@@ -2159,7 +2159,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-black cursor-pointer"
                 >
                   Hizmeti Kaydet
                 </button>
@@ -2177,7 +2177,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
           <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
-                <Pencil className="w-5 h-5 text-indigo-600" />
+                <Pencil className="w-5 h-5 text-orange-600" />
                 <span>Hizmet &amp; Fiyat Düzenle</span>
               </h3>
               <button
@@ -2260,7 +2260,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer shadow-md shadow-indigo-600/20"
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-black cursor-pointer shadow-md shadow-orange-600/20"
                 >
                   Değişiklikleri Kaydet
                 </button>
@@ -2437,7 +2437,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               <button
                 type="button"
                 onClick={() => handleCompleteApt('kart')}
-                className="py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-600/20"
+                className="py-3 px-4 rounded-2xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-orange-600/20"
               >
                 <CreditCard className="w-4 h-4" />
                 <span>Kredi Kartı / POS</span>

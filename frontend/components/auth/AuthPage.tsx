@@ -72,7 +72,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   return (
     <div className="min-h-screen bg-stone-100 font-sans lg:grid lg:grid-cols-[1fr_460px]">
       {/* Sol tanıtım paneli (desktop) */}
-      <div className="hidden lg:flex flex-col justify-between relative overflow-hidden bg-linear-to-br from-amber-500 via-orange-500 to-orange-600 text-white p-10 xl:p-14">
+      <div className="hidden lg:flex flex-col justify-between relative overflow-hidden bg-linear-to-br from-orange-500 via-orange-500 to-orange-600 text-white p-10 xl:p-14">
         <div
           aria-hidden
           className="absolute inset-0 pointer-events-none"
@@ -81,30 +81,30 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
         <div className="relative">
           <span className="inline-block bg-white rounded-2xl px-5 py-3 shadow-lg">
             <img
-              src="/brand/logo-dukkanim.svg"
+              src="/brand/logo-horizontal.png"
               alt="Dükkânım Yanımda"
-              className="h-10 w-auto max-w-[200px] object-contain block"
+              className="h-10 w-auto max-w-[210px] object-contain block"
             />
           </span>
         </div>
 
         <div className="relative max-w-lg">
           <div className="rounded-3xl bg-white/15 border border-white/25 backdrop-blur-sm p-5 mb-8">
-            <p className="text-[11px] font-black uppercase tracking-widest text-amber-100">Bugünün Kasası</p>
+            <p className="text-[11px] font-black uppercase tracking-widest text-orange-100">Bugünün Kasası</p>
             <p className="text-4xl font-black tracking-tight mt-1">₺12.450</p>
             <div className="mt-3 space-y-1.5 text-xs font-bold">
               <div className="flex justify-between bg-white/10 rounded-lg px-3 py-1.5">
-                <span className="text-amber-50">Nakit giriş</span><span>+₺6.300</span>
+                <span className="text-orange-50">Nakit giriş</span><span>+₺6.300</span>
               </div>
               <div className="flex justify-between bg-white/10 rounded-lg px-3 py-1.5">
-                <span className="text-amber-50">Kart giriş</span><span>+₺4.150</span>
+                <span className="text-orange-50">Kart giriş</span><span>+₺4.150</span>
               </div>
             </div>
           </div>
           <h1 className="text-4xl xl:text-5xl font-black leading-[1.08] tracking-tight">
             Dükkanını<br />Cebinden Yönet
           </h1>
-          <p className="mt-4 text-amber-50 font-medium max-w-md">
+          <p className="mt-4 text-orange-50 font-medium max-w-md">
             Kasa, veresiye ve gün sonu tek panelde. Kağıt defteri kapat,
             dükkanını 2 dakikada dijitale taşı.
           </p>
@@ -118,7 +118,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                 <p className="text-sm font-black flex items-center gap-2">
                   <Icon className="w-4 h-4" /> {f.title}
                 </p>
-                <p className="text-xs text-amber-100 mt-0.5 font-semibold">{f.text}</p>
+                <p className="text-xs text-orange-100 mt-0.5 font-semibold">{f.text}</p>
               </div>
             );
           })}
@@ -128,16 +128,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
       {/* Sağ giriş kartı */}
       <div className="flex flex-col items-center justify-center px-4 py-8 sm:px-8 bg-stone-100">
         {/* Mobil mini vitrin */}
-        <div className="lg:hidden w-full max-w-md mb-5 rounded-3xl bg-linear-to-br from-amber-500 via-amber-600 to-orange-600 text-white p-6 text-center shadow-lg">
+        <div className="lg:hidden w-full max-w-md mb-5 rounded-3xl bg-linear-to-br from-orange-500 to-orange-600 text-white p-6 text-center shadow-lg">
           <div className="inline-flex items-center justify-center bg-white rounded-2xl px-5 py-3 shadow-md">
             <img
-              src="/brand/logo-dukkanim.svg"
+              src="/brand/logo-horizontal.png"
               alt="Dükkânım Yanımda"
-              className="h-9 w-auto max-w-[170px] object-contain block"
+              className="h-10 w-auto max-w-[190px] object-contain block"
             />
           </div>
           <p className="mt-3.5 text-xl font-black">Dükkanını Cebinden Yönet</p>
-          <p className="text-xs text-amber-100 font-semibold mt-1">Kasa, veresiye ve gün sonu tek panelde</p>
+          <p className="text-xs text-orange-100 font-semibold mt-1">Kasa, veresiye ve gün sonu tek panelde</p>
         </div>
 
         <div className="w-full max-w-md animate-fade-up">
@@ -153,7 +153,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
 
           <div className="bg-white rounded-3xl border border-stone-200 shadow-[0_24px_60px_-18px_rgba(28,25,23,0.25)] overflow-hidden">
             {/* Kart başlık bandı */}
-            <div className="bg-linear-to-r from-amber-500 to-orange-600 px-6 py-5 text-white relative overflow-hidden">
+            <div className="bg-linear-to-r from-orange-500 to-orange-600 px-6 py-5 text-white relative overflow-hidden">
               <div
                 aria-hidden
                 className="absolute -right-8 -top-10 w-36 h-36 rounded-full bg-white/15 pointer-events-none"
@@ -161,7 +161,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
               <h2 className="text-lg font-black">
                 {mode === 'login' ? 'Hesabınıza Giriş Yapın' : 'Dükkanınızı Açın'}
               </h2>
-              <p className="text-xs text-amber-100 font-semibold mt-0.5">
+              <p className="text-xs text-orange-100 font-semibold mt-0.5">
                 {mode === 'login' ? 'Dükkanınızı her yerden yönetin' : '2 dakikada kurulum, kredi kartı gerekmez'}
               </p>
             </div>

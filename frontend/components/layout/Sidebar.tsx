@@ -53,7 +53,7 @@ interface SidebarProps {
 const tabBtn = (active: boolean) =>
   `w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
     active
-      ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
+      ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30'
       : 'text-stone-400 hover:text-white hover:bg-white/5'
   }`;
 
@@ -202,15 +202,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Desktop sol menü (Sayfa aşağı kaysa bile her zaman sabit ve ekran boyunda kalır) */}
       <aside className="hidden md:flex w-60 shrink-0 flex-col bg-stone-950 dark:bg-black border-r border-stone-800 sticky top-0 h-screen self-start overflow-y-auto z-30">
-        <div className="p-4 pb-2 flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow-[0_2px_10px_rgba(245,158,11,0.45)] shrink-0">
-            <Store className="w-5 h-5" />
-          </span>
+        <div className="p-4 pb-2.5 flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center p-1 shadow-md shadow-orange-500/20 shrink-0">
+            <img src="/brand/logo-icon.png" alt="Dükkanım Yanımda" className="w-full h-full object-contain" />
+          </div>
           <span className="min-w-0">
-            <span className="block text-sm font-black text-white truncate">
-              Dükkanım <span className="text-amber-500">Yanımda</span>
+            <span className="block text-sm font-black text-white tracking-tight">
+              dükkanım <span className="text-orange-500">yanımda</span>
             </span>
-            <span className="block text-[10px] font-bold text-stone-500 truncate">Esnafın dijital defteri</span>
+            <span className="block text-[10px] font-bold text-stone-400 truncate">Esnafın dijital defteri</span>
           </span>
         </div>
 
@@ -219,7 +219,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="mt-auto p-3 border-t border-stone-800/80">
           <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-3 py-2.5">
-            <span className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center text-sm font-black shrink-0">
+            <span className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center text-sm font-black shrink-0">
               {avatarChar}
             </span>
             <span className="min-w-0 flex-1">
@@ -300,7 +300,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 onClick={onClick}
                 className={`relative flex flex-col items-center gap-1 py-2.5 text-[10px] font-black transition-colors cursor-pointer ${
-                  active ? 'text-amber-500' : 'text-stone-500'
+                  active ? 'text-orange-500' : 'text-stone-500'
                 }`}
               >
                 <Icon className="w-5 h-5" />
@@ -310,7 +310,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {badge}
                   </span>
                 )}
-                {active && <span className="absolute bottom-0 w-8 h-0.5 rounded-full bg-amber-500" />}
+                {active && <span className="absolute bottom-0 w-8 h-0.5 rounded-full bg-orange-500" />}
               </button>
             );
           })}
