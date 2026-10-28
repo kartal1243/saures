@@ -17,6 +17,8 @@ import {
   Sparkles,
   PhoneCall,
   Laptop,
+  Check,
+  ArrowRight,
 } from 'lucide-react';
 
 interface VipAiConsultantModalProps {
@@ -127,7 +129,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in">
       <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-2xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden transition-all flex flex-col max-h-[92vh]">
         {/* VIP Başlık */}
-        <div className="p-5 sm:p-6 bg-linear-to-r from-amber-500 via-amber-600 to-yellow-600 text-white flex items-center justify-between shrink-0 relative overflow-hidden">
+        <div className="p-5 sm:p-6 bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 text-white flex items-center justify-between shrink-0 relative overflow-hidden">
           <div className="flex items-center gap-3.5 relative">
             <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shadow-inner shrink-0">
               <Crown className="w-6 h-6 text-yellow-200" />
@@ -135,11 +137,11 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-black tracking-tight">İşletmenize Özel VIP Panel</h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-white text-amber-800 uppercase tracking-wider shadow-xs">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-white text-orange-800 uppercase tracking-wider shadow-xs">
                   {isAlreadyVip ? 'VIP ÜYESİ' : 'ÖZEL GELİŞTİRME'}
                 </span>
               </div>
-              <p className="text-xs text-amber-100 mt-0.5 font-medium">
+              <p className="text-xs text-orange-100 mt-0.5 font-medium">
                 {shopProfile?.storeName || 'Dükkanınız'} için ne gerekiyorsa birebir panelinize ekleyelim
               </p>
             </div>
@@ -158,28 +160,28 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
         <div className="flex border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 p-2 gap-1.5 shrink-0">
           <button
             type="button"
+            onClick={() => setActiveTab('pricing')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeTab === 'pricing'
+                ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs'
+                : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            VIP Fiyatlandırma
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('request')}
             className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               activeTab === 'request'
-                ? 'bg-white dark:bg-stone-800 text-amber-600 dark:text-amber-400 shadow-xs'
+                ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs'
                 : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
             <Wrench className="w-3.5 h-3.5" />
             Özel Panel İstiyorum
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('pricing')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'pricing'
-                ? 'bg-white dark:bg-stone-800 text-amber-600 dark:text-amber-400 shadow-xs'
-                : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5" />
-            Paketler &amp; Fiyat
           </button>
         </div>
 
@@ -303,175 +305,151 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
 
           {activeTab === 'pricing' && (
             <div className="space-y-4">
-              <div className="text-center max-w-sm mx-auto">
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
-                  GÜNDE SADECE 16 ₺ · TAAHHÜTSÜZ
-                </span>
-                <h3 className="mt-1.5 text-base font-black text-stone-900 dark:text-white">
-                  İşletmenize Özel VIP Paket Seçenekleri
-                </h3>
-                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
-                  0 TL'lik temel sürümdeki 25 müşteri sınırını kaldırın, dükkanınızı sınırsız büyütün.
-                </p>
-              </div>
-
-              {/* 0 TL vs VIP Hızlı Karşılaştırma Bandı */}
-              <div className="p-3 rounded-2xl bg-stone-100 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-stone-400">0 TL Standart</span>
-                    <span className="text-[10px] font-black text-stone-500">Temel</span>
-                  </div>
-                  <ul className="mt-2 space-y-1 text-[11px] text-stone-600 dark:text-stone-300">
-                    <li>• Maks. 25 Müşteri &amp; Borç</li>
-                    <li>• Tek Kullanıcı / 1 Personel</li>
-                    <li>• Son 14 Günlük Kasa Raporu</li>
-                    <li className="text-stone-400 line-through">• Randevu Takvimi Yok</li>
-                    <li className="text-stone-400 line-through">• Sesli Asistan &amp; OCR Yok</li>
-                    <li className="text-stone-400 line-through">• Özel Kodlama &amp; Fiş Yok</li>
-                  </ul>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400">₺500 VIP Panel</span>
-                    <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-500 text-white">SINIRSIZ</span>
-                  </div>
-                  <ul className="mt-2 space-y-1 text-[11px] font-bold text-stone-800 dark:text-stone-100">
-                    <li className="text-emerald-600 dark:text-emerald-400">✓ Sınırsız Müşteri &amp; Veresiye</li>
-                    <li>✓ Online Randevu Takvimi &amp; Linki</li>
-                    <li>✓ Sınırsız Personel &amp; Prim</li>
-                    <li>✓ Türkçe Sesli AI Asistanı</li>
-                    <li>✓ Fotoğraftan Menü/Tarife OCR</li>
-                    <li className="text-orange-600 dark:text-orange-400">✓ Dükkanınıza Özel Kodlama</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-3">
-                {/* Aylık Paket */}
-                <div
-                  onClick={() => setSelectedPlan('aylik')}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
-                    selectedPlan === 'aylik'
-                      ? 'border-amber-500 bg-amber-50/40 dark:bg-amber-950/20 shadow-md'
-                      : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800/40'
-                  }`}
-                >
-                  <p className="text-xs font-black uppercase text-stone-500 dark:text-stone-400">Aylık VIP</p>
-                  <p className="mt-1 text-2xl font-black text-stone-900 dark:text-white">
-                    ₺500 <span className="text-xs font-bold text-stone-400">/ ay</span>
-                  </p>
-                  <p className="text-[11px] text-stone-500 mt-1 font-medium">
-                    Taahhüt yok, dilediğiniz zaman iptal edebilirsiniz.
-                  </p>
-                  <ul className="mt-3 space-y-1.5 text-[11px] font-bold text-stone-700 dark:text-stone-300">
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Sınırsız Müşteri, Veresiye &amp; Cari (Defter sınırı kalkar)
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Sınırsız Personel/Usta &amp; Otomatik Prim Dağılımı
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Türkçe Sesli Asistan &amp; AI Tarife Okuma
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Termal Fiş &amp; Barkodlu Terazi Desteği
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Dükkanınıza Özel Buton &amp; Ekran Kodlama
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Yıllık Paket */}
-                <div
-                  onClick={() => setSelectedPlan('yillik')}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
-                    selectedPlan === 'yillik'
-                      ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/25 shadow-md'
-                      : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800/40'
-                  }`}
-                >
-                  <span className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-600 text-white flex items-center gap-1 shadow-xs">
-                    <Flame className="w-2.5 h-2.5" /> 2 AY HEDİYE
-                  </span>
-                  <p className="text-xs font-black uppercase text-amber-600 dark:text-amber-400">Yıllık Avantajlı VIP</p>
-                  <p className="mt-1 text-2xl font-black text-stone-900 dark:text-white">
-                    ₺4.990 <span className="text-xs font-bold text-stone-400">/ yıl</span>
-                  </p>
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-bold">
-                    Net ₺1.010 kâr, 12 ay kesintisiz dijital ortak.
-                  </p>
-                  <ul className="mt-3 space-y-1.5 text-[11px] font-bold text-stone-700 dark:text-stone-300">
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Tüm VIP Ayrıcalıkları + Sınırsız Geçmiş Analitiği
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Özel Tezgah QR Standı &amp; FAST Karekod Tasarımı
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Doğrudan Yazılım Mühendisi WhatsApp &amp; Telefon Hattı
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Online Randevu Takvimi &amp; Müşteri Randevu Linki
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Dükkana Özel İstenilen Tüm Yeni Ekranlar Ücretsiz
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div>
-                {upgradeSuccess ? (
-                  <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-center space-y-1">
-                    <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" /> VIP Üyeliğiniz Aktif Edildi!
-                    </p>
-                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                      Dilediğiniz zaman "Özel Panel İstiyorum" sekmesinden yeni ekran veya özellik talep edebilirsiniz.
-                    </p>
-                  </div>
-                ) : (
+              {/* Dönem Seçici Toggle */}
+              <div className="flex items-center justify-center">
+                <div className="p-1 rounded-2xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={handleUpgrade}
-                    disabled={isUpgrading}
-                    className="w-full py-3 px-4 rounded-xl bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-sm shadow-md shadow-amber-500/25 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    onClick={() => setSelectedPlan('aylik')}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      selectedPlan === 'aylik'
+                        ? 'bg-white dark:bg-stone-700 text-orange-600 dark:text-orange-400 shadow-xs'
+                        : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                    }`}
                   >
-                    {isUpgrading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Tanımlanıyor…
-                      </>
-                    ) : (
-                      <>
-                        <Crown className="w-4 h-4" />
-                        {selectedPlan === 'yillik' ? 'Yıllık Avantajlı VIP Paketini Başlat (₺4.990)' : 'Aylık VIP Paketini Başlat (₺500)'}
-                      </>
-                    )}
+                    Aylık (₺500 / ay)
                   </button>
-                )}
-
-                <p className="text-[10px] text-stone-400 text-center mt-2 flex items-center justify-center gap-1">
-                  <QrCode className="w-3 h-3 text-emerald-500" />
-                  Kredi Kartı veya FAST Karekod ile anında güvenli aktivasyon
-                </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlan('yillik')}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedPlan === 'yillik'
+                        ? 'bg-linear-to-r from-orange-500 to-orange-600 text-white shadow-md shadow-orange-500/25'
+                        : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                    }`}
+                  >
+                    <span>Yıllık (₺4.990 / yıl)</span>
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-emerald-500 text-white">
+                      2 AY HEDİYE
+                    </span>
+                  </button>
+                </div>
               </div>
 
-              {/* Destek Kutusu */}
-              <div className="rounded-2xl bg-linear-to-r from-emerald-600 to-teal-700 text-white p-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <PhoneCall className="w-5 h-5 text-emerald-200 shrink-0" />
-                  <div>
-                    <h5 className="text-xs font-black">Yazılım Ekibine Ulaşın</h5>
-                    <p className="text-[11px] text-emerald-100">Dükkanınıza özel ek modül ve sorularınız için:</p>
+              {/* ANA SAYFADAKİ VIP KARTININ BİREBİR AYNI TASARIMI */}
+              <div className="relative p-6 sm:p-7 rounded-3xl bg-linear-to-b from-orange-500/5 via-white to-orange-500/10 dark:from-stone-900 dark:via-stone-900 dark:to-orange-950/20 border-2 border-orange-500/80 shadow-xl flex flex-col justify-between transition-all">
+                {/* Üst Rozet */}
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-linear-to-r from-orange-500 to-orange-600 text-white text-[11px] font-black uppercase tracking-wider shadow-md shadow-orange-500/30 flex items-center gap-1.5 whitespace-nowrap">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  ★ EN ÇOK TERCİH EDİLEN · GÜNDE SADECE 16 ₺
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                      İşletmenizin Sağ Kolu
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-[11px] font-black bg-orange-500/15 text-orange-800 dark:text-orange-300 border border-orange-500/30">
+                      Özel Yazılımcı Dahil
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white flex items-center gap-2">
+                    İşletmeye Özel VIP Panel
+                    <Crown className="w-5 h-5 text-orange-500" />
+                  </h3>
+                  <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
+                    Günde 16 ₺'ye çırak bile tutamazsınız! Ayda 1 saç kesimi parasına tüm dükkanınız cebinizde.
+                  </p>
+
+                  <div className="mt-5 pb-5 border-b border-orange-200/60 dark:border-orange-800/40">
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                      <span className="text-4xl sm:text-5xl font-black text-stone-900 dark:text-white">
+                        {selectedPlan === 'yillik' ? '₺4.990' : '₺500'}
+                      </span>
+                      <span className="text-xs font-bold text-stone-500">
+                        {selectedPlan === 'yillik' ? '/ yıl' : '/ ay'}
+                      </span>
+                      {selectedPlan === 'yillik' ? (
+                        <span className="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                          2 Ay Hediye (Net ₺1.010 Kazanç)
+                        </span>
+                      ) : (
+                        <span className="text-xs font-black px-2 py-0.5 rounded-md bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300">
+                          Taahhütsüz Aylık
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-[11px] font-bold text-orange-700 dark:text-orange-400">
+                      ✓ Günde sadece {selectedPlan === 'yillik' ? '13' : '16'} TL · 1 bardak çay parasına dükkana özel yazılım mühendisi
+                    </p>
+                  </div>
+
+                  <div className="mt-5 space-y-2.5">
+                    <p className="text-[11px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider">
+                      Sınırsız VIP Ayrıcalıkları
+                    </p>
+                    {[
+                      'SINIRSIZ Müşteri, Veresiye ve Cari Takibi (25 limiti kalkar)',
+                      'Online Randevu Takvimi, Randevu Linki & Tezgah QR Standı',
+                      'SINIRSIZ Personel / Usta ve Otomatik Koltuk Prim Dağılımı',
+                      'Türkçe Sesli Randevu & Kasa Asistanı (Web Speech AI)',
+                      'Fotoğraftan Fiyat Tarifesi & Menü Okuyucu (AI OCR)',
+                      'Termal Fiş Yazıcısı (58/80mm), Barkodlu Terazi Entegrasyonu',
+                      'DÜKKANINIZA ÖZEL YAZILIM: İstediğiniz her form ve buton size özel kodlanır',
+                      '7/24 Öncelikli Telefon & Canlı WhatsApp Yazılımcı Destek Hattı',
+                    ].map((feat, idx) => (
+                      <div
+                        key={feat}
+                        className={`flex items-center gap-2.5 text-xs sm:text-sm font-bold ${
+                          idx === 6 ? 'text-orange-900 dark:text-orange-200' : 'text-stone-800 dark:text-stone-100'
+                        }`}
+                      >
+                        <span className="w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                          <Check className="w-3.5 h-3.5" />
+                        </span>
+                        <span>{feat}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <span className="text-xs font-black bg-white/20 px-3 py-1.5 rounded-xl whitespace-nowrap">
-                  omeryaman6@hotmail.com
-                </span>
+
+                <div className="mt-6 pt-5 border-t border-orange-200/60 dark:border-orange-800/40">
+                  {upgradeSuccess ? (
+                    <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-center space-y-1">
+                      <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" /> VIP Üyeliğiniz Aktif Edildi!
+                      </p>
+                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                        Dilediğiniz zaman "Özel Panel İstiyorum" sekmesinden yeni ekran veya özellik talep edebilirsiniz.
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleUpgrade}
+                      disabled={isUpgrading}
+                      className="w-full py-3.5 px-4 rounded-xl text-sm font-black text-white bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:to-orange-800 shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {isUpgrading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Tanımlanıyor…
+                        </>
+                      ) : (
+                        <>
+                          <Crown className="w-4 h-4 text-yellow-200" />
+                          {selectedPlan === 'yillik'
+                            ? 'Yıllık Avantajlı VIP Paketini Başlat (₺4.990)'
+                            : 'Aylık VIP Paketini Başlat (₺500)'}
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <p className="mt-2 text-center text-[10px] text-stone-400 font-medium">
+                    Taahhüt Yok · İstediğin Zaman İptal Et · Kredi Kartı Şartı Yok
+                  </p>
+                </div>
               </div>
             </div>
           )}
