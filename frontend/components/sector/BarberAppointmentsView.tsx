@@ -60,6 +60,7 @@ interface BarberAppointmentsViewProps {
   customers?: Customer[];
   shopSlug?: string;
   storeName?: string;
+  initialTab?: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr';
   onAddAppointment: (data: Partial<Appointment>) => Promise<void>;
   onCompleteAppointment: (id: string, paymentMethod: 'nakit' | 'kart', packageId?: string) => Promise<void>;
   onUpdateStatus: (id: string, status: AppointmentStatus) => Promise<void>;
@@ -92,9 +93,16 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   onUpdateStatus,
   onDeleteAppointment,
   onImportCustomers,
+  initialTab,
 }) => {
   // Aktif Sekme: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'
-  const [activeTab, setActiveTab] = useState<'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'>(initialTab || 'timeline');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Backend'den çekilen berber verileri
   const [staffList, setStaffList] = useState<BarberStaff[]>([]);

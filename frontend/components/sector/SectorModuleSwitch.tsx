@@ -28,6 +28,7 @@ interface SectorModuleSwitchProps {
   activeTab: ActiveTab;
   shopSlug?: string;
   storeName?: string;
+  barberSubTab?: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr';
   // Berber
   appointments: Appointment[];
   services: ServiceItem[];
@@ -87,6 +88,7 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
         services={props.services}
         shopSlug={props.shopSlug}
         storeName={props.storeName}
+        initialTab={props.barberSubTab}
         onAddAppointment={props.onAddAppointment}
         onCompleteAppointment={props.onCompleteAppointment}
         onUpdateStatus={props.onUpdateAppointmentStatus}

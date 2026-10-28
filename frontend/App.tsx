@@ -243,6 +243,7 @@ export default function App() {
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [whatsAppTargetCustomer, setWhatsAppTargetCustomer] = useState<Customer | null>(null);
   const [whatsAppReminderType, setWhatsAppReminderType] = useState<'veresiye' | 'aidat' | 'bakim'>('veresiye');
+  const [barberSubTab, setBarberSubTab] = useState<'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'>('timeline');
 
   // Canlı Online Randevu Bildirim State'i
   const [liveBookingAlert, setLiveBookingAlert] = useState<Appointment | null>(null);
@@ -1496,6 +1497,7 @@ export default function App() {
         onOpenVip={() => setIsVipModalOpen(true)}
         onOpenServices={() => {
           if (isBarber) {
+            setBarberSubTab('services');
             setActiveTab('sector_view');
           } else {
             setIsServicesModalOpen(true);
@@ -1729,6 +1731,7 @@ export default function App() {
           activeTab={activeTab}
           shopSlug={shopProfile?.slug || 'demo'}
           storeName={shopProfile?.storeName || storeName}
+          barberSubTab={barberSubTab}
           appointments={appointments}
           services={serviceList}
           onAddAppointment={handleAddAppointment}
