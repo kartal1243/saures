@@ -713,7 +713,20 @@ export default function App() {
   };
 
   // Customer Management Handlers
+  const handleOpenNewCustomer = () => {
+    if (!shopProfile?.isVip && customers.length >= 25) {
+      setIsVipModalOpen(true);
+      return;
+    }
+    setIsNewCustomerModalOpen(true);
+  };
+
   const handleCreateCustomer = async (data: Partial<Customer> & { initialBalance?: number }) => {
+    if (!shopProfile?.isVip && customers.length >= 25) {
+      setIsVipModalOpen(true);
+      alert('0 TL Standart sürümde en fazla 25 müşteri kaydedebilirsiniz. Sınırsız müşteri eklemek için lütfen VIP pakete geçin (Günde sadece 16 ₺).');
+      return;
+    }
     const res = await fetch('/api/customers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1688,7 +1701,7 @@ export default function App() {
             {activeTab === 'customers' && (
               <button
                 type="button"
-                onClick={() => setIsNewCustomerModalOpen(true)}
+                onClick={handleOpenNewCustomer}
                 className="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
               >
                 + Yeni Müşteri Ekle
@@ -2108,6 +2121,8 @@ export default function App() {
             )}
             <CustomerList
               customers={customers}
+              isVip={Boolean(shopProfile?.isVip)}
+              onOpenVip={() => setIsVipModalOpen(true)}
               onSelectCustomer={(cust) => {
                 setSelectedCustomer(cust);
                 setIsDetailModalOpen(true);

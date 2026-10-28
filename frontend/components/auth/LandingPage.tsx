@@ -152,7 +152,7 @@ const BENTO_FEATURES = [
 const FAQS = [
   {
     q: 'Dükkanım Yanımda tamamen ücretsiz mi?',
-    a: 'Evet! Hemen 1 dakikada telefon numaranızla kayıt olarak Kasa, Veresiye, Stok ve Müşteri Defteri gibi tüm temel özellikleri ücretsiz kullanabilirsiniz. Dükkanınıza özel birebir ekran ve modül isterseniz de çok uygun fiyatlı VIP Özel Panel paketimizden faydalanabilirsiniz.',
+    a: 'Evet! Hemen 1 dakikada telefon numaranızla Standart Esnaf (0 TL) olarak kayıt olabilir; 25 müşteriye kadar veresiye/cari defterinizi, günlük kasanızı ve temel randevularınızı ücretsiz kullanabilirsiniz. Dükkanınız büyüdüğünde veya sınırsız müşteri, Türkçe sesli asistan, damat tıraşı akıllı çakışma kilidi, termal fiş ve dükkanınıza özel kodlama istediğinizde ayda sadece ₺500 olan VIP paketimize dilediğiniz an geçebilirsiniz.',
   },
   {
     q: 'İşletmeme özel VIP panel üretimini nasıl talep ederim?',
@@ -674,18 +674,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
           </div>
 
           <div className="mt-12 grid md:grid-cols-2 gap-8 max-w-5xl mx-auto items-stretch">
-            {/* 1. KART: STANDART ESNAF PAKETİ (ÜCRETSİZ) */}
+            {/* 1. KART: STANDART ESNAF PAKETİ (0 TL) */}
             <div className="p-7 sm:p-9 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/90 dark:border-stone-800 shadow-xs flex flex-col justify-between transition-all">
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-stone-400">Temel Sürüm</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-stone-400">Başlangıç Sürümü</span>
                   <span className="px-3 py-1 rounded-full text-[11px] font-black bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700">
-                    Sonsuza Dek
+                    Denemesi Bedava
                   </span>
                 </div>
                 <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white">Standart Esnaf</h3>
                 <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
-                  Hemen dükkanını cebine alıp kağıt defteri çöpe atmak isteyenler için.
+                  Dükkanını yeni açan ve kağıt defteri çöpe atıp dijitali denemek isteyenler için.
                 </p>
 
                 <div className="mt-6 pb-6 border-b border-stone-100 dark:border-stone-800">
@@ -699,20 +699,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 </div>
 
                 <div className="mt-6 space-y-3">
-                  <p className="text-[11px] font-black text-stone-400 uppercase tracking-wider">Neler Dahil?</p>
+                  <p className="text-[11px] font-black text-stone-400 uppercase tracking-wider">Paket Sınırları &amp; Özellikler</p>
                   {[
-                    'Kasa & Gün Sonu Denkleştirme (Nakit/Kart/Gider)',
-                    'Sınırsız Veresiye Defteri & Müşteri Carisi',
-                    'WhatsApp ile Tek Tıkla Kibar Borç Hatırlatması',
-                    'Telefon Kamerası ile Otomatik Barkod Okutma',
-                    'Temel Sektör Şablonları (Berber, Kafe, Bakkal vb.)',
-                    'Mobil Uyumlu PWA & Şifreli Bulut Yedekleme',
+                    { text: 'Maksimum 25 Müşteri & Veresiye Kaydı', included: true },
+                    { text: '1 Personel / Tek Kullanıcı Girişi', included: true },
+                    { text: 'Temel Kasa & Günlük Ciro (Son 14 Gün Geçmiş)', included: true },
+                    { text: 'Manuel Randevu Takvimi (Aylık 15 Randevu)', included: true },
+                    { text: 'WhatsApp ile Kibar Borç Hatırlatma', included: true },
+                    { text: 'Sınırsız Müşteri & Cari (VIP ile Sınırsız)', included: false },
+                    { text: 'Türkçe Sesli Randevu Asistanı (Yalnızca VIP)', included: false },
+                    { text: '90 Dk Damat Tıraşı Akıllı Çakışma Kilidi (Yalnızca VIP)', included: false },
+                    { text: 'Termal Fiş, Terazi & Özel Kodlama (Yalnızca VIP)', included: false },
                   ].map((feat) => (
-                    <div key={feat} className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold text-stone-700 dark:text-stone-200">
-                      <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 flex items-center justify-center shrink-0">
-                        <Check className="w-3.5 h-3.5" />
+                    <div key={feat.text} className={`flex items-center gap-2.5 text-xs sm:text-sm font-semibold ${feat.included ? 'text-stone-700 dark:text-stone-200' : 'text-stone-400 dark:text-stone-500 line-through'}`}>
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${feat.included ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600' : 'bg-stone-100 dark:bg-stone-800 text-stone-400'}`}>
+                        {feat.included ? <Check className="w-3.5 h-3.5" /> : <span className="text-[10px] font-black">✕</span>}
                       </span>
-                      <span>{feat}</span>
+                      <span>{feat.text}</span>
                     </div>
                   ))}
                 </div>
@@ -730,53 +733,56 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               </div>
             </div>
 
-            {/* 2. KART: İŞLETMEYE ÖZEL VIP PANEL */}
+            {/* 2. KART: İŞLETMEYE ÖZEL VIP PANEL (₺500 / AY) */}
             <div className="relative p-7 sm:p-9 rounded-3xl bg-linear-to-b from-orange-500/5 via-white to-orange-500/10 dark:from-stone-900 dark:via-stone-900 dark:to-orange-950/20 border-2 border-orange-500/80 shadow-xl flex flex-col justify-between transition-all">
               {/* Üst Rozet */}
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-linear-to-r from-orange-500 to-orange-600 text-white text-[11px] font-black uppercase tracking-wider shadow-md shadow-orange-500/30 flex items-center gap-1.5 whitespace-nowrap">
                 <Sparkles className="w-3.5 h-3.5" />
-                Dükkanınıza Özel Kodlanır
+                ★ EN ÇOK TERCİH EDİLEN · GÜNDE SADECE 16 ₺
               </div>
 
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">VIP Avantajı</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">İşletmenizin Sağ Kolu</span>
                   <span className="px-3 py-1 rounded-full text-[11px] font-black bg-orange-500/15 text-orange-800 dark:text-orange-300 border border-orange-500/30">
-                    Öncelikli Yazılım Ekibi
+                    Özel Yazılımcı Dahil
                   </span>
                 </div>
                 <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white flex items-center gap-2">
-                  İşletmeye Özel Panel
+                  İşletmeye Özel VIP Panel
                   <Crown className="w-5 h-5 text-orange-500" />
                 </h3>
                 <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
-                  "Şu düğme de olsun, şu fiş böyle çıksın" dediğiniz her şeyi doğrudan panelinize ekliyoruz.
+                  Günde 16 ₺'ye çırak bile tutamazsınız! Ayda 1 saç kesimi parasına tüm dükkanınız cebinizde.
                 </p>
 
                 <div className="mt-6 pb-6 border-b border-orange-200/60 dark:border-orange-800/40">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="text-4xl sm:text-5xl font-black text-stone-900 dark:text-white">₺249</span>
+                    <span className="text-4xl sm:text-5xl font-black text-stone-900 dark:text-white">₺500</span>
                     <span className="text-xs font-bold text-stone-500">/ ay</span>
                     <span className="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                      Yıllıkta 2 Ay Hediye (₺2.490)
+                      Yıllıkta 2 Ay Hediye (₺4.990)
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] font-bold text-orange-700 dark:text-orange-400">
-                    ✓ Yapay zeka botu değil, doğrudan gerçek yazılım mühendisi desteği
+                  <p className="mt-1.5 text-[11px] font-bold text-orange-700 dark:text-orange-400">
+                    ✓ Günde sadece 16 TL · 1 bardak çay parasına dükkana özel yazılım mühendisi
                   </p>
                 </div>
 
                 <div className="mt-6 space-y-3">
-                  <p className="text-[11px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider">VIP Ekstra Ayrıcalıkları</p>
+                  <p className="text-[11px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider">Sınırsız VIP Ayrıcalıkları</p>
                   {[
-                    'Standart paketteki tüm özellikler eksiksiz dahil',
-                    'Dükkanınıza Özel Ekran & Modül Geliştirme (Size Özel Kodlama)',
-                    'Özel Fiş, Servis Kabul Formu veya Fatura Tasarımı',
-                    'Barkodlu Terazi, Termal Fiş Yazıcısı Entegrasyonu',
-                    'Doğrudan Yazılımcı & Telefonla Öncelikli Destek Hattı',
-                    'İstediğiniz Zaman Yeni Buton & Fonksiyon Talep Edebilme',
+                    'SINIRSIZ Müşteri, Veresiye ve Cari Takibi (25 limiti kalkar)',
+                    'SINIRSIZ Personel / Usta ve Otomatik Koltuk Prim Dağılımı',
+                    'SINIRSIZ Online Randevu Linki & Tezgah QR Standı',
+                    'Türkçe Sesli Randevu & Kasa Asistanı (Web Speech AI)',
+                    '90 Dk Damat Tıraşı & Randevu Akıllı Çakışma Kilidi',
+                    'Fotoğraftan Fiyat Tarifesi & Menü Okuyucu (AI OCR)',
+                    'Termal Fiş Yazıcısı (58/80mm), Barkodlu Terazi Entegrasyonu',
+                    'DÜKKANINIZA ÖZEL YAZILIM: İstediğiniz her form ve buton size özel kodlanır',
+                    '7/24 Öncelikli Telefon & Canlı WhatsApp Yazılımcı Destek Hattı',
                   ].map((feat, idx) => (
-                    <div key={feat} className={`flex items-center gap-2.5 text-xs sm:text-sm font-bold ${idx === 1 ? 'text-orange-900 dark:text-orange-200' : 'text-stone-800 dark:text-stone-100'}`}>
+                    <div key={feat} className={`flex items-center gap-2.5 text-xs sm:text-sm font-bold ${idx === 7 ? 'text-orange-900 dark:text-orange-200' : 'text-stone-800 dark:text-stone-100'}`}>
                       <span className="w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
                         <Check className="w-3.5 h-3.5" />
                       </span>
@@ -793,11 +799,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                   className="w-full py-3.5 px-4 rounded-xl text-sm font-black text-white bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:to-orange-800 shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Crown className="w-4 h-4 text-yellow-200" />
-                  VIP Özel Panelimi İstiyorum
+                  VIP Özel Panelimi Başlat — Günde 16 ₺
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <p className="mt-2 text-center text-[10px] text-stone-400 font-medium">
-                  Kayıt sonrası panelinizdeki VIP sekmesinden dilediğiniz özellikleri iletebilirsiniz
+                  Taahhüt Yok · İstediğin Zaman İptal Et · Kredi Kartı Şartı Yok
                 </p>
               </div>
             </div>

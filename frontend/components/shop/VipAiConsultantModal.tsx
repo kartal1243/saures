@@ -31,27 +31,27 @@ interface VipAiConsultantModalProps {
 const CUSTOM_PANEL_PERKS = [
   {
     Icon: LayoutGrid,
-    title: 'İşletmenize %100 Özel Panel',
-    desc: 'Standart kalıplara sıkışmayın. Dükkanınızın tam ihtiyaç duyduğu ekranları, butonları ve iş akışını size özel tasarlıyoruz.',
-    badge: 'Size Özel Tasarım',
+    title: 'Dükkanınıza Özel Yazılım Ekibi',
+    desc: 'Standart kalıplara sıkışmayın. Dükkanınızın tam ihtiyaç duyduğu butonları, özel fişleri ve ekranları doğrudan size özel kodluyoruz.',
+    badge: 'Birebir Kodlama',
+  },
+  {
+    Icon: Sparkles,
+    title: 'Sesli Asistan & AI Tarife Okuma',
+    desc: 'Türkçe sesli randevu kaydı ("Ahmet Usta\'ya saat 3\'e saç traşı yaz") ve fotoğrafını çektiğiniz fiyat panosunu 3 saniyede menüye çeviren AI OCR.',
+    badge: 'Yapay Zeka',
   },
   {
     Icon: Sliders,
-    title: 'Özel Fiş, Form ve Hesaplama',
-    desc: 'Sektörünüze özel tartı, parça kodu, emanet fişi, randevu saati veya iskonto mantıklarını sisteme ekliyoruz.',
-    badge: 'Sınırsız Özelleştirme',
-  },
-  {
-    Icon: Laptop,
-    title: 'Doğrudan Yazılımcı Desteği',
-    desc: 'Robotlarla veya yapay zekayla uğraşmayın. Doğrudan dükkanınızı anlayan yazılım ekibimizle birebir iletişim kurun.',
-    badge: 'Öncelikli Ekip',
+    title: 'Çoklu Usta & Otomatik Prim',
+    desc: 'Dilediğiniz kadar personel ve usta ekleyin. Koltuk bazlı kâr, damat tıraşı çakışma kilidi ve otomatik usta primi kuruşu kuruşuna hesaplansın.',
+    badge: 'Sınırsız Koltuk',
   },
   {
     Icon: ShieldCheck,
-    title: 'Banka Güvenliği & Özel Bulut',
-    desc: 'Tüm kasa ve müşteri defteriniz kesintisiz yedeklenir, telefon değiştirseniz bile hiçbir veriniz kaybolmaz.',
-    badge: 'Güvenli Altyapı',
+    title: 'Termal Fiş, Terazi & Donanım',
+    desc: 'Barkodlu terazi, 58/80mm termal fiş yazıcıları ve karekodlu tezgah standı desteğiyle tam teşekküllü işletme istasyonuna dönüşün.',
+    badge: 'Donanım Entegre',
   },
 ];
 
@@ -305,11 +305,45 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
             <div className="space-y-4">
               <div className="text-center max-w-sm mx-auto">
                 <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
-                  ŞEFFAF VE TAAHHÜTSÜZ
+                  GÜNDE SADECE 16 ₺ · TAAHHÜTSÜZ
                 </span>
                 <h3 className="mt-1.5 text-base font-black text-stone-900 dark:text-white">
                   İşletmenize Özel VIP Paket Seçenekleri
                 </h3>
+                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
+                  0 TL'lik temel sürümdeki 25 müşteri sınırını kaldırın, dükkanınızı sınırsız büyütün.
+                </p>
+              </div>
+
+              {/* 0 TL vs VIP Hızlı Karşılaştırma Bandı */}
+              <div className="p-3 rounded-2xl bg-stone-100 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-stone-400">0 TL Standart</span>
+                    <span className="text-[10px] font-black text-stone-500">Temel</span>
+                  </div>
+                  <ul className="mt-2 space-y-1 text-[11px] text-stone-600 dark:text-stone-300">
+                    <li>• Maks. 25 Müşteri &amp; Borç</li>
+                    <li>• Tek Kullanıcı / 1 Personel</li>
+                    <li>• Son 14 Günlük Kasa Raporu</li>
+                    <li className="text-stone-400 line-through">• Sesli Asistan &amp; OCR Yok</li>
+                    <li className="text-stone-400 line-through">• Özel Kodlama &amp; Fiş Yok</li>
+                  </ul>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400">₺500 VIP Panel</span>
+                    <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-500 text-white">SINIRSIZ</span>
+                  </div>
+                  <ul className="mt-2 space-y-1 text-[11px] font-bold text-stone-800 dark:text-stone-100">
+                    <li className="text-emerald-600 dark:text-emerald-400">✓ Sınırsız Müşteri &amp; Veresiye</li>
+                    <li>✓ Sınırsız Personel &amp; Prim</li>
+                    <li>✓ Türkçe Sesli AI &amp; 90 Dk Kilidi</li>
+                    <li>✓ Fotoğraftan Menü/Tarife OCR</li>
+                    <li className="text-orange-600 dark:text-orange-400">✓ Dükkanınıza Özel Kodlama</li>
+                  </ul>
+                </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-3">
@@ -324,20 +358,26 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                 >
                   <p className="text-xs font-black uppercase text-stone-500 dark:text-stone-400">Aylık VIP</p>
                   <p className="mt-1 text-2xl font-black text-stone-900 dark:text-white">
-                    ₺249 <span className="text-xs font-bold text-stone-400">/ ay</span>
+                    ₺500 <span className="text-xs font-bold text-stone-400">/ ay</span>
                   </p>
                   <p className="text-[11px] text-stone-500 mt-1 font-medium">
-                    İstediğiniz zaman iptal edebilirsiniz.
+                    Taahhüt yok, dilediğiniz zaman iptal edebilirsiniz.
                   </p>
                   <ul className="mt-3 space-y-1.5 text-[11px] font-bold text-stone-700 dark:text-stone-300">
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> İşletmeye Özel Panel Modifikasyonu
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Sınırsız Müşteri, Veresiye &amp; Cari (Defter sınırı kalkar)
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Sınırsız Müşteri &amp; Kasa Girişi
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Sınırsız Personel/Usta &amp; Otomatik Prim Dağılımı
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Öncelikli Yazılım Desteği
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Türkçe Sesli Asistan &amp; AI Tarife Okuma
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Termal Fiş &amp; Barkodlu Terazi Desteği
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Dükkanınıza Özel Buton &amp; Ekran Kodlama
                     </li>
                   </ul>
                 </div>
@@ -351,25 +391,31 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                       : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800/40'
                   }`}
                 >
-                  <span className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-600 text-white flex items-center gap-1">
+                  <span className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-600 text-white flex items-center gap-1 shadow-xs">
                     <Flame className="w-2.5 h-2.5" /> 2 AY HEDİYE
                   </span>
                   <p className="text-xs font-black uppercase text-amber-600 dark:text-amber-400">Yıllık Avantajlı VIP</p>
                   <p className="mt-1 text-2xl font-black text-stone-900 dark:text-white">
-                    ₺2.490 <span className="text-xs font-bold text-stone-400">/ yıl</span>
+                    ₺4.990 <span className="text-xs font-bold text-stone-400">/ yıl</span>
                   </p>
                   <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-bold">
-                    Net ₺498 kâr, tam yıl kesintisiz panel.
+                    Net ₺1.010 kâr, 12 ay kesintisiz dijital ortak.
                   </p>
                   <ul className="mt-3 space-y-1.5 text-[11px] font-bold text-stone-700 dark:text-stone-300">
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Tüm Özel Panel Düzenlemeleri
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Tüm VIP Ayrıcalıkları + Sınırsız Geçmiş Analitiği
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Özel FAST Karekod &amp; IBAN Kurulumu
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Özel Tezgah QR Standı &amp; FAST Karekod Tasarımı
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Birebir Telefon &amp; WhatsApp Ekip Hattı
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Doğrudan Yazılım Mühendisi WhatsApp &amp; Telefon Hattı
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> 90 Dk Damat Tıraşı Akıllı Randevu Çakışma Kilidi
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Dükkana Özel İstenilen Tüm Yeni Ekranlar Ücretsiz
                     </li>
                   </ul>
                 </div>
@@ -400,7 +446,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                     ) : (
                       <>
                         <Crown className="w-4 h-4" />
-                        {selectedPlan === 'yillik' ? 'Yıllık VIP Paketini Başlat (₺2.490)' : 'Aylık VIP Paketini Başlat (₺249)'}
+                        {selectedPlan === 'yillik' ? 'Yıllık Avantajlı VIP Paketini Başlat (₺4.990)' : 'Aylık VIP Paketini Başlat (₺500)'}
                       </>
                     )}
                   </button>

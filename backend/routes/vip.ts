@@ -11,16 +11,20 @@ export function registerVipRoutes(app: Express): void {
       isVip: Boolean(profile?.isVip),
       plan: profile?.isVip ? 'isletmeye_ozel_vip' : 'standart_esnaf',
       features: [
-        { id: 'custom_panel', name: 'İşletmenize Özel Birebir Panel Tasarımı', active: true },
-        { id: 'custom_fields', name: 'Sektörünüze Özel Form, Fiş ve Alan Ekleme', active: true },
-        { id: 'priority_dev', name: 'Öncelikli Yazılım Ekibi & Canlı Destek', active: true },
-        { id: 'fast_qr', name: 'Özel FAST / TR-Karekod ile Komisyonsuz Tahsilat', active: true },
-        { id: 'cloud_backup', name: 'Kesintisiz Bulut Senkronizasyon & Yedekleme', active: true },
-        { id: 'multi_branch', name: 'Çoklu Kasa ve Personel Yetkilendirme', active: true },
+        { id: 'unlimited_customers', name: 'Sınırsız Müşteri, Cari ve Veresiye Kaydı (0 TL planda 25 ile sınırlı)', active: true },
+        { id: 'unlimited_staff', name: 'Sınırsız Personel/Usta & Otomatik Koltuk Prim Dağılımı', active: true },
+        { id: 'voice_ai_assistant', name: 'Türkçe Sesli Randevu & Kasa Asistanı (Web Speech AI)', active: true },
+        { id: 'ai_tariff_ocr', name: 'Fotoğraftan Fiyat Tarifesi & Menü Okuyucu (AI OCR)', active: true },
+        { id: 'smart_groom_lock', name: '90 Dk Damat Tıraşı & Randevu Akıllı Çakışma Kilidi', active: true },
+        { id: 'hardware_support', name: 'Termal Fiş (58/80mm), Barkod Okuyucu ve Barkodlu Terazi Entegrasyonu', active: true },
+        { id: 'unlimited_analytics', name: 'Sınırsız Geçmiş Kasa, Ciro ve Kâr-Zarar Analitiği (0 TL planda 14 gün)', active: true },
+        { id: 'custom_panel_dev', name: 'Dükkanınıza Özel Yazılım Ekibi (İstediğiniz Buton ve Ekranı Kodluyoruz)', active: true },
+        { id: 'priority_support', name: 'Öncelikli WhatsApp & Telefon Canlı Mühendis Destek Hattı', active: true },
+        { id: 'counter_qr_stand', name: 'Özel Tezgah QR Randevu ve FAST Tahsilat Standı Tasarımı', active: true },
       ],
       pricing: {
-        monthly: 249,
-        yearly: 2490, // 2 ay hediye
+        monthly: 500,
+        yearly: 4990, // ~2 ay avantajlı
         currency: 'TRY',
       },
     });

@@ -1,13 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { Customer, BusinessType } from '../../../shared/types.ts';
 import { formatCurrency, formatPhoneNumber, getCategoryColor, getCategoryLabel } from '../../utils/formatters';
-import { Search, MessageSquare, ArrowUpRight, ArrowDownLeft, Clock, Calendar } from 'lucide-react';
+import { Search, MessageSquare, ArrowUpRight, ArrowDownLeft, Clock, Calendar, Crown, Sparkles } from 'lucide-react';
 
 interface CustomerListProps {
   customers: Customer[];
   onSelectCustomer: (customer: Customer) => void;
   onOpenTransaction: (customer: Customer, type: 'veresiye' | 'tahsilat') => void;
   onOpenWhatsApp: (customer: Customer) => void;
+  isVip?: boolean;
+  onOpenVip?: () => void;
 }
 
 export const CustomerList: React.FC<CustomerListProps> = ({
@@ -15,6 +17,8 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   onSelectCustomer,
   onOpenTransaction,
   onOpenWhatsApp,
+  isVip = false,
+  onOpenVip,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -48,6 +52,38 @@ export const CustomerList: React.FC<CustomerListProps> = ({
     <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden">
       {/* Search & Filter Header */}
       <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 space-y-3.5 bg-stone-50/50 dark:bg-stone-800/30">
+        {/* 0 TL Esnaf Planı Müşteri Limiti & VIP Dönüşüm Teşvik Çubuğu */}
+        {!isVip && (
+          <div className="p-3 rounded-xl bg-linear-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 border border-orange-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-orange-500 text-white flex items-center justify-center shrink-0">
+                <Crown className="w-4 h-4" />
+              </span>
+              <div>
+                <p className="text-xs font-black text-stone-900 dark:text-white flex items-center gap-1.5">
+                  <span>0 TL Standart Plan:</span>
+                  <span className={customers.length >= 20 ? 'text-amber-600 font-black' : 'text-stone-600 dark:text-stone-300 font-bold'}>
+                    {customers.length} / 25 Müşteri Kaydı
+                  </span>
+                </p>
+                <p className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">
+                  Sınırı kaldırın, veresiyeleri tek tıkla toplayın ve dükkanınıza özel yazılımcı kiralayın (Günde sadece 16 ₺).
+                </p>
+              </div>
+            </div>
+            {onOpenVip && (
+              <button
+                type="button"
+                onClick={onOpenVip}
+                className="shrink-0 px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                VIP'ye Yükselt (₺500/Ay)
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-stone-900 dark:text-white">
