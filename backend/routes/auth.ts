@@ -33,18 +33,20 @@ export function registerAuthRoutes(app: Express): void {
     const shopName = String(body.shopName || '').trim();
     const ownerName = String(body.ownerName || '').trim();
     const phone = String(body.phone || '').replace(/\s+/g, '');
+    const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
     if (!shopName || !ownerName || !phone || password.length < 4) {
-      return res.status(400).json({ error: 'Dukkan adi, yetkili adi, telefon ve en az 4 haneli sifre gerekli.' });
+      return res.status(400).json({ error: 'Dükkan adı, yetkili adı, telefon ve en az 4 haneli şifre gerekli.' });
     }
     if (findAccountByPhone(phone)) {
-      return res.status(409).json({ error: 'Bu telefon ile kayitli bir hesap var. Giris yapmayi deneyin.' });
+      return res.status(409).json({ error: 'Bu telefon ile kayıtlı bir hesap var. Giriş yapmayı deneyin.' });
     }
     const acc: Account = {
       id: 'acc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       shopName,
       ownerName,
       phone,
+      email: email || undefined,
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString(),
       createdIp: clientIp(req),

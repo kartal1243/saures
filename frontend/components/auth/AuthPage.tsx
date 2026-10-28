@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing, PlayCircle } from 'lucide-react';
+import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing, PlayCircle, Mail } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
 import { demoLogin } from '../../utils/demo';
@@ -23,6 +23,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const [shopName, setShopName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,7 +37,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
       const body =
         mode === 'login'
           ? { phone, password }
-          : { shopName, ownerName, phone, password };
+          : { shopName, ownerName, phone, email, password };
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -250,6 +251,26 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     />
                   </div>
                 </div>
+
+                {mode === 'register' && (
+                  <div>
+                    <label className="field-label">
+                      E-posta Adresi * <span className="text-stone-400 normal-case font-semibold tracking-normal ml-1">(fatura ve şifre kurtarma için)</span>
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        autoComplete="email"
+                        placeholder="ahmet@example.com"
+                        className="field-input pl-10"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="field-label">

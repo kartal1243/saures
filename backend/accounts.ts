@@ -14,6 +14,7 @@ export interface Account {
   shopName: string;
   ownerName: string;
   phone: string;
+  email?: string;
   passwordHash: string;
   createdAt: string;
   role?: string; // 'owner' | 'cashier' (yok = owner)

@@ -304,4 +304,25 @@ export function registerAdminRoutes(app: Express): void {
       res.status(404).json({ error: 'Log dosyasi okunamadi.' });
     }
   });
+
+  // Tüm veritabanının yedeğini tek tıkla JSON arşivi olarak indirme
+  app.get('/api/admin/backup/export', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const accounts = getAccounts();
+    const shops: Record<string, any> = {};
+    for (const a of accounts) {
+      try {
+        shops[a.id] = loadShopState(a.id);
+      } catch (e) {}
+    }
+    const backupData = {
+      exportedAt: new Date().toISOString(),
+      accounts,
+      shops,
+    };
+    const filename = `dukkanim_full_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(JSON.stringify(backupData, null, 2));
+  });
 }
