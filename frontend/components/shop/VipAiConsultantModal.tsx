@@ -44,7 +44,7 @@ const CUSTOM_PANEL_PERKS = [
   {
     Icon: Sliders,
     title: 'Çoklu Usta & Otomatik Prim',
-    desc: 'Dilediğiniz kadar personel ve usta ekleyin. Koltuk bazlı kâr, damat tıraşı çakışma kilidi ve otomatik usta primi kuruşu kuruşuna hesaplansın.',
+    desc: 'Dilediğiniz kadar personel ve usta ekleyin. Koltuk bazlı kâr, usta primi ve randevu takvimi kuruşu kuruşuna hesaplansın.',
     badge: 'Sınırsız Koltuk',
   },
   {
@@ -326,6 +326,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                     <li>• Maks. 25 Müşteri &amp; Borç</li>
                     <li>• Tek Kullanıcı / 1 Personel</li>
                     <li>• Son 14 Günlük Kasa Raporu</li>
+                    <li className="text-stone-400 line-through">• Randevu Takvimi Yok</li>
                     <li className="text-stone-400 line-through">• Sesli Asistan &amp; OCR Yok</li>
                     <li className="text-stone-400 line-through">• Özel Kodlama &amp; Fiş Yok</li>
                   </ul>
@@ -338,8 +339,9 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                   </div>
                   <ul className="mt-2 space-y-1 text-[11px] font-bold text-stone-800 dark:text-stone-100">
                     <li className="text-emerald-600 dark:text-emerald-400">✓ Sınırsız Müşteri &amp; Veresiye</li>
+                    <li>✓ Online Randevu Takvimi &amp; Linki</li>
                     <li>✓ Sınırsız Personel &amp; Prim</li>
-                    <li>✓ Türkçe Sesli AI &amp; 90 Dk Kilidi</li>
+                    <li>✓ Türkçe Sesli AI Asistanı</li>
                     <li>✓ Fotoğraftan Menü/Tarife OCR</li>
                     <li className="text-orange-600 dark:text-orange-400">✓ Dükkanınıza Özel Kodlama</li>
                   </ul>
@@ -412,7 +414,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Doğrudan Yazılım Mühendisi WhatsApp &amp; Telefon Hattı
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> 90 Dk Damat Tıraşı Akıllı Randevu Çakışma Kilidi
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Online Randevu Takvimi &amp; Müşteri Randevu Linki
                     </li>
                     <li className="flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Dükkana Özel İstenilen Tüm Yeni Ekranlar Ücretsiz

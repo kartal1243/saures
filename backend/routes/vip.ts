@@ -15,7 +15,7 @@ export function registerVipRoutes(app: Express): void {
         { id: 'unlimited_staff', name: 'Sınırsız Personel/Usta & Otomatik Koltuk Prim Dağılımı', active: true },
         { id: 'voice_ai_assistant', name: 'Türkçe Sesli Randevu & Kasa Asistanı (Web Speech AI)', active: true },
         { id: 'ai_tariff_ocr', name: 'Fotoğraftan Fiyat Tarifesi & Menü Okuyucu (AI OCR)', active: true },
-        { id: 'smart_groom_lock', name: '90 Dk Damat Tıraşı & Randevu Akıllı Çakışma Kilidi', active: true },
+        { id: 'appointment_calendar', name: 'Online Randevu Takvimi & Müşteri Randevu Linki (0 TL planda yer almaz)', active: true },
         { id: 'hardware_support', name: 'Termal Fiş (58/80mm), Barkod Okuyucu ve Barkodlu Terazi Entegrasyonu', active: true },
         { id: 'unlimited_analytics', name: 'Sınırsız Geçmiş Kasa, Ciro ve Kâr-Zarar Analitiği (0 TL planda 14 gün)', active: true },
         { id: 'custom_panel_dev', name: 'Dükkanınıza Özel Yazılım Ekibi (İstediğiniz Buton ve Ekranı Kodluyoruz)', active: true },

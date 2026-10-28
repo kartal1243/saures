@@ -152,7 +152,7 @@ const BENTO_FEATURES = [
 const FAQS = [
   {
     q: 'Dükkanım Yanımda tamamen ücretsiz mi?',
-    a: 'Evet! Hemen 1 dakikada telefon numaranızla Standart Esnaf (0 TL) olarak kayıt olabilir; 25 müşteriye kadar veresiye/cari defterinizi, günlük kasanızı ve temel randevularınızı ücretsiz kullanabilirsiniz. Dükkanınız büyüdüğünde veya sınırsız müşteri, Türkçe sesli asistan, damat tıraşı akıllı çakışma kilidi, termal fiş ve dükkanınıza özel kodlama istediğinizde ayda sadece ₺500 olan VIP paketimize dilediğiniz an geçebilirsiniz.',
+    a: 'Evet! Hemen 1 dakikada telefon numaranızla Standart Esnaf (0 TL) olarak kayıt olabilir; 25 müşteriye kadar veresiye/cari defterinizi ve günlük kasanızı ücretsiz kullanabilirsiniz. Online Randevu Takvimi, sınırsız müşteri, Türkçe sesli asistan, termal fiş ve dükkanınıza özel kodlama istediğinizde ayda sadece ₺500 olan VIP paketimize dilediğiniz an geçebilirsiniz.',
   },
   {
     q: 'İşletmeme özel VIP panel üretimini nasıl talep ederim?',
@@ -704,11 +704,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                     { text: 'Maksimum 25 Müşteri & Veresiye Kaydı', included: true },
                     { text: '1 Personel / Tek Kullanıcı Girişi', included: true },
                     { text: 'Temel Kasa & Günlük Ciro (Son 14 Gün Geçmiş)', included: true },
-                    { text: 'Manuel Randevu Takvimi (Aylık 15 Randevu)', included: true },
                     { text: 'WhatsApp ile Kibar Borç Hatırlatma', included: true },
+                    { text: 'Mobil Uyumlu PWA & Şifreli Bulut Yedekleme', included: true },
+                    { text: 'Online Randevu Takvimi Yok (Yalnızca VIP)', included: false },
                     { text: 'Sınırsız Müşteri & Cari (VIP ile Sınırsız)', included: false },
                     { text: 'Türkçe Sesli Randevu Asistanı (Yalnızca VIP)', included: false },
-                    { text: '90 Dk Damat Tıraşı Akıllı Çakışma Kilidi (Yalnızca VIP)', included: false },
                     { text: 'Termal Fiş, Terazi & Özel Kodlama (Yalnızca VIP)', included: false },
                   ].map((feat) => (
                     <div key={feat.text} className={`flex items-center gap-2.5 text-xs sm:text-sm font-semibold ${feat.included ? 'text-stone-700 dark:text-stone-200' : 'text-stone-400 dark:text-stone-500 line-through'}`}>
@@ -773,10 +773,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                   <p className="text-[11px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider">Sınırsız VIP Ayrıcalıkları</p>
                   {[
                     'SINIRSIZ Müşteri, Veresiye ve Cari Takibi (25 limiti kalkar)',
+                    'Online Randevu Takvimi, Randevu Linki & Tezgah QR Standı',
                     'SINIRSIZ Personel / Usta ve Otomatik Koltuk Prim Dağılımı',
-                    'SINIRSIZ Online Randevu Linki & Tezgah QR Standı',
                     'Türkçe Sesli Randevu & Kasa Asistanı (Web Speech AI)',
-                    '90 Dk Damat Tıraşı & Randevu Akıllı Çakışma Kilidi',
                     'Fotoğraftan Fiyat Tarifesi & Menü Okuyucu (AI OCR)',
                     'Termal Fiş Yazıcısı (58/80mm), Barkodlu Terazi Entegrasyonu',
                     'DÜKKANINIZA ÖZEL YAZILIM: İstediğiniz her form ve buton size özel kodlanır',
