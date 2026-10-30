@@ -18,6 +18,7 @@ import {
   RefreshCw,
   ChevronDown,
   Radio,
+  Crown,
 } from 'lucide-react';
 
 interface StaffRow {
@@ -39,6 +40,7 @@ interface ShopRow {
   lastLoginAt: string | null;
   loginCount: number;
   activeSessions: number;
+  isVip?: boolean;
   sector: string | null;
   cityDistrict: string | null;
   customers: number;
@@ -202,6 +204,15 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
                   {s.ownerName} · {s.phone}
                 </span>
               </span>
+              {s.isVip ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-linear-to-r from-amber-500 to-orange-500 text-white text-[10px] font-black shadow-xs">
+                  <Crown className="w-3 h-3 text-yellow-200" /> VIP
+                </span>
+              ) : (
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 text-[10px] font-bold">
+                  Standart (0 ₺)
+                </span>
+              )}
               {s.activeSessions > 0 && (
                 <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black">
                   <Radio className="w-3 h-3" /> {s.activeSessions} çevrimiçi
@@ -253,6 +264,24 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
                 )}
 
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const action = s.isVip ? 'VIP iptal edilsin' : 'VIP yapılsın';
+                      if (!confirm(`${s.shopName} dükkanı ${action} mı?`)) return;
+                      const res = await fetch(`/api/admin/shops/${s.id}/toggle-vip`, { method: 'POST' });
+                      if (!res.ok) { alert('VIP durumu değiştirilemedi.'); return; }
+                      load();
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      s.isVip
+                        ? 'bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-rose-500/15 hover:text-rose-600'
+                        : 'bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-xs'
+                    }`}
+                  >
+                    <Crown className="w-3.5 h-3.5" />
+                    {s.isVip ? 'VIP Üyeliğini Kapat' : 'Dükkanı VIP Yap'}
+                  </button>
                   <button
                     type="button"
                     onClick={async () => {

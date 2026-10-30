@@ -13,7 +13,7 @@ import {
   logAuthEvent,
   isLoginLocked,
 } from '../accounts';
-import { loadShopState } from '../shopState';
+import { loadShopState, persistShopState } from '../shopState';
 import {
   SHOPS_DIR,
   ADMIN_PASSWORD,
@@ -153,6 +153,7 @@ export function registerAdminRoutes(app: Express): void {
           loginCount: a.loginCount || 0,
           loginHistory: (a.loginHistory || []).slice(0, 10),
           activeSessions: countActiveSessions(a.id),
+          isVip: Boolean(st.shopProfile?.isVip),
           sector: st.shopProfile?.businessField || null,
           cityDistrict: st.shopProfile?.cityDistrict || null,
           customers: st.customers.length,
@@ -271,6 +272,29 @@ export function registerAdminRoutes(app: Express): void {
     }
     logAuthEvent('admin_kick', acc.phone, clientIp(req));
     res.json({ success: true, shopName: acc.shopName });
+  });
+
+  // Dükkanın VIP durumunu tek tıkla aç / kapat
+  app.post('/api/admin/shops/:id/toggle-vip', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const acc = findAccountById(req.params.id);
+    if (!acc) return res.status(404).json({ error: 'Dükkan bulunamadı.' });
+
+    const st = loadShopState(acc.id);
+    if (!st.shopProfile) {
+      st.shopProfile = {
+        storeName: acc.shopName,
+        ownerName: acc.ownerName,
+        phone: acc.phone,
+        isVip: false,
+      } as any;
+    }
+    const nextVip = !st.shopProfile.isVip;
+    st.shopProfile.isVip = nextVip;
+    st.lastUpdated = new Date().toISOString();
+    persistShopState(acc.id, st);
+
+    res.json({ success: true, shopName: acc.shopName, isVip: nextVip });
   });
 
   // Dükkanı tamamen sil (hesap + personel + veri dosyası). Geri alınamaz.

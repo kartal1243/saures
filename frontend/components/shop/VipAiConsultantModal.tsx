@@ -57,16 +57,22 @@ const CUSTOM_PANEL_PERKS = [
   },
 ];
 
+const SHOPIER_LINKS = {
+  aylik: 'https://www.shopier.com/yamanyazilim/52387477',
+  yillik: 'https://www.shopier.com/yamanyazilim/52387553',
+};
+
 export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
   isOpen,
   onClose,
   shopProfile,
   onVipStatusChanged,
 }) => {
-  const [activeTab, setActiveTab] = useState<'request' | 'pricing'>('request');
-  const [selectedPlan, setSelectedPlan] = useState<'aylik' | 'yillik'>('yillik');
+  const [activeTab, setActiveTab] = useState<'request' | 'pricing'>('pricing');
+  const [selectedPlan, setSelectedPlan] = useState<'aylik' | 'yillik'>('aylik');
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
+  const [paymentRedirected, setPaymentRedirected] = useState(false);
 
   // Talep formu alanları
   const [requestedFeatures, setRequestedFeatures] = useState('');
@@ -79,24 +85,13 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
 
   const isAlreadyVip = Boolean(shopProfile?.isVip);
 
-  const handleUpgrade = async () => {
-    setIsUpgrading(true);
-    try {
-      const res = await fetch('/api/vip/upgrade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planPeriod: selectedPlan, paymentChannel: 'fast_demo' }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setUpgradeSuccess(true);
-        if (onVipStatusChanged) onVipStatusChanged(true);
-      }
-    } catch (err) {
-      console.error('VIP upgrade error:', err);
-    } finally {
-      setIsUpgrading(false);
-    }
+  const handleUpgrade = () => {
+    const targetUrl = selectedPlan === 'yillik'
+      ? SHOPIER_LINKS.yillik
+      : SHOPIER_LINKS.aylik;
+
+    setPaymentRedirected(true);
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleSendCustomRequest = async (e: React.FormEvent) => {
@@ -414,7 +409,38 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                 </div>
 
                 <div className="mt-6 pt-5 border-t border-orange-200/60 dark:border-orange-800/40">
-                  {upgradeSuccess ? (
+                  {paymentRedirected ? (
+                    <div className="p-4 rounded-2xl bg-orange-50 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 text-center space-y-2.5">
+                      <div className="w-10 h-10 mx-auto rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+                        <CreditCard className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-orange-900 dark:text-orange-200">
+                          Shopier Güvenli Ödeme Sayfası Açıldı
+                        </p>
+                        <p className="text-[11px] text-stone-600 dark:text-stone-300 mt-1 leading-relaxed">
+                          Ödemeniz tamamlandıktan sonra VIP üyeliğiniz en geç 15 dakika içinde aktif edilir.
+                          Sipariş notuna dükkan adınızı veya kayıtlı telefonunuzu eklemeniz yeterlidir.
+                        </p>
+                      </div>
+                      <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                        <button
+                          type="button"
+                          onClick={handleUpgrade}
+                          className="flex-1 py-2 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black transition-colors"
+                        >
+                          Ödeme Sayfasını Tekrar Aç
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentRedirected(false)}
+                          className="py-2 px-3 rounded-xl bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-bold hover:bg-stone-300 transition-colors"
+                        >
+                          Planı Değiştir
+                        </button>
+                      </div>
+                    </div>
+                  ) : upgradeSuccess ? (
                     <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-center space-y-1">
                       <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4" /> VIP Üyeliğiniz Aktif Edildi!
