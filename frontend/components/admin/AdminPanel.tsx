@@ -297,13 +297,7 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
                   <button
                     type="button"
                     onClick={async () => {
-                      const first = confirm(`${s.shopName} TAMAMEN silinsin mi? Bu işlem geri alınamaz!`);
-                      if (!first) return;
-                      const second = prompt(`Onay için dükkan telefonunu yaz: ${s.phone}`);
-                      if (second === null || second.replace(/\s+/g, '') !== s.phone.replace(/\s+/g, '')) {
-                        alert('Telefon eşleşmedi, silme iptal edildi.');
-                        return;
-                      }
+                      if (!confirm(`${s.shopName} dükkanı kalıcı olarak silinsin mi?`)) return;
                       const res = await fetch(`/api/admin/shops/${s.id}`, { method: 'DELETE' });
                       if (!res.ok) { alert('Silinemedi.'); return; }
                       setOpenId(null);
