@@ -28,6 +28,8 @@ interface SectorModuleSwitchProps {
   activeTab: ActiveTab;
   shopSlug?: string;
   storeName?: string;
+  isVip?: boolean;
+  onOpenVip?: () => void;
   barberSubTab?: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr';
   // Berber
   appointments: Appointment[];
@@ -101,6 +103,8 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
     return (
       <RestaurantTablesView
         tables={props.tables}
+        isVip={props.isVip}
+        onOpenVip={props.onOpenVip}
         onAddOrderToTable={props.onAddOrderToTable}
         onCheckoutTable={props.onCheckoutTable}
         onResetTable={props.onResetTable}

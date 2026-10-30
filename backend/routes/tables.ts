@@ -146,6 +146,14 @@ export function registerTableRoutes(app: Express): void {
     if (!name || !name.trim()) return res.status(400).json({ error: 'Masa adı zorunludur.' });
     if (!S().tables) S().tables = [];
 
+    // VIP olmayan kafe/restoranlar en fazla 3 masa yönetebilir
+    if (!S().shopProfile?.isVip && S().tables.length >= 3) {
+      return res.status(403).json({
+        error: '0 TL Standart planda en fazla 3 masa ekleyebilirsiniz. Sınırsız masa ve adisyon için VIP Pakete geçin.',
+        code: 'VIP_REQUIRED',
+      });
+    }
+
     const newTable: RestaurantTable = {
       id: `tbl_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       name: name.trim(),

@@ -130,6 +130,15 @@ export function registerPublicMenuRoutes(app: Express): void {
       return res.status(404).json({ error: 'İşletme menüsü bulunamadı.' });
     }
 
+    // QR Menü yalnızca VIP üyelere açıktır (demo hariç)
+    if (!shopState.shopProfile?.isVip && rawId !== 'demo') {
+      return res.status(403).json({
+        error: 'Bu işletmenin Dijital QR Menü servisi aktif değildir (VIP işletme paketi gereklidir).',
+        code: 'VIP_REQUIRED',
+        isVip: false,
+      });
+    }
+
     const items =
       Array.isArray(shopState.menuItems) && shopState.menuItems.length > 0
         ? shopState.menuItems

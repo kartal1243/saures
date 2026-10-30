@@ -1158,12 +1158,20 @@ export default function App() {
   };
 
   const handleAddTable = async (name: string) => {
+    if (!shopProfile?.isVip && tables.length >= 3) {
+      setIsVipModalOpen(true);
+      return;
+    }
     try {
       const res = await fetch('/api/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
+      if (res.status === 403) {
+        setIsVipModalOpen(true);
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         // Masa hem POST cevabinda hem WS TABLE_UPDATED ile gelir -> id ile tekilleştir
@@ -1729,6 +1737,8 @@ export default function App() {
         <SectorModuleSwitch
           sector={currentSector}
           activeTab={activeTab}
+          isVip={Boolean(shopProfile?.isVip)}
+          onOpenVip={() => setIsVipModalOpen(true)}
           shopSlug={shopProfile?.slug || 'demo'}
           storeName={shopProfile?.storeName || storeName}
           barberSubTab={barberSubTab}

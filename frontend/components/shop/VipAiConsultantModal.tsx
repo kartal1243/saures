@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShopProfile } from '../../../shared/types.ts';
 import {
   Crown,
@@ -68,11 +68,20 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
   shopProfile,
   onVipStatusChanged,
 }) => {
-  const [activeTab, setActiveTab] = useState<'request' | 'pricing'>('pricing');
+  const isAlreadyVip = Boolean(shopProfile?.isVip);
+  const [activeTab, setActiveTab] = useState<'request' | 'pricing'>(isAlreadyVip ? 'request' : 'pricing');
   const [selectedPlan, setSelectedPlan] = useState<'aylik' | 'yillik'>('aylik');
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
   const [paymentRedirected, setPaymentRedirected] = useState(false);
+
+  useEffect(() => {
+    if (!isAlreadyVip) {
+      setActiveTab('pricing');
+    } else {
+      setActiveTab('request');
+    }
+  }, [isAlreadyVip, isOpen]);
 
   // Talep formu alanları
   const [requestedFeatures, setRequestedFeatures] = useState('');
@@ -82,8 +91,6 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
   const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   if (!isOpen) return null;
-
-  const isAlreadyVip = Boolean(shopProfile?.isVip);
 
   const handleUpgrade = () => {
     const targetUrl = selectedPlan === 'yillik'
@@ -151,34 +158,35 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
           </button>
         </div>
 
-        {/* Sekmeler */}
-        <div className="flex border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 p-2 gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab('pricing')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'pricing'
-                ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs'
-                : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5" />
-            VIP Fiyatlandırma
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('request')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'request'
-                ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs'
-                : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
-            }`}
-          >
-            <Wrench className="w-3.5 h-3.5" />
-            Özel Panel İstiyorum
-          </button>
-        </div>
+        {/* Sekmeler - SADECE VIP olanlara açılır; VIP olmayanlar doğrudan satın alma sayfasını görür */}
+        {isAlreadyVip && (
+          <div className="flex border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 p-2 gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveTab('request')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeTab === 'request'
+                  ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs'
+                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+              }`}
+            >
+              <Wrench className="w-3.5 h-3.5" />
+              Özel Panel İstiyorum
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('pricing')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeTab === 'pricing'
+                  ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs'
+                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              VIP Paket Bilgileri
+            </button>
+          </div>
+        )}
 
         {/* Gövde */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
