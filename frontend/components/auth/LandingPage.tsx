@@ -234,11 +234,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               href="https://www.instagram.com/dukkanimyanimdatr/"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-stone-700 dark:text-stone-300 hover:text-pink-600 dark:hover:text-pink-400 bg-stone-100 dark:bg-stone-800/80 hover:bg-pink-50 dark:hover:bg-pink-950/30 transition-all border border-stone-200/80 dark:border-stone-700/80"
+              className="p-2 rounded-xl text-stone-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors"
               title="Instagram: @dukkanimyanimdatr"
+              aria-label="Instagram @dukkanimyanimdatr"
             >
-              <Instagram className="w-3.5 h-3.5 text-pink-600 dark:text-pink-400" />
-              <span>@dukkanimyanimdatr</span>
+              <Instagram className="w-4 h-4" />
             </a>
 
             <button
@@ -915,12 +915,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             href="https://www.instagram.com/dukkanimyanimdatr/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-500/10 hover:from-purple-500/20 hover:to-orange-500/20 text-stone-800 dark:text-stone-200 border border-pink-500/30 font-bold transition-all shadow-xs group"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/15 text-orange-700 dark:text-orange-400 border border-orange-500/25 text-xs font-bold transition-all shadow-xs"
           >
-            <span className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
-              <Instagram className="w-3.5 h-3.5" />
-            </span>
-            <span>Bizi Instagram'da Takip Edin: <strong className="text-pink-600 dark:text-pink-400 font-black">@dukkanimyanimdatr</strong></span>
+            <Instagram className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+            <span>@dukkanimyanimdatr</span>
           </a>
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full pt-6 border-t border-stone-200/70 dark:border-stone-800">
