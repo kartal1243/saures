@@ -71,16 +71,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   };
 
   return (
-    <div className="min-h-screen bg-stone-100 font-sans lg:grid lg:grid-cols-[1fr_460px]">
+    <div className="min-h-screen bg-[#fafaf9] font-sans lg:grid lg:grid-cols-[1fr_470px] xl:grid-cols-[1fr_490px]">
       {/* Sol tanıtım paneli (desktop) */}
-      <div className="hidden lg:flex flex-col justify-between relative overflow-hidden bg-linear-to-br from-orange-500 via-orange-500 to-orange-600 text-white p-10 xl:p-14">
+      <div className="hidden lg:flex flex-col justify-between relative overflow-hidden bg-linear-to-br from-[#ff5a00] via-[#f95a00] to-[#e64a00] text-white p-8 xl:p-12 2xl:p-14">
+        {/* Arka plan ışık halkaları */}
         <div
           aria-hidden
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(600px 320px at 20% 0%, rgba(255,255,255,0.22), transparent 60%), radial-gradient(500px 400px at 100% 100%, rgba(124,45,18,0.35), transparent 60%)' }}
+          style={{
+            background:
+              'radial-gradient(750px 420px at 15% 10%, rgba(255,255,255,0.24), transparent 65%), radial-gradient(650px 500px at 90% 90%, rgba(154,52,18,0.4), transparent 60%)',
+          }}
         />
-        <div className="relative">
-          <span className="inline-block bg-white rounded-2xl px-5 py-3 shadow-lg">
+
+        {/* Üst Sol Logo */}
+        <div className="relative z-10">
+          <span className="inline-block bg-white rounded-2xl px-5 py-3 shadow-xl">
             <img
               src="/brand/logo-horizontal.png"
               alt="Dükkânım Yanımda"
@@ -89,35 +95,102 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
           </span>
         </div>
 
-        <div className="relative max-w-lg">
-          <div className="rounded-3xl bg-white/15 border border-white/25 backdrop-blur-sm p-5 mb-8">
-            <p className="text-[11px] font-black uppercase tracking-widest text-orange-100">Bugünün Kasası</p>
-            <p className="text-4xl font-black tracking-tight mt-1">₺12.450</p>
-            <div className="mt-3 space-y-1.5 text-xs font-bold">
-              <div className="flex justify-between bg-white/10 rounded-lg px-3 py-1.5">
-                <span className="text-orange-50">Nakit giriş</span><span>+₺6.300</span>
+        {/* Orta Alan: Sol Metin & Kart + Ortada 3D Telefon Mockup'ı */}
+        <div className="relative z-10 my-auto py-6 flex items-center justify-between gap-6 xl:gap-10">
+          {/* Sol Kolon: Kasa Kartı, Başlık, Alt Bilgi */}
+          <div className="max-w-[440px] xl:max-w-[480px] shrink-0">
+            {/* 3D Glassmorphism "Bugünün Kasası" Kartı (Dalga Grafikli) */}
+            <div className="rounded-3xl bg-white/15 border border-white/30 backdrop-blur-md p-6 mb-8 shadow-[0_20px_45px_rgba(0,0,0,0.18)]">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-orange-100/90">
+                    Bugünün Kasası
+                  </p>
+                  <p className="text-3xl xl:text-4xl font-black tracking-tight mt-0.5 text-white">
+                    ₺12.450
+                  </p>
+                </div>
+
+                {/* Parıltılı Dalga Grafiği */}
+                <div className="shrink-0">
+                  <svg viewBox="0 0 160 50" className="w-32 xl:w-36 h-12 overflow-visible">
+                    <defs>
+                      <linearGradient id="heroWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#ec4899" />
+                        <stop offset="45%" stopColor="#f59e0b" />
+                        <stop offset="100%" stopColor="#06b6d4" />
+                      </linearGradient>
+                      <filter id="heroGlow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="3.5" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                    </defs>
+                    {/* Yumuşak kavisli trend eğrisi */}
+                    <path
+                      d="M 5 34 C 25 34, 30 14, 52 18 C 74 22, 85 40, 108 32 C 128 24, 138 10, 155 12"
+                      fill="none"
+                      stroke="url(#heroWaveGrad)"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      filter="url(#heroGlow)"
+                    />
+                    {/* Işıltılı bitiş noktası */}
+                    <circle cx="155" cy="12" r="3.5" fill="#06b6d4" className="animate-pulse" />
+                    <circle cx="155" cy="12" r="7" fill="#06b6d4" opacity="0.35" />
+                  </svg>
+                </div>
               </div>
-              <div className="flex justify-between bg-white/10 rounded-lg px-3 py-1.5">
-                <span className="text-orange-50">Kart giriş</span><span>+₺4.150</span>
+
+              {/* Alt Butonlar: Nakit ve Kart Girişi */}
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <div className="rounded-xl bg-white/10 border border-white/20 px-3.5 py-2.5 backdrop-blur-xs flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-black tracking-tight text-white">+₺6.300</p>
+                    <p className="text-[10px] font-semibold text-orange-100">Nakit</p>
+                  </div>
+                  <span className="text-emerald-300 font-black text-xs">↗</span>
+                </div>
+
+                <div className="rounded-xl bg-white/10 border border-white/20 px-3.5 py-2.5 backdrop-blur-xs flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-black tracking-tight text-white">+₺4.150</p>
+                    <p className="text-[10px] font-semibold text-orange-100">Kart</p>
+                  </div>
+                  <span className="text-emerald-300 font-black text-xs">↗</span>
+                </div>
               </div>
             </div>
+
+            <h1 className="text-4xl xl:text-5xl font-black leading-[1.06] tracking-tight">
+              Dükkanını<br />Cebinden Yönet
+            </h1>
+            <p className="mt-4 text-orange-50 font-medium text-sm xl:text-base leading-relaxed">
+              Kasa, veresiye ve gün sonu tek panelde. Kağıt defteri kapat,
+              dükkanını 2 dakikada dijitale taşı.
+            </p>
           </div>
-          <h1 className="text-4xl xl:text-5xl font-black leading-[1.08] tracking-tight">
-            Dükkanını<br />Cebinden Yönet
-          </h1>
-          <p className="mt-4 text-orange-50 font-medium max-w-md">
-            Kasa, veresiye ve gün sonu tek panelde. Kağıt defteri kapat,
-            dükkanını 2 dakikada dijitale taşı.
-          </p>
+
+          {/* 3D Telefon Mockup'ı (Görsel 2'deki Tilted iPhone) */}
+          <div className="hidden lg:flex items-center justify-center shrink-0">
+            <img
+              src="/brand/phone_mockup_retina.png"
+              alt="Dükkânım Yanımda Mobil Arayüz"
+              className="w-[260px] xl:w-[320px] 2xl:w-[350px] h-auto object-contain drop-shadow-[0_28px_50px_rgba(0,0,0,0.45)] select-none pointer-events-none transform -rotate-1 hover:rotate-0 transition-transform duration-500"
+            />
+          </div>
         </div>
 
-        <div className="relative grid grid-cols-2 gap-3 max-w-lg">
+        {/* Alt Özellik Kutuları (2x2 Grid) */}
+        <div className="relative z-10 grid grid-cols-2 gap-3 max-w-[480px]">
           {LEFT_FEATURES.map((f) => {
             const Icon = f.icon;
             return (
-              <div key={f.title} className="rounded-2xl bg-white/10 border border-white/20 px-4 py-3">
-                <p className="text-sm font-black flex items-center gap-2">
-                  <Icon className="w-4 h-4" /> {f.title}
+              <div key={f.title} className="rounded-2xl bg-white/10 border border-white/20 px-4 py-3 backdrop-blur-xs">
+                <p className="text-sm font-black flex items-center gap-2 text-white">
+                  <Icon className="w-4 h-4 text-orange-200" /> {f.title}
                 </p>
                 <p className="text-xs text-orange-100 mt-0.5 font-semibold">{f.text}</p>
               </div>
@@ -127,9 +200,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
       </div>
 
       {/* Sağ giriş kartı */}
-      <div className="flex flex-col items-center justify-center px-4 py-8 sm:px-8 bg-stone-100">
+      <div className="flex flex-col items-center justify-center px-4 py-8 sm:px-8 bg-[#fafaf9]">
         {/* Mobil mini vitrin */}
-        <div className="lg:hidden w-full max-w-md mb-5 rounded-3xl bg-linear-to-br from-orange-500 to-orange-600 text-white p-6 text-center shadow-lg">
+        <div className="lg:hidden w-full max-w-md mb-5 rounded-3xl bg-linear-to-br from-[#ff5a00] to-[#e64a00] text-white p-6 text-center shadow-lg">
           <div className="inline-flex items-center justify-center bg-white rounded-2xl px-5 py-3 shadow-md">
             <img
               src="/brand/logo-horizontal.png"
@@ -141,7 +214,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
           <p className="text-xs text-orange-100 font-semibold mt-1">Kasa, veresiye ve gün sonu tek panelde</p>
         </div>
 
-        <div className="w-full max-w-md animate-fade-up">
+        <div className="w-full max-w-[430px] animate-fade-up">
           {onBack && (
             <button
               type="button"
@@ -152,199 +225,222 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
             </button>
           )}
 
-          <div className="bg-white rounded-3xl border border-stone-200 shadow-[0_24px_60px_-18px_rgba(28,25,23,0.25)] overflow-hidden">
-            {/* Kart başlık bandı */}
-            <div className="bg-linear-to-r from-orange-500 to-orange-600 px-6 py-5 text-white relative overflow-hidden">
-              <div
-                aria-hidden
-                className="absolute -right-8 -top-10 w-36 h-36 rounded-full bg-white/15 pointer-events-none"
-              />
-              <h2 className="text-lg font-black">
-                {mode === 'login' ? 'Hesabınıza Giriş Yapın' : 'Dükkanınızı Açın'}
+          {/* Görsel 2'deki Temiz Beyaz Giriş Kartı (Turuncu Başlık Bandı Kaldırıldı) */}
+          <div className="bg-white rounded-[28px] border border-stone-200 shadow-[0_20px_50px_-15px_rgba(28,25,23,0.1)] p-7 sm:p-8">
+            {/* Kart Başlığı */}
+            <div>
+              <h2 className="text-2xl font-black text-stone-900 tracking-tight">
+                {mode === 'login' ? (
+                  <>
+                    Hesabınıza <span className="text-orange-600">Giriş Yapın</span>
+                  </>
+                ) : (
+                  <>
+                    Dükkanınızı <span className="text-orange-600">Açın</span>
+                  </>
+                )}
               </h2>
-              <p className="text-xs text-orange-100 font-semibold mt-0.5">
-                {mode === 'login' ? 'Dükkanınızı her yerden yönetin' : '2 dakikada kurulum, kredi kartı gerekmez'}
+              <p className="text-xs text-stone-500 font-semibold mt-1">
+                {mode === 'login'
+                  ? 'Dükkanınızı her yerden yönetin'
+                  : '2 dakikada kurulum, kredi kartı gerekmez'}
               </p>
             </div>
 
-            <div className="p-6">
-              {/* Sekmeler */}
-              <div className="grid grid-cols-2 gap-1.5 p-1.5 mb-5 bg-stone-100 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={() => switchMode('login')}
-                  className={`inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-extrabold transition-all cursor-pointer ${
-                    mode === 'login'
-                      ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
-                      : 'text-stone-500 hover:text-stone-700'
-                  }`}
-                >
-                  <LogIn className="w-4 h-4" /> Giriş Yap
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchMode('register')}
-                  className={`inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-extrabold transition-all cursor-pointer ${
-                    mode === 'register'
-                      ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
-                      : 'text-stone-500 hover:text-stone-700'
-                  }`}
-                >
-                  <UserPlus className="w-4 h-4" /> Yeni Dükkan
-                </button>
-              </div>
+            {/* Giriş Yap / Yeni Dükkan Sekme Butonları */}
+            <div className="grid grid-cols-2 gap-1.5 p-1.5 mt-5 mb-5 bg-stone-100 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                className={`inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  mode === 'login'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/25'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" /> Giriş Yap
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode('register')}
+                className={`inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  mode === 'register'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/25'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5" /> Yeni Dükkan
+              </button>
+            </div>
 
-              <form onSubmit={submit} className="space-y-4">
-                {error && (
-                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2 animate-pop">
-                    <span className="mt-px shrink-0">⚠️</span> {error}
-                  </div>
-                )}
-
-                {mode === 'register' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="field-label">Dükkan Adı *</label>
-                      <div className="relative">
-                        <Store className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <input
-                          type="text"
-                          value={shopName}
-                          onChange={(e) => setShopName(e.target.value)}
-                          required
-                          autoComplete="organization"
-                          placeholder="Bereket Market"
-                          className="field-input pl-10"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="field-label">Yetkili Adı *</label>
-                      <div className="relative">
-                        <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <input
-                          type="text"
-                          value={ownerName}
-                          onChange={(e) => setOwnerName(e.target.value)}
-                          required
-                          autoComplete="name"
-                          placeholder="Ahmet Usta"
-                          className="field-input pl-10"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="field-label">Telefon *</label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      required
-                      autoComplete="tel"
-                      placeholder="05XX XXX XX XX"
-                      className="field-input pl-10"
-                    />
-                  </div>
+            <form onSubmit={submit} className="space-y-4">
+              {error && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2 animate-pop">
+                  <span className="mt-px shrink-0">⚠️</span> {error}
                 </div>
+              )}
 
-                {mode === 'register' && (
+              {mode === 'register' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="field-label">
-                      E-posta Adresi * <span className="text-stone-400 normal-case font-semibold tracking-normal ml-1">(fatura ve şifre kurtarma için)</span>
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1">
+                      Dükkan Adı *
                     </label>
                     <div className="relative">
-                      <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Store className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        type="text"
+                        value={shopName}
+                        onChange={(e) => setShopName(e.target.value)}
                         required
-                        autoComplete="email"
-                        placeholder="ahmet@example.com"
-                        className="field-input pl-10"
+                        autoComplete="organization"
+                        placeholder="Bereket Market"
+                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
                       />
                     </div>
                   </div>
-                )}
+                  <div>
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1">
+                      Yetkili Adı *
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={ownerName}
+                        onChange={(e) => setOwnerName(e.target.value)}
+                        required
+                        autoComplete="name"
+                        placeholder="Ahmet Usta"
+                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1">
+                  Telefon *
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    autoComplete="tel"
+                    placeholder="05XXXXXXXXX"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {mode === 'register' && (
                 <div>
-                  <label className="field-label">
-                    Şifre *{mode === 'register' && <span className="text-stone-400 normal-case font-semibold tracking-normal ml-1">(en az 4 hane)</span>}
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1">
+                    E-posta Adresi * <span className="text-stone-400 font-normal lowercase tracking-normal">(kurtarma için)</span>
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
-                      minLength={mode === 'register' ? 4 : 1}
-                      autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                      placeholder="••••••"
-                      className="field-input pl-10"
+                      autoComplete="email"
+                      placeholder="ahmet@example.com"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
                     />
                   </div>
                 </div>
+              )}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-[15px] shadow-lg shadow-orange-600/30 transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60"
-                >
-                  {loading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Lütfen bekleyin…</>
-                  ) : mode === 'login' ? (
-                    <>Giriş Yap <ArrowRight className="w-4 h-4" /></>
-                  ) : (
-                    <>Dükkanı Aç <ArrowRight className="w-4 h-4" /></>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700">
+                    Şifre *
+                  </label>
+                  {mode === 'login' && (
+                    <span className="text-[11px] font-semibold text-orange-600 hover:text-orange-700 cursor-pointer">
+                      Şifremi Unuttum?
+                    </span>
                   )}
-                </button>
-
-                <div className="flex items-center gap-3 text-[11px] font-bold text-stone-400">
-                  <span className="flex-1 h-px bg-stone-200" />
-                  veya
-                  <span className="flex-1 h-px bg-stone-200" />
                 </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={mode === 'register' ? 4 : 1}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    placeholder="••••••"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                  />
+                </div>
+              </div>
 
-                <button
-                  type="button"
-                  onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-stone-200 hover:border-orange-500 hover:text-orange-700 text-stone-600 font-extrabold text-sm transition-colors cursor-pointer"
-                >
-                  {mode === 'login' ? (
-                    <><UserPlus className="w-4 h-4" /> Ücretsiz dükkan oluştur</>
-                  ) : (
-                    <><LogIn className="w-4 h-4" /> Zaten hesabım var, giriş yap</>
-                  )}
-                </button>
+              {/* Ana Giriş Butonu */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-sm shadow-md shadow-orange-600/25 transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60"
+              >
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Lütfen bekleyin…</>
+                ) : mode === 'login' ? (
+                  <>Giriş Yap <ArrowRight className="w-4 h-4" /></>
+                ) : (
+                  <>Dükkanı Aç <ArrowRight className="w-4 h-4" /></>
+                )}
+              </button>
 
-                <button
-                  type="button"
-                  onClick={tryDemo}
-                  disabled={demoLoading || loading}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-extrabold text-sm transition-colors cursor-pointer disabled:opacity-60"
-                >
-                  {demoLoading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Demo açılıyor…</>
-                  ) : (
-                    <><PlayCircle className="w-4 h-4" /> Kaydolmadan demoyu dene</>
-                  )}
-                </button>
+              {/* veya Bölücü */}
+              <div className="flex items-center gap-3 text-[11px] font-bold text-stone-400 my-4">
+                <span className="flex-1 h-px bg-stone-200" />
+                veya
+                <span className="flex-1 h-px bg-stone-200" />
+              </div>
 
-                <p className="flex items-center justify-center gap-1.5 text-[11px] text-stone-500 font-semibold pt-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                  Şifren şifreli saklanır · Ücretsiz · 2 dakikada kurulum
-                </p>
-              </form>
-            </div>
+              {/* Ücretsiz Dükkan Oluştur Butonu */}
+              <button
+                type="button"
+                onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+                className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50 text-stone-700 font-extrabold text-xs transition-colors cursor-pointer"
+              >
+                {mode === 'login' ? (
+                  <><UserPlus className="w-3.5 h-3.5" /> Ücretsiz dükkan oluştur</>
+                ) : (
+                  <><LogIn className="w-3.5 h-3.5" /> Zaten hesabım var, giriş yap</>
+                )}
+              </button>
+
+              {/* Demo Butonu */}
+              <button
+                type="button"
+                onClick={tryDemo}
+                disabled={demoLoading || loading}
+                className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-stone-900 hover:bg-black text-white font-extrabold text-xs transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {demoLoading ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Demo açılıyor…</>
+                ) : (
+                  <><PlayCircle className="w-3.5 h-3.5" /> Kaydolmadan demoyu dene</>
+                )}
+              </button>
+
+              {/* Alt Güvenlik Bildirimi */}
+              <p className="flex items-center justify-center gap-1.5 text-[11px] text-stone-400 font-medium pt-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                Şifreniz şifreli saklanır • Ücretsiz • 2 dakikada kurulum
+              </p>
+            </form>
           </div>
 
-          <p className="mt-4 text-center text-[11px] text-stone-400 font-semibold">
+          <p className="mt-5 text-center text-xs text-stone-400 font-medium">
             Dükkanım Yanımda © 2026
           </p>
         </div>
