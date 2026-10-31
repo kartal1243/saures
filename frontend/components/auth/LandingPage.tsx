@@ -33,6 +33,7 @@ import {
   Layers,
   CheckCircle2,
   Crown,
+  Instagram,
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
@@ -229,6 +230,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
           {/* Aksiyon Butonları */}
           <div className="flex items-center gap-2.5">
+            <a
+              href="https://www.instagram.com/dukkanimyanimdatr/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-stone-700 dark:text-stone-300 hover:text-pink-600 dark:hover:text-pink-400 bg-stone-100 dark:bg-stone-800/80 hover:bg-pink-50 dark:hover:bg-pink-950/30 transition-all border border-stone-200/80 dark:border-stone-700/80"
+              title="Instagram: @dukkanimyanimdatr"
+            >
+              <Instagram className="w-3.5 h-3.5 text-pink-600 dark:text-pink-400" />
+              <span>@dukkanimyanimdatr</span>
+            </a>
+
             <button
               type="button"
               onClick={handleDemo}
@@ -898,6 +910,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <a href="/iletisim" className="hover:text-orange-600 transition-colors">İletişim</a>
             <a href="/gizlilik" className="hover:text-orange-600 transition-colors">Gizlilik &amp; KVKK</a>
           </nav>
+
+          <a
+            href="https://www.instagram.com/dukkanimyanimdatr/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-500/10 hover:from-purple-500/20 hover:to-orange-500/20 text-stone-800 dark:text-stone-200 border border-pink-500/30 font-bold transition-all shadow-xs group"
+          >
+            <span className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+              <Instagram className="w-3.5 h-3.5" />
+            </span>
+            <span>Bizi Instagram'da Takip Edin: <strong className="text-pink-600 dark:text-pink-400 font-black">@dukkanimyanimdatr</strong></span>
+          </a>
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full pt-6 border-t border-stone-200/70 dark:border-stone-800">
             <img

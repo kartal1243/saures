@@ -21,6 +21,7 @@ import {
   LogOut,
   Wifi,
   WifiOff,
+  Instagram,
 } from 'lucide-react';
 import type { ActiveTab } from '../../App';
 import type { LawyerTab } from '../sector/LawyerCasesView';
@@ -217,7 +218,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <nav className="px-3 py-2 space-y-1">{mainTabs}</nav>
         <nav className="px-3 pb-3">{menuItems}</nav>
 
-        <div className="mt-auto p-3 border-t border-stone-800/80">
+        <div className="mt-auto p-3 border-t border-stone-800/80 space-y-2">
+          <a
+            href="https://www.instagram.com/dukkanimyanimdatr/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-purple-500/15 via-pink-500/15 to-orange-500/15 hover:from-purple-500/25 hover:to-orange-500/25 border border-pink-500/30 text-pink-300 text-xs font-bold transition-all group"
+            title="Instagram: @dukkanimyanimdatr"
+          >
+            <Instagram className="w-3.5 h-3.5 text-pink-400 group-hover:scale-110 transition-transform" />
+            <span>@dukkanimyanimdatr</span>
+          </a>
+
           <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-3 py-2.5">
             <span className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center text-sm font-black shrink-0">
               {avatarChar}
