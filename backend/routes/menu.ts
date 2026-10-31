@@ -169,6 +169,66 @@ export function registerPublicMenuRoutes(app: Express): void {
       tables: (shopState.tables || []).map((t) => ({ id: t.id, name: t.name })),
     });
   });
+
+  // Masadan Canlı Garson Çağır & Hesap İste (QR Menü Müşteri Butonları - Şifresiz Public Uç)
+  app.post('/api/public/menu/:identifier/table-action', (req: Request, res: Response) => {
+    const rawId = (req.params.identifier || '').toLowerCase();
+    const accounts = getAccounts();
+    let targetAcc = accounts.find(
+      (a) =>
+        a.id.toLowerCase() === rawId ||
+        a.phone === rawId ||
+        slugify(a.shopName) === rawId
+    );
+
+    if (!targetAcc) {
+      for (const a of accounts) {
+        const st = loadShopState(a.id);
+        const shopSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
+        if (shopSlug === rawId) {
+          targetAcc = a;
+          break;
+        }
+      }
+    }
+
+    if (!targetAcc && rawId === 'demo') {
+      targetAcc = accounts.find((a) => a.phone === '05550000000');
+    }
+
+    if (!targetAcc) {
+      return res.status(404).json({ error: 'İşletme bulunamadı.' });
+    }
+
+    const { tableNo, action } = req.body || {}; // action: 'waiter' | 'bill'
+    const st = loadShopState(targetAcc.id);
+    const table = (st.tables || []).find((t) => t.id === tableNo || t.name === tableNo);
+
+    if (table) {
+      table.activeCall = action === 'bill' ? 'bill' : 'waiter';
+      st.lastUpdated = new Date().toISOString();
+      persistShopState(targetAcc.id, st);
+    }
+
+    const actionText = action === 'bill' ? 'Hesap İstiyor 💳' : 'Garson Çağırıyor 🔔';
+    const displayTable = table ? table.name : (tableNo || 'Masa');
+
+    // Restoran ekranına canlı sesli bildirim ve masa kartı yanıp sönme sinyali gönder
+    broadcastToAccount(targetAcc.id, {
+      type: 'TABLE_CALL_ALERT' as any,
+      payload: {
+        tableNo: displayTable,
+        tableId: table ? table.id : undefined,
+        action: actionText,
+        time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+      },
+    });
+
+    res.json({
+      success: true,
+      message: action === 'bill' ? `${displayTable} için hesap talebi kasaya iletildi.` : `${displayTable} için garson çağrısı personele iletildi.`,
+    });
+  });
 }
 
 /** Korumalı Menü Rotaları (Guard Sonrası Çağrılır - Dükkan Sahibi Paneli) */
@@ -293,65 +353,5 @@ export function registerProtectedMenuRoutes(app: Express): void {
     st.shopProfile.slug = cleanSlug;
     saveState();
     res.json({ success: true, slug: cleanSlug });
-  });
-
-  // Masadan Canlı Garson Çağır & Hesap İste (QR Menü Müşteri Butonları)
-  app.post('/api/public/menu/:identifier/table-action', (req: Request, res: Response) => {
-    const rawId = (req.params.identifier || '').toLowerCase();
-    const accounts = getAccounts();
-    let targetAcc = accounts.find(
-      (a) =>
-        a.id.toLowerCase() === rawId ||
-        a.phone === rawId ||
-        slugify(a.shopName) === rawId
-    );
-
-    if (!targetAcc) {
-      for (const a of accounts) {
-        const st = loadShopState(a.id);
-        const shopSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
-        if (shopSlug === rawId) {
-          targetAcc = a;
-          break;
-        }
-      }
-    }
-
-    if (!targetAcc && rawId === 'demo') {
-      targetAcc = accounts.find((a) => a.phone === '05550000000');
-    }
-
-    if (!targetAcc) {
-      return res.status(404).json({ error: 'İşletme bulunamadı.' });
-    }
-
-    const { tableNo, action } = req.body || {}; // action: 'waiter' | 'bill'
-    const st = loadShopState(targetAcc.id);
-    const table = (st.tables || []).find((t) => t.id === tableNo || t.name === tableNo);
-
-    if (table) {
-      table.activeCall = action === 'bill' ? 'bill' : 'waiter';
-      st.lastUpdated = new Date().toISOString();
-      persistShopState(targetAcc.id, st);
-    }
-
-    const actionText = action === 'bill' ? 'Hesap İstiyor 💳' : 'Garson Çağırıyor 🔔';
-    const displayTable = table ? table.name : (tableNo || 'Masa');
-
-    // Restoran ekranına canlı sesli bildirim ve masa kartı yanıp sönme sinyali gönder
-    broadcastToAccount(targetAcc.id, {
-      type: 'TABLE_CALL_ALERT' as any,
-      payload: {
-        tableNo: displayTable,
-        tableId: table ? table.id : undefined,
-        action: actionText,
-        time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-      },
-    });
-
-    res.json({
-      success: true,
-      message: action === 'bill' ? `${displayTable} için hesap talebi kasaya iletildi.` : `${displayTable} için garson çağrısı personele iletildi.`,
-    });
   });
 }
