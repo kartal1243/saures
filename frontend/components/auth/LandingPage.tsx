@@ -182,6 +182,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
   const [selectedSector, setSelectedSector] = useState<string>('berber');
+  const [stats, setStats] = useState({
+    shopsLabel: '50+',
+    trackedVolume: '₺850K+',
+    setupTime: '2 Dakika',
+    price: '0 TL',
+  });
+
+  useEffect(() => {
+    fetch('/api/public/stats')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.shopsLabel) {
+          setStats({
+            shopsLabel: data.shopsLabel,
+            trackedVolume: data.trackedVolume || '₺850K+',
+            setupTime: data.setupTime || '2 Dakika',
+            price: data.price || '0 TL',
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleDemo = async () => {
     setDemoLoading(true);
@@ -471,23 +493,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
         </div>
       </section>
 
-      {/* METRİK ŞERİDİ */}
+      {/* METRİK ŞERİDİ (Gerçek Veriden Beslenir) */}
       <section className="border-y border-stone-200/70 dark:border-stone-800/80 bg-white/70 dark:bg-stone-900/50 backdrop-blur-sm py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
           <div>
-            <p className="text-3xl sm:text-4xl font-black text-orange-600 dark:text-orange-400">180+</p>
-            <p className="mt-1 text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400">Aktif Esnaf & Dükkan</p>
+            <p className="text-3xl sm:text-4xl font-black text-orange-600 dark:text-orange-400">{stats.shopsLabel}</p>
+            <p className="mt-1 text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400">Aktif Esnaf &amp; Dükkan</p>
           </div>
           <div>
-            <p className="text-3xl sm:text-4xl font-black text-[#0F172A] dark:text-white">₺850K+</p>
-            <p className="mt-1 text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400">Aylık Takip Edilen Ciro</p>
+            <p className="text-3xl sm:text-4xl font-black text-[#0F172A] dark:text-white">{stats.trackedVolume}</p>
+            <p className="mt-1 text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400">Aylık Takip Edilen Kasa / Ciro</p>
           </div>
           <div>
-            <p className="text-3xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400">0 TL</p>
-            <p className="mt-1 text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400">Kurulum & Donanım Ücreti</p>
+            <p className="text-3xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400">{stats.price}</p>
+            <p className="mt-1 text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400">Kurulum &amp; Donanım Ücreti</p>
           </div>
           <div>
-            <p className="text-3xl sm:text-4xl font-black text-orange-600 dark:text-orange-400">2 Dakika</p>
+            <p className="text-3xl sm:text-4xl font-black text-orange-600 dark:text-orange-400">{stats.setupTime}</p>
             <p className="mt-1 text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400">Hazır Olma Süresi</p>
           </div>
         </div>

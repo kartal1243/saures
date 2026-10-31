@@ -3,10 +3,31 @@ import type { ShopProfile } from '../../shared/types';
 import { S, saveState } from '../context';
 import { broadcast } from '../realtime';
 
+export function checkAndUpdateVipStatus(profile?: ShopProfile): boolean {
+  if (!profile || !profile.isVip) return false;
+  if (profile.vipUntil) {
+    const expires = new Date(profile.vipUntil).getTime();
+    if (!isNaN(expires) && expires < Date.now()) {
+      profile.isVip = false;
+      profile.vipPlan = undefined;
+      return false;
+    }
+  }
+  return true;
+}
+
 export function registerProfileRoutes(app: Express): void {
   // 9. Shop Profile Routes (Dükkan Kayıt & Profil Bilgileri)
   app.get('/api/shop-profile', (_req, res) => {
-    res.json({ profile: S().shopProfile });
+    const prof = S().shopProfile;
+    if (prof) {
+      const wasVip = prof.isVip;
+      checkAndUpdateVipStatus(prof);
+      if (wasVip !== prof.isVip) {
+        saveState();
+      }
+    }
+    res.json({ profile: prof });
   });
 
   app.post('/api/shop-profile', (req: Request, res: Response) => {
@@ -22,15 +43,16 @@ export function registerProfileRoutes(app: Express): void {
 
     if (isAlreadyConfigured) {
       // Kural: İlk kurulumdan sonra SADECE dükkan adı ve günlük ciro hedefi değiştirilebilir!
-      // Sektör, sahip adı, telefon, şehir, çalışan sayısı kilitlidir.
+      // Sektör, sahip adı, telefon, şehir, çalışan sayısı, isVip kilitlidir.
+      checkAndUpdateVipStatus(currentProfile);
       updatedProfile = {
         ...currentProfile,
         storeName: data.storeName.trim(),
         dailyTarget: Number(data.dailyTarget) || currentProfile.dailyTarget || 2500,
-        // Diğer alanlar kilitli ve korunur
+        // isVip, vipUntil, vipPlan gibi alanlar asla istemciden değiştirilemez
       };
     } else {
-      // İlk kurulum aşaması: Tüm bilgiler ilk kez belirlenir ve kilitlenir
+      // İlk kurulum aşaması: isVip istemciden ASLA alınmaz, her zaman false başlar
       updatedProfile = {
         storeName: data.storeName.trim(),
         ownerName: (data.ownerName || 'Esnaf').trim(),
@@ -42,7 +64,9 @@ export function registerProfileRoutes(app: Express): void {
         dailyTarget: Number(data.dailyTarget) || 2500,
         slogan: (data.slogan || '').trim(),
         isConfigured: true,
-        isVip: data.isVip !== undefined ? Boolean(data.isVip) : true,
+        isVip: false, // İlk kurulumda daima Standart (0 TL) olarak başlar
+        vipUntil: undefined,
+        vipPlan: undefined,
       };
     }
 

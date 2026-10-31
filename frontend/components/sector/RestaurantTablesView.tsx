@@ -508,7 +508,7 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
               <div className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-3xl bg-white dark:bg-stone-900 flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                 
                 {/* 1. Modal Header (Masa Adı, Durum ve Kapat Butonu) */}
-                <div className="shrink-0 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-850 flex items-center justify-between">
+                <div className="shrink-0 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-bold shadow-xs">
                       <Receipt className="w-5 h-5" />
@@ -833,7 +833,7 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
                 </div>
 
                 {/* 4. Sticky Bottom Action Bar (Telefonda Asla Kesilmez) */}
-                <div className="shrink-0 p-3 sm:p-4 bg-stone-50 dark:bg-stone-850 border-t border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <div className="shrink-0 p-3 sm:p-4 bg-stone-50 dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                   
                   <div className="flex items-center justify-between sm:justify-start gap-3">
                     <div>

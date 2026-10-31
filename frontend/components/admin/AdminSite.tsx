@@ -18,10 +18,13 @@ import {
   LogIn,
   LayoutDashboard,
   Home,
+  Sparkles,
+  Trash2,
+  MessageSquare,
 } from 'lucide-react';
 import { AdminPanel } from './AdminPanel';
 
-type Tab = 'panel' | 'shops' | 'events' | 'logs';
+type Tab = 'panel' | 'shops' | 'requests' | 'events' | 'logs';
 
 interface AuthEvent {
   at: string;
@@ -274,6 +277,177 @@ function EventsTab() {
               <span className="font-black text-stone-800 dark:text-stone-100">{e.phone}</span>
               <span className="font-mono text-stone-500 dark:text-stone-400">{e.ip}</span>
               <span className="text-stone-400 dark:text-stone-500 ml-auto font-semibold">{fmtDate(e.at)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Özel Panel Talepleri sekmesi ----------------
+
+interface CustomPanelLead {
+  id: string;
+  storeName: string;
+  ownerName: string;
+  phone: string;
+  sector: string;
+  requestedFeatures: string;
+  notes: string;
+  createdAt: string;
+  status: 'beklemede' | 'arandi' | 'tamamlandi' | 'red';
+}
+
+function CustomPanelRequestsTab() {
+  const [leads, setLeads] = useState<CustomPanelLead[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/panel-requests');
+      if (res.ok) {
+        const data = await res.json();
+        setLeads(Array.isArray(data.requests) ? data.requests : []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch(`/api/admin/panel-requests/${id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status: status as any } : l)));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const deleteLead = async (id: string) => {
+    if (!confirm('Bu talebi silmek istediğinize emin misiniz?')) return;
+    try {
+      const res = await fetch(`/api/admin/panel-requests/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setLeads((prev) => prev.filter((l) => l.id !== id));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-black text-stone-900 dark:text-white">
+            Özel Panel &amp; Geliştirme Talepleri ({leads.length})
+          </h3>
+          <p className="text-xs text-stone-500">
+            Esnafların VIP modal veya panel üzerinden talep ettiği özel buton, modül ve yazılım istekleri.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={load}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-black hover:opacity-90 cursor-pointer"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Yenile
+        </button>
+      </div>
+
+      {loading && <p className="text-sm font-bold text-stone-500">Yükleniyor...</p>}
+
+      {!loading && leads.length === 0 && (
+        <div className="rounded-2xl bg-white dark:bg-stone-900 border border-dashed border-stone-300 dark:border-stone-800 p-8 text-center space-y-2">
+          <Sparkles className="w-8 h-8 text-amber-500 mx-auto" />
+          <p className="text-sm font-black text-stone-800 dark:text-stone-200">Henüz özel panel talebi yok.</p>
+          <p className="text-xs text-stone-400">Esnaflar özel panel istediğinde iletişim bilgileri ve talepleri anında buraya düşer.</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {leads.map((l) => {
+          const cleanPhone = l.phone ? l.phone.replace(/\D/g, '') : '';
+          const waLink = cleanPhone ? `https://wa.me/90${cleanPhone.startsWith('0') ? cleanPhone.slice(1) : cleanPhone}` : null;
+
+          return (
+            <div
+              key={l.id}
+              className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col justify-between space-y-3"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h4 className="font-black text-sm text-stone-900 dark:text-white flex items-center gap-1.5">
+                      <span>{l.storeName}</span>
+                      <span className="text-xs font-normal text-stone-400">({l.ownerName})</span>
+                    </h4>
+                    <span className="inline-block mt-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                      {l.sector}
+                    </span>
+                  </div>
+
+                  <select
+                    value={l.status}
+                    onChange={(e) => updateStatus(l.id, e.target.value)}
+                    className="text-[11px] font-black px-2 py-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 cursor-pointer"
+                  >
+                    <option value="beklemede">🟡 Beklemede</option>
+                    <option value="arandi">🔵 Arandı / Görüşüldü</option>
+                    <option value="tamamlandi">🟢 Kodlandı / Tamam</option>
+                    <option value="red">⚪ İptal</option>
+                  </select>
+                </div>
+
+                <div className="mt-3 p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-100 dark:border-stone-800 text-xs text-stone-700 dark:text-stone-300">
+                  <div className="font-bold text-stone-900 dark:text-white mb-0.5">İstenen Panel &amp; Özellikler:</div>
+                  <p className="whitespace-pre-wrap">{l.requestedFeatures || l.notes || 'Detay belirtilmedi.'}</p>
+                  {l.notes && l.requestedFeatures && (
+                    <p className="mt-1 pt-1 border-t border-stone-200/50 dark:border-stone-700/50 text-[11px] text-stone-500 whitespace-pre-wrap">
+                      Not: {l.notes}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs">
+                <span className="text-[11px] text-stone-400">
+                  {fmtDate(l.createdAt)}
+                </span>
+
+                <div className="flex items-center gap-2">
+                  {waLink && (
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-1 transition-colors"
+                    >
+                      <span>WhatsApp'tan Yaz ({l.phone})</span>
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => deleteLead(l.id)}
+                    className="p-1 text-stone-400 hover:text-rose-600 transition-colors cursor-pointer"
+                    title="Talebi Sil"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           );
         })}
@@ -549,6 +723,7 @@ export const AdminSite: React.FC = () => {
             [
               { key: 'panel', label: 'Gösterge Paneli', Icon: LayoutDashboard },
               { key: 'shops', label: `Dükkanlar${ov ? ` (${ov.shops})` : ''}`, Icon: Store },
+              { key: 'requests', label: 'Özel Panel Talepleri', Icon: Sparkles },
               { key: 'events', label: 'Olaylar', Icon: Activity },
               { key: 'logs', label: 'Loglar', Icon: ScrollText },
             ] as { key: Tab; label: string; Icon: React.ComponentType<{ className?: string }> }[]
@@ -569,6 +744,7 @@ export const AdminSite: React.FC = () => {
       <main className="max-w-6xl mx-auto px-4 py-5">
         {tab === 'panel' && <OverviewTab data={ov} loading={ovLoading} />}
         {tab === 'shops' && <AdminPanel initialQuery={shopQuery} />}
+        {tab === 'requests' && <CustomPanelRequestsTab />}
         {tab === 'events' && <EventsTab />}
         {tab === 'logs' && <LogsTab />}
       </main>

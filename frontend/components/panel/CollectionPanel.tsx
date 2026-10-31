@@ -104,14 +104,15 @@ export const CollectionPanel: React.FC<CollectionPanelProps> = ({
     if (!queue || queueIdx >= queue.length) return;
     const item = queue[queueIdx];
     const phone = cleanPhoneForWhatsApp(item.customer.phone);
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(presetMessage(item.customer, shopName))}`;
+    const msg = `${presetMessage(item.customer, shopName)}\n\n(Dükkânım Yanımda ile gönderildi)`;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
     fetch('/api/reminders/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         customerId: item.customer.id,
         channel: 'whatsapp',
-        message: presetMessage(item.customer, shopName),
+        message: msg,
         type: 'veresiye',
       }),
     }).catch(() => {});

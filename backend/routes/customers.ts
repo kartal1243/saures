@@ -28,6 +28,22 @@ export function registerCustomerRoutes(app: Express): void {
       };
       S().customers[index] = customer;
     } else {
+      // 0 TL Standart Plan Koruması: VIP olmayan dükkanlar en fazla 25 müşteri ekleyebilir
+      const profile = S().shopProfile;
+      const isVip = Boolean(
+        profile?.isVip &&
+        (!profile.vipUntil || new Date(profile.vipUntil).getTime() > Date.now())
+      );
+
+      if (!isVip && Array.isArray(S().customers) && S().customers.length >= 25) {
+        return res.status(403).json({
+          error: '0 TL Standart planda en fazla 25 müşteri kaydedebilirsiniz. Sınırsız müşteri ve veresiye takibi için VIP Pakete geçin.',
+          code: 'VIP_REQUIRED',
+          limit: 25,
+          current: S().customers.length,
+        });
+      }
+
       // Create
       customer = {
         id: `cust_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,

@@ -155,6 +155,8 @@ export interface ShopProfile {
   isConfigured: boolean;
   isVip?: boolean;
   vipExpiresAt?: string;
+  vipUntil?: string; // ISO bitiş tarihi e.g. "2026-11-30T15:00:00.000Z"
+  vipPlan?: 'monthly' | 'yearly' | 'lifetime';
   iban?: string;
   receiptFooter?: string;
   slug?: string;

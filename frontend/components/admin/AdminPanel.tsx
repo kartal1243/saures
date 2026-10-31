@@ -41,6 +41,8 @@ interface ShopRow {
   loginCount: number;
   activeSessions: number;
   isVip?: boolean;
+  vipPlan?: string | null;
+  vipUntil?: string | null;
   sector: string | null;
   cityDistrict: string | null;
   customers: number;
@@ -206,7 +208,7 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
               </span>
               {s.isVip ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-linear-to-r from-amber-500 to-orange-500 text-white text-[10px] font-black shadow-xs">
-                  <Crown className="w-3 h-3 text-yellow-200" /> VIP
+                  <Crown className="w-3 h-3 text-yellow-200" /> VIP ({s.vipPlan === 'yearly' ? 'Yıllık' : 'Aylık'}{s.vipUntil ? ` · ${new Date(s.vipUntil).toLocaleDateString('tr-TR')}` : ''})
                 </span>
               ) : (
                 <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 text-[10px] font-bold">
@@ -267,9 +269,20 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
                   <button
                     type="button"
                     onClick={async () => {
-                      const action = s.isVip ? 'VIP iptal edilsin' : 'VIP yapılsın';
-                      if (!confirm(`${s.shopName} dükkanı ${action} mı?`)) return;
-                      const res = await fetch(`/api/admin/shops/${s.id}/toggle-vip`, { method: 'POST' });
+                      let days = 30;
+                      let plan = 'monthly';
+                      if (!s.isVip) {
+                        const isYearly = confirm(`${s.shopName} için 1 Yıllık VIP (+365 Gün) mi açılsın?\n\n[Tamam = 1 Yıllık VIP (365 Gün)]\n[İptal = 1 Aylık VIP (30 Gün)]`);
+                        days = isYearly ? 365 : 30;
+                        plan = isYearly ? 'yearly' : 'monthly';
+                      } else {
+                        if (!confirm(`${s.shopName} VIP üyeliği sonlandırılsın mı?`)) return;
+                      }
+                      const res = await fetch(`/api/admin/shops/${s.id}/toggle-vip`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ days, plan }),
+                      });
                       if (!res.ok) { alert('VIP durumu değiştirilemedi.'); return; }
                       load();
                     }}
@@ -280,7 +293,7 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
                     }`}
                   >
                     <Crown className="w-3.5 h-3.5" />
-                    {s.isVip ? 'VIP Üyeliğini Kapat' : 'Dükkanı VIP Yap'}
+                    {s.isVip ? 'VIP Üyeliğini Kapat' : 'VIP Aç (+30 / +365 Gün)'}
                   </button>
                   <button
                     type="button"

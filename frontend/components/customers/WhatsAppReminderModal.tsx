@@ -95,14 +95,17 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
   // Open Direct WhatsApp Link
   const handleOpenWhatsApp = () => {
     const phone = cleanPhoneForWhatsApp(customer.phone);
-    const encoded = encodeURIComponent(message);
+    const finalMessage = message.includes('Dükkânım Yanımda')
+      ? message
+      : `${message.trim()}\n\n(Dükkânım Yanımda ile gönderildi)`;
+    const encoded = encodeURIComponent(finalMessage);
     const url = `https://wa.me/${phone}?text=${encoded}`;
 
     // Record the reminder log on server
     onReminderSent({
       customerId: customer.id,
       channel: 'whatsapp',
-      message,
+      message: finalMessage,
       type: reminderType,
     });
 

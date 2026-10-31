@@ -22,6 +22,7 @@ import {
 } from '../config';
 import { readJsonFile, writeJsonFile } from '../fsdb';
 import { rateLimit } from '../guards';
+import { getCustomPanelLeads, saveCustomPanelLeads } from './vip';
 
 // Admin oturumu dukkan oturumunden ayridir (ayri cookie: aid, 12 saat).
 // Sifre .env'deki ADMIN_PASSWORD'dur; tanimli degilse admin girisi kapali kalir.
@@ -45,7 +46,7 @@ function adminTokenFromRequest(req: Request): string | null {
   return match ? match[1] : null;
 }
 
-function isAdminSession(req: Request): boolean {
+export function isAdminSession(req: Request): boolean {
   const token = adminTokenFromRequest(req);
   if (!token) return false;
   const s = adminSessions.find((x) => x.token === token);
@@ -54,7 +55,7 @@ function isAdminSession(req: Request): boolean {
   return true;
 }
 
-function requireAdmin(req: Request, res: Response): boolean {
+export function requireAdmin(req: Request, res: Response): boolean {
   if (!isAdminSession(req)) {
     res.status(401).json({ error: 'Admin girisi gerekli.' });
     return false;
@@ -154,6 +155,8 @@ export function registerAdminRoutes(app: Express): void {
           loginHistory: (a.loginHistory || []).slice(0, 10),
           activeSessions: countActiveSessions(a.id),
           isVip: Boolean(st.shopProfile?.isVip),
+          vipPlan: st.shopProfile?.vipPlan || null,
+          vipUntil: st.shopProfile?.vipUntil || null,
           sector: st.shopProfile?.businessField || null,
           cityDistrict: st.shopProfile?.cityDistrict || null,
           customers: st.customers.length,
@@ -274,12 +277,13 @@ export function registerAdminRoutes(app: Express): void {
     res.json({ success: true, shopName: acc.shopName });
   });
 
-  // Dükkanın VIP durumunu tek tıkla aç / kapat
+  // Dükkanın VIP durumunu tek tıkla aç / kapat (+30/+365 gün süreli)
   app.post('/api/admin/shops/:id/toggle-vip', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
     const acc = findAccountById(req.params.id);
     if (!acc) return res.status(404).json({ error: 'Dükkan bulunamadı.' });
 
+    const { days = 30, plan = 'monthly' } = req.body || {};
     const st = loadShopState(acc.id);
     if (!st.shopProfile) {
       st.shopProfile = {
@@ -291,10 +295,56 @@ export function registerAdminRoutes(app: Express): void {
     }
     const nextVip = !st.shopProfile.isVip;
     st.shopProfile.isVip = nextVip;
+
+    if (nextVip) {
+      st.shopProfile.vipPlan = plan === 'yearly' ? 'yearly' : 'monthly';
+      const until = new Date();
+      until.setDate(until.getDate() + Number(days));
+      st.shopProfile.vipUntil = until.toISOString();
+      st.shopProfile.vipExpiresAt = until.toISOString();
+    } else {
+      st.shopProfile.vipPlan = undefined;
+      st.shopProfile.vipUntil = undefined;
+      st.shopProfile.vipExpiresAt = undefined;
+    }
+
     st.lastUpdated = new Date().toISOString();
     persistShopState(acc.id, st);
 
-    res.json({ success: true, shopName: acc.shopName, isVip: nextVip });
+    res.json({
+      success: true,
+      shopName: acc.shopName,
+      isVip: nextVip,
+      vipPlan: st.shopProfile.vipPlan,
+      vipUntil: st.shopProfile.vipUntil,
+    });
+  });
+
+  // Özel Panel Talepleri Listesi
+  app.get('/api/admin/panel-requests', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    res.json({ success: true, requests: getCustomPanelLeads() });
+  });
+
+  // Özel Panel Talebi Durum Güncelle ('beklemede' | 'arandi' | 'tamamlandi' | 'red')
+  app.post('/api/admin/panel-requests/:id/status', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const { status } = req.body;
+    const leads = getCustomPanelLeads();
+    const lead = leads.find((l) => l.id === req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Talep bulunamadı.' });
+    lead.status = status || lead.status;
+    saveCustomPanelLeads(leads);
+    res.json({ success: true, lead });
+  });
+
+  // Özel Panel Talebi Sil
+  app.delete('/api/admin/panel-requests/:id', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    let leads = getCustomPanelLeads();
+    leads = leads.filter((l) => l.id !== req.params.id);
+    saveCustomPanelLeads(leads);
+    res.json({ success: true });
   });
 
   // Dükkanı tamamen sil (hesap + personel + veri dosyası). Geri alınamaz.
