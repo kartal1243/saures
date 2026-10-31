@@ -1077,16 +1077,18 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
         )}
 
         {/* Viral Branding Footer */}
-        <div className="py-6 text-center">
-          <a
-            href="https://dukkanimyanimda.com.tr"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-amber-400 text-[11px] font-bold border border-white/10 transition-colors"
-          >
-            <span>⚡ Dükkânım Yanımda ile oluşturuldu — Ücretsiz Randevu &amp; Kasa Sistemi</span>
-          </a>
-        </div>
+        {(data.shop as any)?.brandingRequired !== false && (
+          <div className="py-6 text-center">
+            <a
+              href="https://dukkanimyanimda.com.tr"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-amber-400 text-[11px] font-bold border border-white/10 transition-colors"
+            >
+              <span>⚡ Dükkânım Yanımda ile oluşturuldu — Ücretsiz Randevu &amp; Kasa Sistemi</span>
+            </a>
+          </div>
+        )}
       </main>
 
       {/* Alt Navigasyon & Butonlar */}

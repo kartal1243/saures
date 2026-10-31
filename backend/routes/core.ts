@@ -1,7 +1,10 @@
 import type { Express, Request, Response } from 'express';
-import { S, saveState } from '../context';
+import { S, saveState, als } from '../context';
 import { calculateCashRegister } from '../cash';
 import { buildInitEvent, broadcast, clientCount } from '../realtime';
+import { DEMO_ACCOUNT_ID } from '../demoSeed';
+import { FREE_CUSTOMER_LIMIT, FREE_TABLE_LIMIT } from '../config';
+import { checkAndUpdateVipStatus } from './profile';
 
 export function registerCoreRoutes(app: Express): void {
   // 1. Health check
@@ -16,28 +19,49 @@ export function registerCoreRoutes(app: Express): void {
     res.json({ version: 1, exportedAt: new Date().toISOString(), state: S() });
   });
 
-  // 1c. Yedek geri yukle (JSON) — sadece owner, dogrulamali
+  // 1c. Yedek geri yukle (JSON) — sadece owner, VIP ve kota kurallarini koruyarak dogrulamali
   app.post('/api/backup/restore', (req: Request, res: Response) => {
+    const ctx = als.getStore();
+    if (ctx?.accountId === DEMO_ACCOUNT_ID) {
+      return res.status(403).json({ error: 'Ortak demo hesabına yedek geri yüklenemez.' });
+    }
     const ns = (req.body || {}).state;
     if (!ns || !Array.isArray(ns.customers) || !Array.isArray(ns.transactions)) {
       return res.status(400).json({ error: 'Gecersiz yedek dosyasi.' });
     }
     const st = S();
-    st.customers = ns.customers;
+    const isActiveVip = checkAndUpdateVipStatus(st.shopProfile);
+
+    // VIP olmayan hesaplar yedek yükleyerek 25 müşteri / 3 masa limitini delemez
+    st.customers = isActiveVip ? ns.customers : ns.customers.slice(0, FREE_CUSTOMER_LIMIT);
     st.transactions = ns.transactions;
     st.reminderLogs = Array.isArray(ns.reminderLogs) ? ns.reminderLogs : [];
     st.dailyClosings = Array.isArray(ns.dailyClosings) ? ns.dailyClosings : [];
     st.products = Array.isArray(ns.products) ? ns.products : [];
     st.stockMovements = Array.isArray(ns.stockMovements) ? ns.stockMovements : [];
     st.appointments = Array.isArray(ns.appointments) ? ns.appointments : [];
-    st.tables = Array.isArray(ns.tables) ? ns.tables : [];
+    st.tables = isActiveVip
+      ? (Array.isArray(ns.tables) ? ns.tables : [])
+      : (Array.isArray(ns.tables) ? ns.tables.slice(0, FREE_TABLE_LIMIT) : []);
     st.repairTickets = Array.isArray(ns.repairTickets) ? ns.repairTickets : [];
     st.suppliers = Array.isArray(ns.suppliers) ? ns.suppliers : [];
     (st as any).services = Array.isArray(ns.services) ? ns.services : [];
     (st as any).cases = Array.isArray(ns.cases) ? ns.cases : [];
     (st as any).custody = Array.isArray(ns.custody) ? ns.custody : [];
     if (ns.shopProfile && typeof ns.shopProfile === 'object') {
-      st.shopProfile = { ...st.shopProfile, ...ns.shopProfile };
+      // GÜVENLİK: isVip, vipPlan, vipUntil, vipExpiresAt, aiOcrScansUsed ASLA istemci yedeğinden alınmaz!
+      const preservedVip = {
+        isVip: Boolean(st.shopProfile?.isVip),
+        vipPlan: st.shopProfile?.vipPlan,
+        vipUntil: st.shopProfile?.vipUntil,
+        vipExpiresAt: st.shopProfile?.vipExpiresAt,
+        aiOcrScansUsed: st.shopProfile?.aiOcrScansUsed || 0,
+      };
+      st.shopProfile = {
+        ...st.shopProfile,
+        ...ns.shopProfile,
+        ...preservedVip,
+      };
       st.storeName = ns.shopProfile.storeName || st.storeName;
     }
     saveState();

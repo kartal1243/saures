@@ -160,6 +160,7 @@ export interface ShopProfile {
   iban?: string;
   receiptFooter?: string;
   slug?: string;
+  aiOcrScansUsed?: number;
 }
 
 export interface DailyClosing {
@@ -412,4 +413,7 @@ export type WSEvent =
   | { type: 'CASE_UPDATED'; payload: LegalCase }
   | { type: 'CUSTODY_UPDATED'; payload: CustodyTicket }
   | { type: 'MENU_ITEM_UPDATED'; payload: MenuItem }
-  | { type: 'MENU_ITEM_DELETED'; payload: { id: string } };
+  | { type: 'MENU_ITEM_DELETED'; payload: { id: string } }
+  | { type: 'MENU_UPDATED'; payload: MenuItem[] }
+  | { type: 'SHOP_PROFILE_UPDATED'; payload: ShopProfile }
+  | { type: 'TABLE_CALL'; payload: { id: string; tableName: string; action: 'waiter' | 'bill'; createdAt: string } };

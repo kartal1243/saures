@@ -7,4 +7,37 @@ coverage/
 .env*
 !.env.example
 
+# Veri ve test dizinleri
 data/
+data_test/
+backups/
+*.tar.gz
+*.enc
+
+# Geliştirme ve test geçici dosyaları
+temp_chrome*/
+temp_chrome_profile*/
+hyperframes-videos/
+video-reel-*/
+*.mp3
+*.wav
+*.m4a
+*.mp4
+*.mov
+*.png
+!frontend/**/*.png
+!public/**/*.png
+
+# Kök dizin scratch ve geçici test scriptleri
+capture_*.py
+capture_*.mjs
+check_*.py
+debug_*.mjs
+find_*.py
+generate_*.py
+make_*.py
+mix_*.py
+render_*.py
+test_*.py
+test_*.mjs
+update_*.py

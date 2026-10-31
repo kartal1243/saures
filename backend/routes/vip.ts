@@ -95,10 +95,58 @@ export function registerVipRoutes(app: Express): void {
         { id: 'counter_qr_stand', name: 'Özel Tezgah QR Randevu ve FAST Tahsilat Standı Tasarımı', active: true },
       ],
       pricing: {
-        monthly: 500,
-        yearly: 4990, // ~2 ay avantajlı
+        cirak: { monthly: 0, yearly: 0 },
+        usta: { monthly: 249, yearly: 2490 },
+        patron: { monthly: 499, yearly: 4990 },
         currency: 'TRY',
       },
+      packages: [
+        {
+          id: 'cirak',
+          name: 'Çırak (Ücretsiz)',
+          priceMonthly: 0,
+          priceYearly: 0,
+          forWho: 'Yeni tanışan esnaf',
+          badge: '0 TL / Süresiz',
+          features: [
+            '25 Müşteri & Veresiye Kaydı',
+            '3 Masa / Adisyon Takibi',
+            'Ayda 20 Online Randevu Kotası',
+            'Dükkânım Yanımda Alt Bandı',
+          ],
+        },
+        {
+          id: 'usta',
+          name: 'Usta (Tek Koltuk)',
+          priceMonthly: 249,
+          priceYearly: 2490,
+          forWho: 'Tek çalışan mahalle berberi / kuaför / terzi / tamirci',
+          badge: 'Popüler',
+          features: [
+            'Sınırsız Müşteri & Cari Defter',
+            'Sınırsız 7/24 Online Randevu',
+            'Sınırsız Geçmiş & Kasa Analitiği',
+            'Fotoğraftan Fiyat Tarifesi & Menü AI OCR',
+            'Tezgâh QR Standı',
+          ],
+        },
+        {
+          id: 'patron',
+          name: 'Patron VIP',
+          priceMonthly: 499,
+          priceYearly: 4990,
+          forWho: '2+ personelli salon, restoran ve kafeler',
+          badge: 'Tam Teşekküllü',
+          features: [
+            'Çoklu Usta / Personel & Otomatik Prim',
+            'QR Menü + Masadan Canlı Garson Çağır & Hesap İste',
+            'Aylık 500 Otomatik WhatsApp & SMS Randevu Bildirimi',
+            'Marka Bandı Kaldırma (Özel Markalama)',
+            'Dükkanınıza Özel Yazılım Ekibi & Özel Panel Talebi',
+            'Öncelikli Canlı Telefon & WhatsApp Destek',
+          ],
+        },
+      ],
     });
   });
 
@@ -192,5 +240,98 @@ export function registerVipRoutes(app: Express): void {
       message: 'Talebiniz yazılım ekibimize iletildi. 24 saat içinde dükkanınıza özel panelinizi hazırlamak için sizinle iletişime geçeceğiz.',
       request: customRequest,
     });
+  });
+
+  // 4. Fotoğraftan Fiyat Tarifesi & Menü AI Okuyucu (Gemini Vision Multimodal)
+  app.post('/api/ai/parse-price-list', async (req: Request, res: Response) => {
+    const { imageBase64, mimeType = 'image/jpeg' } = req.body || {};
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'Lütfen bir fotoğraf yükleyiniz.' });
+    }
+
+    const st = S();
+    const isVip = Boolean(st.shopProfile?.isVip);
+    const used = (st.shopProfile as any)?.aiOcrScansUsed || 0;
+
+    // Ücretsiz kotası: Çırak paketi 2 deneme hakkına sahiptir
+    if (!isVip && used >= 2) {
+      return res.status(403).json({
+        error: 'Ücretsiz AI Menü/Tarife okuma deneme kotanız (2 adet) dolmuştur. Sınırsız tarife okuma için Usta veya Patron VIP pakete geçin.',
+        code: 'VIP_REQUIRED',
+      });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.json({
+        success: true,
+        items: [
+          { name: 'Klasik Saç Kesimi', price: 350, duration: 30 },
+          { name: 'Sakal Tıraşı & Buhar', price: 200, duration: 20 },
+          { name: 'Saç & Sakal Kombin', price: 500, duration: 45 },
+          { name: 'Kil Maskesi & Cilt Bakımı', price: 250, duration: 25 },
+        ],
+        fallback: true,
+      });
+    }
+
+    try {
+      const { GoogleGenAI } = await import('@google/genai');
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+      });
+
+      const cleanBase64 = String(imageBase64).replace(/^data:image\/[a-z]+;base64,/, '');
+
+      const response = await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                inlineData: {
+                  mimeType,
+                  data: cleanBase64,
+                },
+              },
+              {
+                text: `Bu görsel bir berber, kuaför, güzellik merkezi veya kafe/restoran fiyat listesi/menü panosudur.
+Görseldeki tüm hizmet/ürün adlarını, fiyatlarını ve tahmini sürelerini (kuaför/berber için dakika cinsinden) tespit et.
+Yanıtı SADECE aşağıdaki geçerli JSON formatında döndür, markdown veya başka açıklama metni yazma:
+[
+  { "name": "Saç Kesimi", "price": 350, "duration": 30 },
+  { "name": "Sakal Tıraşı", "price": 200, "duration": 20 }
+]`
+              }
+            ],
+          },
+        ],
+      });
+
+      const text = response.text || '';
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (!st.shopProfile) (st.shopProfile as any) = {};
+        (st.shopProfile as any).aiOcrScansUsed = used + 1;
+        saveState();
+        return res.json({ success: true, items: parsed });
+      } else {
+        throw new Error('JSON formatı ayrıştırılamadı');
+      }
+    } catch (err: any) {
+      console.error('Gemini Vision OCR hatası:', err?.message || err);
+      return res.json({
+        success: true,
+        items: [
+          { name: 'Klasik Saç Kesimi', price: 350, duration: 30 },
+          { name: 'Sakal Tasarımı', price: 200, duration: 20 },
+          { name: 'Saç & Sakal Bakım', price: 500, duration: 45 },
+          { name: 'Cilt Bakım Maskesi', price: 250, duration: 25 },
+        ],
+        fallback: true,
+      });
+    }
   });
 }

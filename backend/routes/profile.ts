@@ -1,7 +1,8 @@
 import type { Express, Request, Response } from 'express';
 import type { ShopProfile } from '../../shared/types';
-import { S, saveState } from '../context';
+import { S, saveState, als } from '../context';
 import { broadcast } from '../realtime';
+import { DEMO_ACCOUNT_ID } from '../demoSeed';
 
 export function checkAndUpdateVipStatus(profile?: ShopProfile): boolean {
   if (!profile || !profile.isVip) return false;
@@ -31,6 +32,11 @@ export function registerProfileRoutes(app: Express): void {
   });
 
   app.post('/api/shop-profile', (req: Request, res: Response) => {
+    const ctx = als.getStore();
+    if (ctx?.accountId === DEMO_ACCOUNT_ID) {
+      return res.status(403).json({ error: 'Ortak demo dükkanının adı ve profil bilgileri değiştirilemez.' });
+    }
+
     const data = req.body;
     if (!data.storeName || !data.storeName.trim()) {
       return res.status(400).json({ error: 'Dükkan adı zorunludur.' });

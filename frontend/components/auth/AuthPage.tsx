@@ -60,6 +60,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   };
 
   const [demoLoading, setDemoLoading] = useState(false);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [recoveryPhone, setRecoveryPhone] = useState('');
   const tryDemo = async () => {
     setDemoLoading(true);
     setError(null);
@@ -360,9 +362,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     Şifre *
                   </label>
                   {mode === 'login' && (
-                    <span className="text-[11px] font-semibold text-orange-600 hover:text-orange-700 cursor-pointer">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecoveryPhone(phone);
+                        setIsForgotPasswordOpen(true);
+                      }}
+                      className="text-[11px] font-semibold text-orange-600 hover:text-orange-700 cursor-pointer"
+                    >
                       Şifremi Unuttum?
-                    </span>
+                    </button>
                   )}
                 </div>
                 <div className="relative">
@@ -372,7 +381,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={mode === 'register' ? 4 : 1}
+                    minLength={6}
                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     placeholder="••••••"
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
@@ -442,6 +451,59 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
           </p>
         </div>
       </div>
+
+      {/* Şifremi Unuttum Kurtarma Modalı */}
+      {isForgotPasswordOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 border border-stone-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-stone-900 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-orange-600" />
+                Şifre Sıfırlama
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsForgotPasswordOpen(false)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-stone-500 leading-relaxed">
+              Kayıtlı telefon numaranızı girerek doğrudan canlı WhatsApp destek hattımızdan anında yeni şifre oluşturabilirsiniz.
+            </p>
+            <div>
+              <label className="block text-[11px] font-bold text-stone-700 mb-1">Dükkan Telefonunuz</label>
+              <input
+                type="tel"
+                value={recoveryPhone}
+                onChange={(e) => setRecoveryPhone(e.target.value)}
+                placeholder="05XXXXXXXXX"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500"
+              />
+            </div>
+            <div className="space-y-2 pt-1">
+              <a
+                href={`https://wa.me/905380562626?text=${encodeURIComponent(
+                  `Merhaba Dükkanım Yanımda Destek, ${recoveryPhone || 'Kayıtlı'} telefonuma ait dükkan hesabımın şifresini sıfırlamak istiyorum.`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-colors"
+              >
+                WhatsApp ile 1 Dakikada Sıfırla
+              </a>
+              <button
+                type="button"
+                onClick={() => setIsForgotPasswordOpen(false)}
+                className="w-full py-2 rounded-xl text-stone-500 hover:text-stone-800 text-xs font-semibold"
+              >
+                Vazgeç
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

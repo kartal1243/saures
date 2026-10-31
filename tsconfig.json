@@ -4,7 +4,7 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "lib": [
       "ES2022",
       "DOM",
@@ -23,5 +23,7 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": ["backend", "frontend", "shared", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", "build", "data", "temp_chrome_profile*", "hyperframes-videos", "video-reel-1"]
 }

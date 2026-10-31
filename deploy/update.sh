@@ -2,7 +2,7 @@
 set -euo pipefail
 cd /var/www/dukkanim
 git pull
-npm install
+npm install --legacy-peer-deps
 npm run build
 pm2 restart dukkanim
 sleep 2

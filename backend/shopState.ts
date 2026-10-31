@@ -2,7 +2,7 @@ import path from 'path';
 import { SHOPS_DIR } from './config';
 import { localDay } from './day';
 import { readJsonFile, writeJsonFile } from './fsdb';
-import { findAccountById } from './accounts';
+import { findAccountById, getAccounts } from './accounts';
 import type { AppState, BarberSalonSettings, BarberStaff, BarberService } from '../shared/types';
 
 export function slugify(text: string): string {
@@ -139,8 +139,10 @@ export const demoBarberServices: BarberService[] = [
 
 // Boş state — GERÇEK HESAPLAR İÇİN demo/seed veri YOKTUR, tertemiz başlar!
 export function emptyState(seed?: { storeName: string; ownerName: string; phone: string; isDemo?: boolean }): AppState {
-  const isDemo = Boolean(seed?.isDemo || seed?.phone === '05550000000');
-  const storeSlug = seed?.storeName ? slugify(seed.storeName) : 'yeni-dukkan';
+  const isDemo = Boolean(
+    seed?.isDemo || seed?.phone === '05900000011' || seed?.phone === '05550000000'
+  );
+  const storeSlug = isDemo ? 'demo' : (seed?.storeName ? slugify(seed.storeName) : 'yeni-dukkan');
 
   return {
     storeName: seed?.storeName || 'Yeni Dükkan',
@@ -200,7 +202,9 @@ export function loadShopState(accountId: string): AppState {
   st = readJsonFile<AppState | null>(file, null);
 
   const acc = findAccountById(accountId);
-  const isDemoAccount = acc ? (acc.phone === '05550000000' || acc.id === 'demo' || acc.role === 'admin') : false;
+  const isDemoAccount = acc
+    ? (acc.id === 'acc_demo_dukkan' || acc.phone === '05900000011' || acc.phone === '05550000000' || acc.id === 'demo')
+    : accountId === 'acc_demo_dukkan';
 
   if (!st || !Array.isArray(st.customers) || !Array.isArray(st.transactions)) {
     st = emptyState(acc ? { storeName: acc.shopName, ownerName: acc.ownerName, phone: acc.phone, isDemo: isDemoAccount } : undefined);
@@ -210,7 +214,9 @@ export function loadShopState(accountId: string): AppState {
   if (!st.shopProfile) st.shopProfile = emptyState().shopProfile;
   
   // Her işletme için benzersiz slug garantisi
-  if (!st.shopProfile.slug) {
+  if (isDemoAccount) {
+    st.shopProfile.slug = 'demo';
+  } else if (!st.shopProfile.slug) {
     const rawSlug = slugify(st.shopProfile.storeName || acc?.shopName || 'dukkan');
     st.shopProfile.slug = rawSlug ? `${rawSlug}-${accountId.slice(0, 4)}` : accountId;
   }
@@ -228,10 +234,10 @@ export function loadShopState(accountId: string): AppState {
   if (!Array.isArray((st as any).menuItems)) (st as any).menuItems = [];
   
   // Sadece demo hesabında dizi boşsa demo verilerini yükle, gerçek hesapta kullanıcı kendi ekler!
-  if (!Array.isArray((st as any).barberStaff)) {
+  if (!Array.isArray((st as any).barberStaff) || (isDemoAccount && (st as any).barberStaff.length === 0)) {
     (st as any).barberStaff = isDemoAccount ? demoBarberStaff : [];
   }
-  if (!Array.isArray((st as any).barberServices)) {
+  if (!Array.isArray((st as any).barberServices) || (isDemoAccount && (st as any).barberServices.length === 0)) {
     (st as any).barberServices = isDemoAccount ? demoBarberServices : [];
   }
   if (!Array.isArray((st as any).barberTimeBlocks)) (st as any).barberTimeBlocks = [];
@@ -254,4 +260,23 @@ export function loadShopState(accountId: string): AppState {
 export function persistShopState(accountId: string, st: AppState): void {
   st.lastUpdated = new Date().toISOString();
   writeJsonFile(shopStateFile(accountId), st);
+}
+
+export function setShopState(accountId: string, st: AppState): void {
+  shopStateCache.set(accountId, st);
+  persistShopState(accountId, st);
+}
+
+export function isSlugTaken(slug: string, excludeAccountId?: string): boolean {
+  const clean = slugify(slug);
+  if (!clean) return true;
+  if (clean === 'demo' && excludeAccountId !== 'acc_demo_dukkan') return true;
+  const owners = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
+  for (const acc of owners) {
+    if (excludeAccountId && acc.id === excludeAccountId) continue;
+    const st = loadShopState(acc.id);
+    const existingSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || acc.shopName);
+    if (existingSlug === clean) return true;
+  }
+  return false;
 }

@@ -113,9 +113,14 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
     onClose();
   };
 
-  // Simulate or Trigger Server-side SMS / WhatsApp Business API Webhook
-  const handleSendViaApi = async () => {
+  // Send SMS via Native Device App & log to server
+  const handleSendViaNativeSms = async () => {
     setSendingApi(true);
+    const cleanPhone = cleanPhoneForWhatsApp(customer.phone);
+    const finalMessage = message.includes('Dükkânım Yanımda')
+      ? message
+      : `${message.trim()}\n\n(Dükkânım Yanımda ile gönderildi)`;
+
     try {
       await fetch('/api/reminders/send', {
         method: 'POST',
@@ -123,7 +128,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
         body: JSON.stringify({
           customerId: customer.id,
           channel: 'sms',
-          message,
+          message: finalMessage,
           type: reminderType,
         }),
       });
@@ -131,13 +136,20 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
       onReminderSent({
         customerId: customer.id,
         channel: 'sms',
-        message,
+        message: finalMessage,
         type: reminderType,
       });
 
-      onClose();
+      // Open native SMS app
+      window.location.href = `sms:${cleanPhone}?body=${encodeURIComponent(finalMessage)}`;
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } catch (err) {
-      console.error('Failed to trigger API reminder:', err);
+      console.error('Failed to trigger SMS action:', err);
+      // Still open native SMS as fallback
+      window.location.href = `sms:${cleanPhone}?body=${encodeURIComponent(finalMessage)}`;
+      onClose();
     } finally {
       setSendingApi(false);
     }
@@ -324,13 +336,13 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
         <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <button
             type="button"
-            onClick={handleSendViaApi}
+            onClick={handleSendViaNativeSms}
             disabled={sendingApi}
             className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-            title="Sisteme kayıt et ve SMS servis simülasyonu çalıştır"
+            title="Cihazınızın SMS uygulamasını açar ve mesajı iletir"
           >
             <Send className="w-3.5 h-3.5" />
-            <span>{sendingApi ? 'Kaydediliyor...' : 'Sistemden SMS Olarak Kaydet'}</span>
+            <span>{sendingApi ? 'Açılıyor...' : 'Cihazın SMS Uygulamasıyla Gönder'}</span>
           </button>
 
           <button

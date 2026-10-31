@@ -7,7 +7,7 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs git nginx certbot python3-certbot-nginx ufw
 ufw allow OpenSSH >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw --force enable
 cd "$APP_DIR"
-npm install
+npm install --legacy-peer-deps
 npm run build
 npm install -g pm2
 pm2 delete dukkanim 2>/dev/null || true

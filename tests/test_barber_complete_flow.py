@@ -59,7 +59,7 @@ def run_tests():
         "storeName": "Usta Eller Erkek Kuaförü",
         "ownerName": "Serkan Usta",
         "businessField": "Kuaför / Berber / Güzellik",
-        "sectorKey": "kuafor_berber",
+        "sectorKey": "berber_kuafor",
         "employeeCount": "2",
         "phone": test_phone,
         "dailyTarget": 6000,
@@ -68,6 +68,30 @@ def run_tests():
     })
     assert status == 200, f"Profil güncelleme hatası: {res}"
     print("  ✓ Profil ve slug 'usta-eller-berber' olarak kaydedildi.")
+
+    # 2b. Admin ile VIP Yetkisi Veriliyor
+    print("\n[Adım 2b] Yönetici paneli üzerinden berbere VIP üyelik tanımlanıyor...")
+    admin_cj = http.cookiejar.CookieJar()
+    admin_opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(admin_cj))
+    def admin_req(m, p, d=None):
+        r = urllib.request.Request(f"{BASE_URL}{p}", data=json.dumps(d).encode('utf-8') if d else None, method=m)
+        r.add_header("Content-Type", "application/json")
+        r.add_header("User-Agent", "Mozilla/5.0 Chrome/120.0.0.0")
+        with admin_opener.open(r) as resp:
+            return resp.status, json.loads(resp.read().decode('utf-8'))
+
+    admin_pwd = os.environ.get("ADMIN_PASSWORD", "")
+    s_adm, r_adm = admin_req("POST", "/api/admin/login", {"password": admin_pwd})
+    assert s_adm == 200
+    _, shops_res = admin_req("GET", "/api/admin/shops")
+    my_shop = next(s for s in shops_res.get("shops", []) if s["phone"] == test_phone)
+    s_vip, r_vip = admin_req("POST", f"/api/admin/shops/{my_shop['id']}/toggle-vip", {
+        "action": "grant",
+        "days": 365,
+        "plan": "yearly"
+    })
+    assert s_vip == 200 and r_vip.get("isVip") == True
+    print(f"  ✓ VIP üyelik başarıyla verildi (Plan: {r_vip.get('vipPlan')}, Süre: 1 Yıl).")
 
     # Önceki test randevuları varsa temizle (İzole ve tekrarlanabilir test ortamı)
     status, res = request("GET", "/api/appointments")

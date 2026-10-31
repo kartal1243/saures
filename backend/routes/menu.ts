@@ -1,10 +1,11 @@
 import type { Express, Request, Response } from 'express';
 import crypto from 'crypto';
 import type { MenuItem } from '../../shared/types';
-import { S, saveState } from '../context';
-import { broadcast } from '../realtime';
+import { S, saveState, als } from '../context';
+import { broadcast, broadcastToAccount } from '../realtime';
 import { getAccounts } from '../accounts';
-import { loadShopState } from '../shopState';
+import { loadShopState, persistShopState } from '../shopState';
+import { checkAndUpdateVipStatus } from './profile';
 
 const SAMPLE_MENU_ITEMS: MenuItem[] = [
   {
@@ -117,9 +118,9 @@ export function registerPublicMenuRoutes(app: Express): void {
       }
     }
 
-    // Demo veya fallback
-    if (!shopState && (rawId === 'demo' || accounts.length > 0)) {
-      const fallbackAcc = accounts.find((a) => a.phone === '05550000000') || accounts[0];
+    // Yalnızca rawId 'demo' ise demo hesabına düş; var olmayan diğer sluglar 404 dönmelidir!
+    if (!shopState && rawId === 'demo') {
+      const fallbackAcc = accounts.find((a) => a.phone === '05550000000');
       if (fallbackAcc) {
         targetAcc = fallbackAcc;
         shopState = loadShopState(fallbackAcc.id);
@@ -128,6 +129,15 @@ export function registerPublicMenuRoutes(app: Express): void {
 
     if (!shopState) {
       return res.status(404).json({ error: 'İşletme menüsü bulunamadı.' });
+    }
+
+    // VIP geçerlilik kontrolü (Süresi biten dükkanların açık kalması engellenir)
+    if (shopState.shopProfile) {
+      const wasVip = shopState.shopProfile.isVip;
+      checkAndUpdateVipStatus(shopState.shopProfile);
+      if (targetAcc && wasVip !== shopState.shopProfile.isVip) {
+        persistShopState(targetAcc.id, shopState);
+      }
     }
 
     // QR Menü yalnızca VIP üyelere açıktır (demo hariç)
@@ -250,6 +260,22 @@ export function registerProtectedMenuRoutes(app: Express): void {
     if (!slug) return res.status(400).json({ error: 'Slug zorunludur.' });
 
     const cleanSlug = slugify(slug);
+    const ctx = als.getStore();
+    const currentId = ctx?.accountId;
+
+    // Slug benzersizlik (uniqueness) doğrulaması — Başka dükkanın slug'ını çalmayı engelle
+    const accounts = getAccounts();
+    const isTaken = accounts.some((a) => {
+      if (a.id === currentId) return false;
+      const st = loadShopState(a.id);
+      const otherSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
+      return otherSlug === cleanSlug;
+    });
+
+    if (isTaken) {
+      return res.status(409).json({ error: 'Bu dükkan bağlantı adı (slug) başka bir işletme tarafından kullanılıyor. Lütfen farklı bir isim seçin.' });
+    }
+
     const st = S();
     if (!st.shopProfile) {
       st.shopProfile = {
@@ -261,11 +287,71 @@ export function registerProtectedMenuRoutes(app: Express): void {
         cityDistrict: '',
         dailyTarget: 2500,
         isConfigured: true,
-        isVip: true,
+        isVip: false, // GÜVENLİK: Asla varsayılan true olamaz!
       };
     }
     st.shopProfile.slug = cleanSlug;
     saveState();
     res.json({ success: true, slug: cleanSlug });
+  });
+
+  // Masadan Canlı Garson Çağır & Hesap İste (QR Menü Müşteri Butonları)
+  app.post('/api/public/menu/:identifier/table-action', (req: Request, res: Response) => {
+    const rawId = (req.params.identifier || '').toLowerCase();
+    const accounts = getAccounts();
+    let targetAcc = accounts.find(
+      (a) =>
+        a.id.toLowerCase() === rawId ||
+        a.phone === rawId ||
+        slugify(a.shopName) === rawId
+    );
+
+    if (!targetAcc) {
+      for (const a of accounts) {
+        const st = loadShopState(a.id);
+        const shopSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
+        if (shopSlug === rawId) {
+          targetAcc = a;
+          break;
+        }
+      }
+    }
+
+    if (!targetAcc && rawId === 'demo') {
+      targetAcc = accounts.find((a) => a.phone === '05550000000');
+    }
+
+    if (!targetAcc) {
+      return res.status(404).json({ error: 'İşletme bulunamadı.' });
+    }
+
+    const { tableNo, action } = req.body || {}; // action: 'waiter' | 'bill'
+    const st = loadShopState(targetAcc.id);
+    const table = (st.tables || []).find((t) => t.id === tableNo || t.name === tableNo);
+
+    if (table) {
+      table.activeCall = action === 'bill' ? 'bill' : 'waiter';
+      st.lastUpdated = new Date().toISOString();
+      persistShopState(targetAcc.id, st);
+    }
+
+    const actionText = action === 'bill' ? 'Hesap İstiyor 💳' : 'Garson Çağırıyor 🔔';
+    const displayTable = table ? table.name : (tableNo || 'Masa');
+
+    // Restoran ekranına canlı sesli bildirim ve masa kartı yanıp sönme sinyali gönder
+    broadcastToAccount(targetAcc.id, {
+      type: 'TABLE_CALL_ALERT' as any,
+      payload: {
+        tableNo: displayTable,
+        tableId: table ? table.id : undefined,
+        action: actionText,
+        time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+      },
+    });
+
+    res.json({
+      success: true,
+      message: action === 'bill' ? `${displayTable} için hesap talebi kasaya iletildi.` : `${displayTable} için garson çağrısı personele iletildi.`,
+    });
   });
 }

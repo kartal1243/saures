@@ -119,8 +119,11 @@ h4 {
   }
 }
 
-/* Yazdirma: sadece gun sonu raporu icerigi basilsin */
+/* Yazdirma: gun sonu raporu ve 58mm/80mm termal fis formatlari */
 @media print {
+  @page {
+    margin: 0;
+  }
   body {
     background: white !important;
   }
@@ -139,6 +142,24 @@ h4 {
     max-height: none !important;
     overflow: visible !important;
     padding: 0 !important;
+  }
+  .receipt-58mm {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    padding: 2mm !important;
+    color: black !important;
+  }
+  .receipt-80mm {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+    padding: 3mm !important;
+    color: black !important;
   }
   .fixed {
     position: static !important;

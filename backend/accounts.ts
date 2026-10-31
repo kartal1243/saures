@@ -40,6 +40,25 @@ let sessions: Session[] = readJsonFile<Session[]>(SESSIONS_FILE, []).filter(
   (s) => new Date(s.expiresAt).getTime() > Date.now()
 );
 
+export function normalizePhone(raw: string): string {
+  const trimmed = String(raw || '').trim();
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return trimmed.replace(/\s+/g, '');
+  // +90 5XX... veya 90 5XX... (12 hane) -> 05XX...
+  if (digits.length === 12 && digits.startsWith('90') && digits[2] === '5') {
+    return '0' + digits.slice(2);
+  }
+  // 5XXXXXXXXX (10 hane) -> 05XXXXXXXXX
+  if (digits.length === 10 && digits.startsWith('5')) {
+    return '0' + digits;
+  }
+  // 05XXXXXXXXX (11 hane)
+  if (digits.length === 11 && digits.startsWith('0')) {
+    return digits;
+  }
+  return digits;
+}
+
 export function getAccounts(): Account[] {
   return accounts;
 }
@@ -49,7 +68,8 @@ export function findAccountById(id: string): Account | undefined {
 }
 
 export function findAccountByPhone(phone: string): Account | undefined {
-  return accounts.find((a) => a.phone === phone);
+  const norm = normalizePhone(phone);
+  return accounts.find((a) => a.phone === phone || normalizePhone(a.phone) === norm);
 }
 
 export function addAccount(acc: Account): void {
@@ -127,7 +147,15 @@ export function accountFromRequest(req: { headers: { cookie?: string } }): Accou
 }
 
 export function sessionCookie(token: string): string {
-  return 'sid=' + token + '; HttpOnly; Path=/; Max-Age=' + Math.floor(SESSION_TTL_MS / 1000) + '; SameSite=Lax';
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  return (
+    'sid=' +
+    token +
+    '; HttpOnly; Path=/; Max-Age=' +
+    Math.floor(SESSION_TTL_MS / 1000) +
+    '; SameSite=Lax' +
+    secure
+  );
 }
 
 // Gercek istemci IP'si: Cloudflare -> nginx -> node zincirinde en guvenilir baslik

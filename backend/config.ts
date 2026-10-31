@@ -9,6 +9,7 @@ export const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 export const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 export const ADMIN_SESSIONS_FILE = path.join(DATA_DIR, 'admin-sessions.json');
 export const AUTH_EVENTS_FILE = path.join(DATA_DIR, 'auth-events.json');
+export const FUNNEL_EVENTS_FILE = path.join(DATA_DIR, 'funnel-events.json');
 export const SHOPS_DIR = path.join(DATA_DIR, 'shops');
 export const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 
@@ -16,16 +17,22 @@ export const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 gun
 export const MAX_LOGIN_ATTEMPTS = 5;
 export const LOGIN_LOCK_MS = 15 * 60 * 1000; // 15 dakika kilit
 
-export const JSON_BODY_LIMIT = '1mb';
+export const JSON_BODY_LIMIT = '8mb';
 // Auth uçları için kaba hız limiti (IP başına pencere)
 export const AUTH_RATE_LIMIT = { windowMs: 60 * 1000, max: 40 };
+
+// Ücretsiz planda viral yayılım kancaları:
+export const FREE_CUSTOMER_LIMIT = 25;
+export const FREE_TABLE_LIMIT = 3;
+export const FREE_ONLINE_BOOKING_QUOTA = 20;
+export const FREE_AI_OCR_QUOTA = 2;
 
 // gemini-2.5-flash yeni API anahtarlarına kapalı (404 NOT_FOUND). GEMINI_MODEL
 // ile geçici olarak başka modele geçilebilir.
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
-// Admin paneli (/admin) giris sifresi. .env'de tanimli olmali, varsayilan kartal1234.
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'kartal1234';
+// Admin paneli (/admin) giris sifresi. .env'de tanimli olmali, yoksa admin girisi guvenli sekilde kapali kalir.
+export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 export const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
 
 // Klasörler hazır olsun (uygulama açılışındaki davranışla aynı)

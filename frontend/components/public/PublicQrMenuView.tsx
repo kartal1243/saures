@@ -270,16 +270,23 @@ export const PublicQrMenuView: React.FC = () => {
         </div>
       </div>
 
-      {/* Sabit Alt Çubuk: Garson Çağır & Hesap İste */}
+      {/* Sabit Alt Çubuk: Garson Çağır & Hesap İste (Canlı Kasaya İletilir) */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 p-3 sm:p-4 shadow-2xl">
         <div className="max-w-xl mx-auto flex items-center gap-2.5">
           <button
             type="button"
-            onClick={() =>
-              showToast(
-                `${tableName || 'Masanıza'} garson çağrıldı! Ekibimiz geliyor.`
-              )
-            }
+            onClick={async () => {
+              showToast(`${tableName || 'Masanıza'} garson çağrıldı! Ekibimiz yönlendirildi.`);
+              try {
+                await fetch(`/api/public/menu/${encodeURIComponent(identifier)}/table-action`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ tableNo: tableName, action: 'waiter' }),
+                });
+              } catch (e) {
+                console.error('Waiter call error:', e);
+              }
+            }}
             className="flex-1 py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
           >
             <BellRing className="w-4 h-4 animate-bounce" />
@@ -288,11 +295,18 @@ export const PublicQrMenuView: React.FC = () => {
 
           <button
             type="button"
-            onClick={() =>
-              showToast(
-                `${tableName || 'Masanız'} için hesap talebi kasaya iletildi.`
-              )
-            }
+            onClick={async () => {
+              showToast(`${tableName || 'Masanız'} için hesap talebi kasaya iletildi.`);
+              try {
+                await fetch(`/api/public/menu/${encodeURIComponent(identifier)}/table-action`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ tableNo: tableName, action: 'bill' }),
+                });
+              } catch (e) {
+                console.error('Bill request error:', e);
+              }
+            }}
             className="flex-1 py-3 px-4 rounded-2xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
           >
             <Receipt className="w-4 h-4" />

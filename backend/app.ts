@@ -38,11 +38,21 @@ export async function startServer(): Promise<void> {
   // nginx + Cloudflare arkasindayiz: gercek istemci IP'si basliklardan okunsun
   app.set('trust proxy', 1);
 
-  // Güvenlik başlıkları (yayın kilidi)
-  app.use((_req, res, next) => {
+  // Güvenlik başlıkları ve HTTPS / HSTS koruması
+  app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+      const proto = req.headers['x-forwarded-proto'];
+      if (proto && proto === 'http') {
+        const host = req.headers.host;
+        return res.redirect(301, `https://${host}${req.url}`);
+      }
+    }
+
     next();
   });
 

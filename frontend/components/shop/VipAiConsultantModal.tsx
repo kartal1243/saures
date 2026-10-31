@@ -58,8 +58,10 @@ const CUSTOM_PANEL_PERKS = [
 ];
 
 const SHOPIER_LINKS = {
-  aylik: 'https://www.shopier.com/yamanyazilim/52387477',
-  yillik: 'https://www.shopier.com/yamanyazilim/52387553',
+  usta_aylik: 'https://www.shopier.com/yamanyazilim/52387477',
+  usta_yillik: 'https://www.shopier.com/yamanyazilim/52387553',
+  patron_aylik: 'https://www.shopier.com/yamanyazilim/52387477',
+  patron_yillik: 'https://www.shopier.com/yamanyazilim/52387553',
 };
 
 export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
@@ -92,10 +94,10 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleUpgrade = () => {
-    const targetUrl = selectedPlan === 'yillik'
-      ? SHOPIER_LINKS.yillik
-      : SHOPIER_LINKS.aylik;
+  const handleUpgrade = (planTier: 'usta' | 'patron' = 'patron') => {
+    const targetUrl = planTier === 'usta'
+      ? (selectedPlan === 'yillik' ? SHOPIER_LINKS.usta_yillik : SHOPIER_LINKS.usta_aylik)
+      : (selectedPlan === 'yillik' ? SHOPIER_LINKS.patron_yillik : SHOPIER_LINKS.patron_aylik);
 
     setPaymentRedirected(true);
     window.open(targetUrl, '_blank', 'noopener,noreferrer');
@@ -129,7 +131,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in">
-      <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-2xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden transition-all flex flex-col max-h-[92vh]">
+      <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-5xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden transition-all flex flex-col max-h-[94vh]">
         {/* VIP Başlık */}
         <div className="p-5 sm:p-6 bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 text-white flex items-center justify-between shrink-0 relative overflow-hidden">
           <div className="flex items-center gap-3.5 relative">
@@ -339,152 +341,210 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                 </div>
               </div>
 
-              {/* ANA SAYFADAKİ VIP KARTININ BİREBİR AYNI TASARIMI */}
-              <div className="relative p-6 sm:p-7 rounded-3xl bg-linear-to-b from-orange-500/5 via-white to-orange-500/10 dark:from-stone-900 dark:via-stone-900 dark:to-orange-950/20 border-2 border-orange-500/80 shadow-xl flex flex-col justify-between transition-all">
-                {/* Üst Rozet */}
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-linear-to-r from-orange-500 to-orange-600 text-white text-[11px] font-black uppercase tracking-wider shadow-md shadow-orange-500/30 flex items-center gap-1.5 whitespace-nowrap">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  ★ EN ÇOK TERCİH EDİLEN · GÜNDE SADECE 16 ₺
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
-                      İşletmenizin Sağ Kolu
-                    </span>
-                    <span className="px-3 py-1 rounded-full text-[11px] font-black bg-orange-500/15 text-orange-800 dark:text-orange-300 border border-orange-500/30">
-                      Özel Yazılımcı Dahil
-                    </span>
-                  </div>
-                  <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white flex items-center gap-2">
-                    İşletmeye Özel VIP Panel
-                    <Crown className="w-5 h-5 text-orange-500" />
-                  </h3>
-                  <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
-                    Günde 16 ₺'ye çırak bile tutamazsınız! Ayda 1 saç kesimi parasına tüm dükkanınız cebinizde.
-                  </p>
-
-                  <div className="mt-5 pb-5 border-b border-orange-200/60 dark:border-orange-800/40">
-                    <div className="flex items-baseline gap-1.5 flex-wrap">
-                      <span className="text-4xl sm:text-5xl font-black text-stone-900 dark:text-white">
-                        {selectedPlan === 'yillik' ? '₺4.990' : '₺500'}
+              {/* 3 PAKETLİ SÜRTÜNMESİZ TARİFE MODELİ */}
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* 1. Çırak (Ücretsiz) */}
+                <div className="p-5 rounded-3xl border border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/30 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                        Başlangıç
                       </span>
-                      <span className="text-xs font-bold text-stone-500">
-                        {selectedPlan === 'yillik' ? '/ yıl' : '/ ay'}
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300">
+                        ₺0 Ücretsiz
                       </span>
-                      {selectedPlan === 'yillik' ? (
-                        <span className="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                          2 Ay Hediye (Net ₺1.010 Kazanç)
-                        </span>
-                      ) : (
-                        <span className="text-xs font-black px-2 py-0.5 rounded-md bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300">
-                          Taahhütsüz Aylık
-                        </span>
-                      )}
                     </div>
-                    <p className="mt-1.5 text-[11px] font-bold text-orange-700 dark:text-orange-400">
-                      ✓ Günde sadece {selectedPlan === 'yillik' ? '13' : '16'} TL · 1 bardak çay parasına dükkana özel yazılım mühendisi
+                    <h4 className="mt-2 text-lg font-black text-stone-900 dark:text-white">Çırak Paketi</h4>
+                    <p className="mt-0.5 text-[11px] text-stone-500 dark:text-stone-400">
+                      Yeni tanışan esnaf için temel dijital defter
                     </p>
+
+                    <div className="mt-3 text-2xl font-black text-stone-900 dark:text-white">
+                      ₺0 <span className="text-xs font-medium text-stone-400">/ sonsuza dek</span>
+                    </div>
+
+                    <div className="mt-4 space-y-2 border-t border-stone-200 dark:border-stone-700/60 pt-3 text-xs text-stone-700 dark:text-stone-300">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                        <span>25 Müşteri &amp; cari kayıt kotası</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                        <span>3 Masa / koltuk takibi</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                        <span>Ayda 20 online randevu hakkı</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-stone-500 text-[11px]">
+                        <span>⚡ Sayfada marka bandı bulunur</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="mt-5 space-y-2.5">
-                    <p className="text-[11px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider">
-                      Sınırsız VIP Ayrıcalıkları
-                    </p>
-                    {[
-                      'SINIRSIZ Müşteri, Veresiye ve Cari Takibi (25 limiti kalkar)',
-                      'Online Randevu Takvimi, Randevu Linki & Tezgah QR Standı',
-                      'SINIRSIZ Personel / Usta ve Otomatik Koltuk Prim Dağılımı',
-                      'Türkçe Sesli Randevu & Kasa Asistanı (Web Speech AI)',
-                      'Fotoğraftan Fiyat Tarifesi & Menü Okuyucu (AI OCR)',
-                      'Termal Fiş Yazıcısı (58/80mm), Barkodlu Terazi Entegrasyonu',
-                      'DÜKKANINIZA ÖZEL YAZILIM: İstediğiniz her form ve buton size özel kodlanır',
-                      '7/24 Öncelikli Telefon & Canlı WhatsApp Yazılımcı Destek Hattı',
-                    ].map((feat, idx) => (
-                      <div
-                        key={feat}
-                        className={`flex items-center gap-2.5 text-xs sm:text-sm font-bold ${
-                          idx === 6 ? 'text-orange-900 dark:text-orange-200' : 'text-stone-800 dark:text-stone-100'
-                        }`}
-                      >
-                        <span className="w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-                          <Check className="w-3.5 h-3.5" />
-                        </span>
-                        <span>{feat}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-5 border-t border-orange-200/60 dark:border-orange-800/40">
-                  {paymentRedirected ? (
-                    <div className="p-4 rounded-2xl bg-orange-50 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 text-center space-y-2.5">
-                      <div className="w-10 h-10 mx-auto rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center">
-                        <CreditCard className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-orange-900 dark:text-orange-200">
-                          Shopier Güvenli Ödeme Sayfası Açıldı
-                        </p>
-                        <p className="text-[11px] text-stone-600 dark:text-stone-300 mt-1 leading-relaxed">
-                          Ödemeniz tamamlandıktan sonra VIP üyeliğiniz en geç 15 dakika içinde aktif edilir.
-                          Sipariş notuna dükkan adınızı veya kayıtlı telefonunuzu eklemeniz yeterlidir.
-                        </p>
-                      </div>
-                      <div className="pt-1 flex flex-col sm:flex-row gap-2">
-                        <button
-                          type="button"
-                          onClick={handleUpgrade}
-                          className="flex-1 py-2 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black transition-colors"
-                        >
-                          Ödeme Sayfasını Tekrar Aç
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPaymentRedirected(false)}
-                          className="py-2 px-3 rounded-xl bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-bold hover:bg-stone-300 transition-colors"
-                        >
-                          Planı Değiştir
-                        </button>
-                      </div>
-                    </div>
-                  ) : upgradeSuccess ? (
-                    <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-center space-y-1">
-                      <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4" /> VIP Üyeliğiniz Aktif Edildi!
-                      </p>
-                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                        Dilediğiniz zaman "Özel Panel İstiyorum" sekmesinden yeni ekran veya özellik talep edebilirsiniz.
-                      </p>
-                    </div>
-                  ) : (
+                  <div className="mt-5 pt-3">
                     <button
                       type="button"
-                      onClick={handleUpgrade}
-                      disabled={isUpgrading}
-                      className="w-full py-3.5 px-4 rounded-xl text-sm font-black text-white bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:to-orange-800 shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      disabled
+                      className="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-stone-200 dark:bg-stone-800 text-stone-500 cursor-not-allowed text-center"
                     >
-                      {isUpgrading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Tanımlanıyor…
-                        </>
-                      ) : (
-                        <>
-                          <Crown className="w-4 h-4 text-yellow-200" />
-                          {selectedPlan === 'yillik'
-                            ? 'Yıllık Avantajlı VIP Paketini Başlat (₺4.990)'
-                            : 'Aylık VIP Paketini Başlat (₺500)'}
-                          <ArrowRight className="w-4 h-4" />
-                        </>
-                      )}
+                      {isAlreadyVip ? 'Temel Paket' : 'Mevcut Paketiniz'}
                     </button>
-                  )}
-                  <p className="mt-2 text-center text-[10px] text-stone-400 font-medium">
-                    Taahhüt Yok · İstediğin Zaman İptal Et · Kredi Kartı Şartı Yok
-                  </p>
+                  </div>
+                </div>
+
+                {/* 2. Usta (Tek Koltuk) */}
+                <div className="p-5 rounded-3xl border border-amber-300 dark:border-amber-800 bg-white dark:bg-stone-800/80 shadow-md flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                        Tek Koltuk
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                        En Uygun
+                      </span>
+                    </div>
+                    <h4 className="mt-2 text-lg font-black text-stone-900 dark:text-white">Usta Paketi</h4>
+                    <p className="mt-0.5 text-[11px] text-stone-500 dark:text-stone-400">
+                      Tek çalışan mahalle berberi, terzi, tamirci
+                    </p>
+
+                    <div className="mt-3 text-2xl font-black text-stone-900 dark:text-white">
+                      {selectedPlan === 'yillik' ? '₺2.490' : '₺249'}{' '}
+                      <span className="text-xs font-medium text-stone-400">
+                        {selectedPlan === 'yillik' ? '/ yıl' : '/ ay'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                      Günde sadece 8 TL · 1 çay fiyatına
+                    </p>
+
+                    <div className="mt-4 space-y-2 border-t border-stone-200 dark:border-stone-700/60 pt-3 text-xs text-stone-700 dark:text-stone-300">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span className="font-semibold">SINIRSIZ Müşteri &amp; cari kayıt</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span className="font-semibold">SINIRSIZ Online randevu &amp; takvim</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>Gerçek AI Tarife &amp; Menü OCR okuma</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>58/80mm Termal fiş &amp; barkodlu terazi</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>Cihazdan hızlı SMS &amp; WhatsApp şablonları</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => handleUpgrade('usta')}
+                      className="w-full py-2.5 px-3 rounded-xl text-xs font-black bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900 text-white cursor-pointer transition-transform active:scale-98 text-center"
+                    >
+                      Usta Paketine Geç ({selectedPlan === 'yillik' ? '₺2.490' : '₺249'})
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Patron VIP (2+ Koltuk & Çoklu Personel) */}
+                <div className="relative p-5 rounded-3xl border-2 border-orange-500 bg-linear-to-b from-orange-50/60 via-white to-orange-100/40 dark:from-stone-900 dark:via-stone-900 dark:to-orange-950/30 shadow-xl flex flex-col justify-between">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-linear-to-r from-orange-500 to-orange-600 text-white text-[10px] font-black uppercase tracking-wider shadow-sm whitespace-nowrap">
+                    ★ EN ÇOK TERCİH EDİLEN
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                        Ekip &amp; Salon
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-500 text-white shadow-xs">
+                        Özel Yazılımcı
+                      </span>
+                    </div>
+                    <h4 className="mt-2 text-lg font-black text-stone-900 dark:text-white flex items-center gap-1.5">
+                      Patron VIP <Crown className="w-4 h-4 text-orange-500" />
+                    </h4>
+                    <p className="mt-0.5 text-[11px] text-stone-500 dark:text-stone-400">
+                      2+ personelli salon, kafe, teknik servis
+                    </p>
+
+                    <div className="mt-3 text-2xl font-black text-stone-900 dark:text-white">
+                      {selectedPlan === 'yillik' ? '₺4.990' : '₺499'}{' '}
+                      <span className="text-xs font-medium text-stone-400">
+                        {selectedPlan === 'yillik' ? '/ yıl' : '/ ay'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-orange-700 dark:text-orange-400 font-black mt-0.5">
+                      Günde 16 TL · Dükkana özel yazılım ekibi
+                    </p>
+
+                    <div className="mt-4 space-y-2 border-t border-orange-200 dark:border-orange-900/60 pt-3 text-xs text-stone-800 dark:text-stone-200">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                        <span className="font-bold">Çoklu Usta &amp; Otomatik Prim Dağılımı</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                        <span className="font-bold">QR Menü + Garson Çağır &amp; Hesap İste</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                        <span>Aylık 500 WhatsApp randevu hatırlatması</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                        <span>"Dükkânım Yanımda" marka bandını kaldırma</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                        <span className="text-orange-900 dark:text-orange-300 font-extrabold">
+                          DÜKKANINIZA ÖZEL YAZILIM PANELİ
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                        <span>7/24 Öncelikli Telefon &amp; Mühendis Hattı</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => handleUpgrade('patron')}
+                      className="w-full py-2.5 px-3 rounded-xl text-xs font-black bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:to-orange-800 text-white cursor-pointer shadow-md shadow-orange-500/25 transition-transform active:scale-98 text-center"
+                    >
+                      Patron VIP Başlat ({selectedPlan === 'yillik' ? '₺4.990' : '₺499'})
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {paymentRedirected && (
+                <div className="p-4 rounded-2xl bg-orange-50 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 text-center space-y-2">
+                  <p className="text-xs font-black text-orange-900 dark:text-orange-200">
+                    Shopier Güvenli Ödeme Ekranı Açıldı
+                  </p>
+                  <p className="text-[11px] text-stone-600 dark:text-stone-300">
+                    Ödemeniz tamamlandığında paketiniz otomatik olarak tanımlanır.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentRedirected(false)}
+                    className="text-xs font-bold text-orange-600 underline cursor-pointer"
+                  >
+                    Kapat / Başka Paket İncele
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

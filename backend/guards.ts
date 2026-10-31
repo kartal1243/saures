@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { accountFromRequest, type Account } from './accounts';
+import { accountFromRequest, clientIp, type Account } from './accounts';
 import { loadShopState } from './shopState';
 import { als } from './context';
 import { AUTH_RATE_LIMIT } from './config';
@@ -38,20 +38,35 @@ export function requireOwner(req: Request, res: Response): Account | null {
 }
 
 // Kaba hız limiti (bellek içi, tek instance): pencere başına en fazla N istek
-const hits = new Map<string, { count: number; resetAt: number }>();
+export function createRateLimiter(windowMs: number, max: number) {
+  const bucket = new Map<string, { count: number; resetAt: number }>();
+  let calls = 0;
 
-export function rateLimit(req: Request, res: Response, next: NextFunction): void {
-  const now = Date.now();
-  const key = req.ip || req.socket.remoteAddress || 'unknown';
-  const slot = hits.get(key);
-  if (!slot || slot.resetAt <= now) {
-    hits.set(key, { count: 1, resetAt: now + AUTH_RATE_LIMIT.windowMs });
+  return function limiter(req: Request, res: Response, next: NextFunction): void {
+    const now = Date.now();
+    calls += 1;
+    // Bellek şişmesini önlemek için her 500 istekte süresi dolmuş kayıtları temizle
+    if (calls % 500 === 0) {
+      for (const [k, v] of bucket.entries()) {
+        if (v.resetAt <= now) bucket.delete(k);
+      }
+    }
+
+    const key = clientIp(req);
+    const slot = bucket.get(key);
+    if (!slot || slot.resetAt <= now) {
+      bucket.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    slot.count += 1;
+    if (slot.count > max) {
+      res.status(429).json({ error: 'Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.' });
+      return;
+    }
     return next();
-  }
-  slot.count += 1;
-  if (slot.count > AUTH_RATE_LIMIT.max) {
-    res.status(429).json({ error: 'Cok fazla istek. Biraz bekleyip tekrar deneyin.' });
-    return;
-  }
-  return next();
+  };
 }
+
+export const rateLimit = createRateLimiter(AUTH_RATE_LIMIT.windowMs, AUTH_RATE_LIMIT.max);
+export const publicActionRateLimit = createRateLimiter(60 * 1000, 12);
+export const aiRateLimit = createRateLimiter(60 * 1000, 8);

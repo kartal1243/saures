@@ -5,7 +5,7 @@ import { DATA_DIR } from '../config';
 import { readJsonFile, writeJsonFile } from '../fsdb';
 import { getAccounts } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
-import { broadcast } from '../realtime';
+import { broadcastToAccount } from '../realtime';
 
 export interface ShopierOrderRecord {
   orderId: string;
@@ -24,9 +24,9 @@ export interface ShopierOrderRecord {
 
 const SHOPIER_ORDERS_FILE = path.join(DATA_DIR, 'shopier_orders.json');
 
-// Shopier OSB (Otomatik Sipariş Bildirimi) Bilgileri
-const SHOPIER_OSB_USER = process.env.SHOPIER_OSB_USER || '4d714557aa2b56125bf3f641b5831caa';
-const SHOPIER_OSB_KEY = process.env.SHOPIER_OSB_KEY || 'efb7d21c5a859bfaeb491225df98eeeb';
+// Shopier OSB (Otomatik Sipariş Bildirimi) Bilgileri (.env'den okunur, kaynak kodda gizli anahtar tutulmaz!)
+const SHOPIER_OSB_USER = process.env.SHOPIER_OSB_USER || '';
+const SHOPIER_OSB_KEY = process.env.SHOPIER_OSB_KEY || '';
 
 function cleanPhone(raw?: string): string {
   if (!raw) return '';
@@ -56,6 +56,11 @@ export function registerShopierWebhook(app: Express): void {
     // Shopier panelindeki "Bildirim Testi" butonu için hızlı yanıt
     if (!postRes && !postHash) {
       return res.status(200).send('success');
+    }
+
+    if (!SHOPIER_OSB_USER || !SHOPIER_OSB_KEY) {
+      console.error('[Shopier OSB]: SHOPIER_OSB_USER veya SHOPIER_OSB_KEY .env içinde tanımlı değil!');
+      return res.status(503).send('OSB yapilandirilmamis');
     }
 
     if (!postRes || !postHash) {
@@ -108,15 +113,22 @@ export function registerShopierWebhook(app: Express): void {
         return res.status(200).send('success');
       }
 
-      // 4. Dükkan Eşleştirme (Telefon veya E-posta)
+      // 4. Dükkan Eşleştirme (Telefon, E-posta veya Sipariş Notu içindeki Telefon/Dükkan Adı)
       const accounts = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
       const normalizedBuyerPhone = cleanPhone(buyerPhone);
+      const orderNoteText = String(
+        orderData.note || orderData.buyer_note || orderData.custom_note || orderData.address || ''
+      ).toLowerCase();
 
       let matchedAccount = accounts.find((a) => {
-        if (normalizedBuyerPhone && cleanPhone(a.phone) === normalizedBuyerPhone) {
+        const accCleanPhone = cleanPhone(a.phone);
+        if (normalizedBuyerPhone && accCleanPhone === normalizedBuyerPhone) {
           return true;
         }
         if (buyerEmail && a.email && a.email.toLowerCase() === buyerEmail) {
+          return true;
+        }
+        if (accCleanPhone && accCleanPhone.length === 10 && orderNoteText.replace(/\D/g, '').includes(accCleanPhone)) {
           return true;
         }
         return false;
@@ -125,13 +137,11 @@ export function registerShopierWebhook(app: Express): void {
       // 5. VIP Süresi Belirleme (52387553 veya >= 4000 ₺ ise 1 Yıl, aksi halde 1 Ay)
       const isYearly = price >= 4000 || productId === '52387553';
       const days = isYearly ? 365 : 30;
-      const until = new Date();
-      until.setDate(until.getDate() + days);
-      const vipUntilIso = until.toISOString();
       const vipPlan = isYearly ? 'yearly' : 'monthly';
+      let vipUntilIso = new Date(Date.now() + days * 86400000).toISOString();
 
       if (matchedAccount) {
-        // Dükkan bulundu: VIP'yi hemen aktif et!
+        // Dükkan bulundu: Kalan VIP günleri varsa üzerine ekle (erken yenilemede gün yanmasın!)
         const st = loadShopState(matchedAccount.id);
         if (!st.shopProfile) {
           st.shopProfile = {
@@ -141,6 +151,12 @@ export function registerShopierWebhook(app: Express): void {
             isVip: true,
           } as any;
         }
+        const existingExpiry = st.shopProfile.vipUntil ? new Date(st.shopProfile.vipUntil).getTime() : 0;
+        const baseMs = st.shopProfile.isVip && Number.isFinite(existingExpiry) && existingExpiry > Date.now()
+          ? existingExpiry
+          : Date.now();
+        vipUntilIso = new Date(baseMs + days * 86400000).toISOString();
+
         st.shopProfile.isVip = true;
         st.shopProfile.vipPlan = vipPlan;
         st.shopProfile.vipUntil = vipUntilIso;
@@ -148,7 +164,7 @@ export function registerShopierWebhook(app: Express): void {
         st.lastUpdated = new Date().toISOString();
         persistShopState(matchedAccount.id, st);
 
-        broadcast({ type: 'SHOP_PROFILE_UPDATED', payload: st.shopProfile });
+        broadcastToAccount(matchedAccount.id, { type: 'SHOP_PROFILE_UPDATED', payload: st.shopProfile });
         console.log(`[Shopier OSB]: ${matchedAccount.shopName} (${matchedAccount.phone}) başarıyla ${vipPlan} VIP yapıldı! Bitiş: ${vipUntilIso}`);
       } else {
         console.warn(`[Shopier OSB]: Ödeme yapan ${buyerName} (${buyerPhone} / ${buyerEmail}) için kayıtlı dükkan hesabı bulunamadı. Sipariş kaydedildi.`);

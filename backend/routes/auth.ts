@@ -21,6 +21,7 @@ import {
   recordLogin,
   clientIp,
   logAuthEvent,
+  normalizePhone,
   type Account,
 } from '../accounts';
 import { loadShopState } from '../shopState';
@@ -48,11 +49,11 @@ export function registerAuthRoutes(app: Express): void {
     const body = req.body || {};
     const shopName = String(body.shopName || '').trim();
     const ownerName = String(body.ownerName || '').trim();
-    const phone = String(body.phone || '').replace(/\s+/g, '');
+    const phone = normalizePhone(String(body.phone || ''));
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
-    if (!shopName || !ownerName || !phone || password.length < 6) {
-      return res.status(400).json({ error: 'Dükkan adı, yetkili adı, telefon ve en az 6 haneli şifre gereklidir.' });
+    if (!shopName || !ownerName || !phone || phone.length < 10 || password.length < 6) {
+      return res.status(400).json({ error: 'Dükkan adı, yetkili adı, geçerli telefon (05XXXXXXXXX) ve en az 6 haneli şifre gereklidir.' });
     }
     if (findAccountByPhone(phone)) {
       return res.status(409).json({ error: 'Bu telefon ile kayıtlı bir hesap var. Giriş yapmayı deneyin.' });
@@ -96,7 +97,7 @@ export function registerAuthRoutes(app: Express): void {
 
   app.post('/api/auth/login', (req: Request, res: Response) => {
     const body = req.body || {};
-    const phone = String(body.phone || '').replace(/\s+/g, '');
+    const phone = normalizePhone(String(body.phone || ''));
     const password = String(body.password || '');
 
     if (phone === DEMO_PHONE) {

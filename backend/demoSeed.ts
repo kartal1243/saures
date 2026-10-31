@@ -1,13 +1,17 @@
-import path from 'path';
-import { SHOPS_DIR } from './config';
 import { localDay } from './day';
-import { readJsonFile, writeJsonFile } from './fsdb';
 import {
   findAccountByPhone,
   addAccount,
   hashPassword,
   type Account,
 } from './accounts';
+import {
+  loadShopState,
+  setShopState,
+  demoBarberStaff,
+  demoBarberServices,
+  defaultBarberSettings,
+} from './shopState';
 import type { AppState } from '../shared/types';
 
 export const DEMO_PHONE = '05900000011';
@@ -30,6 +34,7 @@ export function createDemoState(): AppState {
       cityDistrict: 'İstanbul / Kadıköy',
       dailyTarget: 4500,
       slogan: 'Usta ellerde tarzına değer kat — Dükkanım Yanımda Demo',
+      slug: 'demo',
       isConfigured: true,
       isVip: true,
     },
@@ -361,6 +366,14 @@ export function createDemoState(): AppState {
     reminderLogs: [],
     cases: [],
     custody: [],
+    barberStaff: demoBarberStaff,
+    barberServices: demoBarberServices,
+    barberTimeBlocks: [],
+    customerPackages: [],
+    barberSettings: {
+      ...defaultBarberSettings,
+      slug: 'demo',
+    },
     businessDate: today,
     lastUpdated: now,
   };
@@ -383,13 +396,18 @@ export function ensureDemoAccount(): Account {
     addAccount(acc);
   }
 
-  // Demo dükkanının veri dosyası var mı kontrol et
-  const statePath = path.join(SHOPS_DIR, `${acc.id}.json`);
-  const existing = readJsonFile<AppState | null>(statePath, null);
+  // Demo dükkanının verisi silinmiş veya bozulmuşsa (vandalizm koruması) otomatik yenile
+  const existing = loadShopState(acc.id);
+  const isVandalized =
+    !existing ||
+    !Array.isArray(existing.customers) ||
+    existing.customers.length < 3 ||
+    existing.shopProfile?.storeName !== 'Makas & Tarak Erkek Kuaförü' ||
+    !existing.shopProfile?.isVip;
 
-  if (!existing || !Array.isArray(existing.customers) || existing.customers.length === 0) {
+  if (isVandalized) {
     const demoState = createDemoState();
-    writeJsonFile(statePath, demoState);
+    setShopState(acc.id, demoState);
   }
 
   return acc;

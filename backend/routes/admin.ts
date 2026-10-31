@@ -72,8 +72,14 @@ function passwordOk(input: string): boolean {
 }
 
 function adminCookie(token: string): string {
+  const isProd = process.env.NODE_ENV === 'production';
   return (
-    'aid=' + token + '; HttpOnly; Path=/; Max-Age=' + Math.floor(ADMIN_SESSION_TTL_MS / 1000) + '; SameSite=Lax'
+    'aid=' +
+    token +
+    '; HttpOnly; Path=/; Max-Age=' +
+    Math.floor(ADMIN_SESSION_TTL_MS / 1000) +
+    '; SameSite=Lax' +
+    (isProd ? '; Secure' : '')
   );
 }
 
@@ -119,7 +125,8 @@ export function registerAdminRoutes(app: Express): void {
       adminSessions = adminSessions.filter((s) => s.token !== token);
       persistAdminSessions();
     }
-    res.setHeader('Set-Cookie', 'aid=; HttpOnly; Path=/; Max-Age=0');
+    const isProd = process.env.NODE_ENV === 'production';
+    res.setHeader('Set-Cookie', 'aid=; HttpOnly; Path=/; Max-Age=0' + (isProd ? '; Secure' : ''));
     res.json({ success: true });
   });
 
