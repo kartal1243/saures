@@ -195,7 +195,10 @@ export default function App() {
   const [supplierModalMode, setSupplierModalMode] = useState<SupplierModalMode>('form');
   const [activeSupplier, setActiveSupplier] = useState<Supplier | null>(null);
 
-  const currentSector: BusinessSector = shopProfile.sectorKey || 'bakkal_market';
+  const currentSector: BusinessSector =
+    (shopProfile.sectorKey as string) === 'kuafor_berber'
+      ? 'berber_kuafor'
+      : (shopProfile.sectorKey || deriveSector(shopProfile.businessField) || 'bakkal_market');
   const currentSectorInfo = useMemo(() => {
     return SECTORS.find((s) => s.key === currentSector) || SECTORS[2];
   }, [currentSector]);

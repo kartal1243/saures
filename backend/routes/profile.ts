@@ -49,6 +49,7 @@ export function registerProfileRoutes(app: Express): void {
         ...currentProfile,
         storeName: data.storeName.trim(),
         dailyTarget: Number(data.dailyTarget) || currentProfile.dailyTarget || 2500,
+        sectorKey: data.sectorKey === 'kuafor_berber' ? 'berber_kuafor' : (data.sectorKey || currentProfile.sectorKey),
         // isVip, vipUntil, vipPlan gibi alanlar asla istemciden değiştirilemez
       };
     } else {
