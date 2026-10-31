@@ -401,7 +401,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                         Tek Koltuk
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                        En Uygun
+                        Ekonomik
                       </span>
                     </div>
                     <h4 className="mt-2 text-lg font-black text-stone-900 dark:text-white">Usta Paketi</h4>
@@ -422,19 +422,19 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                     <div className="mt-4 space-y-2 border-t border-stone-200 dark:border-stone-700/60 pt-3 text-xs text-stone-700 dark:text-stone-300">
                       <div className="flex items-center gap-2">
                         <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span className="font-semibold">SINIRSIZ Müşteri &amp; cari kayıt</span>
+                        <span className="font-semibold">100 Müşteri &amp; cari kayıt kotası</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span className="font-semibold">SINIRSIZ Online randevu &amp; takvim</span>
+                        <span className="font-semibold">Ayda 60 Online randevu hakkı</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span>Gerçek AI Tarife &amp; Menü OCR okuma</span>
+                        <span>Tek koltuk dijital randevu takvimi</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span>58/80mm Termal fiş &amp; barkodlu terazi</span>
+                        <span>Gelir, gider ve günlük kasa takibi</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />
