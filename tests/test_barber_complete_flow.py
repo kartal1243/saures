@@ -69,6 +69,12 @@ def run_tests():
     assert status == 200, f"Profil güncelleme hatası: {res}"
     print("  ✓ Profil ve slug 'usta-eller-berber' olarak kaydedildi.")
 
+    # Önceki test randevuları varsa temizle (İzole ve tekrarlanabilir test ortamı)
+    status, res = request("GET", "/api/appointments")
+    if status == 200:
+        for old_apt in res.get("appointments", []):
+            request("DELETE", f"/api/appointments/{old_apt['id']}")
+
     # 3. Personelleri Tanımla
     print("\n[Adım 3] Ustalar tanımlanıyor (Serkan Usta ve Caner Kalfa)...")
     staff_data = [
