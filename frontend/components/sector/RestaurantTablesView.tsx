@@ -82,6 +82,7 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
 
   // Mobile Adisyon Tab: 'menu' (Add items) or 'orders' (Review bill & checkout)
   const [mobileTab, setMobileTab] = useState<'menu' | 'orders'>('menu');
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   // Fetch menu from server on mount
   useEffect(() => {
@@ -863,28 +864,40 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <button
                       type="button"
-                      disabled={activeTable.totalAmount <= 0}
+                      disabled={activeTable.totalAmount <= 0 || isCheckingOut}
                       onClick={async () => {
-                        await onCheckoutTable(activeTable.id, 'nakit');
-                        setSelectedTable(null);
+                        if (isCheckingOut) return;
+                        setIsCheckingOut(true);
+                        try {
+                          await onCheckoutTable(activeTable.id, 'nakit');
+                          setSelectedTable(null);
+                        } finally {
+                          setIsCheckingOut(false);
+                        }
                       }}
                       className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-black text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
                     >
                       <Banknote className="w-4 h-4" />
-                      <span>Nakit Kapat</span>
+                      <span>{isCheckingOut ? 'Kapatılıyor...' : 'Nakit Kapat'}</span>
                     </button>
 
                     <button
                       type="button"
-                      disabled={activeTable.totalAmount <= 0}
+                      disabled={activeTable.totalAmount <= 0 || isCheckingOut}
                       onClick={async () => {
-                        await onCheckoutTable(activeTable.id, 'kart');
-                        setSelectedTable(null);
+                        if (isCheckingOut) return;
+                        setIsCheckingOut(true);
+                        try {
+                          await onCheckoutTable(activeTable.id, 'kart');
+                          setSelectedTable(null);
+                        } finally {
+                          setIsCheckingOut(false);
+                        }
                       }}
                       className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-black text-xs bg-orange-600 hover:bg-orange-700 text-white shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
                     >
                       <CreditCard className="w-4 h-4" />
-                      <span>Kart / POS</span>
+                      <span>{isCheckingOut ? 'Kapatılıyor...' : 'Kart / POS'}</span>
                     </button>
                   </div>
                 </div>

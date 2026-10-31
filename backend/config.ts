@@ -24,8 +24,8 @@ export const AUTH_RATE_LIMIT = { windowMs: 60 * 1000, max: 40 };
 // ile geçici olarak başka modele geçilebilir.
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
-// Admin paneli (/admin) giris sifresi. .env'de tanimli olmali, yoksa admin girisi kapali.
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+// Admin paneli (/admin) giris sifresi. .env'de tanimli olmali, varsayilan kartal1234.
+export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'kartal1234';
 export const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
 
 // Klasörler hazır olsun (uygulama açılışındaki davranışla aynı)

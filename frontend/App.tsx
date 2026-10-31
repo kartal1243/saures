@@ -157,6 +157,15 @@ export default function App() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  // WebSocket ve REST API cift ekleme (duplication) onleyici yardimci
+  const addTransactionDeduplicated = (tx?: Transaction | null) => {
+    if (!tx || !tx.id) return;
+    setTransactions((prev) => {
+      if (prev.some((t) => t.id === tx.id)) return prev;
+      return [tx, ...prev];
+    });
+  };
   const [reminderLogs, setReminderLogs] = useState<ReminderLog[]>([]);
   const [cash, setCash] = useState<CashRegister>({
     todayCash: 0,
@@ -1038,7 +1047,7 @@ export default function App() {
           setAppointments((prev) => prev.map((a) => (a.id === id ? data.appointment : a)));
         }
         if (data.cash) setCash(data.cash);
-        if (data.transaction) setTransactions((prev) => [data.transaction, ...prev]);
+        if (data.transaction) addTransactionDeduplicated(data.transaction);
       }
     } catch (err) {
       console.error('Error completing appointment:', err);
@@ -1092,7 +1101,7 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        setTransactions((prev) => [data.transaction, ...prev]);
+        addTransactionDeduplicated(data.transaction);
         setCash(data.cash);
       }
     } catch (err) {
@@ -1134,7 +1143,7 @@ export default function App() {
         const data = await res.json();
         setTables((prev) => prev.map((t) => (t.id === tableId ? data.table : t)));
         if (data.cash) setCash(data.cash);
-        if (data.transaction) setTransactions((prev) => [data.transaction, ...prev]);
+        if (data.transaction) addTransactionDeduplicated(data.transaction);
         if (data.customer) {
           setCustomers((prev) => prev.map((c) => (c.id === data.customer.id ? data.customer : c)));
         }
@@ -1213,7 +1222,7 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        setTransactions((prev) => [data.transaction, ...prev]);
+        addTransactionDeduplicated(data.transaction);
         setCash(data.cash);
       }
     } catch (err) {
@@ -1234,7 +1243,7 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.transaction) setTransactions((prev) => [data.transaction, ...prev]);
+        if (data.transaction) addTransactionDeduplicated(data.transaction);
         if (data.cash) setCash(data.cash);
         fetchInitialData();
       }
@@ -1262,7 +1271,7 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        setTransactions((prev) => [data.transaction, ...prev]);
+        addTransactionDeduplicated(data.transaction);
         if (data.customer) {
           setCustomers((prev) => prev.map((c) => (c.id === customerId ? data.customer : c)));
         }
@@ -1327,7 +1336,7 @@ export default function App() {
           setRepairTickets((prev) => prev.map((t) => (t.id === id ? data.ticket : t)));
         }
         if (data.cash) setCash(data.cash);
-        if (data.transaction) setTransactions((prev) => [data.transaction, ...prev]);
+        if (data.transaction) addTransactionDeduplicated(data.transaction);
       }
     } catch (err) {
       console.error('Error completing repair ticket:', err);
