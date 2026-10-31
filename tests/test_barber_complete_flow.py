@@ -51,7 +51,7 @@ def run_tests():
 
     # 2. Profili Berber / Kuaför Olarak Yapılandır
     print("\n[Adım 2] Dükkan profili berber olarak ayarlanıyor...")
-    status, res = request("POST", "/api/profile", {
+    status, res = request("POST", "/api/shop-profile", {
         "storeName": "Usta Eller Erkek Kuaförü",
         "ownerName": "Serkan Usta",
         "businessField": "Kuaför / Berber / Güzellik",

@@ -63,6 +63,7 @@ export function registerProfileRoutes(app: Express): void {
         cityDistrict: (data.cityDistrict || '').trim(),
         dailyTarget: Number(data.dailyTarget) || 2500,
         slogan: (data.slogan || '').trim(),
+        slug: data.slug || currentProfile?.slug,
         isConfigured: true,
         isVip: false, // İlk kurulumda daima Standart (0 TL) olarak başlar
         vipUntil: undefined,
