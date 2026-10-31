@@ -3,6 +3,7 @@ import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldC
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
 import { demoLogin } from '../../utils/demo';
+import { PhoneMockupHero } from './PhoneMockupHero';
 
 interface AuthPageProps {
   onSuccess: () => void;
@@ -173,13 +174,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
             </p>
           </div>
 
-          {/* 3D Telefon Mockup'ı (Görsel 2'deki Tilted iPhone) */}
-          <div className="hidden lg:flex items-center justify-center shrink-0">
-            <img
-              src="/brand/phone_mockup_retina.png"
-              alt="Dükkânım Yanımda Mobil Arayüz"
-              className="w-[260px] xl:w-[320px] 2xl:w-[350px] h-auto object-contain drop-shadow-[0_28px_50px_rgba(0,0,0,0.45)] select-none pointer-events-none transform -rotate-1 hover:rotate-0 transition-transform duration-500"
-            />
+          {/* 3D Vektörel iPhone Mockup'ı (Görsel 2 Birebir, Ultra HD & Kristal Netliğinde) */}
+          <div className="hidden lg:flex items-center justify-center shrink-0 pl-2">
+            <PhoneMockupHero />
           </div>
         </div>
 
