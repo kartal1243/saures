@@ -82,6 +82,51 @@ function minutesToTime(totalMinutes: number): string {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+// Ustanın belirli bir tarih ve zaman aralığında müsait olup olmadığını kontrol eden yardımcı
+function isStaffAvailable(
+  staffId: string,
+  date: string,
+  startMin: number,
+  endMin: number,
+  appointments: Appointment[],
+  timeBlocks: BarberTimeBlock[]
+): boolean {
+  // 1. Mola / Kapatma saati çakışma kontrolü
+  const hasBlock = timeBlocks.some((b) => {
+    if (b.date !== date) return false;
+    const matchesStaff = !b.staffId || b.staffId === 'all' || b.staffId === staffId;
+    if (!matchesStaff) return false;
+    const bStart = timeToMinutes(b.startTime);
+    const bEnd = timeToMinutes(b.endTime);
+    return startMin < bEnd && endMin > bStart;
+  });
+  if (hasBlock) return false;
+
+  // 2. Çakışan aktif randevu kontrolü
+  const hasApt = appointments.some((a) => {
+    if (a.appointmentDate !== date) return false;
+    if (a.status === 'iptal' || a.status === 'arsiv' || a.status === 'gelmedi') return false;
+
+    // Eğer randevunun adımları (steps) varsa adım bazlı kontrol
+    if (Array.isArray(a.steps) && a.steps.length > 0) {
+      return a.steps.some((st) => {
+        if (st.staffId !== staffId) return false;
+        const stStart = timeToMinutes(st.startTime);
+        const stEnd = timeToMinutes(st.endTime);
+        return startMin < stEnd && endMin > stStart;
+      });
+    }
+
+    // Klasik tek adımlı randevu
+    if (a.staffId && a.staffId !== staffId) return false;
+    const aStart = timeToMinutes(a.timeSlot);
+    const aEnd = aStart + (a.durationMinutes || 30);
+    return startMin < aEnd && endMin > aStart;
+  });
+
+  return !hasApt;
+}
+
 // ==========================================
 // PUBLIC BARBER APPOINTMENT API (HERKESE AÇIK - ŞİFRESİZ)
 // ==========================================
@@ -233,9 +278,24 @@ export function registerPublicBarberRoutes(app: Express): void {
     }
 
     const allStaff: BarberStaff[] = (shopState.barberStaff || defaultBarberStaff).filter((s) => s.active);
+    const activeAppointments = shopState.appointments || [];
+    const timeBlocks = shopState.barberTimeBlocks || [];
 
-    // Ardışık adımları (Steps) ve toplam süreyi hesapla
-    let currentStartMinutes = timeToMinutes(timeSlot);
+    // Toplam süreyi ve çalışma saatleri kontrolünü yap
+    const totalDuration = selectedServices.reduce((sum, s) => sum + (s.durationMinutes || 30), 0);
+    const requestedStartMin = timeToMinutes(timeSlot);
+    const requestedEndMin = requestedStartMin + totalDuration;
+
+    const openMin = timeToMinutes(settings.openHour || '09:00');
+    const closeMin = timeToMinutes(settings.closeHour || '21:00');
+    if (requestedStartMin < openMin || requestedEndMin > closeMin) {
+      return res.status(400).json({
+        error: `Randevu saati salon çalışma saatleri (${settings.openHour || '09:00'} - ${settings.closeHour || '21:00'}) dışında kalmaktadır.`,
+      });
+    }
+
+    // Ardışık adımları (Steps) ve usta uygunluğunu hesapla
+    let currentStartMinutes = requestedStartMin;
     const steps: AppointmentStep[] = [];
     let totalPrice = 0;
     let primaryStaffName = 'Otomatik Atanacak';
@@ -247,13 +307,34 @@ export function registerPublicBarberRoutes(app: Express): void {
       let assignedStaff: BarberStaff | undefined;
 
       if (staffId && staffId !== 'fark_etmez' && staffId !== 'auto') {
-        assignedStaff = allStaff.find((s) => s.id === staffId);
+        const found = allStaff.find((s) => s.id === staffId);
+        if (!found) {
+          return res.status(404).json({ error: 'Seçtiğiniz usta bulunamadı veya artık hizmet vermiyor.' });
+        }
+        // Seçilen ustanın bu saat aralığında müsait olup olmadığını kontrol et
+        const isFree = isStaffAvailable(found.id, date, currentStartMinutes, stepEndMinutes, activeAppointments, timeBlocks);
+        if (!isFree) {
+          return res.status(409).json({
+            error: `Seçtiğiniz usta (${found.name}) ${timeSlot} saatinde doludur veya moladadır. Lütfen başka bir saat seçiniz.`,
+          });
+        }
+        assignedStaff = found;
       } else {
-        // En uygun usta: bu hizmeti yapabilen ve o saatte müsait olan
+        // "Fark etmez" veya "auto": Bu hizmeti yapabilen VE bu saatte müsait olan ustayı bul
         const capableStaff = allStaff.filter((s) =>
           !srv.allowedStaffIds || srv.allowedStaffIds.length === 0 || srv.allowedStaffIds.includes(s.id)
         );
-        assignedStaff = capableStaff[0] || allStaff[0];
+        const freeCapableStaff = capableStaff.filter((s) =>
+          isStaffAvailable(s.id, date, currentStartMinutes, stepEndMinutes, activeAppointments, timeBlocks)
+        );
+
+        if (freeCapableStaff.length === 0) {
+          return res.status(409).json({
+            error: `Seçtiğiniz ${timeSlot} saatinde bu hizmet için müsait usta bulunmuyor. Lütfen başka bir saat seçiniz.`,
+          });
+        }
+        // Adil randevu dağılımı: Müsait olan ustalar arasından seç
+        assignedStaff = freeCapableStaff[0];
       }
 
       const stName = assignedStaff ? assignedStaff.name : 'Usta';
@@ -281,7 +362,6 @@ export function registerPublicBarberRoutes(app: Express): void {
       primaryStaffName = steps.map((st) => `${st.serviceName}: ${st.staffName}`).join(' | ');
     }
 
-    const totalDuration = steps.reduce((sum, s) => sum + s.durationMinutes, 0);
     const endTime = minutesToTime(timeToMinutes(timeSlot) + totalDuration);
 
     const now = new Date();

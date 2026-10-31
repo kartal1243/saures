@@ -259,26 +259,29 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
 
       // Randevu çakışması
       let isBusy = false;
-      if (selectedStaffId !== 'auto') {
-        // Belirli bir usta seçildiyse: o ustanın randevuları kontrol edilir
-        isBusy = dayAppointments.some((a) => {
-          if (a.staffId !== selectedStaffId) return false;
+      const isStaffBusy = (targetStaffId: string) => {
+        return dayAppointments.some((a) => {
+          if (Array.isArray(a.steps) && a.steps.length > 0) {
+            return a.steps.some((st) => {
+              if (st.staffId !== targetStaffId) return false;
+              const stStart = timeToMinutes(st.startTime);
+              const stEnd = timeToMinutes(st.endTime);
+              return m < stEnd && m + neededDuration > stStart;
+            });
+          }
+          if (a.staffId !== targetStaffId) return false;
           const aStart = timeToMinutes(a.timeSlot);
           const aEnd = aStart + (a.durationMinutes || 30);
           return m < aEnd && m + neededDuration > aStart;
         });
+      };
+
+      if (selectedStaffId !== 'auto') {
+        // Belirli bir usta seçildiyse: o ustanın randevuları kontrol edilir
+        isBusy = isStaffBusy(selectedStaffId);
       } else {
         // "Fark etmez" seçildiyse: Eğer salondaki TÜM yetkili ustalar o saatte doluysa slot kapalıdır
-        const availableStaffCount = data.staff.filter((st) => {
-          const stBusy = dayAppointments.some((a) => {
-            if (a.staffId !== st.id) return false;
-            const aStart = timeToMinutes(a.timeSlot);
-            const aEnd = aStart + (a.durationMinutes || 30);
-            return m < aEnd && m + neededDuration > aStart;
-          });
-          return !stBusy;
-        }).length;
-
+        const availableStaffCount = data.staff.filter((st) => !isStaffBusy(st.id)).length;
         isBusy = availableStaffCount === 0;
       }
 
