@@ -175,6 +175,7 @@ export function registerPublicBarberRoutes(app: Express): void {
 
     const storeName = shopState.shopProfile?.storeName || account?.shopName || 'Berber & Kuaför Salonu';
     const slug = shopState.shopProfile?.slug || slugify(storeName);
+    const isVip = Boolean(shopState.shopProfile?.isVip || (account?.id && account.id.includes('demo')));
 
     res.json({
       shop: {
@@ -183,7 +184,10 @@ export function registerPublicBarberRoutes(app: Express): void {
         cityDistrict: shopState.shopProfile?.cityDistrict || '',
         slogan: shopState.shopProfile?.slogan || 'Profesyonel Saç & Sakal Bakımı',
         slug,
+        isVip,
       },
+      isVip,
+      vipRequired: !isVip,
       staff,
       services,
       settings,
@@ -209,6 +213,14 @@ export function registerPublicBarberRoutes(app: Express): void {
     const { shopState, account } = resolveBarberShop(req.params.identifier);
     if (!shopState || !account) {
       return res.status(404).json({ error: 'İşletme bulunamadı.' });
+    }
+
+    const isVip = Boolean(shopState.shopProfile?.isVip || (account?.id && account.id.includes('demo')));
+    if (!isVip) {
+      return res.status(403).json({
+        error: 'Bu işletmenin VIP Online Randevu Sistemi henüz aktif değildir. Lütfen işletme sahibiyle iletişime geçiniz.',
+        vipRequired: true,
+      });
     }
 
     const {

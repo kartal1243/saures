@@ -446,6 +446,42 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
     );
   }
 
+  // VIP Paketi Olmayan İşletmeler İçin Paywall Ekranı
+  if ((data as any).vipRequired) {
+    return (
+      <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-full max-w-md bg-stone-900/90 border border-amber-500/30 rounded-3xl p-8 shadow-2xl space-y-5 animate-in zoom-in-95">
+          <div className="w-16 h-16 rounded-3xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/10">
+            <Crown className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              VIP Randevu Sistemi
+            </span>
+            <h2 className="text-2xl font-black text-white">{data.shop.storeName}</h2>
+            <p className="text-sm text-stone-400 leading-relaxed">
+              Bu kuaför salonunun 7/24 Online Randevu Sistemi henüz aktif edilmemiştir.
+            </p>
+          </div>
+          <div className="p-4 rounded-2xl bg-stone-950/70 border border-stone-800 text-left text-xs text-stone-300 space-y-2">
+            <p className="font-bold text-amber-400 flex items-center gap-1.5">
+              <span>👑</span> İşletme Sahibi misiniz?
+            </p>
+            <p className="text-stone-400">
+              Dükkanım Yanımda panelinizden VIP paketi açarak tezgâh QR standınızı ve müşterilerinize özel randevu linkinizi saniyeler içinde aktif edebilirsiniz.
+            </p>
+          </div>
+          <a
+            href="/"
+            className="w-full block py-3 rounded-2xl bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-stone-950 font-black text-sm shadow-lg transition-transform active:scale-95"
+          >
+            Yönetim Paneline Giriş Yap
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   // ==========================================
   // BAŞARILI RANDEVU EKRANI
   // ==========================================

@@ -277,13 +277,13 @@ export function registerAdminRoutes(app: Express): void {
     res.json({ success: true, shopName: acc.shopName });
   });
 
-  // Dükkanın VIP durumunu tek tıkla aç / kapat (+30/+365 gün süreli)
+  // Dükkanın VIP durumunu aç / kapat (+30/+365 gün süreli)
   app.post('/api/admin/shops/:id/toggle-vip', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
     const acc = findAccountById(req.params.id);
     if (!acc) return res.status(404).json({ error: 'Dükkan bulunamadı.' });
 
-    const { days = 30, plan = 'monthly' } = req.body || {};
+    const { days = 30, plan = 'monthly', action } = req.body || {};
     const st = loadShopState(acc.id);
     if (!st.shopProfile) {
       st.shopProfile = {
@@ -293,7 +293,18 @@ export function registerAdminRoutes(app: Express): void {
         isVip: false,
       } as any;
     }
-    const nextVip = !st.shopProfile.isVip;
+
+    let nextVip: boolean;
+    if (action === 'grant') {
+      nextVip = true;
+    } else if (action === 'revoke') {
+      nextVip = false;
+    } else if (typeof req.body?.isVip === 'boolean') {
+      nextVip = req.body.isVip;
+    } else {
+      nextVip = !st.shopProfile.isVip;
+    }
+
     st.shopProfile.isVip = nextVip;
 
     if (nextVip) {
@@ -310,6 +321,17 @@ export function registerAdminRoutes(app: Express): void {
 
     st.lastUpdated = new Date().toISOString();
     persistShopState(acc.id, st);
+
+    // Canlı WebSocket bildirimi: Açık olan istemci ekranına anında VIP durumunu ilet
+    try {
+      const { broadcastToAccount } = require('../realtime');
+      broadcastToAccount(acc.id, {
+        type: 'SHOP_PROFILE_UPDATED',
+        payload: st.shopProfile,
+      });
+    } catch (e) {
+      console.error('Failed to broadcast VIP update:', e);
+    }
 
     res.json({
       success: true,

@@ -47,6 +47,18 @@ export function registerCoreRoutes(app: Express): void {
 
   // 2. Full state fetch
   app.get('/api/data', (_req, res) => {
+    const prof = S().shopProfile;
+    if (prof && prof.isVip && prof.vipUntil) {
+      const expires = new Date(prof.vipUntil).getTime();
+      if (!isNaN(expires) && expires < Date.now()) {
+        prof.isVip = false;
+        prof.vipPlan = undefined;
+        prof.vipUntil = undefined;
+        prof.vipExpiresAt = undefined;
+        saveState();
+      }
+    }
+
     res.json({
       storeName: S().storeName,
       shopProfile: S().shopProfile,
@@ -56,6 +68,9 @@ export function registerCoreRoutes(app: Express): void {
       reminderLogs: S().reminderLogs,
       products: S().products || [],
       stockMovements: S().stockMovements || [],
+      appointments: S().appointments || [],
+      tables: S().tables || [],
+      repairTickets: S().repairTickets || [],
       suppliers: S().suppliers || [],
       services: (S() as any).services || [],
       cases: (S() as any).cases || [],

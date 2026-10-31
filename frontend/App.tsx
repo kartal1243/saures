@@ -1507,6 +1507,9 @@ export default function App() {
         isCafe={isCafe}
         isService={isService}
         isTailor={isTailor}
+        isVip={Boolean(shopProfile?.isVip)}
+        vipPlan={shopProfile?.vipPlan}
+        vipUntil={shopProfile?.vipUntil}
         onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
         onOpenStaff={() => setIsStaffModalOpen(true)}
         onChangePassword={() => setIsChangePasswordOpen(true)}

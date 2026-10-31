@@ -40,6 +40,9 @@ interface SidebarProps {
   isCafe: boolean;
   isService: boolean;
   isTailor: boolean;
+  isVip?: boolean;
+  vipPlan?: string;
+  vipUntil?: string;
   onOpenShopProfile: () => void;
   onOpenStaff: () => void;
   onChangePassword: () => void;
@@ -75,6 +78,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCafe,
   isService,
   isTailor,
+  isVip = false,
+  vipPlan,
+  vipUntil,
   onOpenShopProfile,
   onOpenStaff,
   onChangePassword,
@@ -185,9 +191,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <button type="button" onClick={onChangePassword} className={menuBtn}>
         <KeyRound className="w-4 h-4 shrink-0 text-stone-500" /> Şifre Değiştir
       </button>
-      <button type="button" onClick={onOpenVip} className={menuBtn}>
-        <Crown className="w-4 h-4 shrink-0 text-stone-500" /> VIP Danışman
-      </button>
+      {isVip ? (
+        <button
+          type="button"
+          onClick={onOpenVip}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-black text-amber-300 bg-linear-to-r from-amber-500/20 via-orange-500/15 to-amber-500/10 hover:from-amber-500/30 hover:to-orange-500/25 border border-amber-500/35 transition-all cursor-pointer text-left shadow-xs"
+        >
+          <span className="flex items-center gap-2.5">
+            <Crown className="w-4 h-4 shrink-0 text-amber-400 fill-amber-400 animate-bounce-subtle" />
+            <span>VIP Danışmanım</span>
+          </span>
+          <span className="text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-300 border border-amber-400/30">
+            Aktif
+          </span>
+        </button>
+      ) : (
+        <button type="button" onClick={onOpenVip} className={menuBtn}>
+          <Crown className="w-4 h-4 shrink-0 text-amber-500" /> VIP Pakete Geç
+        </button>
+      )}
       <button
         type="button"
         onClick={onLogout}
@@ -214,19 +236,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </span>
         </div>
 
+        {/* VIP Rozet Kartı (Sol menü tepesinde prestijli gösterge) */}
+        {isVip && (
+          <div
+            onClick={onOpenVip}
+            className="mx-3 mt-1 mb-2 px-3 py-2 rounded-xl bg-linear-to-r from-amber-500/20 via-orange-500/15 to-amber-500/10 border border-amber-500/40 flex items-center justify-between cursor-pointer hover:border-amber-400 transition-colors group"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Crown className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
+              <div className="min-w-0">
+                <span className="block text-xs font-black text-amber-300 truncate">
+                  VIP {vipPlan === 'yearly' ? 'Yıllık' : 'Aylık'} Üye
+                </span>
+                <span className="block text-[9px] font-bold text-amber-400/80 truncate">
+                  {vipUntil ? `Bitiş: ${new Date(vipUntil).toLocaleDateString('tr-TR')}` : 'Sınırsız Özellikler'}
+                </span>
+              </div>
+            </div>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400/50 shrink-0" />
+          </div>
+        )}
+
         <nav className="px-3 py-2 space-y-1">{mainTabs}</nav>
         <nav className="px-3 pb-3">{menuItems}</nav>
 
         <div className="mt-auto p-3 border-t border-stone-800/80">
           <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-3 py-2.5">
-            <span className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center text-sm font-black shrink-0">
+            <span className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center text-sm font-black shrink-0 relative">
               {avatarChar}
+              {isVip && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-400 rounded-full flex items-center justify-center text-[8px] text-stone-950 font-black shadow-xs">
+                  ★
+                </span>
+              )}
             </span>
             <span className="min-w-0 flex-1">
-              {/* Dükkan adi tek yerde: ust Header. Burada sadece patron + baglanti. */}
-              <span className="block text-xs font-black text-white truncate">
-                {ownerName || 'Dükkan Sahibi'}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="block text-xs font-black text-white truncate">
+                  {ownerName || 'Dükkan Sahibi'}
+                </span>
+                {isVip && (
+                  <span className="px-1 py-0.2 rounded-md bg-amber-400 text-stone-950 text-[9px] font-black uppercase shrink-0">
+                    VIP
+                  </span>
+                )}
+              </div>
               <span className="flex items-center gap-1 text-[10px] font-bold text-stone-500">
                 {connected ? (
                   <>

@@ -6,6 +6,7 @@ import {
   Moon,
   ChevronDown,
   Sparkles,
+  Crown,
 } from 'lucide-react';
 import { ShopProfile } from '../../../shared/types.ts';
 
@@ -50,11 +51,23 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="min-w-0 flex flex-col justify-center">
-            {/* 1. Satır: İsim + Canlı Nokta */}
+            {/* 1. Satır: İsim + Canlı Nokta + VIP Rozeti */}
             <div className="flex items-center gap-2 min-w-0">
               <h1 className="text-sm sm:text-base font-black text-stone-900 dark:text-white tracking-tight truncate">
                 {displayName}
               </h1>
+
+              {shopProfile?.isVip && (
+                <button
+                  type="button"
+                  onClick={onOpenVip}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black bg-gradient-to-r from-amber-500 via-amber-400 to-orange-500 text-stone-950 shadow-sm shadow-amber-500/20 shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                  title={`VIP İşletme Aktif (${shopProfile.vipPlan === 'yearly' ? 'Yıllık' : 'Aylık'}${shopProfile.vipUntil ? ` · Bitiş: ${new Date(shopProfile.vipUntil).toLocaleDateString('tr-TR')}` : ''})`}
+                >
+                  <Crown className="w-3.5 h-3.5 text-stone-950 fill-stone-950" />
+                  <span>VIP {shopProfile.vipPlan === 'yearly' ? 'Yıllık' : 'Aylık'}</span>
+                </button>
+              )}
 
               {/* Canlı Durum Rozeti (Masaüstünde metinli, mobilde şık kompakt nokta) */}
               <span

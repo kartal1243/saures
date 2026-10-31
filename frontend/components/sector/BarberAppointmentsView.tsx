@@ -38,6 +38,7 @@ import {
   FileText,
   AlertTriangle,
   Send,
+  Crown,
   Eye,
   Percent,
   Search,
@@ -60,6 +61,8 @@ interface BarberAppointmentsViewProps {
   customers?: Customer[];
   shopSlug?: string;
   storeName?: string;
+  isVip?: boolean;
+  onOpenVip?: () => void;
   initialTab?: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr';
   onAddAppointment: (data: Partial<Appointment>) => Promise<void>;
   onCompleteAppointment: (id: string, paymentMethod: 'nakit' | 'kart', packageId?: string) => Promise<void>;
@@ -88,6 +91,8 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   customers = [],
   shopSlug = 'demo',
   storeName = 'Berber & Kuaför Salonu',
+  isVip = false,
+  onOpenVip,
   onAddAppointment,
   onCompleteAppointment,
   onUpdateStatus,
@@ -719,6 +724,19 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               <div>
                 <h1 className="text-xl font-black text-stone-900 dark:text-white flex items-center gap-2">
                   <span>Kuaför &amp; Berber Randevu Yönetimi</span>
+                  {isVip ? (
+                    <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-linear-to-r from-amber-500 to-orange-500 text-stone-950 shadow-xs flex items-center gap-1">
+                      <Crown className="w-3.5 h-3.5 fill-stone-950" /> VIP Aktif
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onOpenVip}
+                      className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Crown className="w-3.5 h-3.5" /> VIP'ye Yükselt
+                    </button>
+                  )}
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
                     Canlı Takvim
                   </span>
@@ -1498,6 +1516,30 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 </p>
               </div>
             </div>
+
+            {isVip ? (
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-400 font-bold">
+                <span className="flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  <span>VIP Aktif: Online Randevu Alımı Açık (7/24 Randevu Kabul Ediliyor)</span>
+                </span>
+                <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">Aktif</span>
+              </div>
+            ) : (
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs text-amber-300 font-bold">
+                <span className="flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-amber-400" />
+                  <span>Online Randevu Sistemi VIP Özelliktir (Şu an kilitli)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={onOpenVip}
+                  className="px-2.5 py-1 rounded-xl bg-linear-to-r from-orange-500 to-amber-500 text-stone-950 text-xs font-black cursor-pointer hover:opacity-90"
+                >
+                  VIP'ye Geç
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
               <span className="text-xs font-mono text-stone-700 dark:text-stone-300 px-2 line-clamp-1 flex-1">

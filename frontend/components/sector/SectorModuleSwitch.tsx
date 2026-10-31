@@ -90,6 +90,8 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
         services={props.services}
         shopSlug={props.shopSlug}
         storeName={props.storeName}
+        isVip={props.isVip}
+        onOpenVip={props.onOpenVip}
         initialTab={props.barberSubTab}
         onAddAppointment={props.onAddAppointment}
         onCompleteAppointment={props.onCompleteAppointment}

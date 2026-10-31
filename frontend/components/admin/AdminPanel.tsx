@@ -271,17 +271,20 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
                     onClick={async () => {
                       let days = 30;
                       let plan = 'monthly';
+                      let action = 'grant';
                       if (!s.isVip) {
                         const isYearly = confirm(`${s.shopName} için 1 Yıllık VIP (+365 Gün) mi açılsın?\n\n[Tamam = 1 Yıllık VIP (365 Gün)]\n[İptal = 1 Aylık VIP (30 Gün)]`);
                         days = isYearly ? 365 : 30;
                         plan = isYearly ? 'yearly' : 'monthly';
+                        action = 'grant';
                       } else {
                         if (!confirm(`${s.shopName} VIP üyeliği sonlandırılsın mı?`)) return;
+                        action = 'revoke';
                       }
                       const res = await fetch(`/api/admin/shops/${s.id}/toggle-vip`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ days, plan }),
+                        body: JSON.stringify({ days, plan, action }),
                       });
                       if (!res.ok) { alert('VIP durumu değiştirilemedi.'); return; }
                       load();
