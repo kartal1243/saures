@@ -269,8 +269,7 @@ export default function App() {
     if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     socketRef.current?.close();
     socketRef.current = null;
-    setAuthView('landing');
-    setAuthStatus('out');
+    window.location.href = '/';
   };
 
   const bootstrapSession = async () => {

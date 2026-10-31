@@ -30,6 +30,7 @@ import { registerCaseRoutes } from './routes/cases';
 import { registerCustodyRoutes } from './routes/custody';
 import { registerAdminRoutes } from './routes/admin';
 import { registerPublicMenuRoutes, registerProtectedMenuRoutes } from './routes/menu';
+import { registerShopierWebhook } from './routes/shopierWebhook';
 
 export async function startServer(): Promise<void> {
   const app = express();
@@ -46,6 +47,7 @@ export async function startServer(): Promise<void> {
   });
 
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
   // ---------------- Otomatik bakim: oturum temizligi + gunluk yedek ----------------
   startMaintenance();
@@ -89,6 +91,9 @@ export async function startServer(): Promise<void> {
 
   // ---------------- Herkese açık berber randevu ucu (Müşteriler şifresiz randevu alır) ----------------
   registerPublicBarberRoutes(app);
+
+  // ---------------- Shopier OSB (Otomatik Sipariş Bildirimi / Webhook) ----------------
+  registerShopierWebhook(app);
 
   // ---------------- Koruma: sonrası için giriş + rol zorunlu ----------------
   app.use('/api', apiGuard);
