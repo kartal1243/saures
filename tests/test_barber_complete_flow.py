@@ -12,7 +12,11 @@ opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
 def request(method, path, data=None):
     url = f"{BASE_URL}{path}"
     body = json.dumps(data).encode('utf-8') if data is not None else None
-    headers = {"Content-Type": "application/json"} if data is not None else {}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    if data is not None:
+        headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with opener.open(req) as resp:
