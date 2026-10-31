@@ -30,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   darkMode,
   onToggleDarkMode,
   onOpenMenu,
+  onOpenVip,
 }) => {
   const todayFormatted = new Date().toLocaleDateString('tr-TR', {
     weekday: 'long',
