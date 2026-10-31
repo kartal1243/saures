@@ -19,6 +19,7 @@ import {
   FileText,
   AlertCircle,
   CheckCircle2,
+  Crown,
 } from 'lucide-react';
 import { MenuItem, RestaurantTable } from '../../../shared/types.ts';
 import { TableQrMenuModal } from './TableQrMenuModal';
@@ -27,6 +28,9 @@ interface RestaurantMenuManagerProps {
   tables?: RestaurantTable[];
   shopName?: string;
   slogan?: string;
+  isVip?: boolean;
+  onOpenVip?: () => void;
+  onMenuUpdated?: (items: MenuItem[]) => void;
 }
 
 const CATEGORY_PRESETS = [
@@ -56,6 +60,9 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
   tables = [],
   shopName = 'Dükkânım Kafe & Restoran',
   slogan = 'Afiyet olsun',
+  isVip = false,
+  onOpenVip,
+  onMenuUpdated,
 }) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [slug, setSlug] = useState('');
@@ -83,8 +90,10 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
       const res = await fetch('/api/menu');
       if (res.ok) {
         const data = await res.json();
-        setMenuItems(data.menuItems || []);
+        const items = data.menuItems || [];
+        setMenuItems(items);
         setSlug(data.slug || '');
+        onMenuUpdated?.(items);
       }
     } catch (err) {
       console.error('Menu load error:', err);
@@ -146,7 +155,9 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
 
       if (res.ok) {
         const data = await res.json();
-        setMenuItems(data.menuItems || []);
+        const items = data.menuItems || [];
+        setMenuItems(items);
+        onMenuUpdated?.(items);
         setIsFormOpen(false);
       } else {
         const errData = await res.json();
@@ -165,7 +176,9 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
       const res = await fetch(`/api/menu/${id}`, { method: 'DELETE' });
       if (res.ok) {
         const data = await res.json();
-        setMenuItems(data.menuItems || []);
+        const items = data.menuItems || [];
+        setMenuItems(items);
+        onMenuUpdated?.(items);
       }
     } catch (err) {
       console.error('Delete error:', err);
@@ -219,11 +232,22 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
           <button
             type="button"
-            onClick={() => setIsQrModalOpen(true)}
+            onClick={() => {
+              if (!isVip) {
+                onOpenVip?.();
+                return;
+              }
+              setIsQrModalOpen(true);
+            }}
             className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-black shadow-lg shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
           >
             <QrCode className="w-4 h-4" />
-            Masa QR Standı Çıkar
+            <span>Masa QR Standı Çıkar</span>
+            {!isVip && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-black">
+                <Crown className="w-3 h-3 text-yellow-200" /> VIP
+              </span>
+            )}
           </button>
 
           <button
@@ -236,6 +260,38 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Standart Plan / VIP Bilgilendirme Kartı */}
+      {!isVip && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-linear-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-300 dark:border-amber-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <span className="w-10 h-10 rounded-xl bg-linear-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Sparkles className="w-5 h-5 text-yellow-100" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-amber-950 dark:text-amber-200">
+                  Ücretsiz Menü &amp; Adisyon: Fiyatları ve Yemekleri Sınırsız Yönetin
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-black">
+                  Aktif
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-600 dark:text-stone-400 font-medium mt-0.5">
+                Burada eklediğiniz veya güncellediğiniz tüm yemekler ve fiyatlar masa adisyon sisteminizde anında görünür. Masalara özel karekodlu stand basmak için VIP Pakete geçebilirsiniz.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenVip}
+            className="px-4 py-2.5 rounded-xl bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-black shadow-xs transition-all cursor-pointer shrink-0 inline-flex items-center gap-1.5 justify-center"
+          >
+            <Crown className="w-3.5 h-3.5 text-yellow-200" />
+            Masa Standı İçin VIP'ye Geç
+          </button>
+        </div>
+      )}
 
       {/* Arama ve Kategori Filtresi */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">

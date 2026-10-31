@@ -31,8 +31,12 @@ export function registerTableRoutes(app: Express): void {
     const existingItem = table.orders.find((o) => o.name.toLowerCase() === name.trim().toLowerCase());
     if (existingItem) {
       existingItem.quantity += qty;
-      existingItem.total = existingItem.quantity * existingItem.unitPrice;
-    } else {
+      if (existingItem.quantity <= 0) {
+        table.orders = table.orders.filter((o) => o.id !== existingItem.id);
+      } else {
+        existingItem.total = existingItem.quantity * existingItem.unitPrice;
+      }
+    } else if (qty > 0) {
       table.orders.push({
         id: `ord_${Date.now()}_${Math.random().toString(36).substr(2, 3)}`,
         name: name.trim(),
@@ -42,11 +46,16 @@ export function registerTableRoutes(app: Express): void {
       });
     }
 
-    table.isOccupied = true;
-    if (!table.openedAt) {
-      table.openedAt = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-    }
     table.totalAmount = table.orders.reduce((sum, o) => sum + o.total, 0);
+    if (table.orders.length === 0) {
+      table.isOccupied = false;
+      table.openedAt = undefined;
+    } else {
+      table.isOccupied = true;
+      if (!table.openedAt) {
+        table.openedAt = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      }
+    }
 
     saveState();
     broadcast({ type: 'TABLE_UPDATED', payload: table });
@@ -55,6 +64,25 @@ export function registerTableRoutes(app: Express): void {
 
   app.post('/api/tables/:id/order', handleTableOrder);
   app.post('/api/tables/:id/orders', handleTableOrder);
+
+  // Sipariş kalemi silme
+  app.delete('/api/tables/:id/orders/:orderId', (req: Request, res: Response) => {
+    const { id, orderId } = req.params;
+    if (!S().tables) S().tables = [];
+    const table = S().tables.find((t) => t.id === id);
+    if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
+
+    table.orders = table.orders.filter((o) => o.id !== orderId);
+    table.totalAmount = table.orders.reduce((sum, o) => sum + o.total, 0);
+    if (table.orders.length === 0) {
+      table.isOccupied = false;
+      table.openedAt = undefined;
+    }
+
+    saveState();
+    broadcast({ type: 'TABLE_UPDATED', payload: table });
+    res.json({ success: true, table });
+  });
 
   app.post('/api/tables/:id/checkout', (req: Request, res: Response) => {
     const { id } = req.params;
