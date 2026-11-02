@@ -351,34 +351,43 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
 }
 
 let cachedIndexHtml: string | null = null;
+let cachedMtimeMs: number = 0;
 
 /**
  * Bellekteki HTML şablon önbelleğini sıfırlar (dosya güncellendiğinde).
  */
 export function invalidateHtmlCache(): void {
   cachedIndexHtml = null;
+  cachedMtimeMs = 0;
 }
 
 /**
- * dist/index.html dosyasını diskten yalnızca ilk seferde okur (memory cache).
+ * dist/index.html dosyasını diskten mtime kontrolüyle okur (dosya değiştiğinde otomatik güncellenir).
  */
 export function getBaseHtmlTemplate(): string {
+  const distPath = path.join(process.cwd(), 'dist', 'index.html');
+  const frontendPath = path.join(process.cwd(), 'frontend', 'index.html');
+
+  const targetPath = fs.existsSync(distPath) ? distPath : (fs.existsSync(frontendPath) ? frontendPath : null);
+  if (targetPath) {
+    try {
+      const stat = fs.statSync(targetPath);
+      if (cachedIndexHtml && stat.mtimeMs === cachedMtimeMs) {
+        return cachedIndexHtml;
+      }
+      cachedIndexHtml = fs.readFileSync(targetPath, 'utf-8');
+      cachedMtimeMs = stat.mtimeMs;
+      return cachedIndexHtml;
+    } catch {
+      // Fallback below
+    }
+  }
+
   if (cachedIndexHtml) {
     return cachedIndexHtml;
   }
 
-  const distPath = path.join(process.cwd(), 'dist', 'index.html');
-  const frontendPath = path.join(process.cwd(), 'frontend', 'index.html');
-
-  if (fs.existsSync(distPath)) {
-    cachedIndexHtml = fs.readFileSync(distPath, 'utf-8');
-  } else if (fs.existsSync(frontendPath)) {
-    cachedIndexHtml = fs.readFileSync(frontendPath, 'utf-8');
-  } else {
-    cachedIndexHtml = '<!doctype html><html lang="tr"><head><title>Dükkanım Yanımda</title></head><body><div id="root"></div></body></html>';
-  }
-
-  return cachedIndexHtml;
+  return '<!doctype html><html lang="tr"><head><title>Dükkanım Yanımda</title></head><body><div id="root"></div></body></html>';
 }
 
 function escapeHtml(str: string): string {

@@ -255,7 +255,11 @@ export async function startServer(): Promise<void> {
       res.send(html);
     });
 
-    app.get('*', (req, res) => {
+    app.get('*', (req, res, next) => {
+      // Statik varlıklar (JS, CSS, PNG vb.) veya API rotaları bulunamadıysa 404 dönmeli; kesinlikle index.html dönmemeli!
+      if (req.path.startsWith('/api') || req.path.startsWith('/assets') || req.path.includes('.')) {
+        return res.status(404).send('Not Found');
+      }
       const html = renderSeoHtml(req.path, req.get('host'));
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(html);
