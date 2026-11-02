@@ -75,6 +75,13 @@ function minutesToTime(m: number): string {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 const DAYS_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 const MONTHS_TR = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -168,13 +175,23 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
         if (isMounted) {
           setData(json);
 
-          // İlk müsait günü seç
-          const today = new Date();
+          // İlk müsait günü seç (Canlı Saat ve Kapanış Kontrolü)
+          const now = new Date();
           const closedDays = json.settings?.closedDays || [0];
-          let candidate = new Date(today);
+          const closeH = json.settings?.closingTime || json.settings?.closeHour || '21:00';
+          const closeMin = timeToMinutes(closeH);
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          // Eğer kapanış saatine 30 dk veya daha az kaldıysa / dükkan kapandıysa, bugünlük randevu alınmaz -> doğrudan yarına geç
+          const isTodayPastClosing = nowMinutes >= closeMin - 30;
+
+          let candidate = new Date(now);
+          if (isTodayPastClosing) {
+            candidate.setDate(candidate.getDate() + 1);
+          }
+
           for (let i = 0; i < 14; i++) {
             if (!closedDays.includes(candidate.getDay())) {
-              setSelectedDate(candidate.toISOString().split('T')[0]);
+              setSelectedDate(toLocalDateStr(candidate));
               break;
             }
             candidate.setDate(candidate.getDate() + 1);
@@ -303,27 +320,36 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
     }
   };
 
-  // Tarih Seçenekleri (Gelecek 14 Günlük Takvim)
+  // Tarih Seçenekleri (Gelecek 14 Günlük Takvim - Canlı Kapanış Kontrollü)
   const next14Days = useMemo(() => {
     if (!data) return [];
     const list: { dateStr: string; dayName: string; dayNum: number; monthName: string; isClosed: boolean; reason?: string }[] = [];
     const closedDays = data.settings?.closedDays || [0];
-    const today = new Date();
+    const now = new Date();
+    const closeH = data.settings?.closingTime || data.settings?.closeHour || '21:00';
+    const closeMin = timeToMinutes(closeH);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const isTodayPastClosing = nowMinutes >= closeMin - 30;
 
     for (let i = 0; i < 14; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
+      const d = new Date(now);
+      d.setDate(now.getDate() + i);
+      const dateStr = toLocalDateStr(d);
       const dayOfWeek = d.getDay();
-      const isClosed = closedDays.includes(dayOfWeek);
+      const isDayClosed = closedDays.includes(dayOfWeek);
+      const isTodayClosed = i === 0 && isTodayPastClosing;
 
       list.push({
         dateStr,
         dayName: i === 0 ? 'Bugün' : i === 1 ? 'Yarın' : DAYS_TR[dayOfWeek],
         dayNum: d.getDate(),
         monthName: MONTHS_TR[d.getMonth()],
-        isClosed,
-        reason: isClosed ? data.settings?.closedReason || 'Salon Kapalı' : undefined,
+        isClosed: isDayClosed || isTodayClosed,
+        reason: isTodayClosed
+          ? 'Bugünlük Kapanış Yapıldı (Yarına Randevu Alınız)'
+          : isDayClosed
+          ? (data.settings?.closedReason || 'Salon Kapalı')
+          : undefined,
       });
     }
     return list;
@@ -353,7 +379,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
 
       // Geçmiş saat kontrolü (Eğer seçilen gün bugünse)
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      const todayStr = toLocalDateStr(now);
       if (selectedDate === todayStr) {
         const currentMinutesNow = now.getHours() * 60 + now.getMinutes();
         if (m <= currentMinutesNow + 15) {
@@ -1044,12 +1070,14 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                     return (
                       <div
                         key={d.dateStr}
-                        className="p-3 rounded-2xl bg-stone-900/40 border border-stone-800/40 opacity-50 text-center shrink-0 w-20 flex flex-col items-center justify-center cursor-not-allowed"
+                        className="p-3 rounded-2xl bg-stone-900/40 border border-stone-800/40 opacity-50 text-center shrink-0 w-22 flex flex-col items-center justify-center cursor-not-allowed"
                         title={d.reason}
                       >
                         <span className="text-[10px] text-stone-500 font-bold uppercase">{d.dayName}</span>
                         <span className="text-lg font-black text-stone-500">{d.dayNum}</span>
-                        <span className="text-[9px] text-rose-400 font-bold mt-1">Kapalı</span>
+                        <span className="text-[9px] text-rose-400 font-bold mt-1">
+                          {d.dayName === 'Bugün' ? 'Kapanış' : 'Kapalı'}
+                        </span>
                       </div>
                     );
                   }
@@ -1059,15 +1087,18 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                       key={d.dateStr}
                       type="button"
                       onClick={() => setSelectedDate(d.dateStr)}
-                      className={`p-3 rounded-2xl border text-center shrink-0 w-20 flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      className={`p-3 rounded-2xl border text-center shrink-0 w-22 flex flex-col items-center justify-center transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-amber-500 text-stone-950 border-amber-500 font-bold shadow-lg shadow-amber-500/20 scale-102'
+                          ? 'bg-amber-500 text-stone-950 border-amber-500 font-bold shadow-lg shadow-amber-500/20 scale-102 ring-2 ring-amber-400/50'
                           : 'bg-stone-900 border-stone-800 text-stone-300 hover:border-stone-700'
                       }`}
                     >
-                      <span className={`text-[10px] uppercase font-bold ${isSelected ? 'text-stone-900' : 'text-stone-400'}`}>
-                        {d.dayName}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[10px] uppercase font-black ${isSelected ? 'text-stone-900' : 'text-stone-400'}`}>
+                          {d.dayName}
+                        </span>
+                        {d.dayName === 'Yarın' && <span className="text-[9px]">⭐</span>}
+                      </div>
                       <span className="text-xl font-black my-0.5">{d.dayNum}</span>
                       <span className={`text-[10px] font-medium ${isSelected ? 'text-stone-800' : 'text-stone-400'}`}>
                         {d.monthName}

@@ -92,6 +92,13 @@ function timeToMin(t: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   appointments = [],
   customers = [],
@@ -164,7 +171,19 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
   // Takvim Görünümü Seçicisi: 'grid' (Usta Sütunları) | 'calendar' (Aylık) | 'list' (Mobil Liste)
   const [viewMode, setViewMode] = useState<'grid' | 'calendar' | 'list'>('grid');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const now = new Date();
+    const todayStr = toLocalDateStr(now);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    // Eğer akşam saat 20:30+ veya 21:00 ise salon günü kapattığı için doğrudan yarına aç:
+    if (nowMinutes >= 20 * 60 + 30) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      return toLocalDateStr(tomorrow);
+    }
+    return todayStr;
+  });
+  const [targetDate, setTargetDate] = useState<string>(selectedDate);
   const [filterStaff, setFilterStaff] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
@@ -219,10 +238,8 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // CSV İçe Aktarma & Müşteri Arama
-  const [importStatus, setImportStatus] = useState<string | null>(null);
+  // Müşteri Arama
   const [customerSearch, setCustomerSearch] = useState('');
-  const [isCsvDrawerOpen, setIsCsvDrawerOpen] = useState(false);
 
   // Günün Randevuları
   const dayAppointments = useMemo(() => {
@@ -268,13 +285,62 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     });
   }, [staffList, appointments, selectedDate]);
 
-  // Boş slota tıklandığında randevu aç
-  const handleSlotClick = (timeStr: string, stId?: string) => {
-    setTargetTime(timeStr);
-    if (stId && stId !== 'all') {
-      setTargetStaffId(stId);
+  // Canlı Randevu Modalını Akıllı Başlangıçla Aç (Tarih ve Saat Canlı Kontrollü)
+  const openNewAppointmentModal = (
+    initialTime?: string,
+    initialStaffId?: string,
+    initialDate?: string,
+    initialCustName?: string,
+    initialCustPhone?: string
+  ) => {
+    const now = new Date();
+    const todayLocal = toLocalDateStr(now);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    const tomorrowLocal = toLocalDateStr(tomorrow);
+
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const closeMin = 21 * 60; // 21:00 kapanış
+
+    let defaultDate = initialDate || selectedDate || todayLocal;
+    let defaultTime = initialTime || '10:00';
+
+    if (!initialTime) {
+      if (defaultDate === todayLocal && nowMinutes >= closeMin - 30) {
+        // Bugün için artık randevu saati kalmadı, yarına yönlendir
+        defaultDate = tomorrowLocal;
+        defaultTime = '10:00';
+      } else if (defaultDate === todayLocal) {
+        // En yakın 15/30 dakikalık bir sonraki müsait saati hesapla
+        const nextMin = Math.ceil((nowMinutes + 15) / 30) * 30;
+        if (nextMin < closeMin && nextMin >= 9 * 60) {
+          const hh = Math.floor(nextMin / 60);
+          const mm = nextMin % 60;
+          defaultTime = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+        } else {
+          defaultDate = tomorrowLocal;
+          defaultTime = '10:00';
+        }
+      }
+    }
+
+    setTargetDate(defaultDate);
+    setTargetTime(defaultTime);
+    setCustName(initialCustName || '');
+    setCustPhone(initialCustPhone || '');
+    setCustEmail('');
+    setTargetNotes('');
+    if (initialStaffId && initialStaffId !== 'all') {
+      setTargetStaffId(initialStaffId);
+    } else {
+      setTargetStaffId('auto');
     }
     setIsNewModalOpen(true);
+  };
+
+  // Boş slota tıklandığında randevu aç
+  const handleSlotClick = (timeStr: string, stId?: string) => {
+    openNewAppointmentModal(timeStr, stId, selectedDate);
   };
 
   // Yeni Randevu Kaydet
@@ -283,6 +349,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     if (!custName.trim()) return;
 
     const assignedStaff = staffList.find((s) => s.id === targetStaffId);
+    const finalDate = targetDate || selectedDate;
 
     const aptData: Partial<Appointment> = {
       customerName: custName.trim(),
@@ -292,7 +359,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
       staffName: assignedStaff ? assignedStaff.name : 'Usta',
       serviceName: targetService || 'Saç Kesimi',
       price: targetPrice,
-      appointmentDate: selectedDate,
+      appointmentDate: finalDate,
       timeSlot: targetTime,
       durationMinutes: targetDuration,
       status: 'bekliyor',
@@ -301,6 +368,9 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     };
 
     await onAddAppointment(aptData);
+    if (finalDate !== selectedDate) {
+      setSelectedDate(finalDate);
+    }
     setIsNewModalOpen(false);
     setCustName('');
     setCustPhone('');
@@ -688,42 +758,6 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     setAiDetectedItems([]);
   };
 
-  // CSV Müşteri İçe Aktarma
-  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const text = evt.target?.result as string;
-        const lines = text.split(/\r?\n/).filter(Boolean);
-        const imported: { name: string; phone: string; notes?: string }[] = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(/[,;]/);
-          if (cols.length >= 2) {
-            const name = cols[0]?.trim();
-            const phone = cols[1]?.trim();
-            if (name && phone) {
-              imported.push({ name, phone, notes: cols[2]?.trim() });
-            }
-          }
-        }
-
-        if (imported.length > 0 && onImportCustomers) {
-          await onImportCustomers(imported);
-          setImportStatus(`${imported.length} müşteri başarıyla deftere aktarıldı!`);
-        } else {
-          setImportStatus('Dosya formatı okunamadı veya kayıt bulunamadı.');
-        }
-      } catch {
-        setImportStatus('CSV dosyası işlenirken hata oluştu.');
-      }
-    };
-    reader.readAsText(file);
-  };
-
   // Randevuyu Adisyona / Tahsilata Dönüştür
   const handleCompleteApt = async (method: 'nakit' | 'kart') => {
     if (!completingApt) return;
@@ -803,9 +837,385 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     window.open(`https://wa.me/90${phoneClean}?text=${text}`, '_blank');
   };
 
-  // Yazdırma
-  const handlePrint = () => {
-    window.print();
+  // QR Stand Kartı Yazdırma (A4 Formatında Tezgâh / Ayna Standı)
+  const handlePrintStand = () => {
+    const bookingUrl = `${window.location.origin}/r/${shopSlug}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
+      bookingUrl
+    )}`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="tr">
+        <head>
+          <meta charset="utf-8">
+          <title>${storeName} - Randevu Stand Kartı</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 12mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            body {
+              background: #ffffff;
+              color: #1c1917;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 96vh;
+              padding: 10px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .stand-container {
+              width: 100%;
+              max-width: 620px;
+              border: 3px solid #1c1917;
+              border-radius: 28px;
+              padding: 40px 32px 32px 32px;
+              text-align: center;
+              background: #ffffff;
+              position: relative;
+            }
+            .stand-badge {
+              display: inline-block;
+              background: #f59e0b;
+              color: #1c1917;
+              font-weight: 900;
+              font-size: 13px;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              padding: 8px 24px;
+              border-radius: 9999px;
+              margin-bottom: 20px;
+              border: 1px solid #d97706;
+            }
+            .stand-title {
+              font-size: 34px;
+              font-weight: 900;
+              color: #0c0a09;
+              letter-spacing: -0.5px;
+              margin-bottom: 8px;
+              line-height: 1.2;
+            }
+            .stand-subtitle {
+              font-size: 16px;
+              color: #57534e;
+              font-weight: 600;
+              margin-bottom: 24px;
+            }
+            .qr-box {
+              width: 250px;
+              height: 250px;
+              margin: 0 auto 24px auto;
+              padding: 14px;
+              border: 3px solid #f59e0b;
+              border-radius: 24px;
+              background: #ffffff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-box img {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+              display: block;
+            }
+            .cta-title {
+              font-size: 19px;
+              font-weight: 900;
+              color: #1c1917;
+              margin-bottom: 16px;
+              letter-spacing: -0.3px;
+            }
+            .steps-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr 1fr;
+              gap: 12px;
+              margin-bottom: 24px;
+              text-align: left;
+            }
+            .step-card {
+              background: #f8fafc;
+              border: 1.5px solid #e2e8f0;
+              border-radius: 16px;
+              padding: 14px 12px;
+            }
+            .step-num {
+              width: 26px;
+              height: 26px;
+              background: #f59e0b;
+              color: #1c1917;
+              font-weight: 900;
+              font-size: 13px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin-bottom: 8px;
+            }
+            .step-heading {
+              font-size: 12px;
+              font-weight: 800;
+              color: #0f172a;
+              margin-bottom: 4px;
+            }
+            .step-desc {
+              font-size: 11px;
+              font-weight: 600;
+              color: #64748b;
+              line-height: 1.35;
+            }
+            .link-box {
+              background: #fafaf9;
+              border: 1.5px dashed #cbd5e1;
+              border-radius: 14px;
+              padding: 12px 16px;
+              margin-bottom: 20px;
+            }
+            .link-label {
+              font-size: 10px;
+              color: #64748b;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-bottom: 3px;
+            }
+            .link-url {
+              font-size: 13px;
+              font-weight: 800;
+              color: #0284c7;
+              word-break: break-all;
+            }
+            .stand-footer {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 14px;
+              font-size: 11px;
+              font-weight: 700;
+              color: #94a3b8;
+            }
+            .cut-guide {
+              margin-top: 12px;
+              font-size: 10px;
+              font-weight: 600;
+              color: #94a3b8;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="stand-container">
+            <div class="stand-badge">💈 Hızlı Randevu Standı</div>
+            <h1 class="stand-title">${storeName}</h1>
+            <p class="stand-subtitle">Sıra beklemeden, telefonunuzdan saniyeler içinde randevu alın!</p>
+
+            <div class="qr-box">
+              <img id="qr-stand-image" src="${qrUrl}" alt="${storeName} Randevu QR Kodu" />
+            </div>
+
+            <div class="cta-title">📱 Telefonunuzun Kamerasını QR Koda Tutun</div>
+
+            <div class="steps-grid">
+              <div class="step-card">
+                <div class="step-num">1</div>
+                <div class="step-heading">Kamerayı Açın</div>
+                <div class="step-desc">Telefon kameranızı QR koda doğrultun ve çıkan bağlantıya dokunun.</div>
+              </div>
+              <div class="step-card">
+                <div class="step-num">2</div>
+                <div class="step-heading">Usta ve Saat Seçin</div>
+                <div class="step-desc">İstediğiniz ustayı, saç/sakal bakımını ve size uyan saati işaretleyin.</div>
+              </div>
+              <div class="step-card">
+                <div class="step-num">3</div>
+                <div class="step-heading">Randevunuz Onaylansın</div>
+                <div class="step-desc">Randevunuz anında sisteme kaydedilir ve SMS bildirimi gelir.</div>
+              </div>
+            </div>
+
+            <div class="link-box">
+              <div class="link-label">Doğrudan Randevu Linki</div>
+              <div class="link-url">${bookingUrl}</div>
+            </div>
+
+            <div class="stand-footer">
+              <span>✂️ Tezgâh, Ayna ve Kapı Giriş Standı</span>
+              <span>Dükkânım Yanımda © Akıllı Randevu</span>
+            </div>
+          </div>
+          <div class="cut-guide">
+            ✂️ Bu çıktıyı A4 şeffaf masaüstü veya ayna standına koyarak dükkânınızda müşterilerinizin kolayca görmesini sağlayabilirsiniz.
+          </div>
+        </body>
+      </html>
+    `;
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const img = doc.getElementById('qr-stand-image') as HTMLImageElement;
+    const triggerPrint = () => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (err) {
+          console.error('Yazdırma hatası:', err);
+        } finally {
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+          }, 3000);
+        }
+      }, 300);
+    };
+
+    if (img && !img.complete) {
+      img.onload = triggerPrint;
+      img.onerror = triggerPrint;
+    } else {
+      triggerPrint();
+    }
+  };
+
+  // Günlük Randevu Listesini Yazdırma
+  const handlePrintDailySchedule = () => {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    const rowsHtml = dayAppointments.length === 0
+      ? `<tr><td colspan="7" style="text-align:center; padding: 24px; color:#888;">Bu tarihte kayıtlı randevu bulunmuyor.</td></tr>`
+      : dayAppointments
+          .slice()
+          .sort((a, b) => timeToMin(a.timeSlot) - timeToMin(b.timeSlot))
+          .map(
+            (a) => `
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${a.timeSlot}</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${a.customerName}</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${a.phone || '-'}</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${a.staffName}</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${a.serviceName}</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${a.price} ₺</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-transform: capitalize;">${a.status}</td>
+            </tr>`
+          )
+          .join('');
+
+    const totalRevenue = dayAppointments
+      .filter((a) => a.status === 'tamamlandi' || a.status === 'onaylandi')
+      .reduce((sum, a) => sum + (a.price || 0), 0);
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="tr">
+        <head>
+          <meta charset="utf-8">
+          <title>${storeName} - Randevu Çizelgesi (${selectedDate})</title>
+          <style>
+            @page { size: A4 portrait; margin: 15mm; }
+            * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+            body { background: #fff; color: #1c1917; padding: 15px; }
+            .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .title { font-size: 22px; font-weight: 900; color: #0f172a; margin-bottom: 4px; }
+            .subtitle { font-size: 13px; color: #64748b; font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+            th { background: #f8fafc; padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1; font-weight: 800; color: #334155; }
+            .summary { margin-top: 15px; padding: 14px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+            .summary strong { color: #0f172a; font-weight: 800; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">💈 ${storeName}</div>
+              <div class="subtitle">Günlük Randevu Çizelgesi · Tarih: <strong>${selectedDate}</strong></div>
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; font-weight: 700;">Dükkânım Yanımda</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Saat</th>
+                <th>Müşteri</th>
+                <th>Telefon</th>
+                <th>Usta</th>
+                <th>Hizmet</th>
+                <th>Tutar</th>
+                <th>Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <div class="summary">
+            <div>Toplam Randevu: <strong>${dayAppointments.length} adet</strong></div>
+            <div>Tahmini / Tamamlanan Tutar: <strong>${totalRevenue.toLocaleString('tr-TR')} ₺</strong></div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error('Yazdırma hatası:', err);
+      } finally {
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 3000);
+      }
+    }, 250);
   };
 
   // Excel / CSV Dışa Aktarma
@@ -993,10 +1403,33 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-                  className="px-3 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold cursor-pointer shrink-0 transition-colors"
+                  onClick={() => setSelectedDate(toLocalDateStr(new Date()))}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer shrink-0 transition-colors ${
+                    selectedDate === toLocalDateStr(new Date())
+                      ? 'bg-orange-600 text-white shadow-xs'
+                      : 'bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300'
+                  }`}
                 >
                   Bugün
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tom = new Date();
+                    tom.setDate(tom.getDate() + 1);
+                    setSelectedDate(toLocalDateStr(tom));
+                  }}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer shrink-0 transition-colors ${
+                    (() => {
+                      const tom = new Date();
+                      tom.setDate(tom.getDate() + 1);
+                      return selectedDate === toLocalDateStr(tom);
+                    })()
+                      ? 'bg-orange-600 text-white shadow-xs'
+                      : 'bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300'
+                  }`}
+                >
+                  Yarın ⭐
                 </button>
               </div>
 
@@ -1051,7 +1484,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={handlePrint}
+                  onClick={handlePrintDailySchedule}
                   className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition-colors cursor-pointer shrink-0"
                   title="Yazdır"
                 >
@@ -1073,10 +1506,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => {
-                  setTargetTime('12:00');
-                  setIsNewModalOpen(true);
-                }}
+                onClick={() => openNewAppointmentModal()}
                 className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-orange-600/20 active:scale-95 transition-all"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
@@ -1451,64 +1881,14 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsCsvDrawerOpen(!isCsvDrawerOpen)}
-                className="px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-colors"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                <span>{isCsvDrawerOpen ? 'CSV Kutusunu Kapat' : 'Excel / CSV İçe Aktar'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setTargetTime('12:00');
-                  setCustName('');
-                  setCustPhone('');
-                  setIsNewModalOpen(true);
-                }}
-                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-orange-600/20"
+                onClick={() => openNewAppointmentModal()}
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-orange-600/20 active:scale-95 transition-all"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>Yeni Randevu Yaz</span>
               </button>
             </div>
           </div>
-
-          {/* CSV İçe Aktarma Kutusu (Açılır/Kapanır) */}
-          {isCsvDrawerOpen && (
-            <div className="bg-stone-50 dark:bg-stone-800/40 border-2 border-dashed border-stone-300 dark:border-stone-700 rounded-3xl p-6 text-center space-y-4 animate-in fade-in">
-              <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center mx-auto">
-                <Upload className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-stone-900 dark:text-white">Müşteri Rehberini Toplu Aktar</h3>
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                  CSV formatında Ad Soyad, Telefon ve Not içeren dosyanızı yükleyin.
-                </p>
-              </div>
-              <div>
-                <input
-                  type="file"
-                  id="csvFileInput"
-                  accept=".csv,.txt"
-                  onChange={handleCsvUpload}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="csvFileInput"
-                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-2 shadow-md shadow-orange-600/20"
-                >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  <span>Dosya Seç (.CSV)</span>
-                </label>
-              </div>
-              {importStatus && (
-                <div className="p-3 max-w-md mx-auto rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
-                  {importStatus}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Müşteri Arama & Özet */}
           <div className="flex items-center justify-between gap-3">
@@ -1540,11 +1920,11 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsCsvDrawerOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-1.5"
+                  onClick={() => openNewAppointmentModal()}
+                  className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-orange-600/20"
                 >
-                  <Upload className="w-4 h-4" />
-                  <span>Rehberi / CSV Yükle</span>
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>İlk Randevuyu Yaz</span>
                 </button>
               </div>
             </div>
@@ -1610,12 +1990,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                             <td className="p-3.5 text-right">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setCustName(c.name);
-                                  setCustPhone(c.phone || '');
-                                  setTargetTime('12:00');
-                                  setIsNewModalOpen(true);
-                                }}
+                                onClick={() => openNewAppointmentModal(undefined, undefined, undefined, c.name, c.phone || '')}
                                 className="px-3 py-1.5 rounded-xl bg-orange-50 dark:bg-orange-950/50 hover:bg-orange-100 text-orange-600 dark:text-orange-400 font-bold text-xs cursor-pointer inline-flex items-center gap-1 transition-colors"
                               >
                                 <Calendar className="w-3.5 h-3.5" />
@@ -1729,7 +2104,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
             <button
               type="button"
-              onClick={handlePrint}
+              onClick={handlePrintStand}
               className="px-6 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-amber-500/20"
             >
               <Printer className="w-4 h-4" />
@@ -1954,6 +2329,53 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 </div>
               </div>
 
+              {/* Randevu Günü Seçimi */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 dark:text-stone-300 mb-1 flex items-center justify-between">
+                  <span>Randevu Tarihi *</span>
+                  <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold">Canlı Takvim</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTargetDate(toLocalDateStr(new Date()))}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                      targetDate === toLocalDateStr(new Date())
+                        ? 'bg-orange-600 text-white shadow-xs'
+                        : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
+                    }`}
+                  >
+                    Bugün
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tom = new Date();
+                      tom.setDate(tom.getDate() + 1);
+                      setTargetDate(toLocalDateStr(tom));
+                    }}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                      (() => {
+                        const tom = new Date();
+                        tom.setDate(tom.getDate() + 1);
+                        return targetDate === toLocalDateStr(tom);
+                      })()
+                        ? 'bg-orange-600 text-white shadow-xs'
+                        : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
+                    }`}
+                  >
+                    Yarın ⭐
+                  </button>
+                  <input
+                    type="date"
+                    min={toLocalDateStr(new Date())}
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 dark:text-stone-300 mb-1">
@@ -1964,11 +2386,19 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                     onChange={(e) => setTargetTime(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm text-stone-900 dark:text-white font-semibold"
                   >
-                    {HOURS.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
+                    {HOURS.map((h) => {
+                      const now = new Date();
+                      const todayStr = toLocalDateStr(now);
+                      const isToday = targetDate === todayStr;
+                      const hMin = timeToMin(h);
+                      const nowMin = now.getHours() * 60 + now.getMinutes();
+                      const isPast = isToday && hMin <= nowMin;
+                      return (
+                        <option key={h} value={h} disabled={isPast}>
+                          {h} {isPast ? '(Geçti)' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 

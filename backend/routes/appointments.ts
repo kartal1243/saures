@@ -325,6 +325,23 @@ export function registerPublicBarberRoutes(app: Express): void {
     if (!date || !timeSlot) {
       return res.status(400).json({ error: 'Lütfen randevu tarihi ve saati seçiniz.' });
     }
+
+    // Canlı Gerçek Zamanlama Doğrulaması: Geçmiş gün ve saatlere randevu engeli
+    // (Örn: Bugün 2 Kasım akşamı ise artık geçmiş saatlere randevu alınamaz, yarın seçilmelidir)
+    const now = new Date();
+    const trDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' });
+    const todayTrStr = trDateFormatter.format(now);
+    const trTimeFormatter = new Intl.DateTimeFormat('tr-TR', { timeZone: 'Europe/Istanbul', hour: '2-digit', minute: '2-digit', hour12: false });
+    const [nowHour, nowMin] = trTimeFormatter.format(now).split(':').map(Number);
+    const nowMinutesTr = (nowHour || 0) * 60 + (nowMin || 0);
+    const reqSlotMinutes = timeToMinutes(timeSlot);
+
+    if (date < todayTrStr) {
+      return res.status(400).json({ error: 'Geçmiş bir tarihe randevu alınamaz. Lütfen yarın veya sonraki günleri seçiniz.' });
+    }
+    if (date === todayTrStr && reqSlotMinutes <= nowMinutesTr + 10) {
+      return res.status(400).json({ error: 'Bugün için seçtiğiniz saat geçmişte kalmıştır. Lütfen güncel veya yarınki saatleri seçiniz.' });
+    }
     if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
       return res.status(400).json({ error: 'En az bir hizmet seçmelisiniz.' });
     }
@@ -515,7 +532,6 @@ export function registerPublicBarberRoutes(app: Express): void {
       discountNote = matchingDiscount.label || `%${matchingDiscount.discountPercent} İndirimli Slot`;
     }
 
-    const now = new Date();
     const newAppointment: Appointment = {
       id: `apt_pub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       customerName: customerName.trim(),
