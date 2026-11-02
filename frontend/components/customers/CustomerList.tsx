@@ -67,7 +67,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                   </span>
                 </p>
                 <p className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">
-                  Sınırı kaldırın, veresiyeleri tek tıkla toplayın ve dükkanınıza özel yazılımcı kiralayın (Günde sadece 16 ₺).
+                  Sınırı kaldırın, veresiyeleri tek tıkla toplayın ve işletmenize özel yazılım desteği edinin.
                 </p>
               </div>
             </div>
@@ -78,7 +78,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                 className="shrink-0 px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                VIP'ye Yükselt (₺500/Ay)
+                VIP Paketlerini İncele (₺249'dan Başlayan)
               </button>
             )}
           </div>

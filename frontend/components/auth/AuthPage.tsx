@@ -32,13 +32,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (!cleanPhone.startsWith('05') || cleanPhone.length !== 11) {
+      setError('Lütfen 05 ile başlayan 11 haneli geçerli bir cep telefonu numarası giriniz (Örn: 05XXXXXXXXX). Harf veya eksik numara kabul edilmez.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Şifreniz en az 6 karakter olmalıdır.');
+      return;
+    }
+
     setLoading(true);
     try {
       const url = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
       const body =
         mode === 'login'
-          ? { phone, password }
-          : { shopName, ownerName, phone, email, password };
+          ? { phone: cleanPhone, password }
+          : { shopName, ownerName, phone: cleanPhone, email, password };
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -342,12 +353,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                   <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="tel"
+                    inputMode="numeric"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
+                      setPhone(clean);
+                    }}
                     required
+                    maxLength={11}
                     autoComplete="tel"
                     placeholder="05XXXXXXXXX"
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                    pattern="05[0-9]{9}"
+                    title="05 ile başlayan 11 haneli cep telefonu numarası (Örn: 05XXXXXXXXX)"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all font-mono"
                   />
                 </div>
               </div>

@@ -5,13 +5,22 @@ import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
 import { localDay } from '../day';
 import { getTierLimits } from './profile';
+import { isValidTurkishPhone, normalizePhone } from '../accounts';
 
 export function registerCustomerRoutes(app: Express): void {
   app.post('/api/customers', (req: Request, res: Response) => {
-    const data = req.body;
+    const data = req.body || {};
     if (!data.name || !data.phone) {
       return res.status(400).json({ error: 'Müşteri adı ve telefon numarası zorunludur.' });
     }
+
+    const rawPhone = String(data.phone || '');
+    if (!isValidTurkishPhone(rawPhone)) {
+      return res.status(400).json({
+        error: 'Geçersiz müşteri telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz (harf veya sahte numara kabul edilmez).'
+      });
+    }
+    const cleanPhone = normalizePhone(rawPhone);
 
     let customer: Customer;
     const now = new Date().toISOString();
@@ -25,6 +34,8 @@ export function registerCustomerRoutes(app: Express): void {
       customer = {
         ...S().customers[index],
         ...data,
+        name: String(data.name).trim(),
+        phone: cleanPhone,
         updatedAt: now,
       };
       S().customers[index] = customer;
@@ -45,7 +56,7 @@ export function registerCustomerRoutes(app: Express): void {
       customer = {
         id: `cust_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
         name: data.name.trim(),
-        phone: data.phone.trim(),
+        phone: cleanPhone,
         businessCategory: data.businessCategory || 'bakkal_market',
         balance: Number(data.initialBalance || 0),
         notes: data.notes || '',

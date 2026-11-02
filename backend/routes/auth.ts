@@ -10,6 +10,7 @@ import {
   tokenFromRequest,
   accountFromRequest,
   sessionCookie,
+  destroySessionCookie,
   hashPassword,
   verifyPassword,
   publicAccount,
@@ -22,6 +23,7 @@ import {
   clientIp,
   logAuthEvent,
   normalizePhone,
+  isValidTurkishPhone,
   type Account,
 } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
@@ -53,8 +55,17 @@ export function registerAuthRoutes(app: Express): void {
     const phone = normalizePhone(String(body.phone || ''));
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
-    if (!shopName || !ownerName || !phone || phone.length < 10 || password.length < 6) {
-      return res.status(400).json({ error: 'Dükkan adı, yetkili adı, geçerli telefon (05XXXXXXXXX) ve en az 6 haneli şifre gereklidir.' });
+
+    if (!shopName || !ownerName || !phone) {
+      return res.status(400).json({ error: 'Dükkan adı, yetkili adı ve telefon numarası zorunludur.' });
+    }
+    if (!isValidTurkishPhone(phone)) {
+      return res.status(400).json({
+        error: 'Geçersiz telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye cep telefonu giriniz (harf veya sahte numara kabul edilmez).'
+      });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Şifreniz en az 6 karakter olmalıdır.' });
     }
     if (findAccountByPhone(phone)) {
       return res.status(409).json({ error: 'Bu telefon ile kayıtlı bir hesap var. Giriş yapmayı deneyin.' });
@@ -111,8 +122,15 @@ export function registerAuthRoutes(app: Express): void {
 
   app.post('/api/auth/login', (req: Request, res: Response) => {
     const body = req.body || {};
-    const phone = normalizePhone(String(body.phone || ''));
+    const rawPhone = String(body.phone || '');
+    const phone = normalizePhone(rawPhone);
     const password = String(body.password || '');
+
+    if (!isValidTurkishPhone(rawPhone)) {
+      return res.status(400).json({
+        error: 'Geçersiz telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye cep telefonu giriniz (harf veya sahte numara kabul edilmez).'
+      });
+    }
 
     if (phone === DEMO_PHONE) {
       ensureDemoAccount();
@@ -155,7 +173,7 @@ export function registerAuthRoutes(app: Express): void {
     if (token) {
       removeSessionByToken(token);
     }
-    res.setHeader('Set-Cookie', 'sid=; HttpOnly; Path=/; Max-Age=0');
+    res.setHeader('Set-Cookie', destroySessionCookie());
     res.json({ success: true });
   });
 
@@ -201,10 +219,23 @@ export function registerAuthRoutes(app: Express): void {
       });
     }
     const body = req.body || {};
-    const phone = String(body.phone || '').replace(/\s+/g, '');
+    const rawPhone = String(body.phone || '');
+    const phone = normalizePhone(rawPhone);
     const name = String(body.name || '').trim();
     if (!name) {
-      return res.status(400).json({ error: 'Personel adi gerekli.' });
+      return res.status(400).json({ error: 'Personel adı zorunludur.' });
+    }
+    if (!isValidTurkishPhone(rawPhone)) {
+      return res.status(400).json({
+        error: 'Geçersiz personel telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz (harf veya sahte numara kabul edilmez).'
+      });
+    }
+    // Aynı telefona sahip personel var mı?
+    const dupePhone = getAccounts().find(
+      (a) => a.parentAccountId === owner.id && normalizePhone(a.phone) === phone
+    );
+    if (dupePhone) {
+      return res.status(409).json({ error: 'Bu telefon numarasına sahip bir personel zaten kayıtlı.' });
     }
     // Ayni isimde kayit var mi?
     const dupe = getAccounts().find(
@@ -217,7 +248,7 @@ export function registerAuthRoutes(app: Express): void {
       id: 'acc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       shopName: owner.shopName,
       ownerName: name,
-      phone: phone || `tel_${Date.now().toString(36)}`,
+      phone,
       passwordHash: '',
       createdAt: new Date().toISOString(),
       role: 'cashier',

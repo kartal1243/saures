@@ -12,6 +12,9 @@ import {
   getAuthEvents,
   logAuthEvent,
   isLoginLocked,
+  getRecentActiveSessions,
+  isAccountRecentlyActive,
+  detectDeviceAndBrowser,
 } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
 import {
@@ -23,8 +26,13 @@ import {
 import { readJsonFile, writeJsonFile } from '../fsdb';
 import { rateLimit } from '../guards';
 import { getCustomPanelLeads, saveCustomPanelLeads } from './vip';
+import {
+  getConnectedAccounts,
+  getRecentLiveActivities,
+  getLiveMetrics,
+} from '../realtime';
 
-// Admin oturumu dukkan oturumunden ayridir (ayri cookie: aid, 12 saat).
+// Admin oturumu dukkan oturumundan ayridir (ayri cookie: aid, 12 saat).
 // Sifre .env'deki ADMIN_PASSWORD'dur; tanimli degilse admin girisi kapali kalir.
 interface AdminSession {
   token: string;
@@ -41,7 +49,7 @@ function persistAdminSessions(): void {
 }
 
 function adminTokenFromRequest(req: Request): string | null {
-  const header = req.headers.cookie || '';
+  const header = (req.headers && req.headers.cookie) || '';
   const match = header.match(/(?:^|;\s*)aid=([a-f0-9]+)/);
   return match ? match[1] : null;
 }
@@ -83,7 +91,7 @@ function adminCookie(token: string): string {
   );
 }
 
-// Sunucu log dosyalari (salt-okunur). couple-meeting loglarina DOKUNULMAZ.
+// Sunucu log dosyalari (salt-okunur).
 const LOG_FILES: Record<string, string> = {
   nginx: '/var/log/nginx/access.log',
   app: '/root/.pm2/logs/dukkanim-out.log',
@@ -99,7 +107,7 @@ function tailFile(file: string, lines: number): string[] {
 }
 
 export function registerAdminRoutes(app: Express): void {
-  // Admin girisi (hiz limitli). NOT: bu route apiGuard'dan ONCE kaydedilir.
+  // Admin girisi (hiz limitli).
   app.post('/api/admin/login', rateLimit, (req: Request, res: Response) => {
     if (!ADMIN_PASSWORD) {
       return res.status(503).json({ error: 'Admin girisi henuz tanimlanmamis.' });
@@ -135,9 +143,13 @@ export function registerAdminRoutes(app: Express): void {
     res.json({ admin: true });
   });
 
-  // Tum dukkanlar: iletisim + IP + kullanim detayi. Sifre ozeti ASLA disari cikmaz.
+  // Tum dukkanlar: iletisim + anlik baglanti durumu + IP + kullanim detayi
   app.get('/api/admin/shops', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
+
+    const wsAccounts = getConnectedAccounts();
+    const wsIds = new Set(wsAccounts.map((w) => w.accountId));
+
     const shops = getAccounts()
       .filter((a) => (a.role || 'owner') === 'owner')
       .map((a) => {
@@ -149,6 +161,15 @@ export function registerAdminRoutes(app: Express): void {
           dataKB = 0;
         }
         const staff = getAccounts().filter((s) => s.parentAccountId === a.id);
+        const isWsConnected = wsIds.has(a.id);
+        const isRecentActive = isAccountRecentlyActive(a.id, 5 * 60 * 1000);
+
+        let liveStatus: 'live_ws' | 'recent_active' | 'offline' = 'offline';
+        if (isWsConnected) liveStatus = 'live_ws';
+        else if (isRecentActive) liveStatus = 'recent_active';
+
+        const wsInfo = wsAccounts.find((w) => w.accountId === a.id);
+
         return {
           id: a.id,
           shopName: a.shopName,
@@ -161,7 +182,14 @@ export function registerAdminRoutes(app: Express): void {
           loginCount: a.loginCount || 0,
           loginHistory: (a.loginHistory || []).slice(0, 10),
           activeSessions: countActiveSessions(a.id),
+          // Canlı Bağlantı Bilgisi (Gerçek WS + Son 5 dk aktiflik)
+          isWsConnected,
+          isRecentActive,
+          liveStatus,
+          liveDevice: wsInfo?.deviceType || null,
+          liveBrowser: wsInfo?.browserInfo || null,
           isVip: Boolean(st.shopProfile?.isVip),
+          vipTier: st.shopProfile?.vipTier || null,
           vipPlan: st.shopProfile?.vipPlan || null,
           vipUntil: st.shopProfile?.vipUntil || null,
           sector: st.shopProfile?.businessField || null,
@@ -186,7 +214,13 @@ export function registerAdminRoutes(app: Express): void {
           lastUpdated: st.lastUpdated || null,
         };
       })
-      .sort((x, y) => y.createdAt.localeCompare(x.createdAt));
+      .sort((x, y) => {
+        // Canlı olanlar en başta listelensin
+        if (x.liveStatus !== 'offline' && y.liveStatus === 'offline') return -1;
+        if (x.liveStatus === 'offline' && y.liveStatus !== 'offline') return 1;
+        return y.createdAt.localeCompare(x.createdAt);
+      });
+
     res.json({ shops, total: shops.length });
   });
 
@@ -197,19 +231,137 @@ export function registerAdminRoutes(app: Express): void {
     res.json({ events: getAuthEvents(limit) });
   });
 
-  // Gosterge paneli: tek istekte tum ozet (kartlar + 7 gunluk grafik + son kayit/giris)
+  // Canlı Takip Akışı ve Canlı Ziyaretçiler Endpoint'i
+  app.get('/api/admin/live-stream', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+
+    const wsConnected = getConnectedAccounts();
+    const recentHeartbeats = getRecentActiveSessions(5 * 60 * 1000);
+    const wsShopIds = new Set(wsConnected.map((s) => s.accountId));
+    const recentShopIds = new Set(recentHeartbeats.map((h) => h.accountId));
+    const allLiveShopIds = new Set([...wsShopIds, ...recentShopIds]);
+
+    const visitors = Array.from(allLiveShopIds).map((accId) => {
+      const acc = findAccountById(accId);
+      const ws = wsConnected.find((w) => w.accountId === accId);
+      const hb = recentHeartbeats.find((h) => h.accountId === accId);
+      return {
+        accountId: accId,
+        shopName: acc?.shopName || 'Bilinmeyen Dükkan',
+        ownerName: acc?.ownerName || 'Bilinmiyor',
+        phone: acc?.phone || '',
+        ip: ws?.ip || hb?.ip || acc?.lastLoginIp || 'unknown',
+        deviceType: ws?.deviceType || hb?.deviceType || 'desktop',
+        browserInfo: ws?.browserInfo || hb?.browserInfo || 'Bilinmiyor',
+        connectedAt: ws?.connectedAt || hb?.lastSeenAt || acc?.lastLoginAt || new Date().toISOString(),
+        isWs: Boolean(ws),
+        isRecent: Boolean(hb),
+      };
+    }).sort((a, b) => b.connectedAt.localeCompare(a.connectedAt));
+
+    res.json({
+      activities: getRecentLiveActivities(50),
+      liveStats: getLiveMetrics(),
+      visitors,
+      onlineCount: allLiveShopIds.size,
+      wsCount: wsConnected.length,
+      recentCount: recentHeartbeats.length,
+    });
+  });
+
+  // Gösterge paneli: Tek istekte tüm özet + GERÇEK CANLI KULLANICI SAYILARI
   app.get('/api/admin/overview', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
     const owners = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
+
     let customers = 0;
     let transactions = 0;
-    let online = 0;
+
+    // Büyüme & Dönüşüm Hunisi (Funnel) Metrikleri
+    let configuredShops = 0;
+    let firstTransactionShops = 0;
+    let activeLast7DaysShops = 0;
+    let trialVipShops = 0;
+    let paidVipShops = 0;
+    let ustaVipCount = 0;
+    let patronVipCount = 0;
+    let cirakCount = 0;
+
+    const sevenDaysAgoMs = Date.now() - 7 * 86400000;
+
     for (const o of owners) {
       const st = loadShopState(o.id);
       customers += st.customers.length;
       transactions += st.transactions.length;
-      online += countActiveSessions(o.id);
+
+      // 1. Kurulumu tamamlayan dükkan
+      const isConf = Boolean(st.shopProfile?.isConfigured || (st.shopProfile?.storeName && st.shopProfile?.businessField));
+      if (isConf) configuredShops++;
+
+      // 2. İlk işlemini giren dükkan
+      if (st.transactions.length > 0) firstTransactionShops++;
+
+      // 3. Son 7 günde 3+ işlem giren dükkan (North Star)
+      const recentTxs = st.transactions.filter((tx) => {
+        const t = new Date(tx.date || tx.createdAt).getTime();
+        return !isNaN(t) && t >= sevenDaysAgoMs;
+      });
+      if (recentTxs.length >= 3) activeLast7DaysShops++;
+
+      // 4. VIP Seviyeleri ve Dönüşüm
+      const isVipActive = Boolean(st.shopProfile?.isVip && (!st.shopProfile.vipUntil || new Date(st.shopProfile.vipUntil).getTime() > Date.now()));
+      const plan = st.shopProfile?.vipPlan;
+      const tier = st.shopProfile?.vipTier;
+
+      if (isVipActive) {
+        if (plan === 'deneme_14_gun' || plan === '14_gun_deneme') {
+          trialVipShops++;
+        } else if (tier === 'usta' || tier === 'patron') {
+          paidVipShops++;
+          if (tier === 'usta') ustaVipCount++;
+          if (tier === 'patron') patronVipCount++;
+        } else {
+          paidVipShops++;
+          patronVipCount++;
+        }
+      } else {
+        cirakCount++;
+      }
     }
+
+    // Gerçek Anlık Canlı Ziyaretçiler Hesabı (WebSocket bağlı + son 5 dk aktifler)
+    const wsConnectedShops = getConnectedAccounts();
+    const wsShopIds = new Set(wsConnectedShops.map((s) => s.accountId));
+    const recentHeartbeats = getRecentActiveSessions(5 * 60 * 1000);
+    const recentShopIds = new Set(recentHeartbeats.map((h) => h.accountId));
+    const allLiveShopIds = new Set([...wsShopIds, ...recentShopIds]);
+    const online = allLiveShopIds.size;
+
+    // Canlı Ziyaretçi Tablosu: Kim, nereden, hangi cihazla, ne zaman girdi?
+    const liveVisitors = Array.from(allLiveShopIds).map((accId) => {
+      const acc = findAccountById(accId);
+      const wsInfo = wsConnectedShops.find((w) => w.accountId === accId);
+      const hbInfo = recentHeartbeats.find((h) => h.accountId === accId);
+
+      const ip = wsInfo?.ip || hbInfo?.ip || acc?.lastLoginIp || 'unknown';
+      const deviceType = wsInfo?.deviceType || hbInfo?.deviceType || 'desktop';
+      const browserInfo = wsInfo?.browserInfo || hbInfo?.browserInfo || 'Bilinmiyor';
+      const connectedAt = wsInfo?.connectedAt || hbInfo?.lastSeenAt || acc?.lastLoginAt || new Date().toISOString();
+      const connectionType = wsInfo ? 'websocket' : 'http_recent';
+
+      return {
+        accountId: accId,
+        shopName: acc?.shopName || 'Bilinmeyen Dükkan',
+        ownerName: acc?.ownerName || 'Bilinmiyor',
+        phone: acc?.phone || '',
+        ip,
+        deviceType,
+        browserInfo,
+        connectedAt,
+        connectionType,
+      };
+    }).sort((a, b) => b.connectedAt.localeCompare(a.connectedAt));
+
     const events = getAuthEvents(500);
     const today = new Date().toISOString().slice(0, 10);
     const ipSet = new Set<string>();
@@ -218,6 +370,8 @@ export function registerAdminRoutes(app: Express): void {
       if (o.createdIp && o.createdIp !== 'unknown') ipSet.add(o.createdIp);
       if (o.lastLoginIp && o.lastLoginIp !== 'unknown') ipSet.add(o.lastLoginIp);
     }
+    for (const v of liveVisitors) if (v.ip && v.ip !== 'unknown') ipSet.add(v.ip);
+
     const week: { day: string; label: string; registers: number; logins: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000);
@@ -229,6 +383,7 @@ export function registerAdminRoutes(app: Express): void {
         logins: events.filter((e) => e.type === 'login_ok' && e.at.slice(0, 10) === day).length,
       });
     }
+
     const recentRegisters = owners
       .slice()
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -240,6 +395,7 @@ export function registerAdminRoutes(app: Express): void {
         createdAt: o.createdAt,
         createdIp: o.createdIp || null,
       }));
+
     const phoneToShop = new Map(owners.map((o) => [o.phone, o.shopName]));
     const recentLogins = events
       .filter((e) => e.type === 'login_ok')
@@ -250,15 +406,33 @@ export function registerAdminRoutes(app: Express): void {
         ip: e.ip,
         at: e.at,
       }));
+
     const failedToday = events.filter(
       (e) => (e.type === 'login_fail' || e.type === 'locked') && e.at.slice(0, 10) === today
     ).length;
     const lockedPhones = owners.filter((o) => isLoginLocked(o.phone) > 0).map((o) => o.phone);
+
     res.json({
       shops: owners.length,
-      online,
+      online, // Gerçek canlı tekil dükkan sayısı
+      wsOnline: wsConnectedShops.length,
+      recentOnline: recentHeartbeats.length,
+      liveVisitors, // Gerçek canlı ziyaretçilerin cihaz ve IP tablosu
+      liveActivities: getRecentLiveActivities(20), // Canlı hareket akışı
       customers,
       transactions,
+      // Büyüme & Dönüşüm Hunisi (Funnel)
+      funnel: {
+        totalShops: owners.length,
+        configuredShops,
+        firstTransactionShops,
+        activeLast7DaysShops,
+        trialVipShops,
+        paidVipShops,
+        ustaVipCount,
+        patronVipCount,
+        cirakCount,
+      },
       eventsTotal: events.length,
       eventsToday: events.filter((e) => e.at.slice(0, 10) === today).length,
       failedToday,
@@ -271,7 +445,131 @@ export function registerAdminRoutes(app: Express): void {
     });
   });
 
-  // Dükkan oturumlarını kapat (şüpheli durumda uzaktan at). Personel dahil.
+  // Dükkan İçi Detaylı Canlı Röntgensel İnceleme (Live Snapshot Modal)
+  app.get('/api/admin/shops/:id/live-snapshot', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const acc = findAccountById(req.params.id);
+    if (!acc) return res.status(404).json({ error: 'Dükkan bulunamadı.' });
+
+    const st = loadShopState(acc.id);
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // Canlı bağlantı durumu
+    const wsConnected = getConnectedAccounts().find((w) => w.accountId === acc.id);
+    const isRecent = isAccountRecentlyActive(acc.id, 5 * 60 * 1000);
+
+    // Bugünkü İşlemler
+    const todayTxs = (st.transactions || []).filter((tx) => (tx.date || tx.createdAt || '').slice(0, 10) === todayStr);
+    const todaySales = todayTxs.filter((tx) => tx.type === 'tahsilat');
+    const todayIncomeTotal = todaySales.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    const todayExpenseTotal = todayTxs.filter((tx) => tx.type === 'gider' || tx.type === 'masraf').reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+
+    // Ödeme yöntemi kırılımı
+    const cashTotal = todaySales.filter((t) => t.paymentMethod === 'nakit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    const cardTotal = todaySales.filter((t) => t.paymentMethod === 'kart').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    const creditTotal = todayTxs.filter((t) => t.paymentMethod === 'veresiye' || t.type === 'veresiye').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+    // Masalar (Restoran / Kafe sektörü)
+    const tables = st.tables || [];
+    const occupiedTables = tables.filter((t) => t.isOccupied || (t.orders && t.orders.length > 0));
+    const tablesOpenTotal = occupiedTables.reduce((sum, t) => sum + (Number((t as any).totalAmount) || 0), 0);
+
+    // Randevular (Berber / Kuaför sektörü)
+    const appointments = st.appointments || [];
+    const todayAppointments = appointments.filter((a) => (a.appointmentDate || (a as any).date || '').slice(0, 10) === todayStr);
+
+    // Tamir fişleri (Teknik Servis)
+    const repairTickets = st.repairTickets || [];
+    const activeRepairs = repairTickets.filter((r) => r.status !== 'teslim_edildi');
+
+    // Müşteriler & Borçlar
+    const customers = st.customers || [];
+    const debtCustomers = customers.filter((c) => (c.balance || 0) < 0);
+    const totalReceivable = Math.abs(debtCustomers.reduce((sum, c) => sum + (c.balance || 0), 0));
+
+    // Kasa hesaplaması
+    let totalCashRegister = 0;
+    try {
+      const { calculateCashRegister } = require('../cash');
+      const cashObj = calculateCashRegister();
+      totalCashRegister = cashObj?.currentBalance || 0;
+    } catch {
+      totalCashRegister = todayIncomeTotal - todayExpenseTotal;
+    }
+
+    res.json({
+      shop: {
+        id: acc.id,
+        shopName: acc.shopName,
+        ownerName: acc.ownerName,
+        phone: acc.phone,
+        createdAt: acc.createdAt,
+        isVip: Boolean(st.shopProfile?.isVip),
+        vipTier: st.shopProfile?.vipTier || 'cirak',
+        vipPlan: st.shopProfile?.vipPlan || null,
+        vipUntil: st.shopProfile?.vipUntil || null,
+        businessField: st.shopProfile?.businessField || 'Genel',
+        cityDistrict: st.shopProfile?.cityDistrict || '',
+      },
+      liveStatus: {
+        isWsConnected: Boolean(wsConnected),
+        isRecentActive: isRecent,
+        status: wsConnected ? 'online_ws' : isRecent ? 'online_http' : 'offline',
+        ip: wsConnected?.ip || acc.lastLoginIp || 'unknown',
+        deviceType: wsConnected?.deviceType || 'desktop',
+        browserInfo: wsConnected?.browserInfo || 'Bilinmiyor',
+        connectedAt: wsConnected?.connectedAt || acc.lastLoginAt || null,
+      },
+      finance: {
+        todayIncomeTotal,
+        todayExpenseTotal,
+        netTotal: todayIncomeTotal - todayExpenseTotal,
+        txCount: todayTxs.length,
+        cashTotal,
+        cardTotal,
+        creditTotal,
+        totalCashRegister,
+        recentTransactions: todayTxs.slice(-8).reverse(),
+      },
+      tables: {
+        total: tables.length,
+        occupiedCount: occupiedTables.length,
+        tablesOpenTotal,
+        occupiedList: occupiedTables.map((t) => ({
+          id: t.id,
+          name: t.name,
+          orderCount: t.orders?.length || 0,
+          totalAmount: (t as any).totalAmount || 0,
+          openedAt: (t as any).openedAt || null,
+        })),
+      },
+      appointments: {
+        totalToday: todayAppointments.length,
+        list: todayAppointments.slice(0, 10).map((a) => ({
+          id: a.id,
+          time: a.timeSlot || (a as any).time || '—',
+          customerName: a.customerName,
+          serviceName: a.serviceName,
+          price: a.price,
+          status: a.status,
+        })),
+      },
+      repairTickets: {
+        totalActive: activeRepairs.length,
+        list: activeRepairs.slice(0, 5),
+      },
+      customers: {
+        total: customers.length,
+        debtCount: debtCustomers.length,
+        totalReceivable,
+      },
+      products: {
+        total: (st.products || []).length,
+      },
+    });
+  });
+
+  // Dükkan oturumlarını kapat (uzaktan at)
   app.post('/api/admin/shops/:id/kick', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
     const acc = findAccountById(req.params.id);
@@ -284,13 +582,13 @@ export function registerAdminRoutes(app: Express): void {
     res.json({ success: true, shopName: acc.shopName });
   });
 
-  // Dükkanın VIP durumunu aç / kapat (+30/+365 gün süreli)
+  // Dükkanın VIP durumunu aç / kapat (+14 deneme / +30 / +365 gün süreli, usta / patron)
   app.post('/api/admin/shops/:id/toggle-vip', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
     const acc = findAccountById(req.params.id);
     if (!acc) return res.status(404).json({ error: 'Dükkan bulunamadı.' });
 
-    const { days = 30, plan = 'monthly', action } = req.body || {};
+    const { days = 30, plan, action, tier } = req.body || {};
     const st = loadShopState(acc.id);
     if (!st.shopProfile) {
       st.shopProfile = {
@@ -315,10 +613,23 @@ export function registerAdminRoutes(app: Express): void {
     st.shopProfile.isVip = nextVip;
 
     if (nextVip) {
-      st.shopProfile.vipPlan = plan === 'yearly' ? 'yearly' : 'monthly';
-      st.shopProfile.vipTier = req.body?.tier === 'usta' ? 'usta' : 'patron';
-      const until = new Date();
-      until.setDate(until.getDate() + Number(days));
+      const numDays = Number(days);
+      const isTrial = numDays === 14 || plan === 'deneme_14_gun' || plan === '14_gun_deneme';
+      const assignedTier = tier === 'usta' ? 'usta' : tier === 'patron' ? 'patron' : isTrial ? 'usta' : 'patron';
+      const assignedPlan = isTrial
+        ? 'deneme_14_gun'
+        : plan === 'yearly' || numDays === 365
+        ? 'yearly'
+        : 'monthly';
+
+      st.shopProfile.vipPlan = assignedPlan;
+      st.shopProfile.vipTier = assignedTier;
+
+      const existingExpiry = st.shopProfile.vipUntil ? new Date(st.shopProfile.vipUntil).getTime() : 0;
+      const baseMs = Number.isFinite(existingExpiry) && existingExpiry > Date.now()
+        ? existingExpiry
+        : Date.now();
+      const until = new Date(baseMs + numDays * 86400000);
       st.shopProfile.vipUntil = until.toISOString();
       st.shopProfile.vipExpiresAt = until.toISOString();
     } else {
@@ -346,6 +657,7 @@ export function registerAdminRoutes(app: Express): void {
       success: true,
       shopName: acc.shopName,
       isVip: nextVip,
+      vipTier: st.shopProfile.vipTier,
       vipPlan: st.shopProfile.vipPlan,
       vipUntil: st.shopProfile.vipUntil,
     });
@@ -378,7 +690,7 @@ export function registerAdminRoutes(app: Express): void {
     res.json({ success: true });
   });
 
-  // Dükkanı tamamen sil (hesap + personel + veri dosyası). Geri alınamaz.
+  // Dükkanı tamamen sil (hesap + personel + veri dosyası)
   app.delete('/api/admin/shops/:id', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
     const acc = findAccountById(req.params.id);

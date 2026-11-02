@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from 'express';
+import crypto from 'crypto';
 import path from 'path';
 import { S, saveState } from '../context';
 import { broadcast } from '../realtime';
@@ -6,6 +7,7 @@ import { DATA_DIR } from '../config';
 import { readJsonFile, writeJsonFile } from '../fsdb';
 import { isAdminSession } from './admin';
 import { aiRateLimit } from '../guards';
+import { isValidTurkishPhone, normalizePhone } from '../accounts';
 
 export interface CustomPanelLead {
   id: string;
@@ -159,12 +161,16 @@ export function registerVipRoutes(app: Express): void {
 
   // 2. VIP Üyelik Başlatma / Yükseltme (SADECE Admin Veya Doğrulanmış Webhook İle Çağrılabilir!)
   app.post('/api/vip/upgrade', (req: Request, res: Response) => {
-    const webhookSecret = (req.headers['x-webhook-secret'] as string) || (req.query.secret as string);
-    const hasValidSecret = Boolean(
-      webhookSecret &&
-      process.env.WEBHOOK_SECRET &&
-      webhookSecret === process.env.WEBHOOK_SECRET
-    );
+    const webhookSecret = String(req.headers['x-webhook-secret'] || '');
+    const expectedSecret = process.env.WEBHOOK_SECRET || '';
+    let hasValidSecret = false;
+    if (webhookSecret && expectedSecret) {
+      const a = Buffer.from(webhookSecret);
+      const b = Buffer.from(expectedSecret);
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+        hasValidSecret = true;
+      }
+    }
     const isAdmin = isAdminSession(req);
 
     if (!hasValidSecret && !isAdmin) {
@@ -183,8 +189,11 @@ export function registerVipRoutes(app: Express): void {
 
     const isYearly = planPeriod === 'yillik' || planPeriod === 'yearly';
     const days = isYearly ? 365 : 30;
-    const until = new Date();
-    until.setDate(until.getDate() + days);
+    const existingExpiry = profile.vipUntil ? new Date(profile.vipUntil).getTime() : 0;
+    const baseMs = profile.isVip && Number.isFinite(existingExpiry) && existingExpiry > Date.now()
+      ? existingExpiry
+      : Date.now();
+    const until = new Date(baseMs + days * 86400000);
 
     profile.isVip = true;
     profile.vipPlan = isYearly ? 'yearly' : 'monthly';
@@ -219,11 +228,22 @@ export function registerVipRoutes(app: Express): void {
       return res.status(400).json({ error: 'Lütfen dükkanınız için istediğiniz panel özelliklerini belirtin.' });
     }
 
+    let leadPhone = '';
+    if (phone) {
+      const rawP = String(phone || '');
+      if (!isValidTurkishPhone(rawP)) {
+        return res.status(400).json({ error: 'Geçersiz telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz.' });
+      }
+      leadPhone = normalizePhone(rawP);
+    } else {
+      leadPhone = profile?.phone ? normalizePhone(profile.phone) : '';
+    }
+
     const customRequest: CustomPanelLead = {
       id: `lead_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       storeName: profile?.storeName || 'Bilinmeyen İşletme',
       ownerName: profile?.ownerName || 'Esnaf',
-      phone: phone || profile?.phone || '',
+      phone: leadPhone,
       sector: sector || profile?.businessField || 'Genel Esnaf',
       requestedFeatures: String(requestedFeatures || '').trim(),
       notes: String(notes || '').trim(),

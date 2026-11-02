@@ -1824,6 +1824,7 @@ export default function App() {
           onOpenVip={() => setIsVipModalOpen(true)}
           shopSlug={shopProfile?.slug || 'demo'}
           storeName={shopProfile?.storeName || storeName}
+          receiptFooter={shopProfile?.receiptFooter}
           barberSubTab={barberSubTab}
           appointments={appointments}
           services={serviceList}

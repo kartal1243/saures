@@ -35,25 +35,26 @@ interface RestaurantMenuManagerProps {
 
 const CATEGORY_PRESETS = [
   'Tümü',
+  'Dürümler',
+  'Porsiyonlar',
+  'Sıcak Lezzetler',
+  'Gözleme & Tost',
   'Çorbalar',
   'Ana Yemekler',
   'Kebap & Izgara',
-  'Pide & Lahmacun',
   'Aperatif & Tost',
-  'Salatalar',
   'Tatlılar',
-  'Sıcak İçecekler',
-  'Soğuk İçecekler',
+  'İçecekler',
 ];
 
 const SAMPLE_IMAGE_PRESETS = [
-  { name: 'Çorba', url: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80' },
-  { name: 'Köfte', url: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600&auto=format&fit=crop&q=80' },
-  { name: 'Döner / Burger', url: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?w=600&auto=format&fit=crop&q=80' },
-  { name: 'Tost', url: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=600&auto=format&fit=crop&q=80' },
-  { name: 'Tatlı', url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&auto=format&fit=crop&q=80' },
-  { name: 'Kahve', url: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80' },
-  { name: 'Ayran / İçecek', url: 'https://images.unsplash.com/photo-1556881286-fc6915169721?w=600&auto=format&fit=crop&q=80' },
+  { name: 'Dürüm', url: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?w=600&auto=format&fit=crop&q=80' },
+  { name: 'Köfte Ekmek', url: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600&auto=format&fit=crop&q=80' },
+  { name: 'Çiğ Köfte / Meze', url: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80' },
+  { name: 'Tost / Gözleme', url: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=600&auto=format&fit=crop&q=80' },
+  { name: 'Sütlaç / Tatlı', url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&auto=format&fit=crop&q=80' },
+  { name: 'Yayık Ayran', url: 'https://images.unsplash.com/photo-1556881286-fc6915169721?w=600&auto=format&fit=crop&q=80' },
+  { name: 'Çay / Kahve', url: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80' },
 ];
 
 export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
@@ -78,6 +79,7 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
   const [formCategory, setFormCategory] = useState('Ana Yemekler');
   const [formDescription, setFormDescription] = useState('');
   const [formImageUrl, setFormImageUrl] = useState('');
+  const [formIsAvailable, setFormIsAvailable] = useState(true);
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -110,9 +112,10 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
     setEditingItem(null);
     setFormName('');
     setFormPrice('');
-    setFormCategory('Ana Yemekler');
+    setFormCategory('Dürümler');
     setFormDescription('');
     setFormImageUrl('');
+    setFormIsAvailable(true);
     setFormError(null);
     setIsFormOpen(true);
   };
@@ -124,8 +127,23 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
     setFormCategory(item.category);
     setFormDescription(item.description || '');
     setFormImageUrl(item.imageUrl || '');
+    setFormIsAvailable(item.isAvailable !== false);
     setFormError(null);
     setIsFormOpen(true);
+  };
+
+  const handleToggleAvailability = async (id: string) => {
+    try {
+      const res = await fetch(`/api/menu/${id}/toggle`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.menuItems || [];
+        setMenuItems(items);
+        onMenuUpdated?.(items);
+      }
+    } catch (err) {
+      console.error('Toggle error:', err);
+    }
   };
 
   const handleSaveItem = async (e: React.FormEvent) => {
@@ -145,6 +163,7 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
         category: formCategory.trim(),
         description: formDescription.trim(),
         imageUrl: formImageUrl.trim(),
+        isAvailable: formIsAvailable,
       };
 
       const res = await fetch('/api/menu', {
@@ -396,9 +415,28 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
                 </div>
 
                 <div className="pt-3 border-t border-stone-100 dark:border-stone-800/80 flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Yayında
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAvailability(item.id)}
+                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
+                      item.isAvailable !== false
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 hover:bg-emerald-100'
+                        : 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400 hover:bg-stone-200'
+                    }`}
+                    title="Stok durumunu değiştirmek için tıklayın"
+                  >
+                    {item.isAvailable !== false ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Stokta Var</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="line-through">Tükendi</span>
+                      </>
+                    )}
+                  </button>
 
                   <div className="flex items-center gap-1.5">
                     <button
@@ -569,6 +607,27 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
                     </span>
                   </div>
                 )}
+              </div>
+
+              {/* Stok / Yayında Durumu */}
+              <div className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700/80 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-stone-800 dark:text-stone-200 block">
+                    Menüde ve QR Siparişte Satışa Açık
+                  </span>
+                  <span className="text-[11px] text-stone-500">
+                    Tükendi olarak işaretlenen lezzetler menüde grileşir.
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formIsAvailable}
+                    onChange={(e) => setFormIsAvailable(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-stone-300 peer-focus:outline-hidden rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
               </div>
 
               {/* Butonlar */}

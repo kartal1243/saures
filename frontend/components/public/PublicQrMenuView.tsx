@@ -33,6 +33,9 @@ export const PublicQrMenuView: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('Tümü');
   const [searchQuery, setSearchQuery] = useState('');
   const [notification, setNotification] = useState<string | null>(null);
+  const [selectedTable, setSelectedTable] = useState<string>('');
+  const [isTableModalOpen, setIsTableModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'waiter' | 'bill' | null>(null);
 
   // Parse identifier from URL: e.g. /m/bereket-pide or /menu?slug=bereket-pide
   const getIdentifier = (): string => {
@@ -48,9 +51,10 @@ export const PublicQrMenuView: React.FC = () => {
     return params.get('masa') || params.get('table') || '';
   };
 
-  const tableName = getTableFromUrl();
-
   useEffect(() => {
+    const urlTable = getTableFromUrl();
+    if (urlTable) setSelectedTable(urlTable);
+
     const id = getIdentifier();
     fetch(`/api/public/menu/${encodeURIComponent(id)}`)
       .then(async (res) => {
@@ -59,6 +63,9 @@ export const PublicQrMenuView: React.FC = () => {
       })
       .then((json) => {
         setData(json);
+        if (!urlTable && Array.isArray(json.tables) && json.tables.length === 1) {
+          setSelectedTable(json.tables[0].name);
+        }
       })
       .catch((err) => {
         setError(err.message || 'Menü yüklenemedi.');
@@ -71,6 +78,28 @@ export const PublicQrMenuView: React.FC = () => {
   const showToast = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3500);
+  };
+
+  const handleTableAction = async (action: 'waiter' | 'bill', tableToUse?: string) => {
+    const activeTable = tableToUse || selectedTable;
+    if (!activeTable) {
+      setPendingAction(action);
+      setIsTableModalOpen(true);
+      return;
+    }
+
+    const actionText = action === 'waiter' ? 'Garson çağrısı personele iletildi 🔔' : 'Hesap talebi kasaya iletildi 💳';
+    showToast(`${activeTable} için ${actionText}`);
+
+    try {
+      await fetch(`/api/public/menu/${encodeURIComponent(data?.slug || getIdentifier())}/table-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableNo: activeTable, action }),
+      });
+    } catch (e) {
+      console.error('Table action error:', e);
+    }
   };
 
   if (loading) {
@@ -137,10 +166,25 @@ export const PublicQrMenuView: React.FC = () => {
               <Sparkles className="w-3.5 h-3.5" /> DİJİTAL MENÜ
             </span>
 
-            {tableName && (
-              <span className="px-3.5 py-1 rounded-full bg-amber-500 text-stone-950 font-black text-xs shadow-md">
-                {tableName.toUpperCase()}
-              </span>
+            {selectedTable ? (
+              <button
+                type="button"
+                onClick={() => setIsTableModalOpen(true)}
+                className="px-3.5 py-1 rounded-full bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs shadow-md transition-all cursor-pointer flex items-center gap-1"
+                title="Masayı değiştirmek için tıklayın"
+              >
+                <span>{selectedTable.toUpperCase()}</span>
+                <span className="text-[10px] opacity-70">✎</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsTableModalOpen(true)}
+                className="px-3.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white font-bold text-xs backdrop-blur-md transition-all cursor-pointer flex items-center gap-1"
+              >
+                <span>Masa Seç</span>
+                <span className="text-[10px]">▼</span>
+              </button>
             )}
           </div>
 
@@ -213,48 +257,60 @@ export const PublicQrMenuView: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredItems.map((item) => (
-              <div
-                key={item.id}
-                className="p-3.5 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs hover:shadow-md transition-all flex items-center gap-3.5"
-              >
-                {/* Resim */}
-                <div className="w-22 h-22 sm:w-24 sm:h-24 rounded-2xl bg-stone-100 dark:bg-stone-800 shrink-0 overflow-hidden relative">
-                  {item.imageUrl ? (
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-stone-300 dark:text-stone-600">
-                      <UtensilsCrossed className="w-8 h-8 stroke-[1.5]" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Bilgiler */}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
-                      {item.category}
-                    </span>
-                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                      ₺{item.price}
-                    </span>
+            {filteredItems.map((item) => {
+              const isAvailable = item.isAvailable !== false;
+              return (
+                <div
+                  key={item.id}
+                  className={`p-3.5 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs hover:shadow-md transition-all flex items-center gap-3.5 relative ${
+                    !isAvailable ? 'opacity-65' : ''
+                  }`}
+                >
+                  {/* Resim */}
+                  <div className="w-22 h-22 sm:w-24 sm:h-24 rounded-2xl bg-stone-100 dark:bg-stone-800 shrink-0 overflow-hidden relative">
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-stone-300 dark:text-stone-600">
+                        <UtensilsCrossed className="w-8 h-8 stroke-[1.5]" />
+                      </div>
+                    )}
+                    {!isAvailable && (
+                      <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-600 text-white">
+                          Tükendi
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  <h3 className="text-sm font-black text-stone-900 dark:text-white truncate">
-                    {item.name}
-                  </h3>
+                  {/* Bilgiler */}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
+                        {item.category}
+                      </span>
+                      <span className={`text-sm font-black ${isAvailable ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400 line-through'}`}>
+                        ₺{item.price}
+                      </span>
+                    </div>
 
-                  <p className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-2 leading-relaxed">
-                    {item.description || 'Geleneksel sunum ve taze lezzet.'}
-                  </p>
+                    <h3 className="text-sm font-black text-stone-900 dark:text-white truncate">
+                      {item.name}
+                    </h3>
+
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-2 leading-relaxed">
+                      {item.description || 'Geleneksel sunum ve taze lezzet.'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -278,18 +334,7 @@ export const PublicQrMenuView: React.FC = () => {
         <div className="max-w-xl mx-auto flex items-center gap-2.5">
           <button
             type="button"
-            onClick={async () => {
-              showToast(`${tableName || 'Masanıza'} garson çağrıldı! Ekibimiz yönlendirildi.`);
-              try {
-                await fetch(`/api/public/menu/${encodeURIComponent(identifier)}/table-action`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ tableNo: tableName, action: 'waiter' }),
-                });
-              } catch (e) {
-                console.error('Waiter call error:', e);
-              }
-            }}
+            onClick={() => handleTableAction('waiter')}
             className="flex-1 py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
           >
             <BellRing className="w-4 h-4 animate-bounce" />
@@ -298,18 +343,7 @@ export const PublicQrMenuView: React.FC = () => {
 
           <button
             type="button"
-            onClick={async () => {
-              showToast(`${tableName || 'Masanız'} için hesap talebi kasaya iletildi.`);
-              try {
-                await fetch(`/api/public/menu/${encodeURIComponent(identifier)}/table-action`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ tableNo: tableName, action: 'bill' }),
-                });
-              } catch (e) {
-                console.error('Bill request error:', e);
-              }
-            }}
+            onClick={() => handleTableAction('bill')}
             className="flex-1 py-3 px-4 rounded-2xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
           >
             <Receipt className="w-4 h-4" />
@@ -317,6 +351,57 @@ export const PublicQrMenuView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Masa Seçim Modalı */}
+      {isTableModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-stone-900 rounded-3xl p-6 w-full max-w-sm border border-stone-200 dark:border-stone-800 shadow-2xl space-y-4">
+            <h3 className="text-base font-black text-stone-900 dark:text-white">
+              Hangi Masadasınız?
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              Garson veya hesap talebinizin kasanıza doğru masadan iletilmesi için lütfen masanızı seçin.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto p-0.5">
+              {(data?.tables || []).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedTable(t.name);
+                    setIsTableModalOpen(false);
+                    if (pendingAction) {
+                      handleTableAction(pendingAction, t.name);
+                      setPendingAction(null);
+                    }
+                  }}
+                  className={`p-3 rounded-2xl font-black text-xs border text-center transition-all cursor-pointer ${
+                    selectedTable === t.name
+                      ? 'bg-amber-500 text-white border-amber-600 shadow-md'
+                      : 'bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                  }`}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-2 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsTableModalOpen(false);
+                  setPendingAction(null);
+                }}
+                className="px-4 py-2 text-xs font-bold text-stone-500 hover:text-stone-800"
+              >
+                Vazgeç
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

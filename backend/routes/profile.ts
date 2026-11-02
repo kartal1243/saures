@@ -3,6 +3,7 @@ import type { ShopProfile } from '../../shared/types';
 import { S, saveState, als } from '../context';
 import { broadcast } from '../realtime';
 import { DEMO_ACCOUNT_ID } from '../demoSeed';
+import { isValidTurkishPhone, normalizePhone } from '../accounts';
 
 export type VipTier = 'cirak' | 'usta' | 'patron';
 
@@ -123,13 +124,25 @@ export function registerProfileRoutes(app: Express): void {
     } else {
       // İlk kurulum aşaması: isVip istemciden ASLA alınmaz, ancak 14 günlük deneme süresi varsa korunur
       checkAndUpdateVipStatus(currentProfile);
+      let shopPhone = (data.phone || '').trim();
+      if (shopPhone) {
+        if (!isValidTurkishPhone(shopPhone)) {
+          return res.status(400).json({
+            error: 'Geçersiz dükkan telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz (harf veya sahte numara kabul edilmez).'
+          });
+        }
+        shopPhone = normalizePhone(shopPhone);
+      } else if (currentProfile?.phone) {
+        shopPhone = currentProfile.phone;
+      }
+
       updatedProfile = {
         storeName: data.storeName.trim(),
         ownerName: (data.ownerName || 'Esnaf').trim(),
         businessField: data.businessField || 'Berber / Kuaför',
         sectorKey: data.sectorKey || 'berber_kuafor',
         employeeCount: data.employeeCount || '1',
-        phone: (data.phone || '').trim(),
+        phone: shopPhone,
         cityDistrict: (data.cityDistrict || '').trim(),
         dailyTarget: Number(data.dailyTarget) || 2500,
         slogan: (data.slogan || '').trim(),

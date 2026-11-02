@@ -8,7 +8,7 @@ import { localDay } from '../day';
 export function registerPosRoutes(app: Express): void {
   // 17. Hızlı POS satışı: kasaya tahsilat + stoktan düşüm
   app.post('/api/quick-pos-sale', (req: Request, res: Response) => {
-    const { items, paymentMethod } = req.body;
+    const { items, paymentMethod, cashReceived } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Sepette ürün bulunmalıdır.' });
     }
@@ -77,6 +77,52 @@ export function registerPosRoutes(app: Express): void {
       payload: { transaction, cash },
     });
 
-    res.json({ success: true, transaction, cash });
+    const receiptNo = `FIS-${Date.now().toString().slice(-6)}`;
+    const parsedCashReceived = Number(cashReceived) || totalAmount;
+    const changeAmount = parsedCashReceived > totalAmount ? Number((parsedCashReceived - totalAmount).toFixed(2)) : 0;
+
+    const receipt = {
+      receiptNo,
+      storeName: S().storeName || S().shopProfile?.storeName || 'Dükkânım Yanımda Market',
+      date: `${todayStr} ${timeStr}`,
+      paymentMethod: paymentMethod === 'nakit' ? 'Nakit' : 'Kredi Kartı / POS',
+      items: items.map((it: any) => ({
+        productId: it.productId,
+        name: it.name,
+        quantity: Number(it.quantity),
+        unitPrice: Number(it.unitPrice),
+        total: Number(it.total) || Number((Number(it.unitPrice) * Number(it.quantity)).toFixed(2)),
+        isWeighed: Boolean(it.isWeighed),
+      })),
+      totalAmount,
+      cashReceived: parsedCashReceived,
+      changeAmount,
+      footerMessage: 'Mali değeri yoktur — Bilgi fişidir.',
+    };
+
+    res.json({ success: true, transaction, cash, receipt });
+  });
+
+  // Test fişi verisi endpoint'i
+  app.get('/api/pos/test-receipt', (_req: Request, res: Response) => {
+    const now = new Date();
+    const todayStr = S().businessDate || localDay();
+    const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+    res.json({
+      receiptNo: `TEST-${Math.floor(1000 + Math.random() * 9000)}`,
+      storeName: S().storeName || S().shopProfile?.storeName || 'Dükkânım Yanımda Market',
+      date: `${todayStr} ${timeStr}`,
+      paymentMethod: 'Test / Tanıtım',
+      items: [
+        { name: 'Somun Ekmek 200g', quantity: 2, unitPrice: 10, total: 20 },
+        { name: 'Çaykur Rize Çay 1kg', quantity: 1, unitPrice: 175, total: 175 },
+        { name: 'Yerli Domates (1.25 kg)', quantity: 1.25, unitPrice: 40, total: 50, isWeighed: true },
+      ],
+      totalAmount: 245.0,
+      cashReceived: 250.0,
+      changeAmount: 5.0,
+      footerMessage: 'Yazıcı Test Fişi — 58mm / 80mm Uyumlu',
+    });
   });
 }

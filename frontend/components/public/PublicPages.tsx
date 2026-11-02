@@ -26,19 +26,31 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
     case 'gizlilik-politikasi':
       return 'gizlilik';
     case 'iletisim':
+      return 'iletisim';
     case 'kayit':
+      return 'kayit';
     case 'fiyat':
-    case 'berber':
-    case 'kafe-restoran':
-    case 'bakkal-market':
-    case 'teknik-servis':
-    case 'hukuk':
-    case 'terzi':
-      return key;
     case 'fiyatlandirma':
       return 'fiyat';
+    case 'berber':
+    case 'kuafor':
+      return 'berber';
+    case 'kafe-restoran':
+    case 'kafe':
+    case 'restoran':
+      return 'kafe-restoran';
+    case 'bakkal-market':
+    case 'bakkal':
+    case 'market':
+      return 'bakkal-market';
+    case 'teknik-servis':
+    case 'servis':
+      return 'teknik-servis';
+    case 'hukuk':
     case 'avukat':
       return 'hukuk';
+    case 'terzi':
+      return 'terzi';
     default:
       return null;
   }
@@ -344,7 +356,7 @@ function FiyatPage(props: PageProps) {
         <div className="rounded-3xl bg-white border-2 border-amber-400 p-6 shadow-md flex flex-col">
           <div className="flex items-center justify-between">
             <p className="text-xs font-black uppercase tracking-widest text-amber-600">Usta (Tek Koltuk)</p>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">GÜNDE 8 ₺</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">BÜTÇE DOSTU</span>
           </div>
           <p className="mt-2 text-4xl font-black tracking-tight">
             ₺249 <span className="text-sm font-bold text-stone-400">/ ay</span>

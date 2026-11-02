@@ -144,4 +144,94 @@ export function registerProductRoutes(app: Express): void {
   app.get('/api/products/movements', (_req, res) => {
     res.json({ movements: S().stockMovements || [] });
   });
+
+  // Otomatik EAN-13 Barkod Üretme ve Atama Endpoints
+  app.post('/api/products/:id/generate-barcode', (req: Request, res: Response) => {
+    const productId = req.params.id;
+    if (!S().products) S().products = [];
+    const product = S().products.find((p) => p.id === productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Ürün bulunamadı.' });
+    }
+
+    const existingBarcodes = new Set(
+      S().products.map((p) => p.barcode).filter(Boolean) as string[]
+    );
+
+    const isScaleProduct = product.unit?.toLowerCase() === 'kg' || product.category?.toLowerCase().includes('manav');
+    // Manav/Terazi ürünleri için 27 ile başlayan 5 haneli PLU kodu veya genel ürünler için 869 EAN-13
+    const newBarcode = isScaleProduct
+      ? `27${Math.floor(10000 + Math.random() * 90000)}00000`
+      : generateUniqueEan13(existingBarcodes, '869');
+
+    product.barcode = newBarcode;
+    product.updatedAt = new Date().toISOString();
+
+    saveState();
+    broadcast({ type: 'PRODUCT_UPDATED', payload: product });
+
+    res.json({ success: true, product, barcode: newBarcode });
+  });
+
+  app.post('/api/products/auto-assign-barcodes', (_req: Request, res: Response) => {
+    if (!S().products) S().products = [];
+    const existingBarcodes = new Set(
+      S().products.map((p) => p.barcode).filter(Boolean) as string[]
+    );
+
+    let updatedCount = 0;
+    const updatedProducts: Product[] = [];
+
+    for (const prod of S().products) {
+      if (!prod.barcode || !prod.barcode.trim()) {
+        const isScaleProduct = prod.unit?.toLowerCase() === 'kg' || prod.category?.toLowerCase().includes('manav');
+        const newBarcode = isScaleProduct
+          ? `27${Math.floor(10000 + Math.random() * 90000)}00000`
+          : generateUniqueEan13(existingBarcodes, '869');
+
+        prod.barcode = newBarcode;
+        prod.updatedAt = new Date().toISOString();
+        existingBarcodes.add(newBarcode);
+        updatedCount++;
+        updatedProducts.push(prod);
+      }
+    }
+
+    if (updatedCount > 0) {
+      saveState();
+      for (const p of updatedProducts) {
+        broadcast({ type: 'PRODUCT_UPDATED', payload: p });
+      }
+    }
+
+    res.json({
+      success: true,
+      updatedCount,
+      totalProducts: S().products.length,
+    });
+  });
 }
+
+function calculateEan13CheckDigit(twelveDigits: string): number {
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    const digit = parseInt(twelveDigits[i], 10) || 0;
+    sum += i % 2 === 0 ? digit : digit * 3;
+  }
+  const mod = sum % 10;
+  return mod === 0 ? 0 : 10 - mod;
+}
+
+function generateUniqueEan13(existingBarcodes: Set<string>, prefix: string = '869'): string {
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const randomPart = Math.floor(100000000 + Math.random() * 900000000).toString(); // 9 haneli
+    const raw12 = `${prefix}${randomPart}`.slice(0, 12);
+    const check = calculateEan13CheckDigit(raw12);
+    const code = `${raw12}${check}`;
+    if (!existingBarcodes.has(code)) {
+      return code;
+    }
+  }
+  return `${prefix}${Date.now().toString().slice(-9)}0`;
+}
+

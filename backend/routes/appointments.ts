@@ -13,7 +13,7 @@ import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast, broadcastToAccount } from '../realtime';
 import { localDay } from '../day';
-import { getAccounts, clientIp } from '../accounts';
+import { getAccounts, clientIp, isValidTurkishPhone, normalizePhone } from '../accounts';
 import { loadShopState, persistShopState, defaultBarberSettings, defaultBarberStaff, defaultBarberServices } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { FREE_ONLINE_BOOKING_QUOTA } from '../config';
@@ -257,10 +257,10 @@ export function registerPublicBarberRoutes(app: Express): void {
 
   // 2. OTP Simülasyonu / Gönderimi (Gerçek in-memory doğrulama)
   app.post('/api/public/barber/send-otp', publicActionRateLimit, (req: Request, res: Response) => {
-    const { phone } = req.body;
-    const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
-    if (cleanPhone.length < 10) {
-      return res.status(400).json({ error: 'Geçerli bir telefon numarası giriniz (10 hane).' });
+    const rawPhone = String(req.body?.phone || '');
+    const cleanPhone = normalizePhone(rawPhone);
+    if (!isValidTurkishPhone(rawPhone)) {
+      return res.status(400).json({ error: 'Geçerli bir telefon numarası giriniz (05XX XXX XX XX formatında, 11 hane).' });
     }
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     otpStore.set(cleanPhone, {
@@ -300,9 +300,10 @@ export function registerPublicBarberRoutes(app: Express): void {
     if (!customerName || !customerName.trim()) {
       return res.status(400).json({ error: 'Lütfen adınızı ve soyadınızı giriniz.' });
     }
-    const cleanPhone = String(phone || '').replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      return res.status(400).json({ error: 'Lütfen geçerli bir telefon numarası giriniz (10 hane).' });
+    const rawPhone = String(phone || '');
+    const cleanPhone = normalizePhone(rawPhone);
+    if (!isValidTurkishPhone(rawPhone)) {
+      return res.status(400).json({ error: 'Lütfen geçerli bir telefon numarası giriniz (05XX XXX XX XX formatında, 11 hane).' });
     }
     if (!kvkkApproved) {
       return res.status(400).json({ error: 'Lütfen KVKK aydınlatma metnini onaylayınız.' });
@@ -336,20 +337,20 @@ export function registerPublicBarberRoutes(app: Express): void {
 
     // Gerçek OTP Doğrulaması ('1234' bypass kaldırıldı)
     if (shopState.barberSettings?.requireOtp) {
-      const stored = otpStore.get(cleanPhone.slice(-10));
+      const stored = otpStore.get(cleanPhone);
       const trimmedCode = String(otpCode || '').trim();
       const isValid = Boolean(stored && stored.code === trimmedCode && stored.expiresAt > Date.now());
       if (!isValid) {
         return res.status(400).json({ error: 'Geçersiz veya süresi dolmuş SMS onay kodu. Lütfen önce "SMS Kodu Gönder" butonuna basınız.' });
       }
-      otpStore.delete(cleanPhone.slice(-10));
+      otpStore.delete(cleanPhone);
     }
 
     // Spam Koruması: Aynı telefon için aynı günde max 2 aktif randevu
     const existingApts = (shopState.appointments || []).filter(
       (a) =>
         a.appointmentDate === date &&
-        a.phone.replace(/\D/g, '') === cleanPhone &&
+        normalizePhone(a.phone) === cleanPhone &&
         a.status !== 'iptal' &&
         a.status !== 'arsiv'
     );
@@ -495,7 +496,8 @@ export function registerPublicBarberRoutes(app: Express): void {
     const whatsappMessage = encodeURIComponent(
       `Merhaba ${storeTitle}, ${date} saat ${timeSlot} için "${newAppointment.serviceName}" randevumu oluşturdum. Bilgilerinize sunarım. Ad Soyad: ${newAppointment.customerName}`
     );
-    const whatsappUrl = `https://wa.me/90${shopState.shopProfile?.phone?.replace(/\D/g, '') || account.phone}?text=${whatsappMessage}`;
+    const shopPhone = normalizePhone(shopState.shopProfile?.phone || account.phone);
+    const whatsappUrl = `https://wa.me/90${shopPhone.replace(/^0/, '')}?text=${whatsappMessage}`;
 
     res.json({
       success: true,
@@ -550,6 +552,13 @@ export function registerAppointmentRoutes(app: Express): void {
     if (data.id) {
       const idx = S().appointments.findIndex((a) => a.id === data.id);
       if (idx === -1) return res.status(404).json({ error: 'Randevu bulunamadı.' });
+      if (data.phone) {
+        const rawP = String(data.phone || '');
+        if (!isValidTurkishPhone(rawP)) {
+          return res.status(400).json({ error: 'Geçersiz telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz.' });
+        }
+        data.phone = normalizePhone(rawP);
+      }
       const updated: Appointment = {
         ...S().appointments[idx],
         ...data,
@@ -561,10 +570,19 @@ export function registerAppointmentRoutes(app: Express): void {
     }
 
     // Yeni randevu
+    let aptPhone = '';
+    if (data.phone) {
+      const rawP = String(data.phone || '');
+      if (!isValidTurkishPhone(rawP)) {
+        return res.status(400).json({ error: 'Geçersiz randevu telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz (harf veya sahte numara kabul edilmez).' });
+      }
+      aptPhone = normalizePhone(rawP);
+    }
+
     const baseApt: Appointment = {
       id: `apt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       customerName: data.customerName.trim(),
-      phone: data.phone?.trim() || '',
+      phone: aptPhone,
       email: data.email?.trim() || '',
       staffId: data.staffId || '',
       staffName: data.staffName?.trim() || 'Usta',
@@ -808,13 +826,21 @@ export function registerAppointmentRoutes(app: Express): void {
     if (!customerName || !packageName || !totalSessions) {
       return res.status(400).json({ error: 'Paket bilgileri eksik.' });
     }
+    let pkgPhone = '';
+    if (phone) {
+      const rawP = String(phone || '');
+      if (!isValidTurkishPhone(rawP)) {
+        return res.status(400).json({ error: 'Geçersiz telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz.' });
+      }
+      pkgPhone = normalizePhone(rawP);
+    }
     if (!S().customerPackages) S().customerPackages = [];
 
     const newPkg: CustomerPackage = {
       id: `pkg_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       customerId: '',
       customerName: customerName.trim(),
-      phone: phone || '',
+      phone: pkgPhone,
       packageName: packageName.trim(),
       totalSessions: Number(totalSessions),
       remainingSessions: Number(totalSessions),

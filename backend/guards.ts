@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { accountFromRequest, clientIp, type Account } from './accounts';
+import { accountFromRequest, clientIp, touchActiveSession, type Account } from './accounts';
 import { loadShopState } from './shopState';
 import { als } from './context';
 import { AUTH_RATE_LIMIT } from './config';
@@ -20,6 +20,9 @@ export function apiGuard(req: Request, res: Response, next: NextFunction): void 
     res.status(403).json({ error: 'Personel girisi kapali. Bu panel sadece dukkan sahibine aciktir.' });
     return;
   }
+  // Canlı hareket takibi: son 5 dakikalık aktiflik heartbeat'i
+  touchActiveSession(acc.id, clientIp(req), (req.headers['user-agent'] as string) || '');
+
   als.run({ accountId: acc.id, role: accRole, state: loadShopState(acc.id) }, next);
 }
 

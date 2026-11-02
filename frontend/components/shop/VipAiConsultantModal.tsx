@@ -401,7 +401,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                         Tek Koltuk
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                        Ekonomik
+                        Bütçe Dostu
                       </span>
                     </div>
                     <h4 className="mt-2 text-lg font-black text-stone-900 dark:text-white">Usta Paketi</h4>
@@ -416,7 +416,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                       </span>
                     </div>
                     <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
-                      Günde sadece 8 TL · 1 çay fiyatına
+                      Aylık bütçe dostu lisans · Tek çalışan işletmeler için tam otomasyon
                     </p>
 
                     <div className="mt-4 space-y-2 border-t border-stone-200 dark:border-stone-700/60 pt-3 text-xs text-stone-700 dark:text-stone-300">
@@ -483,7 +483,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                       </span>
                     </div>
                     <p className="text-[10px] text-orange-700 dark:text-orange-400 font-black mt-0.5">
-                      Günde 16 TL · Dükkana özel yazılım ekibi
+                      Kurumsal işletme lisansı · Özel yazılım mühendisi desteği
                     </p>
 
                     <div className="mt-4 space-y-2 border-t border-orange-200 dark:border-orange-900/60 pt-3 text-xs text-stone-800 dark:text-stone-200">

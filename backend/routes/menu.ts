@@ -12,42 +12,87 @@ import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
 const SAMPLE_MENU_ITEMS: MenuItem[] = [
   {
     id: 'm_1',
-    name: 'Kelle Paça / Mercimek Çorbası',
-    price: 65,
-    category: 'Çorbalar',
-    description: 'Kıtır ekmek, tereyağı ve sarımsaklı özel sos eşliğinde.',
-    imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80',
-    isAvailable: true,
-  },
-  {
-    id: 'm_2',
-    name: 'Izgara Köfte Porsiyon',
-    price: 190,
-    category: 'Ana Yemekler',
-    description: 'Özel baharatlı kasap köftesi, közlenmiş biber, domates ve pilav ile.',
-    imageUrl: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600&auto=format&fit=crop&q=80',
-    isAvailable: true,
-  },
-  {
-    id: 'm_3',
-    name: 'Et Döner Dürüm Menü',
-    price: 175,
-    category: 'Ana Yemekler',
-    description: 'Lavaş ekmeğinde ince kesim dana döner, patates kızartması ve içecek ile.',
+    name: 'Normal Çiğ Köfte Dürüm',
+    price: 90,
+    category: 'Dürümler',
+    description: '100gr özel yoğrulmuş çiğ köfte, taze marul, nar ekşisi ve limon eşliğinde.',
     imageUrl: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?w=600&auto=format&fit=crop&q=80',
     isAvailable: true,
   },
   {
-    id: 'm_4',
-    name: 'Kaşarlı Karışık Tost',
-    price: 75,
-    category: 'Aperatif & Tost',
-    description: 'Bol sucuk ve eriyen kaşar peyniri, domates dilimleri ile.',
+    id: 'm_2',
+    name: 'Mega Çiğ Köfte Dürüm',
+    price: 130,
+    category: 'Dürümler',
+    description: '150gr çiğ köfte, çift lavaş, bol yeşillik ve özel acı sos.',
+    imageUrl: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?w=600&auto=format&fit=crop&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'm_3',
+    name: 'Doritoslu Çıtır Dürüm',
+    price: 120,
+    category: 'Dürümler',
+    description: 'Çıtır Doritos cipsi ve çiğ köfte uyumu, taze nane ve nar ekşisi ile.',
     imageUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=600&auto=format&fit=crop&q=80',
     isAvailable: true,
   },
   {
+    id: 'm_4',
+    name: 'Yarım Porsiyon Çiğ Köfte (250gr)',
+    price: 200,
+    category: 'Porsiyonlar',
+    description: '250gr çiğ köfte, 3 lavaş, yeşillik buketi, acı sos ve 2 nar ekşisi ile.',
+    imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80',
+    isAvailable: true,
+  },
+  {
     id: 'm_5',
+    name: 'Tam Porsiyon Çiğ Köfte (500gr)',
+    price: 280,
+    category: 'Porsiyonlar',
+    description: '500gr çiğ köfte, 5 lavaş, zengin yeşillik tabağı ve özel soslar.',
+    imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'm_6',
+    name: 'Sıcak Köfte Ekmek',
+    price: 200,
+    category: 'Sıcak Lezzetler',
+    description: '100gr ızgara kasap köfte, çıtır ekmek arası közlenmiş domates ve biber ile.',
+    imageUrl: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600&auto=format&fit=crop&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'm_7',
+    name: 'El Açması Kaşarlı Gözleme',
+    price: 150,
+    category: 'Gözleme & Tost',
+    description: 'Sacda pişen tereyağlı el açması yufka, bol eriyen kaşar peyniri.',
+    imageUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=600&auto=format&fit=crop&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'm_8',
+    name: 'Bazlama Karışık Tost',
+    price: 150,
+    category: 'Gözleme & Tost',
+    description: 'Köy bazlamasında bol sucuk, kaşar ve tereyağı lezzeti.',
+    imageUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=600&auto=format&fit=crop&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'm_9',
+    name: 'Günün Sıcak Çorbası',
+    price: 65,
+    category: 'Çorbalar',
+    description: 'Kıtır ekmek ve tereyağlı sos eşliğinde sıcacık mercimek çorbası.',
+    imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'm_10',
     name: 'Fırın Sütlaç',
     price: 75,
     category: 'Tatlılar',
@@ -56,7 +101,7 @@ const SAMPLE_MENU_ITEMS: MenuItem[] = [
     isAvailable: true,
   },
   {
-    id: 'm_6',
+    id: 'm_11',
     name: 'Köy Yayık Ayranı',
     price: 30,
     category: 'İçecekler',
@@ -65,7 +110,16 @@ const SAMPLE_MENU_ITEMS: MenuItem[] = [
     isAvailable: true,
   },
   {
-    id: 'm_7',
+    id: 'm_12',
+    name: 'Demleme Çay',
+    price: 15,
+    category: 'İçecekler',
+    description: 'Taze demlenmiş Rize çayı.',
+    imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'm_13',
     name: 'Közde Türk Kahvesi',
     price: 45,
     category: 'İçecekler',
@@ -325,6 +379,25 @@ export function registerProtectedMenuRoutes(app: Express): void {
     saveState();
     broadcast({ type: 'MENU_UPDATED', payload: st.menuItems });
     res.json({ success: true, menuItems: st.menuItems });
+  });
+
+  // Stok Durumu Hızlı Geçişi (Stokta Var / Tükendi)
+  app.post('/api/menu/:id/toggle', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const st = S();
+    if (!Array.isArray(st.menuItems)) {
+      st.menuItems = [...SAMPLE_MENU_ITEMS];
+    }
+
+    const item = st.menuItems.find((m) => m.id === id);
+    if (!item) {
+      return res.status(404).json({ error: 'Yemek bulunamadı.' });
+    }
+
+    item.isAvailable = !item.isAvailable;
+    saveState();
+    broadcast({ type: 'MENU_UPDATED', payload: st.menuItems });
+    res.json({ success: true, item, menuItems: st.menuItems });
   });
 
   // Özel Slug Güncelle (Örn: bereket-pide)

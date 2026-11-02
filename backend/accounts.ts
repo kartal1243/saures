@@ -42,8 +42,13 @@ let sessions: Session[] = readJsonFile<Session[]>(SESSIONS_FILE, []).filter(
 
 export function normalizePhone(raw: string): string {
   const trimmed = String(raw || '').trim();
+  // Harf veya geçersiz sembol varsa kesinlikle geçersiz sayılır
+  if (/[a-zA-Z]/.test(trimmed) || /[^\d\s\+\-\(\)]/.test(trimmed)) {
+    return '';
+  }
+  // Sadece rakamları ayıkla
   const digits = trimmed.replace(/\D/g, '');
-  if (!digits) return trimmed.replace(/\s+/g, '');
+  if (!digits) return '';
   // +90 5XX... veya 90 5XX... (12 hane) -> 05XX...
   if (digits.length === 12 && digits.startsWith('90') && digits[2] === '5') {
     return '0' + digits.slice(2);
@@ -53,10 +58,52 @@ export function normalizePhone(raw: string): string {
     return '0' + digits;
   }
   // 05XXXXXXXXX (11 hane)
-  if (digits.length === 11 && digits.startsWith('0')) {
+  if (digits.length === 11 && digits.startsWith('05')) {
     return digits;
   }
-  return digits;
+  return '';
+}
+
+/**
+ * Türkiye GSM Standart Doğrulaması:
+ * Sadece gerçek Türkiye GSM numarası (05XXXXXXXXX, 11 hane, 50/53/54/55/59 operatör kodları) kabul edilir.
+ * Harf, geçersiz sembol veya sahte rastgele dizilimler (aynı rakamın tekrarı, ardışık geçersiz diziler) kesinlikle engellenir.
+ */
+export function isValidTurkishPhone(raw: string): boolean {
+  if (!raw || typeof raw !== 'string') return false;
+  // Harf, özel karakter veya geçersiz sembol kontrolü
+  if (/[a-zA-Z]/.test(raw) || /[^\d\s\+\-\(\)]/.test(raw)) {
+    return false;
+  }
+
+  const norm = normalizePhone(raw);
+  // Kesinlikle 11 hane ve 05 ile başlamalı
+  if (!/^05\d{9}$/.test(norm)) return false;
+
+  // Operatör kodu kontrolü (50X, 53X, 54X, 55X veya 59X demo)
+  const op = norm.slice(1, 3);
+  if (!['50', '53', '54', '55', '59'].includes(op)) return false;
+
+  // Demo numarası istisnası (05900000011)
+  if (norm === '05900000011') return true;
+
+  // Sahte / Rastgele / Tekrarlayan Geçersiz Dizilim Kontrolleri:
+  // 1. Son 8 hanede 6 veya daha fazla aynı rakamın ardışık tekrarı (örn. 05320000000, 05441111111)
+  if (/(\d)\1{5,}/.test(norm.slice(3))) return false;
+
+  // 2. Numaranın tamamında 7 veya daha fazla aynı rakamın ardışık tekrarı (örn. 05555555555)
+  if (/(\d)\1{6,}/.test(norm)) return false;
+
+  // 3. Sıralı ardışık dizilimler (örn. 05301234567, 05428765432)
+  const localPart = norm.slice(3); // 8 hane
+  if ('0123456789'.includes(localPart) || '9876543210'.includes(localPart)) {
+    return false;
+  }
+
+  // 4. Basit 2 haneli tekrar kalıpları (örn. 12121212, 01010101)
+  if (localPart === localPart.slice(0, 2).repeat(4)) return false;
+
+  return true;
 }
 
 export function getAccounts(): Account[] {
@@ -158,8 +205,14 @@ export function sessionCookie(token: string): string {
   );
 }
 
+export function destroySessionCookie(): string {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  return 'sid=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax' + secure;
+}
+
 // Gercek istemci IP'si: Cloudflare -> nginx -> node zincirinde en guvenilir baslik
 // CF-Connecting-IP'dir. Dogrudan erisimde X-Real-IP / X-Forwarded-For'a dusulur.
+// IP başlık enjeksiyonlarına karşı sadece geçerli IP karakterleri kabul edilir.
 export function clientIp(req: {
   headers: Record<string, string | string[] | undefined>;
   ip?: string;
@@ -170,14 +223,97 @@ export function clientIp(req: {
     if (Array.isArray(v)) return (v[0] || '').trim();
     return String(v || '').split(',')[0].trim();
   };
-  return (
+  const raw =
     first(h['cf-connecting-ip']) ||
     first(h['x-real-ip']) ||
     first(h['x-forwarded-for']) ||
     (req.ip || '') ||
     (req.socket?.remoteAddress || '') ||
-    'unknown'
-  );
+    'unknown';
+  const sanitized = raw.replace(/[^\w.:-]/g, '').slice(0, 45);
+  return sanitized || 'unknown';
+}
+
+// ---------------- Cihaz ve Tarayıcı Çözümleyici (User-Agent tespiti) ----------------
+export function detectDeviceAndBrowser(userAgent: string): {
+  deviceType: 'mobile' | 'desktop' | 'tablet';
+  browserInfo: string;
+} {
+  const ua = (userAgent || '').toLowerCase();
+  let deviceType: 'mobile' | 'desktop' | 'tablet' = 'desktop';
+
+  if (/ipad|tablet|(android(?!.*mobile))/i.test(ua)) {
+    deviceType = 'tablet';
+  } else if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(ua)) {
+    deviceType = 'mobile';
+  }
+
+  let browser = 'Modern Tarayıcı';
+  if (ua.includes('edg/')) browser = 'Edge';
+  else if (ua.includes('chrome/') && !ua.includes('edg/')) browser = 'Chrome';
+  else if (ua.includes('safari/') && !ua.includes('chrome/')) browser = 'Safari';
+  else if (ua.includes('firefox/')) browser = 'Firefox';
+  else if (ua.includes('opera/') || ua.includes('opr/')) browser = 'Opera';
+
+  let os = 'Cihaz';
+  if (ua.includes('windows nt 10.0')) os = 'Win 10/11';
+  else if (ua.includes('windows')) os = 'Windows';
+  else if (ua.includes('android')) os = 'Android';
+  else if (ua.includes('iphone')) os = 'iPhone';
+  else if (ua.includes('ipad')) os = 'iPad';
+  else if (ua.includes('mac os') || ua.includes('macintosh')) os = 'macOS';
+  else if (ua.includes('linux')) os = 'Linux';
+
+  return {
+    deviceType,
+    browserInfo: `${browser} · ${os}`,
+  };
+}
+
+// ---------------- Gerçek Zamanlı Canlı Oturum Takibi (Son 5 dk aktifler) ----------------
+export interface ActiveSessionHeartbeat {
+  accountId: string;
+  ip: string;
+  userAgent: string;
+  deviceType: 'mobile' | 'desktop' | 'tablet';
+  browserInfo: string;
+  lastSeenAt: string;
+  lastSeenMs: number;
+}
+
+const activeHeartbeats = new Map<string, ActiveSessionHeartbeat>();
+
+export function touchActiveSession(accountId: string, ip: string, userAgent: string): void {
+  const now = Date.now();
+  const { deviceType, browserInfo } = detectDeviceAndBrowser(userAgent);
+  activeHeartbeats.set(accountId, {
+    accountId,
+    ip: ip || 'unknown',
+    userAgent: userAgent || 'unknown',
+    deviceType,
+    browserInfo,
+    lastSeenAt: new Date(now).toISOString(),
+    lastSeenMs: now,
+  });
+}
+
+export function getRecentActiveSessions(windowMs = 5 * 60 * 1000): ActiveSessionHeartbeat[] {
+  const now = Date.now();
+  const result: ActiveSessionHeartbeat[] = [];
+  for (const [accId, hb] of activeHeartbeats.entries()) {
+    if (now - hb.lastSeenMs <= windowMs) {
+      result.push(hb);
+    } else {
+      activeHeartbeats.delete(accId);
+    }
+  }
+  return result;
+}
+
+export function isAccountRecentlyActive(accountId: string, windowMs = 5 * 60 * 1000): boolean {
+  const hb = activeHeartbeats.get(accountId);
+  if (!hb) return false;
+  return Date.now() - hb.lastSeenMs <= windowMs;
 }
 
 // Basarili giris/kayit kaydi: IP + zaman + sayac + gecmis (en fazla 20)

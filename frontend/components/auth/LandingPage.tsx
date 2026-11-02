@@ -153,7 +153,7 @@ const BENTO_FEATURES = [
 const FAQS = [
   {
     q: 'Dükkanım Yanımda tamamen ücretsiz mi?',
-    a: 'Evet! Hemen 1 dakikada telefon numaranızla Standart Esnaf (0 TL) olarak kayıt olabilir; 25 müşteriye kadar veresiye/cari defterinizi ve günlük kasanızı ücretsiz kullanabilirsiniz. Online Randevu Takvimi, sınırsız müşteri, Türkçe sesli asistan, termal fiş ve dükkanınıza özel kodlama istediğinizde ayda sadece ₺500 olan VIP paketimize dilediğiniz an geçebilirsiniz.',
+    a: 'Evet! Hemen 1 dakikada telefon numaranızla Standart Esnaf (0 TL) olarak kayıt olabilir; 25 müşteriye kadar veresiye/cari defterinizi ve günlük kasanızı ücretsiz kullanabilirsiniz. Online Randevu Takvimi, sınırsız müşteri, Türkçe sesli asistan, termal fiş ve dükkanınıza özel kodlama istediğinizde ayda ₺249\'dan başlayan Usta ve Patron VIP paketlerimize dilediğiniz an geçebilirsiniz.',
   },
   {
     q: 'İşletmeme özel VIP panel üretimini nasıl talep ederim?',
@@ -768,7 +768,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Tek Koltuk</span>
                   <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                    Günde Sadece 8 ₺
+                    Bütçe Dostu Profesyonel
                   </span>
                 </div>
                 <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white">Usta Paketi</h3>
@@ -785,7 +785,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                    ✓ Günde 8 TL · 1 çay fiyatına profesyonel takip
+                    ✓ Tek çalışan işletmeler için tam dijital otomasyon
                   </p>
                 </div>
 
@@ -824,7 +824,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <div className="relative p-6 sm:p-7 rounded-3xl bg-linear-to-b from-orange-500/5 via-white to-orange-500/10 dark:from-stone-900 dark:via-stone-900 dark:to-orange-950/20 border-2 border-orange-500/80 shadow-xl flex flex-col justify-between transition-all">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-linear-to-r from-orange-500 to-orange-600 text-white text-[10px] font-black uppercase tracking-wider shadow-md shadow-orange-500/30 flex items-center gap-1.5 whitespace-nowrap">
                 <Sparkles className="w-3.5 h-3.5" />
-                ★ EN ÇOK TERCİH EDİLEN · GÜNDE 16 ₺
+                ★ EN ÇOK TERCİH EDİLEN KURUMSAL PAKET
               </div>
 
               <div>
@@ -851,7 +851,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] font-bold text-orange-700 dark:text-orange-400">
-                    ✓ Günde 16 TL · Dükkana özel yazılım mühendisi
+                    ✓ Çoklu personel yönetimi &amp; işletmeye özel yazılım desteği
                   </p>
                 </div>
 

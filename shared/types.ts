@@ -106,6 +106,8 @@ export interface TableOrderItem {
   price?: number;
   total: number;
   time?: string;
+  isGift?: boolean;
+  note?: string;
 }
 
 // Sektöre Özel: Restoran & Kafe Masa Modeli

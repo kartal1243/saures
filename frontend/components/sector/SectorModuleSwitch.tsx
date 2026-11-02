@@ -28,6 +28,7 @@ interface SectorModuleSwitchProps {
   activeTab: ActiveTab;
   shopSlug?: string;
   storeName?: string;
+  receiptFooter?: string;
   isVip?: boolean;
   onOpenVip?: () => void;
   barberSubTab?: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr';
@@ -121,6 +122,8 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
       <FastRetailCounterView
         products={props.products}
         customers={props.customers}
+        storeName={props.storeName}
+        receiptFooter={props.receiptFooter}
         onQuickPosSale={props.onQuickPosSale}
         onCreditSaleToCustomer={props.onCreditSaleToCustomer}
       />
