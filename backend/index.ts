@@ -6,10 +6,8 @@ export * from './app';
 export * from './accounts';
 export * from './config';
 
-// Yalnızca doğrudan çalıştırıldığında sunucuyu başlat (testlerde import edildiğinde başlatmaz)
-if (process.argv[1] && (process.argv[1].endsWith('index.ts') || process.argv[1].endsWith('server.cjs'))) {
-  startServer().catch((err) => {
-    console.error('Sunucu başlatılamadı:', err);
-    process.exit(1);
-  });
-}
+// Sunucuyu başlat
+startServer().catch((err) => {
+  console.error('Sunucu başlatılamadı:', err);
+  process.exit(1);
+});
