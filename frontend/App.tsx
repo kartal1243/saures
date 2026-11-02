@@ -23,7 +23,7 @@ import {
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { HomeDashboard } from './components/panel/HomeDashboard';
-import { SECTORS } from './components/sector/SectorSwitcherBar';
+import { SECTORS, SectorSwitcherBar } from './components/sector/SectorSwitcherBar';
 
 import { CashSummary } from './components/panel/CashSummary';
 import { QuickActionBar } from './components/panel/QuickActionBar';
@@ -658,6 +658,34 @@ export default function App() {
     setStoreName(profile.storeName);
     // İlk kurulum sonrası direkt panele dön (restoran/berber özel ekran ana sayfada gözükmesin)
     setActiveTab('panel');
+  };
+
+  // Handler: Hızlı Sektör / Meslek Değiştir
+  const handleSwitchSector = async (newSector: BusinessSector) => {
+    const secObj = SECTORS.find((s) => s.key === newSector);
+    const updated: ShopProfile = {
+      ...shopProfile,
+      sectorKey: newSector,
+      businessField: secObj ? secObj.label : shopProfile.businessField,
+    };
+    try {
+      const res = await fetch('/api/shop-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Sektör değiştirilemedi.');
+      }
+      const saved = await res.json();
+      const profile: ShopProfile = saved.profile || saved;
+      setShopProfile(profile);
+      setActiveTab('sector_view');
+      toast.success(`${secObj?.shortLabel || newSector} moduna geçildi!`);
+    } catch (e: any) {
+      toast.error(e.message || 'Sektör değiştirilemedi.');
+    }
   };
 
   // Handler: Hızlı Para Al (Kasa Girişi / Satış)
@@ -1644,6 +1672,13 @@ export default function App() {
         onOpenVip={() => setIsVipModalOpen(true)}
         onLogout={handleLogout}
         onExportCsv={handleExportCsv}
+      />
+
+      {/* 2. Hızlı Sektör & Meslek Değiştirici (Tüm meslekler arasında anında geçiş) */}
+      <SectorSwitcherBar
+        currentSector={currentSector}
+        onSelectSector={handleSwitchSector}
+        shopProfile={shopProfile}
       />
 
       {/* Mobil ayar menüsü (telefonda tek ayar noktası) */}

@@ -5,6 +5,7 @@ import { readJsonFile, writeJsonFile } from '../fsdb';
 import { rateLimit } from '../guards';
 import {
   findAccountByPhone,
+  findAccountByPhoneOrUsername,
   getAccounts,
   addAccount,
   removeAccount,
@@ -31,7 +32,7 @@ import {
   type Account,
 } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
-import { ensureDemoAccount, DEMO_PHONE } from '../demoSeed';
+import { ensureDemoAccount, DEMO_PHONE, ensureMasterAccount, MASTER_PHONE, MASTER_USERNAME } from '../demoSeed';
 import { requireOwner } from '../guards';
 import { getTierLimits } from './profile';
 
@@ -126,47 +127,58 @@ export function registerAuthRoutes(app: Express): void {
 
   app.post('/api/auth/login', (req: Request, res: Response) => {
     const body = req.body || {};
-    const rawPhone = String(body.phone || '');
-    const phone = normalizePhone(rawPhone);
+    const rawInput = String(body.phone || body.username || '').trim();
     const password = String(body.password || '');
 
-    if (!isValidTurkishPhone(rawPhone)) {
-      return res.status(400).json({
-        error: 'Geçersiz telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye cep telefonu giriniz (harf veya sahte numara kabul edilmez).'
-      });
+    // Kullanıcı adı mı (örn: 'patron', 'omer') yoksa telefon numarası mı?
+    const isUsername = /^[a-zA-Z0-9_.-]+$/.test(rawInput) && !rawInput.startsWith('05') && !/^\d{10,12}$/.test(rawInput.replace(/\D/g, ''));
+    let lookupKey = rawInput;
+
+    if (!isUsername) {
+      lookupKey = normalizePhone(rawInput);
+      if (!isValidTurkishPhone(rawInput)) {
+        return res.status(400).json({
+          error: 'Geçersiz telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye cep telefonu giriniz (veya kullanıcı adı ile giriş yapınız).'
+        });
+      }
     }
 
-    if (phone === DEMO_PHONE) {
+    if (lookupKey === DEMO_PHONE) {
       ensureDemoAccount();
-      clearLoginAttempts(phone);
+      clearLoginAttempts(lookupKey);
+    }
+    if (rawInput.toLowerCase() === MASTER_USERNAME || rawInput.toLowerCase() === 'omer') {
+      ensureMasterAccount();
+      clearLoginAttempts(MASTER_PHONE);
+      clearLoginAttempts(MASTER_USERNAME);
     }
 
-    const lockedMs = isLoginLocked(phone);
+    const lockedMs = isLoginLocked(lookupKey);
     if (lockedMs > 0) {
-      logAuthEvent('locked', phone, clientIp(req));
+      logAuthEvent('locked', lookupKey, clientIp(req));
       return res.status(429).json({
         error: 'Cok fazla hatali deneme. ' + Math.ceil(lockedMs / 60000) + ' dakika sonra tekrar deneyin.',
       });
     }
-    const acc = findAccountByPhone(phone);
+    const acc = findAccountByPhoneOrUsername(rawInput);
     if (!acc || !verifyPassword(password, acc.passwordHash)) {
-      registerFailedLogin(phone);
-      logAuthEvent('login_fail', phone, clientIp(req));
-      const left = loginAttemptsLeft(phone);
+      registerFailedLogin(lookupKey);
+      logAuthEvent('login_fail', lookupKey, clientIp(req));
+      const left = loginAttemptsLeft(lookupKey);
       return res.status(401).json({
-        error: 'Telefon veya sifre hatali.' + (left > 0 && left <= 2 ? ` (${left} deneme hakkiniz kaldi)` : ''),
+        error: 'Kullanıcı adı/telefon veya şifre hatalı.' + (left > 0 && left <= 2 ? ` (${left} deneme hakkınız kaldı)` : ''),
       });
     }
     // Personel artik giris yapamaz — sadece dukkan sahibi (owner) girer.
     if (acc.role && acc.role !== 'owner') {
-      logAuthEvent('login_fail', phone, clientIp(req));
+      logAuthEvent('login_fail', lookupKey, clientIp(req));
       return res.status(403).json({
         error: 'Personel girisi kapali. Panele sadece dukkan sahibi girer.',
       });
     }
-    clearLoginAttempts(phone);
+    clearLoginAttempts(lookupKey);
     recordLogin(acc, clientIp(req));
-    logAuthEvent('login_ok', phone, clientIp(req));
+    logAuthEvent('login_ok', lookupKey, clientIp(req));
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
     res.json({ success: true, account: publicAccount(acc) });

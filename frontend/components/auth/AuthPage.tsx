@@ -39,10 +39,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
       return;
     }
 
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (!cleanPhone.startsWith('05') || cleanPhone.length !== 11) {
-      setError('Lütfen 05 ile başlayan 11 haneli geçerli bir cep telefonu numarası giriniz (Örn: 05XXXXXXXXX). Harf veya eksik numara kabul edilmez.');
-      return;
+    let identifier = phone.trim();
+    if (mode === 'register') {
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (!cleanPhone.startsWith('05') || cleanPhone.length !== 11) {
+        setError('Lütfen 05 ile başlayan 11 haneli geçerli bir cep telefonu numarası giriniz (Örn: 05XXXXXXXXX). Harf veya eksik numara kabul edilmez.');
+        return;
+      }
+      identifier = cleanPhone;
+    } else {
+      if (!identifier) {
+        setError('Lütfen telefon numaranızı veya kullanıcı adınızı giriniz.');
+        return;
+      }
     }
     if (password.length < 6) {
       setError('Şifreniz en az 6 karakter olmalıdır.');
@@ -54,8 +63,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
       const url = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
       const body =
         mode === 'login'
-          ? { phone: cleanPhone, password }
-          : { shopName, ownerName, phone: cleanPhone, email, password, kvkkAccepted: true };
+          ? { phone: identifier, password }
+          : { shopName, ownerName, phone: identifier, email, password, kvkkAccepted: true };
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -356,25 +365,32 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
 
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1">
-                  Telefon *
+                  {mode === 'login' ? 'Telefon veya Kullanıcı Adı *' : 'Telefon *'}
                 </label>
                 <div className="relative">
-                  <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  {mode === 'login' && !/^\d/.test(phone) ? (
+                    <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  ) : (
+                    <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  )}
                   <input
-                    type="tel"
-                    inputMode="numeric"
+                    type={mode === 'login' ? 'text' : 'tel'}
+                    inputMode={mode === 'login' ? 'text' : 'numeric'}
                     value={phone}
                     onChange={(e) => {
-                      const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
-                      setPhone(clean);
+                      if (mode === 'login') {
+                        setPhone(e.target.value.trim());
+                      } else {
+                        const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
+                        setPhone(clean);
+                      }
                     }}
                     required
-                    maxLength={11}
-                    autoComplete="tel"
-                    placeholder="05XXXXXXXXX"
-                    pattern="05[0-9]{9}"
-                    title="05 ile başlayan 11 haneli cep telefonu numarası (Örn: 05XXXXXXXXX)"
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all font-mono"
+                    maxLength={mode === 'login' ? 32 : 11}
+                    autoComplete={mode === 'login' ? 'username' : 'tel'}
+                    placeholder={mode === 'login' ? '05XXXXXXXXX veya kullanıcı adı' : '05XXXXXXXXX'}
+                    title={mode === 'login' ? '05 ile başlayan telefon veya kullanıcı adı' : '05 ile başlayan 11 haneli cep telefonu numarası (Örn: 05XXXXXXXXX)'}
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all font-sans"
                   />
                 </div>
               </div>

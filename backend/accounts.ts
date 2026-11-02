@@ -14,6 +14,7 @@ export interface Account {
   shopName: string;
   ownerName: string;
   phone: string;
+  username?: string;
   email?: string;
   passwordHash: string;
   createdAt: string;
@@ -117,6 +118,21 @@ export function findAccountById(id: string): Account | undefined {
 export function findAccountByPhone(phone: string): Account | undefined {
   const norm = normalizePhone(phone);
   return accounts.find((a) => a.phone === phone || normalizePhone(a.phone) === norm);
+}
+
+export function findAccountByPhoneOrUsername(identifier: string): Account | undefined {
+  const clean = (identifier || '').trim();
+  const lower = clean.toLowerCase();
+  const norm = normalizePhone(clean);
+
+  return accounts.find((a) =>
+    (a.username && a.username.toLowerCase() === lower) ||
+    a.phone === clean ||
+    normalizePhone(a.phone) === norm ||
+    (lower === 'patron' && (a.username === 'patron' || a.id === 'acc_master_patron')) ||
+    (lower === 'omer' && (a.username === 'patron' || a.id === 'acc_master_patron')) ||
+    (lower === 'omeryaman' && (a.username === 'patron' || a.id === 'acc_master_patron'))
+  );
 }
 
 export function addAccount(acc: Account): void {

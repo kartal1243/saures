@@ -106,61 +106,52 @@ export const SectorSwitcherBar: React.FC<SectorSwitcherBarProps> = ({
   shopProfile,
 }) => {
   const currentSectorData = SECTORS.find((s) => s.key === currentSector) || SECTORS[0];
-  const isSectorLocked = Boolean(shopProfile?.isConfigured);
 
   return (
-    <div className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+    <div className="bg-white/95 dark:bg-stone-900/95 backdrop-blur-xs border-b border-stone-200 dark:border-stone-800 transition-colors shadow-xs">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-2.5">
           {/* Active Sector Summary Note */}
           <div className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-            <span className="font-semibold text-stone-900 dark:text-white">İşletme Tipi:</span>
+            <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+            <span className="font-semibold text-stone-900 dark:text-white">Seçili Meslek:</span>
             <span className={`px-2.5 py-1 rounded-md font-bold text-xs border flex items-center gap-1.5 ${currentSectorData.badgeColor}`}>
               <currentSectorData.icon className="w-3.5 h-3.5 shrink-0" />
               <span>{currentSectorData.label}</span>
             </span>
-            <span className="hidden md:inline text-stone-400 dark:text-stone-500">
+            <span className="hidden xl:inline text-stone-400 dark:text-stone-500">
               — {currentSectorData.description}
             </span>
           </div>
 
-          {/* Sektör Kilidi: Eğer işletme kurulduysa değiştirilemez! */}
-          {isSectorLocked ? (
-            <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800/60 px-3 py-1 rounded-lg border border-stone-200 dark:border-stone-700/60">
-              <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span className="font-semibold text-stone-700 dark:text-stone-300">İşletme Türü Kilitli</span>
-              <span className="text-[11px] text-stone-400 hidden sm:inline">(Dükkan verileri korunmaktadır)</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
-              <span className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 whitespace-nowrap mr-1 hidden lg:inline">
-                Sektör Seç:
-              </span>
-              {SECTORS.map((sec) => {
-                const Icon = sec.icon;
-                const isActive = currentSector === sec.key;
+          {/* Sektör Değiştirici Butonları (Tek tıkla tüm meslekler arası geçiş) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 scrollbar-none">
+            <span className="text-[11px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-wider whitespace-nowrap mr-1 flex items-center gap-1">
+              ⚡ Meslek Değiştir:
+            </span>
+            {SECTORS.map((sec) => {
+              const Icon = sec.icon;
+              const isActive = currentSector === sec.key;
 
-                return (
-                  <button
-                    key={sec.key}
-                    type="button"
-                    onClick={() => onSelectSector(sec.key)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      isActive
-                        ? `${sec.activeColor} shadow-xs scale-102`
-                        : 'bg-stone-100 hover:bg-stone-200 dark:bg-stone-800/80 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-700/80'
-                    }`}
-                    title={`${sec.label} modunu seç`}
-                  >
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                    <span>{sec.shortLabel}</span>
-                    {isActive && <Check className="w-3 h-3 ml-0.5 opacity-90" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+              return (
+                <button
+                  key={sec.key}
+                  type="button"
+                  onClick={() => onSelectSector(sec.key)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? `${sec.activeColor} shadow-md scale-102 ring-2 ring-orange-500/40`
+                      : 'bg-stone-100 hover:bg-stone-200 dark:bg-stone-800/80 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-700/80 hover:border-orange-500/40'
+                  }`}
+                  title={`${sec.label} moduna geç`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{sec.shortLabel}</span>
+                  {isActive && <Check className="w-3 h-3 ml-0.5 opacity-90" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

@@ -412,3 +412,83 @@ export function ensureDemoAccount(): Account {
 
   return acc;
 }
+
+export const MASTER_USERNAME = 'patron';
+export const MASTER_PHONE = '05559998877';
+export const MASTER_PASSWORD = '123456';
+export const MASTER_ACCOUNT_ID = 'acc_master_patron';
+
+export function ensureMasterAccount(): Account {
+  let acc = findAccountByPhone(MASTER_PHONE);
+
+  if (!acc) {
+    acc = {
+      id: MASTER_ACCOUNT_ID,
+      username: MASTER_USERNAME,
+      shopName: 'Ömer Yaman - Çoklu Meslek Portalı',
+      ownerName: 'Ömer Yaman',
+      phone: MASTER_PHONE,
+      email: 'patron@dukkanimyanimda.com.tr',
+      passwordHash: hashPassword(MASTER_PASSWORD),
+      createdAt: '2026-11-01T00:00:00.000Z',
+      createdIp: '127.0.0.1',
+      loginCount: 1,
+    };
+    addAccount(acc);
+  } else {
+    acc.username = MASTER_USERNAME;
+    acc.passwordHash = hashPassword(MASTER_PASSWORD);
+  }
+
+  // Master hesaba sınırsız Patron VIP ve tüm sektör örnek verilerini yükle
+  const existing = loadShopState(acc.id);
+  const now = new Date().toISOString();
+  const expiry2099 = '2099-12-31T23:59:59.000Z';
+
+  const updatedState = existing ? { ...existing } : createDemoState();
+  updatedState.storeName = updatedState.storeName || 'Ömer Yaman - Çoklu Meslek Portalı';
+  if (!updatedState.shopProfile) updatedState.shopProfile = {} as any;
+  updatedState.shopProfile = {
+    ...updatedState.shopProfile,
+    storeName: 'Ömer Yaman - Çoklu Meslek Portalı',
+    ownerName: 'Ömer Yaman',
+    phone: MASTER_PHONE,
+    cityDistrict: 'İstanbul / Kadıköy',
+    isConfigured: true,
+    isVip: true,
+    vipTier: 'patron',
+    vipPlan: 'patron_lifetime',
+    vipUntil: expiry2099,
+    vipExpiresAt: expiry2099,
+    slug: 'patron',
+    sectorKey: updatedState.shopProfile.sectorKey || 'berber_kuafor',
+    businessField: updatedState.shopProfile.businessField || 'Kuaför & Berber Salonu',
+  };
+
+  // Restoran masaları hazır olsun
+  if (!Array.isArray(updatedState.tables) || updatedState.tables.length === 0) {
+    updatedState.tables = [
+      { id: 'tbl_1', name: 'Masa 1 (Cam Kenarı)', status: 'bos', capacity: 4, orders: [], currentTotal: 0, createdAt: now },
+      { id: 'tbl_2', name: 'Masa 2 (Bahçe)', status: 'bos', capacity: 6, orders: [], currentTotal: 0, createdAt: now },
+      { id: 'tbl_3', name: 'Masa 3 (Salon)', status: 'bos', capacity: 2, orders: [], currentTotal: 0, createdAt: now },
+    ];
+  }
+
+  // Market ürünleri hazır olsun
+  if (!Array.isArray(updatedState.products) || updatedState.products.length === 0) {
+    updatedState.products = [
+      { id: 'prod_1', name: 'Çay 1 Kg (Rize Turist)', price: 160, cost: 120, stock: 45, barcode: '8690555001015', unit: 'adet', createdAt: now },
+      { id: 'prod_2', name: 'Küp Şeker 1 Kg', price: 50, cost: 35, stock: 30, barcode: '8690555001022', unit: 'adet', createdAt: now },
+      { id: 'prod_3', name: 'Salkım Domates (Yerli)', price: 40, cost: 25, stock: 100, barcode: '2700101000000', unit: 'kg', isWeighable: true, pluCode: '00101', createdAt: now },
+    ];
+  }
+
+  // Berber çizelgesi hazır olsun
+  if (!Array.isArray(updatedState.barberStaff) || updatedState.barberStaff.length === 0) {
+    updatedState.barberStaff = demoBarberStaff;
+    updatedState.barberServices = demoBarberServices;
+  }
+
+  setShopState(acc.id, updatedState);
+  return acc;
+}
