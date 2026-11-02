@@ -74,10 +74,11 @@ export async function startServer(): Promise<void> {
 
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (err instanceof SyntaxError && 'body' in err) {
-      return res.status(400).json({ error: 'Geçersiz JSON formatı.' });
+    if (err) {
+      console.error('[EXPRESS JSON ERROR]:', err.message, err.status, err.type);
+      return res.status(400).json({ error: 'Geçersiz JSON formatı: ' + err.message });
     }
-    next(err);
+    next();
   });
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
