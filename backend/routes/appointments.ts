@@ -15,8 +15,10 @@ import { broadcast, broadcastToAccount } from '../realtime';
 import { localDay } from '../day';
 import { getAccounts, clientIp } from '../accounts';
 import { loadShopState, persistShopState, defaultBarberSettings, defaultBarberStaff, defaultBarberServices } from '../shopState';
-import { checkAndUpdateVipStatus } from './profile';
+import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { FREE_ONLINE_BOOKING_QUOTA } from '../config';
+import { publicActionRateLimit } from '../guards';
+import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
 
 function slugify(text: string): string {
   const trMap: Record<string, string> = {
@@ -64,7 +66,9 @@ function resolveBarberShop(identifier: string) {
 
   // Yalnızca rawId 'demo' ise demoya düş; var olmayan diğer sluglar 404 dönmelidir!
   if (!shopState && rawId === 'demo') {
-    const fallbackAcc = accounts.find((a) => a.phone === '05550000000');
+    const fallbackAcc = accounts.find(
+      (a) => a.id === DEMO_ACCOUNT_ID || a.phone === DEMO_PHONE || a.phone === '05550000000'
+    );
     if (fallbackAcc) {
       targetAcc = fallbackAcc;
       shopState = loadShopState(fallbackAcc.id);
@@ -212,14 +216,20 @@ export function registerPublicBarberRoutes(app: Express): void {
 
     const storeName = shopState.shopProfile?.storeName || account?.shopName || 'Berber & Kuaför Salonu';
     const slug = shopState.shopProfile?.slug || slugify(storeName);
-    const isVip = Boolean(shopState.shopProfile?.isVip || (account?.id && account.id.includes('demo')));
+    const isDemo = Boolean(account?.id && account.id.includes('demo'));
+    const limits = getTierLimits(shopState.shopProfile);
+    const isVip = Boolean(shopState.shopProfile?.isVip || isDemo);
 
-    // Aylık randevu kotası kontrolü: Çırak paketine aylık 20 ücretsiz randevu kotası verilir (viral kanca)
+    // Aylık randevu kotası kontrolü: Çırak (20), Usta (60), Patron VIP (Sınırsız)
     const currentMonth = new Date().toISOString().slice(0, 7);
     const monthlyOnlineApts = (shopState.appointments || []).filter(
       (a) => a.appointmentDate && a.appointmentDate.startsWith(currentMonth) && (a.isOnlineBooking || (a as any).isOnline)
     ).length;
-    const quotaExceeded = !isVip && monthlyOnlineApts >= FREE_ONLINE_BOOKING_QUOTA;
+    const effectiveQuota = isDemo ? Infinity : limits.maxMonthlyOnlineBookings;
+    const quotaExceeded = monthlyOnlineApts >= effectiveQuota;
+
+    // Çırak ve Usta paketlerinde tek koltuk kuralı
+    const allowedStaff = isDemo || limits.maxStaffSeats === Infinity ? staff : staff.slice(0, limits.maxStaffSeats);
 
     res.json({
       shop: {
@@ -229,13 +239,15 @@ export function registerPublicBarberRoutes(app: Express): void {
         slogan: shopState.shopProfile?.slogan || 'Profesyonel Saç & Sakal Bakımı',
         slug,
         isVip,
-        brandingRequired: !isVip || shopState.shopProfile?.vipPlan !== 'patron',
+        vipTier: limits.tier,
+        brandingRequired: !isDemo && !limits.removeBranding,
       },
       isVip,
+      vipTier: limits.tier,
       vipRequired: quotaExceeded,
-      monthlyQuota: isVip ? 999999 : FREE_ONLINE_BOOKING_QUOTA,
+      monthlyQuota: effectiveQuota === Infinity ? 999999 : effectiveQuota,
       monthlyUsed: monthlyOnlineApts,
-      staff,
+      staff: allowedStaff,
       services,
       settings,
       occupiedSlots,
@@ -244,7 +256,7 @@ export function registerPublicBarberRoutes(app: Express): void {
   });
 
   // 2. OTP Simülasyonu / Gönderimi (Gerçek in-memory doğrulama)
-  app.post('/api/public/barber/send-otp', (req: Request, res: Response) => {
+  app.post('/api/public/barber/send-otp', publicActionRateLimit, (req: Request, res: Response) => {
     const { phone } = req.body;
     const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
     if (cleanPhone.length < 10) {
@@ -269,7 +281,8 @@ export function registerPublicBarberRoutes(app: Express): void {
       return res.status(404).json({ error: 'İşletme bulunamadı.' });
     }
 
-    const isVip = Boolean(shopState.shopProfile?.isVip || (account?.id && account.id.includes('demo')));
+    const isDemo = Boolean(account?.id && account.id.includes('demo'));
+    const limits = getTierLimits(shopState.shopProfile);
     const {
       customerName,
       phone,
@@ -304,32 +317,32 @@ export function registerPublicBarberRoutes(app: Express): void {
       return res.status(400).json({ error: 'Tek seferde en fazla 5 hizmet seçebilirsiniz.' });
     }
 
-    // Kota Kontrolü: Çırak paketi ayda 20 randevudan sonra VIP gerektirir
+    // Kota Kontrolü: Çırak (20/ay), Usta (60/ay), Patron VIP (Sınırsız)
     const currentMonth = date.slice(0, 7);
     const monthlyOnlineApts = (shopState.appointments || []).filter(
       (a) => a.appointmentDate && a.appointmentDate.startsWith(currentMonth) && (a.isOnlineBooking || (a as any).isOnline)
     ).length;
+    const effectiveQuota = isDemo ? Infinity : limits.maxMonthlyOnlineBookings;
 
-    if (!isVip && monthlyOnlineApts >= FREE_ONLINE_BOOKING_QUOTA) {
+    if (monthlyOnlineApts >= effectiveQuota) {
       return res.status(403).json({
-        error: `Bu işletmenin bu ayki ${FREE_ONLINE_BOOKING_QUOTA} adet ücretsiz online randevu kotası dolmuştur. Sınırsız randevu alımı için lütfen işletmeyle iletişime geçiniz.`,
+        error: `Bu işletmenin bu ayki ${effectiveQuota} adet online randevu kotası dolmuştur. Randevu için lütfen işletmeyle iletişime geçiniz.`,
         code: 'QUOTA_EXCEEDED',
-        quota: FREE_ONLINE_BOOKING_QUOTA,
+        quota: effectiveQuota,
         used: monthlyOnlineApts,
         vipRequired: true,
       });
     }
 
-    // Gerçek OTP Doğrulaması
+    // Gerçek OTP Doğrulaması ('1234' bypass kaldırıldı)
     if (shopState.barberSettings?.requireOtp) {
       const stored = otpStore.get(cleanPhone.slice(-10));
-      const isValid = (otpCode === '1234') || (stored && stored.code === otpCode && stored.expiresAt > Date.now());
+      const trimmedCode = String(otpCode || '').trim();
+      const isValid = Boolean(stored && stored.code === trimmedCode && stored.expiresAt > Date.now());
       if (!isValid) {
-        return res.status(400).json({ error: 'Geçersiz veya süresi dolmuş SMS onay kodu.' });
+        return res.status(400).json({ error: 'Geçersiz veya süresi dolmuş SMS onay kodu. Lütfen önce "SMS Kodu Gönder" butonuna basınız.' });
       }
-      if (stored && stored.code === otpCode) {
-        otpStore.delete(cleanPhone.slice(-10));
-      }
+      otpStore.delete(cleanPhone.slice(-10));
     }
 
     // Spam Koruması: Aynı telefon için aynı günde max 2 aktif randevu
@@ -663,7 +676,7 @@ export function registerAppointmentRoutes(app: Express): void {
     let remainingSessionsText = '';
     if (packageId || apt.packageSession) {
       if (!S().customerPackages) S().customerPackages = [];
-      const pkg = S().customerPackages.find((p) => p.id === (packageId || apt.packageSession?.packageId));
+      const pkg = (S().customerPackages || []).find((p) => p.id === (packageId || apt.packageSession?.packageId));
       if (pkg && pkg.remainingSessions > 0) {
         pkg.remainingSessions -= 1;
         remainingSessionsText = ` (Paketten düşüldü: ${pkg.remainingSessions}/${pkg.totalSessions} seans kaldı)`;
@@ -726,6 +739,13 @@ export function registerAppointmentRoutes(app: Express): void {
   app.post('/api/barber/staff', (req: Request, res: Response) => {
     const { staff } = req.body;
     if (!Array.isArray(staff)) return res.status(400).json({ error: 'Geçersiz personel listesi.' });
+    const limits = getTierLimits(S().shopProfile);
+    if (staff.length > limits.maxStaffSeats) {
+      return res.status(403).json({
+        error: 'Çırak ve Usta paketlerinde tek koltuk (1 personel) takvimi kullanılabilir. Çoklu usta ve otomatik prim dağılımı için Patron VIP pakete geçin.',
+        code: 'VIP_REQUIRED',
+      });
+    }
     S().barberStaff = staff;
     saveState();
     res.json({ success: true, staff: S().barberStaff });
@@ -758,7 +778,7 @@ export function registerAppointmentRoutes(app: Express): void {
       createdAt: new Date().toISOString(),
     };
 
-    S().barberTimeBlocks.unshift(newBlock);
+    S().barberTimeBlocks!.unshift(newBlock);
     saveState();
     res.json({ success: true, block: newBlock, timeBlocks: S().barberTimeBlocks });
   });
@@ -766,7 +786,7 @@ export function registerAppointmentRoutes(app: Express): void {
   app.delete('/api/barber/time-blocks/:id', (req: Request, res: Response) => {
     const { id } = req.params;
     if (!S().barberTimeBlocks) S().barberTimeBlocks = [];
-    S().barberTimeBlocks = S().barberTimeBlocks.filter((b) => b.id !== id);
+    S().barberTimeBlocks = (S().barberTimeBlocks || []).filter((b) => b.id !== id);
     saveState();
     res.json({ success: true, timeBlocks: S().barberTimeBlocks });
   });
@@ -804,7 +824,7 @@ export function registerAppointmentRoutes(app: Express): void {
       expiryDate,
     };
 
-    S().customerPackages.unshift(newPkg);
+    S().customerPackages!.unshift(newPkg);
     saveState();
     res.json({ success: true, package: newPkg, packages: S().customerPackages });
   });

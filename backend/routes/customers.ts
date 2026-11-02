@@ -4,6 +4,7 @@ import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
 import { localDay } from '../day';
+import { getTierLimits } from './profile';
 
 export function registerCustomerRoutes(app: Express): void {
   app.post('/api/customers', (req: Request, res: Response) => {
@@ -28,18 +29,14 @@ export function registerCustomerRoutes(app: Express): void {
       };
       S().customers[index] = customer;
     } else {
-      // 0 TL Standart Plan Koruması: VIP olmayan dükkanlar en fazla 25 müşteri ekleyebilir
-      const profile = S().shopProfile;
-      const isVip = Boolean(
-        profile?.isVip &&
-        (!profile.vipUntil || new Date(profile.vipUntil).getTime() > Date.now())
-      );
+      // Paket Kotası Koruması: Çırak (25), Usta (100), Patron VIP (Sınırsız)
+      const limits = getTierLimits(S().shopProfile);
 
-      if (!isVip && Array.isArray(S().customers) && S().customers.length >= 25) {
+      if (Array.isArray(S().customers) && S().customers.length >= limits.maxCustomers) {
         return res.status(403).json({
-          error: '0 TL Standart planda en fazla 25 müşteri kaydedebilirsiniz. Sınırsız müşteri ve veresiye takibi için VIP Pakete geçin.',
+          error: `Mevcut paketinizde en fazla ${limits.maxCustomers} müşteri kaydedebilirsiniz. Kapasitenizi artırmak için Usta veya Patron VIP Pakete geçin.`,
           code: 'VIP_REQUIRED',
-          limit: 25,
+          limit: limits.maxCustomers,
           current: S().customers.length,
         });
       }

@@ -24,9 +24,10 @@ import {
   normalizePhone,
   type Account,
 } from '../accounts';
-import { loadShopState } from '../shopState';
+import { loadShopState, persistShopState } from '../shopState';
 import { ensureDemoAccount, DEMO_PHONE } from '../demoSeed';
 import { requireOwner } from '../guards';
+import { getTierLimits } from './profile';
 
 export function registerAuthRoutes(app: Express): void {
   // Herkese açık platform metrikleri
@@ -71,7 +72,20 @@ export function registerAuthRoutes(app: Express): void {
     addAccount(acc);
     recordLogin(acc, clientIp(req));
     logAuthEvent('register', phone, clientIp(req));
-    loadShopState(acc.id);
+    const st = loadShopState(acc.id);
+
+    // 14 Günlük Ücretsiz VIP Kampanyası
+    if (!st.shopProfile.isVip || !st.shopProfile.vipUntil) {
+      const trialDays = 14;
+      const trialExpiry = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString();
+      st.shopProfile.isVip = true;
+      st.shopProfile.vipTier = 'patron';
+      st.shopProfile.vipPlan = '14_gun_deneme';
+      st.shopProfile.vipUntil = trialExpiry;
+      st.shopProfile.vipExpiresAt = trialExpiry;
+      persistShopState(acc.id, st);
+    }
+
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
     res.json({ success: true, account: publicAccount(acc) });
@@ -177,6 +191,15 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/add-staff', (req: Request, res: Response) => {
     const owner = requireOwner(req, res);
     if (!owner) return;
+    const ownerState = loadShopState(owner.id);
+    const limits = getTierLimits(ownerState.shopProfile);
+    const existingStaffCount = getAccounts().filter((a) => a.parentAccountId === owner.id).length;
+    if (existingStaffCount + 1 >= limits.maxStaffSeats) {
+      return res.status(403).json({
+        error: 'Çırak ve Usta paketleri tek koltuk (1 çalışan) içindir. Çoklu personel eklemek için Patron VIP pakete geçin.',
+        code: 'VIP_REQUIRED',
+      });
+    }
     const body = req.body || {};
     const phone = String(body.phone || '').replace(/\s+/g, '');
     const name = String(body.name || '').trim();

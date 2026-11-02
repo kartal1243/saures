@@ -246,10 +246,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Crown className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
               <div className="min-w-0">
                 <span className="block text-xs font-black text-amber-300 truncate">
-                  VIP {vipPlan === 'yearly' ? 'Yıllık' : 'Aylık'} Üye
+                  {vipPlan === '14_gun_deneme' ? '🎁 14 Gün Ücretsiz VIP' : `VIP ${vipPlan === 'yearly' ? 'Yıllık' : 'Aylık'} Üye`}
                 </span>
                 <span className="block text-[9px] font-bold text-amber-400/80 truncate">
-                  {vipUntil ? `Bitiş: ${new Date(vipUntil).toLocaleDateString('tr-TR')}` : 'Sınırsız Özellikler'}
+                  {vipUntil ? (
+                    vipPlan === '14_gun_deneme'
+                      ? `Kalan: ${Math.max(0, Math.ceil((new Date(vipUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} Gün (${new Date(vipUntil).toLocaleDateString('tr-TR')})`
+                      : `Bitiş: ${new Date(vipUntil).toLocaleDateString('tr-TR')}`
+                  ) : 'Sınırsız Özellikler'}
                 </span>
               </div>
             </div>

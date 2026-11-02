@@ -53,12 +53,14 @@ import type {
   BarberSalonSettings,
   CustomerPackage,
   Customer,
+  ServiceItem,
 } from '../../../shared/types.ts';
 import { BarberVoiceAssistant } from './BarberVoiceAssistant';
 
 interface BarberAppointmentsViewProps {
   appointments: Appointment[];
   customers?: Customer[];
+  services?: ServiceItem[];
   shopSlug?: string;
   storeName?: string;
   isVip?: boolean;
@@ -598,6 +600,14 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
           }),
         });
         const data = await res.json();
+        if (!res.ok) {
+          setIsAiServiceModalOpen(false);
+          alert(data.error || 'AI tarife okuma işlemi tamamlanamadı.');
+          if (res.status === 403 || data.code === 'VIP_REQUIRED') {
+            onOpenVip?.();
+          }
+          return;
+        }
         if (data.items && Array.isArray(data.items) && data.items.length > 0) {
           setAiDetectedItems(
             data.items.map((item: any) => ({

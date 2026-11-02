@@ -707,59 +707,54 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             </p>
           </div>
 
-          <div className="mt-12 grid md:grid-cols-2 gap-8 max-w-5xl mx-auto items-stretch">
-            {/* 1. KART: STANDART ESNAF PAKETİ (0 TL) */}
-            <div className="p-7 sm:p-9 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/90 dark:border-stone-800 shadow-xs flex flex-col justify-between transition-all">
+          <div className="mt-12 grid md:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
+            {/* 1. KART: ÇIRAK PAKETİ (0 TL) */}
+            <div className="p-6 sm:p-7 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/90 dark:border-stone-800 shadow-xs flex flex-col justify-between transition-all">
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-stone-400">Başlangıç Sürümü</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-stone-400">Başlangıç</span>
                   <span className="px-3 py-1 rounded-full text-[11px] font-black bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700">
-                    Denemesi Bedava
+                    Sonsuza Dek ₺0
                   </span>
                 </div>
-                <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white">Standart Esnaf</h3>
+                <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white">Çırak Paketi</h3>
                 <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
-                  Dükkanını yeni açan ve kağıt defteri çöpe atıp dijitali denemek isteyenler için.
+                  Yeni tanışan esnaf için temel dijital defter ve kasa.
                 </p>
 
-                <div className="mt-6 pb-6 border-b border-stone-100 dark:border-stone-800">
+                <div className="mt-5 pb-5 border-b border-stone-100 dark:border-stone-800">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-4xl sm:text-5xl font-black text-stone-900 dark:text-white">₺0</span>
-                    <span className="text-xs font-bold text-stone-500">/ sonsuza kadar ücretsiz</span>
+                    <span className="text-4xl font-black text-stone-900 dark:text-white">₺0</span>
+                    <span className="text-xs font-bold text-stone-500">/ sonsuza dek</span>
                   </div>
                   <p className="mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                     ✓ Kredi kartı veya taahhüt gerekmez
                   </p>
                 </div>
 
-                <div className="mt-6 space-y-3">
-                  <p className="text-[11px] font-black text-stone-400 uppercase tracking-wider">Paket Sınırları &amp; Özellikler</p>
+                <div className="mt-5 space-y-2.5">
                   {[
-                    { text: 'Maksimum 25 Müşteri & Veresiye Kaydı', included: true },
-                    { text: '1 Personel / Tek Kullanıcı Girişi', included: true },
-                    { text: 'Temel Kasa & Günlük Ciro (Son 14 Gün Geçmiş)', included: true },
-                    { text: 'WhatsApp ile Kibar Borç Hatırlatma', included: true },
-                    { text: 'Mobil Uyumlu PWA & Şifreli Bulut Yedekleme', included: true },
-                    { text: 'Online Randevu Takvimi Yok (Yalnızca VIP)', included: false },
-                    { text: 'Sınırsız Müşteri & Cari (VIP ile Sınırsız)', included: false },
-                    { text: 'Türkçe Sesli Randevu Asistanı (Yalnızca VIP)', included: false },
-                    { text: 'Termal Fiş, Terazi & Özel Kodlama (Yalnızca VIP)', included: false },
+                    '25 Müşteri & Veresiye Cari Kotası',
+                    '3 Masa / Tek Koltuk Takibi',
+                    'Ayda 20 Online Randevu Hakkı',
+                    'WhatsApp ile Kibar Borç Hatırlatma',
+                    'Temel Kasa & Günlük Ciro Takibi',
                   ].map((feat) => (
-                    <div key={feat.text} className={`flex items-center gap-2.5 text-xs sm:text-sm font-semibold ${feat.included ? 'text-stone-700 dark:text-stone-200' : 'text-stone-400 dark:text-stone-500 line-through'}`}>
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${feat.included ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600' : 'bg-stone-100 dark:bg-stone-800 text-stone-400'}`}>
-                        {feat.included ? <Check className="w-3.5 h-3.5" /> : <span className="text-[10px] font-black">✕</span>}
+                    <div key={feat} className="flex items-center gap-2 text-xs font-semibold text-stone-700 dark:text-stone-200">
+                      <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5" />
                       </span>
-                      <span>{feat.text}</span>
+                      <span>{feat}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-stone-100 dark:border-stone-800">
+              <div className="mt-6 pt-5 border-t border-stone-100 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={onRegister}
-                  className="w-full py-3.5 px-4 rounded-xl text-sm font-black text-stone-800 dark:text-stone-100 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200/80 dark:border-stone-700 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl text-sm font-black text-stone-800 dark:text-stone-100 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200/80 dark:border-stone-700 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   Ücretsiz Başla
                   <ArrowRight className="w-4 h-4" />
@@ -767,55 +762,110 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               </div>
             </div>
 
-            {/* 2. KART: İŞLETMEYE ÖZEL VIP PANEL (₺500 / AY) */}
-            <div className="relative p-7 sm:p-9 rounded-3xl bg-linear-to-b from-orange-500/5 via-white to-orange-500/10 dark:from-stone-900 dark:via-stone-900 dark:to-orange-950/20 border-2 border-orange-500/80 shadow-xl flex flex-col justify-between transition-all">
-              {/* Üst Rozet */}
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-linear-to-r from-orange-500 to-orange-600 text-white text-[11px] font-black uppercase tracking-wider shadow-md shadow-orange-500/30 flex items-center gap-1.5 whitespace-nowrap">
+            {/* 2. KART: USTA PAKETİ (₺249 / AY) */}
+            <div className="p-6 sm:p-7 rounded-3xl bg-white dark:bg-stone-900 border-2 border-amber-400/80 dark:border-amber-700 shadow-md flex flex-col justify-between transition-all">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Tek Koltuk</span>
+                  <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                    Günde Sadece 8 ₺
+                  </span>
+                </div>
+                <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white">Usta Paketi</h3>
+                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
+                  Tek çalışan mahalle berberi, terzi ve tamirci esnafı için.
+                </p>
+
+                <div className="mt-5 pb-5 border-b border-stone-100 dark:border-stone-800">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="text-4xl font-black text-stone-900 dark:text-white">₺249</span>
+                    <span className="text-xs font-bold text-stone-500">/ ay</span>
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
+                      Yıllık ₺2.490
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                    ✓ Günde 8 TL · 1 çay fiyatına profesyonel takip
+                  </p>
+                </div>
+
+                <div className="mt-5 space-y-2.5">
+                  {[
+                    '100 Müşteri & Veresiye Cari Kotası',
+                    'Ayda 60 Online Randevu Hakkı',
+                    'Tek Koltuk Dijital Randevu Takvimi',
+                    'Fotoğraftan Fiyat Tarifesi Okuyucu (AI OCR)',
+                    'Gelir, Gider ve Günlük Kasa Takibi',
+                    'Cihazdan Hızlı SMS & WhatsApp Şablonları',
+                  ].map((feat) => (
+                    <div key={feat} className="flex items-center gap-2 text-xs font-semibold text-stone-800 dark:text-stone-100">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5" />
+                      </span>
+                      <span>{feat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6 pt-5 border-t border-stone-100 dark:border-stone-800">
+                <button
+                  type="button"
+                  onClick={onRegister}
+                  className="w-full py-3 px-4 rounded-xl text-sm font-black text-white bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  Usta Paketine Geç
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* 3. KART: PATRON VIP PANEL (₺499 / AY) */}
+            <div className="relative p-6 sm:p-7 rounded-3xl bg-linear-to-b from-orange-500/5 via-white to-orange-500/10 dark:from-stone-900 dark:via-stone-900 dark:to-orange-950/20 border-2 border-orange-500/80 shadow-xl flex flex-col justify-between transition-all">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-linear-to-r from-orange-500 to-orange-600 text-white text-[10px] font-black uppercase tracking-wider shadow-md shadow-orange-500/30 flex items-center gap-1.5 whitespace-nowrap">
                 <Sparkles className="w-3.5 h-3.5" />
-                ★ EN ÇOK TERCİH EDİLEN · GÜNDE SADECE 16 ₺
+                ★ EN ÇOK TERCİH EDİLEN · GÜNDE 16 ₺
               </div>
 
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">İşletmenizin Sağ Kolu</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">Ekip &amp; Salon</span>
                   <span className="px-3 py-1 rounded-full text-[11px] font-black bg-orange-500/15 text-orange-800 dark:text-orange-300 border border-orange-500/30">
                     Özel Yazılımcı Dahil
                   </span>
                 </div>
                 <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white flex items-center gap-2">
-                  İşletmeye Özel VIP Panel
+                  Patron VIP
                   <Crown className="w-5 h-5 text-orange-500" />
                 </h3>
                 <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
-                  Günde 16 ₺'ye çırak bile tutamazsınız! Ayda 1 saç kesimi parasına tüm dükkanınız cebinizde.
+                  2+ personelli salonlar, kafeler ve büyüyen işletmeler için.
                 </p>
 
-                <div className="mt-6 pb-6 border-b border-orange-200/60 dark:border-orange-800/40">
+                <div className="mt-5 pb-5 border-b border-orange-200/60 dark:border-orange-800/40">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="text-4xl sm:text-5xl font-black text-stone-900 dark:text-white">₺500</span>
+                    <span className="text-4xl font-black text-stone-900 dark:text-white">₺499</span>
                     <span className="text-xs font-bold text-stone-500">/ ay</span>
-                    <span className="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                      Yıllıkta 2 Ay Hediye (₺4.990)
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                      Yıllık ₺4.990 (2 Ay Hediye)
                     </span>
                   </div>
-                  <p className="mt-1.5 text-[11px] font-bold text-orange-700 dark:text-orange-400">
-                    ✓ Günde sadece 16 TL · 1 bardak çay parasına dükkana özel yazılım mühendisi
+                  <p className="mt-1 text-[11px] font-bold text-orange-700 dark:text-orange-400">
+                    ✓ Günde 16 TL · Dükkana özel yazılım mühendisi
                   </p>
                 </div>
 
-                <div className="mt-6 space-y-3">
-                  <p className="text-[11px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider">Sınırsız VIP Ayrıcalıkları</p>
+                <div className="mt-5 space-y-2.5">
                   {[
-                    'SINIRSIZ Müşteri, Veresiye ve Cari Takibi (25 limiti kalkar)',
-                    'Online Randevu Takvimi, Randevu Linki & Tezgah QR Standı',
-                    'SINIRSIZ Personel / Usta ve Otomatik Koltuk Prim Dağılımı',
-                    'Türkçe Sesli Randevu & Kasa Asistanı (Web Speech AI)',
-                    'Fotoğraftan Fiyat Tarifesi & Menü Okuyucu (AI OCR)',
-                    'Termal Fiş Yazıcısı (58/80mm), Barkodlu Terazi Entegrasyonu',
-                    'DÜKKANINIZA ÖZEL YAZILIM: İstediğiniz her form ve buton size özel kodlanır',
-                    '7/24 Öncelikli Telefon & Canlı WhatsApp Yazılımcı Destek Hattı',
+                    'SINIRSIZ Müşteri, Cari ve Online Randevu',
+                    'Çoklu Usta & Otomatik Koltuk Prim Dağılımı',
+                    'QR Menü + Canlı Garson Çağır & Hesap İste',
+                    'Termal Fiş (58/80mm) & Barkodlu Terazi Desteği',
+                    '"Dükkânım Yanımda" Marka Bandını Kaldırma',
+                    'DÜKKANINIZA ÖZEL YAZILIM PANELİ KODLAMA',
+                    '7/24 Öncelikli Telefon & Mühendis Destek Hattı',
                   ].map((feat, idx) => (
-                    <div key={feat} className={`flex items-center gap-2.5 text-xs sm:text-sm font-bold ${idx === 7 ? 'text-orange-900 dark:text-orange-200' : 'text-stone-800 dark:text-stone-100'}`}>
+                    <div key={feat} className={`flex items-center gap-2 text-xs font-bold ${idx === 5 ? 'text-orange-900 dark:text-orange-200' : 'text-stone-800 dark:text-stone-100'}`}>
                       <span className="w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
                         <Check className="w-3.5 h-3.5" />
                       </span>
@@ -825,19 +875,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 </div>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-orange-200/60 dark:border-orange-800/40">
+              <div className="mt-6 pt-5 border-t border-orange-200/60 dark:border-orange-800/40">
                 <button
                   type="button"
                   onClick={onRegister}
-                  className="w-full py-3.5 px-4 rounded-xl text-sm font-black text-white bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:to-orange-800 shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl text-sm font-black text-white bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:to-orange-800 shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Crown className="w-4 h-4 text-yellow-200" />
-                  VIP Özel Panelimi Başlat — Günde 16 ₺
+                  Patron VIP Başlat — ₺499
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                <p className="mt-2 text-center text-[10px] text-stone-400 font-medium">
-                  Taahhüt Yok · İstediğin Zaman İptal Et · Kredi Kartı Şartı Yok
-                </p>
               </div>
             </div>
           </div>

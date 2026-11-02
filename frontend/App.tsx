@@ -257,8 +257,14 @@ export default function App() {
   const [whatsAppReminderType, setWhatsAppReminderType] = useState<'veresiye' | 'aidat' | 'bakim'>('veresiye');
   const [barberSubTab, setBarberSubTab] = useState<'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'>('timeline');
 
-  // Canlı Online Randevu Bildirim State'i
+  // Canlı Online Randevu & Masa Garson Çağrısı Bildirim State'i
   const [liveBookingAlert, setLiveBookingAlert] = useState<Appointment | null>(null);
+  const [liveTableCallAlert, setLiveTableCallAlert] = useState<{
+    tableNo: string;
+    tableId?: string;
+    action: string;
+    time: string;
+  } | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -469,6 +475,33 @@ export default function App() {
             });
           } else if (wsEvent.type === 'TABLE_DELETED') {
             setTables((prev) => prev.filter((t) => t.id !== wsEvent.payload.id));
+          } else if ((wsEvent as any).type === 'TABLE_CALL_ALERT' || wsEvent.type === 'TABLE_CALL') {
+            const callPayload = (wsEvent as any).payload;
+            try {
+              const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+              if (AudioCtx) {
+                const ctx = new AudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(987.77, ctx.currentTime);
+                osc.frequency.setValueAtTime(1318.51, ctx.currentTime + 0.18);
+                gain.gain.setValueAtTime(0.35, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.9);
+              }
+            } catch {}
+
+            setLiveTableCallAlert({
+              tableNo: callPayload.tableNo || callPayload.tableName || 'Masa',
+              tableId: callPayload.tableId,
+              action: callPayload.action || 'Garson Çağırıyor 🔔',
+              time: callPayload.time || new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+            });
+            setTimeout(() => setLiveTableCallAlert(null), 10000);
           } else if (wsEvent.type === 'REPAIR_TICKET_UPDATED') {
             setRepairTickets((prev) => {
               const exists = prev.some((t) => t.id === wsEvent.payload.id);
@@ -726,7 +759,8 @@ export default function App() {
 
   // Customer Management Handlers
   const handleOpenNewCustomer = () => {
-    if (!shopProfile?.isVip && customers.length >= 25) {
+    const maxCust = !shopProfile?.isVip ? 25 : shopProfile.vipTier === 'usta' ? 100 : Infinity;
+    if (customers.length >= maxCust) {
       setIsVipModalOpen(true);
       return;
     }
@@ -734,9 +768,10 @@ export default function App() {
   };
 
   const handleCreateCustomer = async (data: Partial<Customer> & { initialBalance?: number }) => {
-    if (!shopProfile?.isVip && customers.length >= 25) {
+    const maxCust = !shopProfile?.isVip ? 25 : shopProfile.vipTier === 'usta' ? 100 : Infinity;
+    if (customers.length >= maxCust) {
       setIsVipModalOpen(true);
-      alert('0 TL Standart sürümde en fazla 25 müşteri kaydedebilirsiniz. Sınırsız müşteri eklemek için lütfen VIP pakete geçin (Günde sadece 16 ₺).');
+      alert(`Mevcut paketinizde en fazla ${maxCust} müşteri kaydedebilirsiniz. Daha fazla müşteri eklemek için lütfen paketinizi yükseltin.`);
       return;
     }
     const res = await fetch('/api/customers', {
@@ -1556,6 +1591,40 @@ export default function App() {
             onClick={(e) => {
               e.stopPropagation();
               setLiveBookingAlert(null);
+            }}
+            className="p-1 rounded-lg hover:bg-white/20 text-white cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Canlı Masa Garson / Hesap Çağrısı Toast Bildirimi */}
+      {liveTableCallAlert && (
+        <div
+          onClick={() => {
+            setActiveTab('sector_view');
+            setLiveTableCallAlert(null);
+          }}
+          className="fixed top-4 right-4 z-50 max-w-sm w-full bg-linear-to-r from-amber-500 to-orange-600 text-white p-4 rounded-2xl shadow-2xl border border-white/20 flex items-center justify-between gap-3 animate-in slide-in-from-top-4 cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 animate-bounce">
+              <span className="text-xl">🛎️</span>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-amber-100">Canlı Masa Çağrısı!</p>
+              <h4 className="text-sm font-black">{liveTableCallAlert.tableNo}</h4>
+              <p className="text-xs text-amber-50 font-bold">
+                {liveTableCallAlert.action} ({liveTableCallAlert.time})
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLiveTableCallAlert(null);
             }}
             className="p-1 rounded-lg hover:bg-white/20 text-white cursor-pointer"
           >

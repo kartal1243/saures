@@ -316,12 +316,14 @@ export function registerAdminRoutes(app: Express): void {
 
     if (nextVip) {
       st.shopProfile.vipPlan = plan === 'yearly' ? 'yearly' : 'monthly';
+      st.shopProfile.vipTier = req.body?.tier === 'usta' ? 'usta' : 'patron';
       const until = new Date();
       until.setDate(until.getDate() + Number(days));
       st.shopProfile.vipUntil = until.toISOString();
       st.shopProfile.vipExpiresAt = until.toISOString();
     } else {
       st.shopProfile.vipPlan = undefined;
+      st.shopProfile.vipTier = 'cirak';
       st.shopProfile.vipUntil = undefined;
       st.shopProfile.vipExpiresAt = undefined;
     }

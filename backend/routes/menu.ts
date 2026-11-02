@@ -5,7 +5,9 @@ import { S, saveState, als } from '../context';
 import { broadcast, broadcastToAccount } from '../realtime';
 import { getAccounts } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
-import { checkAndUpdateVipStatus } from './profile';
+import { checkAndUpdateVipStatus, getTierLimits } from './profile';
+import { publicActionRateLimit } from '../guards';
+import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
 
 const SAMPLE_MENU_ITEMS: MenuItem[] = [
   {
@@ -120,7 +122,9 @@ export function registerPublicMenuRoutes(app: Express): void {
 
     // Yalnızca rawId 'demo' ise demo hesabına düş; var olmayan diğer sluglar 404 dönmelidir!
     if (!shopState && rawId === 'demo') {
-      const fallbackAcc = accounts.find((a) => a.phone === '05550000000');
+      const fallbackAcc = accounts.find(
+        (a) => a.id === DEMO_ACCOUNT_ID || a.phone === DEMO_PHONE || a.phone === '05550000000'
+      );
       if (fallbackAcc) {
         targetAcc = fallbackAcc;
         shopState = loadShopState(fallbackAcc.id);
@@ -140,10 +144,12 @@ export function registerPublicMenuRoutes(app: Express): void {
       }
     }
 
-    // QR Menü yalnızca VIP üyelere açıktır (demo hariç)
+    const limits = getTierLimits(shopState.shopProfile);
+
+    // QR Menü yalnızca Patron VIP (veya aktif VIP) üyelere açıktır (demo hariç)
     if (!shopState.shopProfile?.isVip && rawId !== 'demo') {
       return res.status(403).json({
-        error: 'Bu işletmenin Dijital QR Menü servisi aktif değildir (VIP işletme paketi gereklidir).',
+        error: 'Bu işletmenin Dijital QR Menü servisi aktif değildir (Patron VIP paketi gereklidir).',
         code: 'VIP_REQUIRED',
         isVip: false,
       });
@@ -165,13 +171,14 @@ export function registerPublicMenuRoutes(app: Express): void {
       phone: shopState.shopProfile?.phone || targetAcc?.phone || '',
       cityDistrict: shopState.shopProfile?.cityDistrict || '',
       slug,
+      brandingRequired: !limits.removeBranding,
       menuItems: items,
       tables: (shopState.tables || []).map((t) => ({ id: t.id, name: t.name })),
     });
   });
 
   // Masadan Canlı Garson Çağır & Hesap İste (QR Menü Müşteri Butonları - Şifresiz Public Uç)
-  app.post('/api/public/menu/:identifier/table-action', (req: Request, res: Response) => {
+  app.post('/api/public/menu/:identifier/table-action', publicActionRateLimit, (req: Request, res: Response) => {
     const rawId = (req.params.identifier || '').toLowerCase();
     const accounts = getAccounts();
     let targetAcc = accounts.find(
@@ -193,7 +200,9 @@ export function registerPublicMenuRoutes(app: Express): void {
     }
 
     if (!targetAcc && rawId === 'demo') {
-      targetAcc = accounts.find((a) => a.phone === '05550000000');
+      targetAcc = accounts.find(
+        (a) => a.id === DEMO_ACCOUNT_ID || a.phone === DEMO_PHONE || a.phone === '05550000000'
+      );
     }
 
     if (!targetAcc) {
@@ -208,6 +217,10 @@ export function registerPublicMenuRoutes(app: Express): void {
       table.activeCall = action === 'bill' ? 'bill' : 'waiter';
       st.lastUpdated = new Date().toISOString();
       persistShopState(targetAcc.id, st);
+      broadcastToAccount(targetAcc.id, {
+        type: 'TABLE_UPDATED',
+        payload: table,
+      });
     }
 
     const actionText = action === 'bill' ? 'Hesap İstiyor 💳' : 'Garson Çağırıyor 🔔';

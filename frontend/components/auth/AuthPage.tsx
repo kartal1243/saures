@@ -272,6 +272,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
               </button>
             </div>
 
+            {/* 14 Gün Ücretsiz VIP Kampanyası Rozeti */}
+            <div className="mb-5 p-3 rounded-2xl bg-linear-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 text-amber-950 text-xs flex items-center gap-2.5 shadow-xs">
+              <span className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs font-black text-base">
+                🎁
+              </span>
+              <div>
+                <div className="font-black text-amber-950 flex items-center gap-1.5">
+                  14 Gün Ücretsiz VIP Kampanyası!
+                  <span className="text-[9px] uppercase px-1.5 py-0.2 rounded-md bg-orange-600 text-white font-extrabold">HEDİYE</span>
+                </div>
+                <div className="text-[11px] text-stone-600 font-semibold mt-0.5">
+                  Şimdi kayıt olun, sınırsız VIP özellikleri 14 gün sıfır ücretle kullanın.
+                </div>
+              </div>
+            </div>
+
             <form onSubmit={submit} className="space-y-4">
               {error && (
                 <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2 animate-pop">

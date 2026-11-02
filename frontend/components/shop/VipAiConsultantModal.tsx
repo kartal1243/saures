@@ -322,7 +322,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                         : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
                     }`}
                   >
-                    Aylık (₺500 / ay)
+                    Aylık Ödeme
                   </button>
                   <button
                     type="button"
@@ -333,7 +333,7 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
                         : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
                     }`}
                   >
-                    <span>Yıllık (₺4.990 / yıl)</span>
+                    <span>Yıllık Ödeme</span>
                     <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-emerald-500 text-white">
                       2 AY HEDİYE
                     </span>

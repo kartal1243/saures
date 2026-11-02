@@ -302,16 +302,26 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
                 // 1. Terazi Barkodu Çözümleme (EAN-13: 27/28 gramaj, 29 fiyat)
                 const scaleItem = parseScaleBarcode(q);
                 if (scaleItem) {
-                  setCart((prev) => [
-                    ...prev,
-                    {
-                      productId: scaleItem.product.id?.startsWith('mock_') ? undefined : scaleItem.product.id,
-                      name: scaleItem.name,
-                      unitPrice: scaleItem.unitPrice,
-                      quantity: scaleItem.quantity,
-                      currentStock: scaleItem.product.currentStock,
-                    },
-                  ]);
+                  setCart((prev) => {
+                    const existing = prev.find((item) => item.name === scaleItem.name);
+                    if (existing) {
+                      return prev.map((item) =>
+                        item.name === scaleItem.name
+                          ? { ...item, quantity: item.quantity + scaleItem.quantity }
+                          : item
+                      );
+                    }
+                    return [
+                      ...prev,
+                      {
+                        productId: scaleItem.product.id?.startsWith('mock_') ? undefined : scaleItem.product.id,
+                        name: scaleItem.name,
+                        unitPrice: scaleItem.unitPrice,
+                        quantity: scaleItem.quantity,
+                        currentStock: scaleItem.product.currentStock,
+                      },
+                    ];
+                  });
                   setSearchQuery('');
                   setLastSaleMessage(`Terazi ürünü sepete eklendi: ${scaleItem.name}`);
                   setTimeout(() => setLastSaleMessage(null), 3000);

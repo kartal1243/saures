@@ -134,8 +134,13 @@ export function registerShopierWebhook(app: Express): void {
         return false;
       });
 
-      // 5. VIP Süresi Belirleme (52387553 veya >= 4000 ₺ ise 1 Yıl, aksi halde 1 Ay)
-      const isYearly = price >= 4000 || productId === '52387553';
+      // 5. VIP Süresi ve Paket Seviyesi Belirleme (Usta vs Patron VIP)
+      const isYearly = (price >= 2000) || productId === '52387553';
+      const isUsta =
+        orderNoteText.includes('usta') ||
+        (price >= 150 && price <= 350) ||
+        (price >= 1800 && price <= 3000);
+      const vipTier = isUsta ? 'usta' : 'patron';
       const days = isYearly ? 365 : 30;
       const vipPlan = isYearly ? 'yearly' : 'monthly';
       let vipUntilIso = new Date(Date.now() + days * 86400000).toISOString();
@@ -159,13 +164,14 @@ export function registerShopierWebhook(app: Express): void {
 
         st.shopProfile.isVip = true;
         st.shopProfile.vipPlan = vipPlan;
+        st.shopProfile.vipTier = vipTier;
         st.shopProfile.vipUntil = vipUntilIso;
         st.shopProfile.vipExpiresAt = vipUntilIso;
         st.lastUpdated = new Date().toISOString();
         persistShopState(matchedAccount.id, st);
 
         broadcastToAccount(matchedAccount.id, { type: 'SHOP_PROFILE_UPDATED', payload: st.shopProfile });
-        console.log(`[Shopier OSB]: ${matchedAccount.shopName} (${matchedAccount.phone}) başarıyla ${vipPlan} VIP yapıldı! Bitiş: ${vipUntilIso}`);
+        console.log(`[Shopier OSB]: ${matchedAccount.shopName} (${matchedAccount.phone}) başarıyla ${vipTier} (${vipPlan}) VIP yapıldı! Bitiş: ${vipUntilIso}`);
       } else {
         console.warn(`[Shopier OSB]: Ödeme yapan ${buyerName} (${buyerPhone} / ${buyerEmail}) için kayıtlı dükkan hesabı bulunamadı. Sipariş kaydedildi.`);
       }

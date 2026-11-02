@@ -442,6 +442,23 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
                     </span>
 
                     <span className="flex items-center gap-1 shrink-0">
+                      {table.activeCall && (
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await fetch(`/api/tables/${encodeURIComponent(table.id)}/clear-call`, {
+                                method: 'POST',
+                              });
+                            } catch {}
+                          }}
+                          className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white animate-pulse shadow-xs cursor-pointer"
+                          title="Çağrıyı tamamlamak için tıklayın"
+                        >
+                          {table.activeCall === 'bill' ? '💳 HESAP' : '🔔 GARSON'}
+                        </button>
+                      )}
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           isOccupied

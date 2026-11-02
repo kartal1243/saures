@@ -5,6 +5,7 @@ import { broadcast } from '../realtime';
 import { DATA_DIR } from '../config';
 import { readJsonFile, writeJsonFile } from '../fsdb';
 import { isAdminSession } from './admin';
+import { aiRateLimit } from '../guards';
 
 export interface CustomPanelLead {
   id: string;
@@ -77,11 +78,17 @@ export function registerVipRoutes(app: Express): void {
       }
     }
 
+    const isTrial = profile?.vipPlan === '14_gun_deneme' || profile?.vipPlan === 'deneme_14_gun';
+    const daysLeft = profile?.vipUntil ? Math.max(0, Math.ceil((new Date(profile.vipUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
+
     res.json({
       success: true,
       isVip,
       plan: isVip ? (profile?.vipPlan || 'isletmeye_ozel_vip') : 'standart_esnaf',
+      vipTier: profile?.vipTier || (isVip ? 'patron' : 'cirak'),
       vipUntil: profile?.vipUntil,
+      isTrial,
+      daysLeft,
       features: [
         { id: 'unlimited_customers', name: 'Sınırsız Müşteri, Cari ve Veresiye Kaydı (0 TL planda 25 ile sınırlı)', active: true },
         { id: 'unlimited_staff', name: 'Sınırsız Personel/Usta & Otomatik Koltuk Prim Dağılımı', active: true },
@@ -167,7 +174,7 @@ export function registerVipRoutes(app: Express): void {
       });
     }
 
-    const { planPeriod = 'aylik', paymentChannel = 'shopier' } = req.body || {};
+    const { planPeriod = 'aylik', paymentChannel = 'shopier', tier = 'patron' } = req.body || {};
     const profile = S().shopProfile;
 
     if (!profile) {
@@ -181,6 +188,7 @@ export function registerVipRoutes(app: Express): void {
 
     profile.isVip = true;
     profile.vipPlan = isYearly ? 'yearly' : 'monthly';
+    profile.vipTier = tier === 'usta' ? 'usta' : 'patron';
     profile.vipUntil = until.toISOString();
     profile.vipExpiresAt = until.toISOString();
     saveState();
@@ -243,7 +251,7 @@ export function registerVipRoutes(app: Express): void {
   });
 
   // 4. Fotoğraftan Fiyat Tarifesi & Menü AI Okuyucu (Gemini Vision Multimodal)
-  app.post('/api/ai/parse-price-list', async (req: Request, res: Response) => {
+  app.post('/api/ai/parse-price-list', aiRateLimit, async (req: Request, res: Response) => {
     const { imageBase64, mimeType = 'image/jpeg' } = req.body || {};
     if (!imageBase64) {
       return res.status(400).json({ error: 'Lütfen bir fotoğraf yükleyiniz.' });

@@ -319,64 +319,86 @@ function FiyatPage(props: PageProps) {
         kârı görmek — VIP'de. Lansman bitmeden ücret ödemezsin.
       </Lead>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 items-stretch">
+      <div className="mt-8 grid gap-4 sm:grid-cols-3 items-stretch">
         {/* Çırak */}
-        <div className="rounded-3xl bg-white border border-stone-200 p-6 sm:p-7 shadow-sm flex flex-col">
+        <div className="rounded-3xl bg-white border border-stone-200 p-6 shadow-sm flex flex-col">
           <p className="text-xs font-black uppercase tracking-widest text-stone-400">Çırak</p>
-          <p className="mt-2 text-4xl font-black tracking-tight">₺0 <span className="text-base font-bold text-stone-400">/ hep ücretsiz</span></p>
-          <p className="mt-2 text-[13px] font-semibold text-stone-500">Kağıt defteri dijitale taşıyan temel panel.</p>
-          <ul className="mt-4 space-y-2 flex-1">
-            {VIP_FREE.map((t) => (
-              <li key={t} className="flex items-start gap-2 text-sm text-stone-700 font-semibold">
-                <span aria-hidden className="mt-1.5 w-2 h-2 rounded-full bg-stone-300 shrink-0" />
-                {t}
-              </li>
-            ))}
+          <p className="mt-2 text-4xl font-black tracking-tight">₺0 <span className="text-sm font-bold text-stone-400">/ hep ücretsiz</span></p>
+          <p className="mt-2 text-[13px] font-semibold text-stone-500">Yeni tanışan esnaf için temel dijital defter.</p>
+          <ul className="mt-4 space-y-2 flex-1 text-sm text-stone-700 font-semibold">
+            <li>• 25 müşteri &amp; veresiye cari kotası</li>
+            <li>• 3 masa / tek koltuk takibi</li>
+            <li>• Ayda 20 online randevu hakkı</li>
+            <li>• Temel kasa ve günlük ciro</li>
           </ul>
           <button
             type="button"
             onClick={onRegister}
-            className="mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl border-2 border-stone-200 hover:border-amber-500 hover:text-amber-700 text-stone-700 text-[15px] font-black transition-colors cursor-pointer"
+            className="mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border-2 border-stone-200 hover:border-amber-500 hover:text-amber-700 text-stone-700 text-sm font-black transition-colors cursor-pointer"
           >
             Ücretsiz Başla
           </button>
         </div>
 
-        {/* Usta VIP */}
-        <div className="relative rounded-3xl bg-stone-900 text-white p-6 sm:p-7 shadow-xl overflow-hidden flex flex-col">
+        {/* Usta */}
+        <div className="rounded-3xl bg-white border-2 border-amber-400 p-6 shadow-md flex flex-col">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-black uppercase tracking-widest text-amber-600">Usta (Tek Koltuk)</p>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">GÜNDE 8 ₺</span>
+          </div>
+          <p className="mt-2 text-4xl font-black tracking-tight">
+            ₺249 <span className="text-sm font-bold text-stone-400">/ ay</span>
+          </p>
+          <p className="mt-2 text-[13px] font-semibold text-stone-500">
+            Tek çalışan mahalle berberi, terzi ve tamirciler için.
+          </p>
+          <ul className="mt-4 space-y-2 flex-1 text-sm text-stone-800 font-semibold">
+            <li>✓ 100 müşteri &amp; cari kayıt kotası</li>
+            <li>✓ Ayda 60 online randevu hakkı</li>
+            <li>✓ Tek koltuk dijital randevu takvimi</li>
+            <li>✓ Fotoğraftan AI tarife okuyucu</li>
+            <li>✓ Cihazdan hızlı SMS &amp; WhatsApp</li>
+          </ul>
+          <button
+            type="button"
+            onClick={onRegister}
+            className="mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-stone-900 text-white text-sm font-black shadow-md hover:bg-stone-800 transition-colors cursor-pointer"
+          >
+            Usta Paketine Geç
+          </button>
+        </div>
+
+        {/* Patron VIP */}
+        <div className="relative rounded-3xl bg-stone-900 text-white p-6 shadow-xl overflow-hidden flex flex-col">
           <div
             aria-hidden
             className="absolute inset-0 pointer-events-none"
             style={{ background: 'radial-gradient(500px 260px at 50% 0%, rgba(251,191,36,0.35), transparent 65%)' }}
           />
           <div className="relative flex items-center justify-between">
-            <p className="text-xs font-black uppercase tracking-widest text-amber-400">Usta · VIP</p>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-500 text-stone-900">LANSMANDA ÜCRETSİZ</span>
+            <p className="text-xs font-black uppercase tracking-widest text-amber-400">Patron VIP</p>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-stone-900">EN ÇOK TERCİH EDİLEN</span>
           </div>
           <p className="relative mt-2 text-4xl font-black tracking-tight">
-            ₺149 <span className="text-base font-bold text-stone-400">/ ay</span>
+            ₺499 <span className="text-sm font-bold text-stone-400">/ ay</span>
           </p>
           <p className="relative mt-2 text-[13px] font-semibold text-stone-300">
-            Stok bitmeden haber, borçluya tek tık mesaj, kârın gün gün takibi.
+            2+ personelli salonlar, kafeler ve büyüyen işletmeler için.
           </p>
-          <ul className="relative mt-4 space-y-2 flex-1">
-            {VIP_PAID.map((t) => (
-              <li key={t} className="flex items-start gap-2 text-sm text-stone-100 font-semibold">
-                <span aria-hidden className="mt-1 w-4 h-4 rounded-full bg-amber-500 text-stone-900 text-[10px] font-black flex items-center justify-center shrink-0">✓</span>
-                {t}
-              </li>
-            ))}
+          <ul className="relative mt-4 space-y-2 flex-1 text-sm text-stone-100 font-semibold">
+            <li>✓ Sınırsız müşteri &amp; online randevu</li>
+            <li>✓ Çoklu usta &amp; otomatik prim dağılımı</li>
+            <li>✓ QR Menü + canlı garson çağrı</li>
+            <li>✓ Marka bandını kaldırma</li>
+            <li>✓ Dükkanınıza özel yazılım paneli</li>
           </ul>
           <button
             type="button"
             onClick={onRegister}
-            className="relative mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-amber-500 text-white text-[15px] font-black shadow-lg hover:bg-amber-600 transition-colors cursor-pointer"
+            className="relative mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 text-stone-950 text-sm font-black shadow-lg hover:bg-amber-400 transition-colors cursor-pointer"
           >
-            VIP ile Başla
+            Patron VIP Başlat
           </button>
-          <p className="relative mt-2.5 text-center text-[11px] font-semibold text-stone-400">
-            Kredi kartı gerekmez · İstediğinde tek tıkla çık
-          </p>
         </div>
       </div>
 

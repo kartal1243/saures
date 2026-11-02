@@ -4,6 +4,18 @@ import { S, saveState, als } from '../context';
 import { broadcast } from '../realtime';
 import { DEMO_ACCOUNT_ID } from '../demoSeed';
 
+export type VipTier = 'cirak' | 'usta' | 'patron';
+
+export interface VipTierLimits {
+  tier: VipTier;
+  maxCustomers: number;
+  maxMonthlyOnlineBookings: number;
+  maxStaffSeats: number;
+  maxTables: number;
+  qrMenuEnabled: boolean;
+  removeBranding: boolean;
+}
+
 export function checkAndUpdateVipStatus(profile?: ShopProfile): boolean {
   if (!profile || !profile.isVip) return false;
   if (profile.vipUntil) {
@@ -11,10 +23,60 @@ export function checkAndUpdateVipStatus(profile?: ShopProfile): boolean {
     if (!isNaN(expires) && expires < Date.now()) {
       profile.isVip = false;
       profile.vipPlan = undefined;
+      profile.vipTier = 'cirak';
       return false;
     }
   }
   return true;
+}
+
+export function getEffectiveVipTier(profile?: ShopProfile): VipTier {
+  if (!checkAndUpdateVipStatus(profile) || !profile) {
+    return 'cirak';
+  }
+  if (profile.vipTier === 'usta') {
+    return 'usta';
+  }
+  if (profile.vipTier === 'patron' || (profile.vipPlan as string) === 'patron') {
+    return 'patron';
+  }
+  // Geriye dönük uyumluluk: isVip true olup vipTier alanı henüz yazılmamış mevcut aboneler Patron VIP kabul edilir
+  return 'patron';
+}
+
+export function getTierLimits(profile?: ShopProfile): VipTierLimits {
+  const tier = getEffectiveVipTier(profile);
+  if (tier === 'patron') {
+    return {
+      tier: 'patron',
+      maxCustomers: Infinity,
+      maxMonthlyOnlineBookings: Infinity,
+      maxStaffSeats: Infinity,
+      maxTables: Infinity,
+      qrMenuEnabled: true,
+      removeBranding: true,
+    };
+  }
+  if (tier === 'usta') {
+    return {
+      tier: 'usta',
+      maxCustomers: 100,
+      maxMonthlyOnlineBookings: 60,
+      maxStaffSeats: 1,
+      maxTables: 10,
+      qrMenuEnabled: false,
+      removeBranding: false,
+    };
+  }
+  return {
+    tier: 'cirak',
+    maxCustomers: 25,
+    maxMonthlyOnlineBookings: 20,
+    maxStaffSeats: 1,
+    maxTables: 3,
+    qrMenuEnabled: false,
+    removeBranding: false,
+  };
 }
 
 export function registerProfileRoutes(app: Express): void {
@@ -59,7 +121,8 @@ export function registerProfileRoutes(app: Express): void {
         // isVip, vipUntil, vipPlan gibi alanlar asla istemciden değiştirilemez
       };
     } else {
-      // İlk kurulum aşaması: isVip istemciden ASLA alınmaz, her zaman false başlar
+      // İlk kurulum aşaması: isVip istemciden ASLA alınmaz, ancak 14 günlük deneme süresi varsa korunur
+      checkAndUpdateVipStatus(currentProfile);
       updatedProfile = {
         storeName: data.storeName.trim(),
         ownerName: (data.ownerName || 'Esnaf').trim(),
@@ -72,9 +135,11 @@ export function registerProfileRoutes(app: Express): void {
         slogan: (data.slogan || '').trim(),
         slug: data.slug || currentProfile?.slug,
         isConfigured: true,
-        isVip: false, // İlk kurulumda daima Standart (0 TL) olarak başlar
-        vipUntil: undefined,
-        vipPlan: undefined,
+        isVip: currentProfile?.isVip ?? false,
+        vipTier: currentProfile?.vipTier,
+        vipUntil: currentProfile?.vipUntil,
+        vipExpiresAt: currentProfile?.vipExpiresAt,
+        vipPlan: currentProfile?.vipPlan,
       };
     }
 

@@ -103,6 +103,7 @@ export const PublicQrMenuView: React.FC = () => {
   }
 
   const items = data.menuItems || [];
+  const identifier = data.slug || getIdentifier();
   const categories = ['Tümü', ...Array.from(new Set(items.map((i) => i.category)))];
 
   const filteredItems = items.filter((item) => {
@@ -258,16 +259,18 @@ export const PublicQrMenuView: React.FC = () => {
         )}
 
         {/* Viral Branding Footer */}
-        <div className="py-6 pb-20 text-center">
-          <a
-            href="https://dukkanimyanimda.com.tr"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-xs font-bold border border-stone-200 dark:border-stone-700 transition-colors shadow-2xs"
-          >
-            <span>⚡ Dükkânım Yanımda ile oluşturuldu — Ücretsiz Dene</span>
-          </a>
-        </div>
+        {(data as any).brandingRequired !== false && (
+          <div className="py-6 pb-20 text-center">
+            <a
+              href="https://dukkanimyanimda.com.tr"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-xs font-bold border border-stone-200 dark:border-stone-700 transition-colors shadow-2xs"
+            >
+              <span>⚡ Dükkânım Yanımda ile oluşturuldu — Ücretsiz Dene</span>
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Sabit Alt Çubuk: Garson Çağır & Hesap İste (Canlı Kasaya İletilir) */}

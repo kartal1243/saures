@@ -4,6 +4,7 @@ import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
 import { localDay } from '../day';
+import { getTierLimits } from './profile';
 
 export function registerTableRoutes(app: Express): void {
   // ==========================================
@@ -124,6 +125,7 @@ export function registerTableRoutes(app: Express): void {
     table.openedAt = undefined;
     table.guestCount = undefined;
     table.note = undefined;
+    table.activeCall = null;
 
     saveState();
 
@@ -149,7 +151,20 @@ export function registerTableRoutes(app: Express): void {
     table.openedAt = undefined;
     table.guestCount = undefined;
     table.note = undefined;
+    table.activeCall = null;
 
+    saveState();
+    broadcast({ type: 'TABLE_UPDATED', payload: table });
+    res.json({ success: true, table });
+  });
+
+  app.post('/api/tables/:id/clear-call', (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!S().tables) S().tables = [];
+    const table = S().tables.find((t) => t.id === id);
+    if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
+
+    table.activeCall = null;
     saveState();
     broadcast({ type: 'TABLE_UPDATED', payload: table });
     res.json({ success: true, table });
@@ -174,10 +189,10 @@ export function registerTableRoutes(app: Express): void {
     if (!name || !name.trim()) return res.status(400).json({ error: 'Masa adı zorunludur.' });
     if (!S().tables) S().tables = [];
 
-    // VIP olmayan kafe/restoranlar en fazla 3 masa yönetebilir
-    if (!S().shopProfile?.isVip && S().tables.length >= 3) {
+    const limits = getTierLimits(S().shopProfile);
+    if (S().tables.length >= limits.maxTables) {
       return res.status(403).json({
-        error: '0 TL Standart planda en fazla 3 masa ekleyebilirsiniz. Sınırsız masa ve adisyon için VIP Pakete geçin.',
+        error: `Mevcut paketinizde en fazla ${limits.maxTables} masa ekleyebilirsiniz. Sınırsız masa ve QR menü için Patron VIP Pakete geçin.`,
         code: 'VIP_REQUIRED',
       });
     }

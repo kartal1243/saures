@@ -21,6 +21,7 @@ import {
   Send,
   Star,
   Users,
+  Crown,
 } from 'lucide-react';
 import type { BarberStaff, BarberService, BarberSalonSettings } from '../../../shared/types';
 
@@ -351,6 +352,10 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       alert('Lütfen KVKK onay kutusunu işaretleyiniz.');
       return;
     }
+    if (data?.settings?.requireOtp && (!otpSent || otpCode.trim().length < 4)) {
+      alert('Lütfen önce SMS doğrulama kodunu gönderip 4 haneli kodu giriniz.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -368,7 +373,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
           timeSlot: selectedTimeSlot,
           serviceIds: selectedServiceIds,
           staffId: selectedStaffId,
-          otpCode: otpCode || '1234',
+          otpCode: otpCode.trim(),
         }),
       });
 
@@ -1115,7 +1120,11 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
               disabled={
                 (currentStep === 1 && selectedServiceIds.length === 0) ||
                 (currentStep === 2 && !selectedTimeSlot) ||
-                (currentStep === 3 && (!customerName.trim() || phone.replace(/\D/g, '').length < 10 || !kvkkApproved))
+                (currentStep === 3 &&
+                  (!customerName.trim() ||
+                    phone.replace(/\D/g, '').length < 10 ||
+                    !kvkkApproved ||
+                    (Boolean(data.settings?.requireOtp) && (!otpSent || otpCode.trim().length < 4))))
               }
               onClick={() => setCurrentStep((prev) => (prev + 1) as any)}
               className="ml-auto px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-stone-950 font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer transition-all shadow-md shadow-amber-500/20"

@@ -144,6 +144,10 @@ export function emptyState(seed?: { storeName: string; ownerName: string; phone:
   );
   const storeSlug = isDemo ? 'demo' : (seed?.storeName ? slugify(seed.storeName) : 'yeni-dukkan');
 
+  // 14 Günlük Ücretsiz VIP Kampanyası (Tüm yeni esnaflara 14 gün tam teşekküllü deneme)
+  const trialDays = 14;
+  const trialExpiry = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString();
+
   return {
     storeName: seed?.storeName || 'Yeni Dükkan',
     shopProfile: {
@@ -158,7 +162,11 @@ export function emptyState(seed?: { storeName: string; ownerName: string; phone:
       slogan: 'Kaliteli & Güler Yüzlü Hizmet',
       slug: storeSlug,
       isConfigured: false,
-      isVip: false,
+      isVip: true, // 14 Gün Ücretsiz VIP Kampanyası
+      vipTier: 'patron',
+      vipPlan: '14_gun_deneme',
+      vipUntil: isDemo ? '2099-01-01T00:00:00.000Z' : trialExpiry,
+      vipExpiresAt: isDemo ? '2099-01-01T00:00:00.000Z' : trialExpiry,
     },
     customers: [],
     transactions: [],

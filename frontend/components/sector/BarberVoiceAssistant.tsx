@@ -70,6 +70,7 @@ export const BarberVoiceAssistant: React.FC<BarberVoiceAssistantProps> = ({
   staffList,
   onAddAppointment,
   onUpdateTimeBlock,
+  onRemoveTimeBlock,
   onRescheduleAppointment,
   onCancelAppointment,
   onStaffOffDay,
