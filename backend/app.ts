@@ -73,6 +73,12 @@ export async function startServer(): Promise<void> {
   });
 
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err instanceof SyntaxError && 'body' in err) {
+      return res.status(400).json({ error: 'Geçersiz JSON formatı.' });
+    }
+    next(err);
+  });
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
   // ---------------- Otomatik bakim: oturum temizligi + gunluk yedek ----------------
@@ -205,8 +211,9 @@ export async function startServer(): Promise<void> {
     res.send(getRobotsTxt(req.get('host')));
   });
 
-  // Vite middleware in development vs static serving in production
-  if (process.env.NODE_ENV !== 'production') {
+  // Vite geliştirme sunucusu yalnızca açıkça development modunda ve dist/index.html yokken çalışır
+  const isDev = process.env.NODE_ENV === 'development' || (!process.env.NODE_ENV && !fs.existsSync(path.join(process.cwd(), 'dist', 'index.html')));
+  if (isDev) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'custom',
