@@ -1,4 +1,8 @@
 import type { Express, Request, Response } from 'express';
+import path from 'path';
+import { DATA_DIR } from '../config';
+import { readJsonFile, writeJsonFile } from '../fsdb';
+import { rateLimit } from '../guards';
 import {
   findAccountByPhone,
   getAccounts,
@@ -175,6 +179,45 @@ export function registerAuthRoutes(app: Express): void {
     }
     res.setHeader('Set-Cookie', destroySessionCookie());
     res.json({ success: true });
+  });
+
+  // Şifre sıfırlama talebi (rateLimit korumalı)
+  app.post('/api/auth/forgot-password', rateLimit, (req: Request, res: Response) => {
+    const body = req.body || {};
+    const rawPhone = String(body.phone || '');
+    const phone = normalizePhone(rawPhone);
+
+    if (!isValidTurkishPhone(rawPhone)) {
+      return res.status(400).json({
+        error: 'Geçersiz telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye cep telefonu giriniz.'
+      });
+    }
+
+    const ip = clientIp(req);
+    logAuthEvent('password_reset' as any, phone, ip);
+
+    try {
+      const resetRequestsFile = path.join(DATA_DIR, 'password-resets.json');
+      const list = readJsonFile<any[]>(resetRequestsFile, []);
+      const matched = findAccountByPhone(phone);
+      list.unshift({
+        id: 'reset_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        phone,
+        shopName: matched?.shopName || 'Kayıtsız / Bilinmeyen',
+        ownerName: matched?.ownerName || 'Bilinmeyen',
+        ip,
+        createdAt: new Date().toISOString(),
+        status: 'pending',
+      });
+      writeJsonFile(resetRequestsFile, list.slice(0, 500));
+    } catch (e) {
+      console.error('Şifre sıfırlama talebi kaydedilemedi:', e);
+    }
+
+    res.json({
+      success: true,
+      message: 'Talebiniz yöneticiye iletildi. En kısa sürede sizinle iletişime geçilecektir.'
+    });
   });
 
   // Sifre degistir: sadece oturum acikken (diger tum cihazlardan cikis yapilir)

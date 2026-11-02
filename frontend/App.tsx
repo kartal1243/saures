@@ -1821,6 +1821,7 @@ export default function App() {
           sector={currentSector}
           activeTab={activeTab}
           isVip={Boolean(shopProfile?.isVip)}
+          vipTier={shopProfile?.vipTier || (shopProfile?.isVip ? 'patron' : 'cirak')}
           onOpenVip={() => setIsVipModalOpen(true)}
           shopSlug={shopProfile?.slug || 'demo'}
           storeName={shopProfile?.storeName || storeName}

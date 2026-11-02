@@ -26,12 +26,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [kvkkAccepted, setKvkkAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (mode === 'register' && !kvkkAccepted) {
+      setError('Lütfen KVKK Aydınlatma Metni ve Kullanım Koşullarını okuyup onaylayınız.');
+      return;
+    }
 
     const cleanPhone = phone.replace(/\D/g, '');
     if (!cleanPhone.startsWith('05') || cleanPhone.length !== 11) {
@@ -49,7 +55,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
       const body =
         mode === 'login'
           ? { phone: cleanPhone, password }
-          : { shopName, ownerName, phone: cleanPhone, email, password };
+          : { shopName, ownerName, phone: cleanPhone, email, password, kvkkAccepted: true };
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,6 +79,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const [demoLoading, setDemoLoading] = useState(false);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const [recoveryPhone, setRecoveryPhone] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
   const tryDemo = async () => {
     setDemoLoading(true);
     setError(null);
@@ -423,10 +432,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                 </div>
               </div>
 
+              {/* KVKK ve Kullanım Koşulları Onayı (Kayıt Modunda Zorunlu) */}
+              {mode === 'register' && (
+                <div className="flex items-start gap-2.5 pt-1 pb-1">
+                  <input
+                    type="checkbox"
+                    id="kvkk-checkbox"
+                    checked={kvkkAccepted}
+                    onChange={(e) => setKvkkAccepted(e.target.checked)}
+                    required
+                    className="mt-0.5 w-4 h-4 rounded border-stone-300 text-orange-600 focus:ring-orange-500 cursor-pointer accent-orange-600 shrink-0"
+                  />
+                  <label htmlFor="kvkk-checkbox" className="text-xs text-stone-600 leading-snug cursor-pointer select-none">
+                    <span className="font-bold text-stone-800">KVKK Aydınlatma Metni</span> ve{' '}
+                    <span className="font-bold text-stone-800">Kullanım Koşullarını</span> okudum, onaylıyorum. *
+                  </label>
+                </div>
+              )}
+
               {/* Ana Giriş Butonu */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (mode === 'register' && !kvkkAccepted)}
                 className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-sm shadow-md shadow-orange-600/25 transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60"
               >
                 {loading ? (
@@ -497,44 +524,110 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
               </h3>
               <button
                 type="button"
-                onClick={() => setIsForgotPasswordOpen(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+                onClick={() => {
+                  setIsForgotPasswordOpen(false);
+                  setForgotSuccess(false);
+                  setForgotError(null);
+                }}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 cursor-pointer"
               >
                 ✕
               </button>
             </div>
-            <p className="text-xs text-stone-500 leading-relaxed">
-              Kayıtlı telefon numaranızı girerek doğrudan canlı WhatsApp destek hattımızdan anında yeni şifre oluşturabilirsiniz.
-            </p>
-            <div>
-              <label className="block text-[11px] font-bold text-stone-700 mb-1">Dükkan Telefonunuz</label>
-              <input
-                type="tel"
-                value={recoveryPhone}
-                onChange={(e) => setRecoveryPhone(e.target.value)}
-                placeholder="05XXXXXXXXX"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500"
-              />
-            </div>
-            <div className="space-y-2 pt-1">
-              <a
-                href={`https://wa.me/905380562626?text=${encodeURIComponent(
-                  `Merhaba Dükkanım Yanımda Destek, ${recoveryPhone || 'Kayıtlı'} telefonuma ait dükkan hesabımın şifresini sıfırlamak istiyorum.`
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-colors"
-              >
-                WhatsApp ile 1 Dakikada Sıfırla
-              </a>
-              <button
-                type="button"
-                onClick={() => setIsForgotPasswordOpen(false)}
-                className="w-full py-2 rounded-xl text-stone-500 hover:text-stone-800 text-xs font-semibold"
-              >
-                Vazgeç
-              </button>
-            </div>
+
+            {forgotSuccess ? (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold space-y-2.5 text-center">
+                <div className="text-3xl">✅</div>
+                <div className="font-black text-sm text-emerald-900">Talebiniz yöneticiye iletildi</div>
+                <p className="text-emerald-700 font-medium leading-relaxed">
+                  {recoveryPhone} numaralı hesabınız için şifre sıfırlama talebiniz başarıyla alındı. Sistem yöneticimiz en kısa sürede sizinle iletişime geçecektir.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPasswordOpen(false);
+                    setForgotSuccess(false);
+                  }}
+                  className="mt-2 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs cursor-pointer"
+                >
+                  Tamam
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-stone-500 leading-relaxed">
+                  Kayıtlı telefon numaranızı girerek şifre sıfırlama talebi oluşturabilirsiniz. Talebiniz anında sistem yöneticisine iletilir.
+                </p>
+
+                {forgotError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+                    ⚠️ {forgotError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-700 mb-1">Dükkan Telefonunuz</label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={11}
+                    value={recoveryPhone}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
+                      setRecoveryPhone(clean);
+                      setForgotError(null);
+                    }}
+                    placeholder="05XXXXXXXXX"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500 font-mono"
+                  />
+                </div>
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={forgotLoading || !recoveryPhone}
+                    onClick={async () => {
+                      setForgotError(null);
+                      if (!recoveryPhone.startsWith('05') || recoveryPhone.length !== 11) {
+                        setForgotError('Lütfen 05 ile başlayan 11 haneli geçerli bir telefon numarası giriniz.');
+                        return;
+                      }
+                      setForgotLoading(true);
+                      try {
+                        const res = await fetch('/api/auth/forgot-password', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ phone: recoveryPhone }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data.error || 'Talep iletilemedi.');
+                        setForgotSuccess(true);
+                      } catch (err: any) {
+                        setForgotError(err.message || 'Bağlantı hatası oluştu.');
+                      } finally {
+                        setForgotLoading(false);
+                      }
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    {forgotLoading ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> İletiliyor…</>
+                    ) : (
+                      'Talebi Yöneticiye İlet'
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPasswordOpen(false);
+                      setForgotError(null);
+                    }}
+                    className="w-full py-2 rounded-xl text-stone-500 hover:text-stone-800 text-xs font-semibold cursor-pointer"
+                  >
+                    Vazgeç
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

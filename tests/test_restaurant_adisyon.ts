@@ -301,8 +301,76 @@ async function run() {
     assert.strictEqual(data.item.isAvailable, true, 'Ürün tekrar stokta olmalı');
     console.log(`  ✓ Ürün stok durumu "STOKTA VAR" yapıldı.`);
 
+    // ----------------------------------------------------
+    // TEST 9: Fotoğraftan AI ile Toplu Menü Ekleme (POST /api/menu with items)
+    // ----------------------------------------------------
+    console.log('\n[TEST 9] AI Vision tarafından okunan lezzetlerin topluca menüye aktarımı...');
+    const aiExtractedFoods = [
+      { name: 'Antep Usulü Lahmacun', price: 95, category: 'Sıcak Lezzetler' },
+      { name: 'Kuşbaşılı Kaşarlı Pide', price: 210, category: 'Sıcak Lezzetler' },
+      { name: 'Ev Yapımı Limonata', price: 45, category: 'İçecekler' },
+    ];
+    res = await fetch(`${baseUrl}/api/menu`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: aiExtractedFoods }),
+    });
+    assert.strictEqual(res.status, 200);
+    data = await res.json();
+    assert.strictEqual(data.success, true);
+    assert.strictEqual(data.items.length, 3, '3 yemek topluca eklenmeli');
+    const hasLahmacun = data.menuItems.some((m: any) => m.name === 'Antep Usulü Lahmacun');
+    assert(hasLahmacun, 'Lahmacun menüde yer almalı');
+    console.log(`  ✓ 3 adet AI lezzeti topluca QR menüye başarıyla aktarıldı.`);
+
+    // ----------------------------------------------------
+    // TEST 10: 3'lü Paket Masa Sınırı Kontrolü (Çırak: 3, Usta: 10, Patron: Sınırsız)
+    // ----------------------------------------------------
+    console.log('\n[TEST 10] Paket masa sınırları doğrulanıyor...');
+    // Çırak paketi simülasyonu: 3 masa sınırı
+    mockState.shopProfile.isVip = false;
+    mockState.shopProfile.vipTier = 'cirak';
+    mockState.tables = [
+      { id: 't1', name: 'Masa 1', isOccupied: false, orders: [], totalAmount: 0 },
+      { id: 't2', name: 'Masa 2', isOccupied: false, orders: [], totalAmount: 0 },
+      { id: 't3', name: 'Masa 3', isOccupied: false, orders: [], totalAmount: 0 },
+    ];
+
+    // 4. masa eklenmeye çalışıldığında 403 VIP_REQUIRED dönmeli
+    res = await fetch(`${baseUrl}/api/tables`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Masa 4' }),
+    });
+    assert.strictEqual(res.status, 403, 'Çırak pakette 4. masa 403 dönmeli');
+    data = await res.json();
+    assert.strictEqual(data.code, 'VIP_REQUIRED');
+    console.log('  ✓ Çırak paket 3 masa kotası aşıldığında 403 VIP_REQUIRED döndü.');
+
+    // Usta paketi simülasyonu: 10 masa sınırı
+    mockState.shopProfile.isVip = true;
+    mockState.shopProfile.vipTier = 'usta';
+    // 4. masa Usta pakette başarıyla eklenebilmeli
+    res = await fetch(`${baseUrl}/api/tables`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Masa 4 (Usta)' }),
+    });
+    assert.strictEqual(res.status, 200, 'Usta pakette 4. masa eklenebilmeli');
+    console.log('  ✓ Usta paketinde 4. masa başarıyla eklendi (10 masa kotası içinde).');
+
+    // Patron VIP paketi simülasyonu: Sınırsız masa
+    mockState.shopProfile.vipTier = 'patron';
+    res = await fetch(`${baseUrl}/api/tables`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Masa 5 (Patron VIP)' }),
+    });
+    assert.strictEqual(res.status, 200, 'Patron VIP pakette sınırsız masa eklenebilmeli');
+    console.log('  ✓ Patron VIP paketinde sınırsız masa oluşturma doğrulandı.');
+
     console.log('\n======================================================');
-    console.log('🎉 TÜM RESTORAN & SEYİR TERASİ ADİSYON TESTLERİ BAŞARIYLA GEÇTİ!');
+    console.log('🎉 TÜM RESTORAN & SEYİR TERASİ ADİSYON TESTLERİ (10/10) BAŞARIYLA GEÇTİ!');
     console.log('======================================================');
   } finally {
     server.close();

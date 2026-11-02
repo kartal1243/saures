@@ -30,6 +30,7 @@ interface SectorModuleSwitchProps {
   storeName?: string;
   receiptFooter?: string;
   isVip?: boolean;
+  vipTier?: 'cirak' | 'usta' | 'patron';
   onOpenVip?: () => void;
   barberSubTab?: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr';
   // Berber
@@ -107,6 +108,7 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
       <RestaurantTablesView
         tables={props.tables}
         isVip={props.isVip}
+        vipTier={props.vipTier}
         onOpenVip={props.onOpenVip}
         onAddOrderToTable={props.onAddOrderToTable}
         onCheckoutTable={props.onCheckoutTable}

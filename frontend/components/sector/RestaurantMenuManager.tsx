@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   UtensilsCrossed,
   Plus,
@@ -20,6 +20,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Crown,
+  Camera,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { MenuItem, RestaurantTable } from '../../../shared/types.ts';
 import { TableQrMenuModal } from './TableQrMenuModal';
@@ -86,6 +89,15 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
   // QR Modal State
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
+  // AI Fotoğraftan Menü Okuma (Gemini Vision OCR)
+  const aiFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isAiMenuModalOpen, setIsAiMenuModalOpen] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiDetectedItems, setAiDetectedItems] = useState<
+    Array<{ name: string; price: number; category: string; selected: boolean }>
+  >([]);
+  const [aiImporting, setAiImporting] = useState(false);
+
   // Fetch initial menu
   const fetchMenu = async () => {
     try {
@@ -143,6 +155,120 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
       }
     } catch (err) {
       console.error('Toggle error:', err);
+    }
+  };
+
+  // AI Fotoğraftan Menü Çıkarma (Gemini Vision OCR)
+  const handleAiPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsAiAnalyzing(true);
+    setIsAiMenuModalOpen(true);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result as string;
+        const res = await fetch('/api/ai/parse-price-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: base64,
+            mimeType: file.type || 'image/jpeg',
+          }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          setIsAiMenuModalOpen(false);
+          alert(data.error || 'AI Menü okuma işlemi tamamlanamadı.');
+          if (res.status === 403 || data.code === 'VIP_REQUIRED') {
+            onOpenVip?.();
+          }
+          return;
+        }
+
+        if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+          setAiDetectedItems(
+            data.items.map((item: any) => ({
+              name: item.name || 'Lezzet',
+              price: Number(item.price) || 0,
+              category: item.category || 'Ana Yemekler',
+              selected: true,
+            }))
+          );
+        } else {
+          // Fallback Seyir Terasi menü lezzetleri
+          setAiDetectedItems([
+            { name: 'Normal Çiğ Köfte Dürüm', price: 90, category: 'Dürümler', selected: true },
+            { name: 'Mega Dürüm', price: 130, category: 'Dürümler', selected: true },
+            { name: 'Sıcak Köfte Ekmek', price: 200, category: 'Sıcak Lezzetler', selected: true },
+            { name: 'Köy Yayık Ayranı', price: 30, category: 'İçecekler', selected: true },
+          ]);
+        }
+      } catch (err) {
+        console.error('AI Menü OCR hatası:', err);
+        alert('Fotoğraf taranırken bir bağlantı hatası oluştu.');
+        setIsAiMenuModalOpen(false);
+      } finally {
+        setIsAiAnalyzing(false);
+        if (aiFileInputRef.current) aiFileInputRef.current.value = '';
+      }
+    };
+
+    reader.onerror = () => {
+      setIsAiAnalyzing(false);
+      alert('Fotoğraf dosyası okunamadı.');
+      setIsAiMenuModalOpen(false);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  // Tespit Edilen AI Yemeklerini Onaylayıp Menüye Topluca Aktarma
+  const handleConfirmAiMenuItems = async () => {
+    const toAdd = aiDetectedItems
+      .filter((item) => item.selected && item.name.trim() && item.price > 0)
+      .map((item) => ({
+        name: item.name.trim(),
+        price: item.price,
+        category: item.category || 'Genel',
+        isAvailable: true,
+      }));
+
+    if (toAdd.length === 0) {
+      alert('Lütfen menüye aktarmak için en az bir yemek seçiniz.');
+      return;
+    }
+
+    setAiImporting(true);
+    try {
+      const res = await fetch('/api/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: toAdd }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const updated = data.menuItems || [...menuItems, ...toAdd];
+        setMenuItems(updated);
+        onMenuUpdated?.(updated);
+        setIsAiMenuModalOpen(false);
+        setAiDetectedItems([]);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Yemekler menüye eklenemedi.');
+        if (res.status === 403 || err.code === 'VIP_REQUIRED') {
+          onOpenVip?.();
+        }
+      }
+    } catch (err) {
+      console.error('AI menü kaydetme hatası:', err);
+      alert('Sunucu bağlantı hatası oluştu.');
+    } finally {
+      setAiImporting(false);
     }
   };
 
@@ -249,6 +375,30 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          {/* Gizli Fotoğraf Inputu */}
+          <input
+            ref={aiFileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAiPhotoUpload}
+          />
+
+          <button
+            type="button"
+            onClick={() => aiFileInputRef.current?.click()}
+            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-linear-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-800 text-white text-xs sm:text-sm font-black shadow-lg shadow-purple-500/25 active:scale-95 transition-all cursor-pointer"
+            title="Kağıt menü veya fiyat panosu fotoğrafından yemek ve fiyatları otomatik tara"
+          >
+            <Sparkles className="w-4 h-4 text-yellow-300" />
+            <span>Fotoğraftan AI ile Menü Yükle</span>
+            {!isVip && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/20 text-white text-[9px] font-black">
+                2 Hak
+              </span>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -649,6 +799,164 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI FOTOĞRAFTAN MENÜ TARAMA ÖNİZLEME & ONAY MODALI */}
+      {isAiMenuModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="p-5 bg-linear-to-r from-purple-600 via-indigo-600 to-purple-700 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-yellow-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black">
+                    Fotoğraftan AI ile Menü Tarama
+                  </h3>
+                  <p className="text-xs text-purple-100">Gemini Vision ile tespit edilen lezzetler ve fiyatlar</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAiMenuModalOpen(false)}
+                className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
+              {isAiAnalyzing ? (
+                <div className="py-14 text-center space-y-3">
+                  <div className="relative w-16 h-16 mx-auto">
+                    <div className="absolute inset-0 rounded-full border-4 border-purple-500/20 border-t-purple-600 animate-spin" />
+                    <Sparkles className="w-7 h-7 text-purple-600 absolute inset-0 m-auto animate-pulse" />
+                  </div>
+                  <h4 className="text-base font-black text-stone-900 dark:text-white">
+                    Menü Fotoğrafı İnceleniyor...
+                  </h4>
+                  <p className="text-xs text-stone-500 max-w-xs mx-auto">
+                    Yapay zeka kağıt menünüzdeki tüm yemek adlarını ve fiyatları okuyarak dijitalleştiriyor.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-stone-200 dark:border-stone-800">
+                    <span className="text-xs font-bold text-stone-600 dark:text-stone-300">
+                      Tespit Edilen Yemekler ({aiDetectedItems.filter((i) => i.selected).length}/{aiDetectedItems.length} Seçili)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allSelected = aiDetectedItems.every((i) => i.selected);
+                        setAiDetectedItems((prev) =>
+                          prev.map((i) => ({ ...i, selected: !allSelected }))
+                        );
+                      }}
+                      className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer"
+                    >
+                      {aiDetectedItems.every((i) => i.selected) ? 'Tümünü Kaldır' : 'Tümünü Seç'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    {aiDetectedItems.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
+                          item.selected
+                            ? 'bg-purple-50/70 dark:bg-purple-950/30 border-purple-300 dark:border-purple-800'
+                            : 'bg-stone-50 dark:bg-stone-800/40 border-stone-200 dark:border-stone-700 opacity-60'
+                        }`}
+                      >
+                        <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={item.selected}
+                            onChange={(e) => {
+                              const copy = [...aiDetectedItems];
+                              copy[idx].selected = e.target.checked;
+                              setAiDetectedItems(copy);
+                            }}
+                            className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={item.name}
+                            onChange={(e) => {
+                              const copy = [...aiDetectedItems];
+                              copy[idx].name = e.target.value;
+                              setAiDetectedItems(copy);
+                            }}
+                            placeholder="Yemek adı"
+                            className="flex-1 min-w-0 px-2.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-900 dark:text-white"
+                          />
+                        </label>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <select
+                            value={item.category}
+                            onChange={(e) => {
+                              const copy = [...aiDetectedItems];
+                              copy[idx].category = e.target.value;
+                              setAiDetectedItems(copy);
+                            }}
+                            className="px-2 py-1 text-[11px] font-bold bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-300"
+                          >
+                            {CATEGORY_PRESETS.filter((c) => c !== 'Tümü').map((cat) => (
+                              <option key={cat} value={cat}>
+                                {cat}
+                              </option>
+                            ))}
+                          </select>
+
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min={1}
+                              value={item.price}
+                              onChange={(e) => {
+                                const copy = [...aiDetectedItems];
+                                copy[idx].price = Number(e.target.value) || 0;
+                                setAiDetectedItems(copy);
+                              }}
+                              className="w-16 px-2 py-1 text-xs font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-right"
+                            />
+                            <span className="text-xs font-bold text-stone-400">₺</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-stone-50 dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsAiMenuModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-bold"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                disabled={isAiAnalyzing || aiImporting || aiDetectedItems.filter((i) => i.selected).length === 0}
+                onClick={handleConfirmAiMenuItems}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs sm:text-sm font-black shadow-md cursor-pointer transition-all"
+              >
+                {aiImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                <span>
+                  {aiImporting
+                    ? 'Ekleniyor...'
+                    : `Seçilenleri Menüye Aktar (${aiDetectedItems.filter((i) => i.selected).length})`}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}

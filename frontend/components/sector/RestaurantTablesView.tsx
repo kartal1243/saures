@@ -38,6 +38,7 @@ import { TableQrMenuModal } from './TableQrMenuModal';
 interface RestaurantTablesViewProps {
   tables: RestaurantTable[];
   isVip?: boolean;
+  vipTier?: 'cirak' | 'usta' | 'patron';
   onOpenVip?: () => void;
   onAddOrderToTable: (tableId: string, item: { name: string; quantity: number; unitPrice: number; isGift?: boolean; note?: string }) => Promise<void>;
   onCheckoutTable: (tableId: string, paymentMethod: 'nakit' | 'kart') => Promise<void>;
@@ -65,6 +66,7 @@ const DEFAULT_MENU_FALLBACK: MenuItem[] = [
 export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
   tables,
   isVip = false,
+  vipTier,
   onOpenVip,
   onAddOrderToTable,
   onCheckoutTable,
@@ -73,6 +75,36 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
   onAddTable,
   onDeleteTable,
 }) => {
+  const [tier, setTier] = useState<'cirak' | 'usta' | 'patron'>(
+    vipTier || (isVip ? 'patron' : 'cirak')
+  );
+
+  useEffect(() => {
+    if (vipTier) {
+      setTier(vipTier);
+    } else if (isVip) {
+      setTier('patron');
+    }
+  }, [vipTier, isVip]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/shop-profile')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (active && data?.shopProfile) {
+          const profileTier = data.shopProfile.vipTier || (data.shopProfile.isVip ? 'patron' : 'cirak');
+          setTier(profileTier);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const maxTables = tier === 'patron' ? Infinity : tier === 'usta' ? 10 : 3;
+
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newTableName, setNewTableName] = useState('');
@@ -493,7 +525,7 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (!isVip && tables.length >= 3) {
+                  if (tables.length >= maxTables) {
                     onOpenVip?.();
                     return;
                   }
@@ -516,35 +548,68 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
             </div>
           </div>
 
-          {/* Standart Plan 3 Masa Sınırı Uyarısı */}
-          {!isVip && (
-            <div className="p-4 rounded-2xl bg-linear-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 border border-orange-200 dark:border-orange-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* 3'lü Pakete Göre Dinamik Masa Sınırı Uyarı Bandı */}
+          {tier !== 'patron' ? (
+            <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              tier === 'usta'
+                ? 'bg-linear-to-r from-blue-500/10 via-indigo-500/10 to-blue-500/5 border-blue-200 dark:border-blue-800/60'
+                : 'bg-linear-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 border-orange-200 dark:border-orange-800/60'
+            }`}>
               <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <span className={`w-10 h-10 rounded-xl text-white flex items-center justify-center shrink-0 shadow-xs ${
+                  tier === 'usta' ? 'bg-indigo-600' : 'bg-orange-500'
+                }`}>
                   <Crown className="w-5 h-5 text-yellow-200" />
                 </span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-orange-950 dark:text-orange-200">
-                      Standart Plan: 3 Masa ile Sınırlıdır
+                    <span className="text-xs font-black text-stone-900 dark:text-white">
+                      {tier === 'usta' ? 'Usta Paketi: 10 Masa Sınırı' : 'Çırak Paketi: 3 Masa Sınırı'}
                     </span>
-                    <span className="px-2 py-0.5 rounded-md bg-orange-500/20 text-orange-800 dark:text-orange-300 text-[10px] font-black">
-                      {tables.length}/3 Masa
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                      tier === 'usta'
+                        ? 'bg-indigo-500/20 text-indigo-800 dark:text-indigo-300'
+                        : 'bg-orange-500/20 text-orange-800 dark:text-orange-300'
+                    }`}>
+                      {tables.length}/{maxTables} Masa
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-600 dark:text-stone-400 font-medium mt-0.5">
-                    Sınırsız masa, kat/bölüm planı ve QR menü standları VIP işletmelere özeldir. Menü ve adisyonu ücretsiz kullanabilirsiniz.
+                    {tier === 'usta'
+                      ? 'Usta paketinizde 10 masaya kadar ekleyebilirsiniz. Sınırsız masa ve QR menü için Patron VIP Pakete geçin.'
+                      : 'Çırak paketinde en fazla 3 masa ekleyebilirsiniz. 10 masa için Usta Pakete, sınırsız masa ve QR Menü için Patron VIP Pakete geçin.'}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onOpenVip}
-                className="px-4 py-2 rounded-xl bg-linear-to-r from-orange-500 to-orange-600 text-white text-xs font-black shadow-xs hover:from-orange-600 hover:to-orange-700 transition-all cursor-pointer shrink-0 inline-flex items-center gap-1.5 justify-center"
+                className={`px-4 py-2 rounded-xl text-white text-xs font-black shadow-xs transition-all cursor-pointer shrink-0 inline-flex items-center gap-1.5 justify-center ${
+                  tier === 'usta'
+                    ? 'bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
+                    : 'bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                }`}
               >
                 <Crown className="w-3.5 h-3.5 text-yellow-200" />
-                VIP'ye Yükselt (Sınırsız Masa Aç)
+                {tier === 'usta' ? 'Patron VIP\'ye Geç (Sınırsız Masa)' : 'Paketi Yükselt (Usta / Patron VIP)'}
               </button>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-linear-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/5 border border-amber-300/80 dark:border-amber-800/60 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                  <Crown className="w-4 h-4 text-yellow-100" />
+                </span>
+                <div>
+                  <span className="text-xs font-black text-amber-950 dark:text-amber-200 flex items-center gap-1.5">
+                    <span>Patron VIP Paketi Aktif: Sınırsız Masa &amp; QR Menü</span>
+                    <span className="px-1.5 py-0.2 rounded-md bg-emerald-500 text-white text-[9px] font-black">VIP AKTİF</span>
+                  </span>
+                  <p className="text-[11px] text-stone-600 dark:text-stone-400">
+                    İşletmenizde sınır olmaksızın dilediğiniz kadar masa ve QR menü kullanabilirsiniz ({tables.length} Masa kayıtlı).
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -623,7 +688,7 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
                 onSubmit={async (e) => {
                   e.preventDefault();
                   if (!newTableName.trim() || isAdding) return;
-                  if (!isVip && tables.length >= 3) {
+                  if (tables.length >= maxTables) {
                     onOpenVip?.();
                     return;
                   }

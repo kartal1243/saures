@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { WebSocketServer } from 'ws';
 import { PORT, JSON_BODY_LIMIT } from './config';
@@ -158,6 +159,39 @@ export async function startServer(): Promise<void> {
   registerCustodyRoutes(app);
   registerProtectedMenuRoutes(app);
 
+  // ---------------- Google Play TWA Doğrulaması (Digital Asset Links) ----------------
+  app.get('/.well-known/assetlinks.json', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    const distAssetLinksPath = path.join(process.cwd(), 'dist', '.well-known', 'assetlinks.json');
+    const staticAssetLinksPath = path.join(process.cwd(), 'frontend', 'public', '.well-known', 'assetlinks.json');
+
+    if (fs.existsSync(distAssetLinksPath)) {
+      return res.send(fs.readFileSync(distAssetLinksPath, 'utf-8'));
+    }
+    if (fs.existsSync(staticAssetLinksPath)) {
+      return res.send(fs.readFileSync(staticAssetLinksPath, 'utf-8'));
+    }
+
+    const packageName = process.env.TWA_PACKAGE_NAME || 'com.dukkanimyanimda.twa';
+    const rawFingerprints =
+      process.env.TWA_SHA256_FINGERPRINTS ||
+      '14:6D:E9:7D:0F:52:AB:E0:41:F5:27:1F:B1:03:7E:DE:36:CF:BE:62:EE:9E:D0:6B:43:83:A2:E9:9D:C3:7B:64';
+    const fingerprints = rawFingerprints.split(',').map((f) => f.trim()).filter(Boolean);
+
+    res.json([
+      {
+        relation: ['delegate_permission/common.handle_all_urls'],
+        target: {
+          namespace: 'android_app',
+          package_name: packageName,
+          sha256_cert_fingerprints: fingerprints,
+        },
+      },
+    ]);
+  });
+
   // ---------------- Dinamik SEO & Tarayıcı Dosyaları (Sitemap & Robots) ----------------
   app.get('/sitemap.xml', (req, res) => {
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
@@ -199,6 +233,28 @@ export async function startServer(): Promise<void> {
     const distPath = path.join(process.cwd(), 'dist');
     // Statik varlıklar (JS/CSS/görseller) sunulur; ancak HTML rotalarını dinamik SEO motoru karşılar
     app.use(express.static(distPath, { index: false }));
+
+    // Production HTML sunumunda (/r/:slug, /m/:slug, /berber, /kafe-restoran, /bakkal)
+    // dist/index.html içindeki <title> ve og:title / og:description meta etiketlerini ilgili dükkanın gerçek adıyla dinamik değiştirerek gönder
+    const dynamicSeoRoutes = [
+      '/r/:slug',
+      '/randevu/:slug',
+      '/m/:slug',
+      '/menu/:slug',
+      '/berber',
+      '/kafe-restoran',
+      '/bakkal',
+      '/market',
+      '/bakkal-market',
+    ];
+
+    app.get(dynamicSeoRoutes, (req, res) => {
+      const html = renderSeoHtml(req.path, req.get('host'));
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.send(html);
+    });
+
     app.get('*', (req, res) => {
       const html = renderSeoHtml(req.path, req.get('host'));
       res.setHeader('Content-Type', 'text/html; charset=utf-8');

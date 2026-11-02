@@ -319,16 +319,38 @@ export function registerProtectedMenuRoutes(app: Express): void {
     });
   });
 
-  // Yemek / İçecek Ekle veya Güncelle
+  // Yemek / İçecek Ekle, Güncelle veya Toplu Ekle
   app.post('/api/menu', (req: Request, res: Response) => {
-    const { id, name, price, category, description, imageUrl, isAvailable } = req.body;
-    if (!name || typeof price !== 'number') {
-      return res.status(400).json({ error: 'Yemek adı ve fiyatı zorunludur.' });
-    }
-
     const st = S();
     if (!Array.isArray(st.menuItems)) {
       st.menuItems = [];
+    }
+
+    // Toplu Ekleme Desteği (AI Menü Okuma ve Toplu İçe Aktarma)
+    if (Array.isArray(req.body.items) && req.body.items.length > 0) {
+      const addedItems: MenuItem[] = [];
+      for (const raw of req.body.items) {
+        if (!raw.name || typeof raw.price !== 'number') continue;
+        const newItem: MenuItem = {
+          id: 'm_' + crypto.randomUUID().slice(0, 8),
+          name: String(raw.name).trim(),
+          price: Number(raw.price),
+          category: (raw.category || 'Genel').trim(),
+          description: raw.description ? String(raw.description).trim() : '',
+          imageUrl: raw.imageUrl ? String(raw.imageUrl).trim() : undefined,
+          isAvailable: raw.isAvailable !== undefined ? Boolean(raw.isAvailable) : true,
+        };
+        st.menuItems.push(newItem);
+        addedItems.push(newItem);
+      }
+      saveState();
+      broadcast({ type: 'MENU_UPDATED', payload: st.menuItems });
+      return res.json({ success: true, items: addedItems, menuItems: st.menuItems });
+    }
+
+    const { id, name, price, category, description, imageUrl, isAvailable } = req.body;
+    if (!name || typeof price !== 'number') {
+      return res.status(400).json({ error: 'Yemek adı ve fiyatı zorunludur.' });
     }
 
     let item: MenuItem;
