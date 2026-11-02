@@ -12,6 +12,7 @@ export interface SeoMetadata {
   ogImage: string;
   canonical: string;
   schemaJson?: object;
+  breadcrumbs?: { name: string; url: string }[];
 }
 
 export interface ResolvedShop {
@@ -24,6 +25,9 @@ export interface ResolvedShop {
   sectorKey?: string;
   isVip?: boolean;
   exists: boolean;
+  openingTime?: string;
+  closingTime?: string;
+  closedDays?: number[];
 }
 
 const DEFAULT_HOST = 'dukkanimyanimda.com.tr';
@@ -89,6 +93,9 @@ export function findShopForSeo(identifier: string): ResolvedShop | null {
     sectorKey: targetState?.shopProfile?.sectorKey,
     isVip: targetState?.shopProfile?.isVip || false,
     exists: true,
+    openingTime: targetState?.barberSettings?.openingTime || '09:00',
+    closingTime: targetState?.barberSettings?.closingTime || '21:00',
+    closedDays: targetState?.barberSettings?.closedDays || [0],
   };
 }
 
@@ -123,6 +130,8 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         telephone: shop.phone || undefined,
         description,
         image: ogImage,
+        priceRange: '₺₺',
+        acceptsReservations: 'True',
         address: shop.cityDistrict
           ? {
               '@type': 'PostalAddress',
@@ -130,10 +139,23 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
               addressCountry: 'TR',
             }
           : undefined,
-        priceRange: '₺₺',
+        openingHoursSpecification: [
+          {
+            '@type': 'OpeningHoursSpecification',
+            dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+            opens: shop.openingTime || '09:00',
+            closes: shop.closingTime || '21:00',
+          },
+        ],
       };
 
-      return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson };
+      const breadcrumbs = [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Online Randevu', url: `${origin}/berber` },
+        { name: shop.name, url: canonical },
+      ];
+
+      return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs };
     }
 
     return {
@@ -143,6 +165,10 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogDescription: 'Sıra beklemeden online randevu alın.',
       ogImage: `${origin}/brand/phone_mockup_retina.png`,
       canonical: `${origin}/r/demo`,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Online Randevu', url: `${origin}/r/demo` },
+      ],
     };
   }
 
@@ -168,9 +194,24 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         servesCuisine: 'Türk Mutfağı',
         description,
         image: ogImage,
+        priceRange: '₺₺',
+        acceptsReservations: 'True',
+        address: shop.cityDistrict
+          ? {
+              '@type': 'PostalAddress',
+              addressLocality: shop.cityDistrict,
+              addressCountry: 'TR',
+            }
+          : undefined,
       };
 
-      return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson };
+      const breadcrumbs = [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'QR Menü', url: `${origin}/kafe-restoran` },
+        { name: shop.name, url: canonical },
+      ];
+
+      return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs };
     }
 
     return {
@@ -499,10 +540,34 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
     html = html.replace('</head>', `${twitterImageTag}\n</head>`);
   }
 
+  // <meta name="robots" ...>
+  const robotsTag = '<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />';
+  if (/name=["']robots["']/i.test(html)) {
+    html = html.replace(/<meta\s+name=["']robots["'][^>]*>/i, robotsTag);
+  } else {
+    html = html.replace('</head>', `${robotsTag}\n</head>`);
+  }
+
   // JSON-LD Structured Data Injection
   if (meta.schemaJson) {
     const jsonLdTag = `\n    <script type="application/ld+json">\n    ${JSON.stringify(meta.schemaJson, null, 2)}\n    </script>\n`;
     html = html.replace('</head>', `${jsonLdTag}</head>`);
+  }
+
+  // Google Search BreadcrumbList JSON-LD Injection
+  if (meta.breadcrumbs && meta.breadcrumbs.length > 0) {
+    const breadcrumbSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: meta.breadcrumbs.map((b, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        name: b.name,
+        item: b.url,
+      })),
+    };
+    const breadcrumbTag = `\n    <script type="application/ld+json">\n    ${JSON.stringify(breadcrumbSchema, null, 2)}\n    </script>\n`;
+    html = html.replace('</head>', `${breadcrumbTag}</head>`);
   }
 
   return html;
@@ -520,43 +585,44 @@ export function generateSitemapXml(rawHost?: string): string {
   const today = new Date().toISOString().split('T')[0];
 
   const staticUrls = [
-    { loc: `${origin}/`, priority: '1.0', changefreq: 'weekly' },
-    { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'weekly' },
-    { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly' },
-    { loc: `${origin}/berber`, priority: '0.9', changefreq: 'weekly' },
-    { loc: `${origin}/kuafor`, priority: '0.8', changefreq: 'weekly' },
-    { loc: `${origin}/kafe-restoran`, priority: '0.9', changefreq: 'weekly' },
-    { loc: `${origin}/bakkal-market`, priority: '0.9', changefreq: 'weekly' },
-    { loc: `${origin}/bakkal`, priority: '0.8', changefreq: 'weekly' },
-    { loc: `${origin}/market`, priority: '0.8', changefreq: 'weekly' },
-    { loc: `${origin}/teknik-servis`, priority: '0.8', changefreq: 'weekly' },
-    { loc: `${origin}/hukuk`, priority: '0.8', changefreq: 'weekly' },
-    { loc: `${origin}/terzi`, priority: '0.8', changefreq: 'weekly' },
-    { loc: `${origin}/iletisim`, priority: '0.6', changefreq: 'monthly' },
-    { loc: `${origin}/gizlilik`, priority: '0.4', changefreq: 'yearly' },
+    { loc: `${origin}/`, priority: '1.0', changefreq: 'weekly', title: 'Dükkânım Yanımda - Esnaf Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'weekly', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly', title: 'Ücretsiz Kayıt - Dükkanını 2 Dakikada Kur', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/berber`, priority: '0.9', changefreq: 'weekly', title: 'Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/kuafor`, priority: '0.8', changefreq: 'weekly', title: 'Kuaför Randevu ve Salon Takip Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/kafe-restoran`, priority: '0.9', changefreq: 'weekly', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/bakkal-market`, priority: '0.9', changefreq: 'weekly', title: 'Bakkal & Market Hızlı POS Barkodlu Terazi Sistemi', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/bakkal`, priority: '0.8', changefreq: 'weekly', title: 'Bakkal Veresiye Defteri ve Kasa Takip', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/market`, priority: '0.8', changefreq: 'weekly', title: 'Market Barkodlu Hızlı POS Sistemi', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/teknik-servis`, priority: '0.8', changefreq: 'weekly', title: 'Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/hukuk`, priority: '0.8', changefreq: 'weekly', title: 'Avukat ve Hukuk Bürosu Dava Takip ve Masraf Yazılımı', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/terzi`, priority: '0.8', changefreq: 'weekly', title: 'Terzi & Kuru Temizleme Emanet Takip Sistemi', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/iletisim`, priority: '0.6', changefreq: 'monthly', title: 'İletişim & Destek', img: `${origin}/icon-512.png` },
+    { loc: `${origin}/gizlilik`, priority: '0.4', changefreq: 'yearly', title: 'Gizlilik Politikası & KVKK Güvencesi', img: `${origin}/icon-512.png` },
   ];
 
   // Aktif dükkanların dinamik linkleri
-  const shopUrls: { loc: string; priority: string; changefreq: string }[] = [];
+  const shopUrls: { loc: string; priority: string; changefreq: string; title: string; img: string }[] = [];
   const accounts = getAccounts();
   const seenSlugs = new Set<string>();
 
   // Demo hesap da eklensin
   seenSlugs.add('demo');
   shopUrls.push(
-    { loc: `${origin}/r/demo`, priority: '0.8', changefreq: 'daily' },
-    { loc: `${origin}/m/demo`, priority: '0.8', changefreq: 'daily' }
+    { loc: `${origin}/r/demo`, priority: '0.8', changefreq: 'daily', title: 'Demo Berber - Online Randevu Al', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/m/demo`, priority: '0.8', changefreq: 'daily', title: 'Demo Kafe - Dijital QR Menü & Fiyatlar', img: `${origin}/brand/phone_mockup_retina.png` }
   );
 
   for (const acc of accounts) {
     try {
       const st = loadShopState(acc.id);
-      const slug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || acc.shopName);
+      const storeName = st.shopProfile?.storeName || acc.shopName;
+      const slug = st.shopProfile?.slug || slugify(storeName);
       if (slug && !seenSlugs.has(slug)) {
         seenSlugs.add(slug);
         shopUrls.push(
-          { loc: `${origin}/r/${slug}`, priority: '0.7', changefreq: 'daily' },
-          { loc: `${origin}/m/${slug}`, priority: '0.7', changefreq: 'daily' }
+          { loc: `${origin}/r/${slug}`, priority: '0.7', changefreq: 'daily', title: `${storeName} - Online Randevu Al`, img: `${origin}/brand/phone_mockup_retina.png` },
+          { loc: `${origin}/m/${slug}`, priority: '0.7', changefreq: 'daily', title: `${storeName} - Dijital QR Menü & Fiyatlar`, img: `${origin}/brand/phone_mockup_retina.png` }
         );
       }
     } catch {
@@ -573,12 +639,17 @@ export function generateSitemapXml(rawHost?: string): string {
     <lastmod>${today}</lastmod>
     <changefreq>${u.changefreq}</changefreq>
     <priority>${u.priority}</priority>
+    <image:image>
+      <image:loc>${u.img}</image:loc>
+      <image:title>${escapeHtml(u.title)}</image:title>
+    </image:image>
   </url>`
     )
     .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${xmlEntries}
 </urlset>
 `;

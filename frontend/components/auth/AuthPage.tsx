@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing, PlayCircle, Mail } from 'lucide-react';
+import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing, Mail, CheckCircle2 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
-import { demoLogin } from '../../utils/demo';
 import { PhoneMockupHero } from './PhoneMockupHero';
 
 interface AuthPageProps {
@@ -85,22 +84,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
     setError(null);
   };
 
-  const [demoLoading, setDemoLoading] = useState(false);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [recoveryPhone, setRecoveryPhone] = useState('');
+  const [forgotOtpCode, setForgotOtpCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
-  const tryDemo = async () => {
-    setDemoLoading(true);
-    setError(null);
-    const err = await demoLogin();
-    if (err) {
-      setError(err);
-      setDemoLoading(false);
-    }
-    // başarılıysa demoLogin sayfayı yeniler
-  };
+  const [forgotWhatsappLink, setForgotWhatsappLink] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-[#fafaf9] font-sans lg:grid lg:grid-cols-[1fr_470px] xl:grid-cols-[1fr_490px]">
@@ -492,33 +485,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
               <button
                 type="button"
                 onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
-                className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50 text-stone-700 font-extrabold text-xs transition-colors cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl border border-stone-200 hover:border-orange-300 hover:bg-orange-50/50 text-stone-800 font-extrabold text-xs transition-all cursor-pointer shadow-xs"
               >
                 {mode === 'login' ? (
-                  <><UserPlus className="w-3.5 h-3.5" /> Ücretsiz dükkan oluştur</>
+                  <><UserPlus className="w-4 h-4 text-orange-600" /> 14 Gün Ücretsiz Dükkan Aç (Kredi Kartsız)</>
                 ) : (
-                  <><LogIn className="w-3.5 h-3.5" /> Zaten hesabım var, giriş yap</>
-                )}
-              </button>
-
-              {/* Demo Butonu */}
-              <button
-                type="button"
-                onClick={tryDemo}
-                disabled={demoLoading || loading}
-                className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-stone-900 hover:bg-black text-white font-extrabold text-xs transition-colors cursor-pointer disabled:opacity-60"
-              >
-                {demoLoading ? (
-                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Demo açılıyor…</>
-                ) : (
-                  <><PlayCircle className="w-3.5 h-3.5" /> Kaydolmadan demoyu dene</>
+                  <><LogIn className="w-4 h-4 text-orange-600" /> Zaten hesabım var, giriş yap</>
                 )}
               </button>
 
               {/* Alt Güvenlik Bildirimi */}
               <p className="flex items-center justify-center gap-1.5 text-[11px] text-stone-400 font-medium pt-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                Şifreniz şifreli saklanır • Ücretsiz • 2 dakikada kurulum
+                Şifreniz şifreli saklanır • 14 Gün Ücretsiz Canlı Deneme • Kredi Kartı İstemez
               </p>
             </form>
           </div>
@@ -529,21 +508,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
         </div>
       </div>
 
-      {/* Şifremi Unuttum Kurtarma Modalı */}
+      {/* Şifremi Unuttum Kurtarma Modalı (Gerçek SMS / WhatsApp OTP Sistemi) */}
       {isForgotPasswordOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 border border-stone-200">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 border border-stone-200 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-stone-900 flex items-center gap-2">
                 <Lock className="w-4 h-4 text-orange-600" />
-                Şifre Sıfırlama
+                {forgotStep === 1 ? 'Şifremi Unuttum' : 'Yeni Şifre Belirleme'}
               </h3>
               <button
                 type="button"
                 onClick={() => {
                   setIsForgotPasswordOpen(false);
+                  setForgotStep(1);
                   setForgotSuccess(false);
                   setForgotError(null);
+                  setForgotOtpCode('');
+                  setNewPassword('');
+                  setNewPasswordConfirm('');
                 }}
                 className="p-1 rounded-lg text-stone-400 hover:text-stone-700 cursor-pointer"
               >
@@ -552,27 +535,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
             </div>
 
             {forgotSuccess ? (
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold space-y-2.5 text-center">
-                <div className="text-3xl">✅</div>
-                <div className="font-black text-sm text-emerald-900">Talebiniz yöneticiye iletildi</div>
+              <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold space-y-3 text-center">
+                <div className="text-3xl">🎉</div>
+                <div className="font-black text-sm text-emerald-900">Şifreniz Başarıyla Güncellendi!</div>
                 <p className="text-emerald-700 font-medium leading-relaxed">
-                  {recoveryPhone} numaralı hesabınız için şifre sıfırlama talebiniz başarıyla alındı. Sistem yöneticimiz en kısa sürede sizinle iletişime geçecektir.
+                  Yeni şifreniz başarıyla kaydedildi. Oturumunuz açılıyor, doğrudan panele yönlendiriliyorsunuz...
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsForgotPasswordOpen(false);
-                    setForgotSuccess(false);
-                  }}
-                  className="mt-2 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs cursor-pointer"
-                >
-                  Tamam
-                </button>
               </div>
-            ) : (
+            ) : forgotStep === 1 ? (
               <>
                 <p className="text-xs text-stone-500 leading-relaxed">
-                  Kayıtlı telefon numaranızı girerek şifre sıfırlama talebi oluşturabilirsiniz. Talebiniz anında sistem yöneticisine iletilir.
+                  Kayıtlı cep telefonu numaranızı giriniz. Numaranıza 6 haneli SMS doğrulama kodu gönderilecektir.
                 </p>
 
                 {forgotError && (
@@ -594,7 +567,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                       setForgotError(null);
                     }}
                     placeholder="05XXXXXXXXX"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500 font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500 font-mono tracking-wider font-bold"
                   />
                 </div>
                 <div className="space-y-2 pt-1">
@@ -609,14 +582,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                       }
                       setForgotLoading(true);
                       try {
-                        const res = await fetch('/api/auth/forgot-password', {
+                        const res = await fetch('/api/auth/forgot-password/send-otp', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ phone: recoveryPhone }),
                         });
                         const data = await res.json().catch(() => ({}));
-                        if (!res.ok) throw new Error(data.error || 'Talep iletilemedi.');
-                        setForgotSuccess(true);
+                        if (!res.ok) throw new Error(data.error || 'Doğrulama kodu gönderilemedi.');
+                        if (data.whatsappLink) setForgotWhatsappLink(data.whatsappLink);
+                        if (data.demoCode) setForgotOtpCode(data.demoCode);
+                        setForgotStep(2);
                       } catch (err: any) {
                         setForgotError(err.message || 'Bağlantı hatası oluştu.');
                       } finally {
@@ -626,9 +601,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
                   >
                     {forgotLoading ? (
-                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> İletiliyor…</>
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Kod Gönderiliyor…</>
                     ) : (
-                      'Talebi Yöneticiye İlet'
+                      'SMS Onay Kodu Gönder'
                     )}
                   </button>
                   <button
@@ -640,6 +615,128 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     className="w-full py-2 rounded-xl text-stone-500 hover:text-stone-800 text-xs font-semibold cursor-pointer"
                   >
                     Vazgeç
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-stone-500 leading-relaxed">
+                  <strong className="text-stone-800">{recoveryPhone}</strong> numarasına gönderilen 6 haneli onay kodunu ve yeni şifrenizi giriniz.
+                </p>
+
+                {forgotError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+                    ⚠️ {forgotError}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">6 Haneli SMS Kodu *</label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={forgotOtpCode}
+                      onChange={(e) => {
+                        setForgotOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                        setForgotError(null);
+                      }}
+                      placeholder="123456"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-center text-lg font-mono tracking-widest font-black outline-none focus:border-orange-500"
+                    />
+                    {forgotWhatsappLink && (
+                      <a
+                        href={forgotWhatsappLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block text-[11px] text-emerald-600 font-bold hover:underline mt-1"
+                      >
+                        Kodu WhatsApp ile doğrula / al →
+                      </a>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">Yeni Şifre (En az 6 karakter) *</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        setForgotError(null);
+                      }}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">Yeni Şifre Tekrar *</label>
+                    <input
+                      type="password"
+                      value={newPasswordConfirm}
+                      onChange={(e) => {
+                        setNewPasswordConfirm(e.target.value);
+                        setForgotError(null);
+                      }}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="button"
+                    disabled={forgotLoading || forgotOtpCode.length < 4 || !newPassword}
+                    onClick={async () => {
+                      setForgotError(null);
+                      if (newPassword.length < 6) {
+                        setForgotError('Yeni şifreniz en az 6 karakter olmalıdır.');
+                        return;
+                      }
+                      if (newPassword !== newPasswordConfirm) {
+                        setForgotError('Şifreler birbiriyle uyuşmuyor.');
+                        return;
+                      }
+                      setForgotLoading(true);
+                      try {
+                        const res = await fetch('/api/auth/forgot-password/verify-and-reset', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            phone: recoveryPhone,
+                            otpCode: forgotOtpCode,
+                            newPassword,
+                          }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data.error || 'Şifre güncellenemedi.');
+                        setForgotSuccess(true);
+                        setTimeout(() => {
+                          onSuccess();
+                        }, 1200);
+                      } catch (err: any) {
+                        setForgotError(err.message || 'Bağlantı hatası oluştu.');
+                      } finally {
+                        setForgotLoading(false);
+                      }
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    {forgotLoading ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Şifre Yenileniyor…</>
+                    ) : (
+                      'Şifremi Sıfırla ve Oturum Aç'
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setForgotStep(1)}
+                    className="w-full py-1.5 text-stone-500 hover:text-stone-800 text-xs font-semibold cursor-pointer"
+                  >
+                    ← Numarayı Değiştir
                   </button>
                 </div>
               </>

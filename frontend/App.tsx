@@ -38,7 +38,6 @@ import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
 import { DEFAULT_SERVICES } from './components/sector/ServicesModal';
-import { demoLogin } from './utils/demo';
 
 // Agir moduller ayri chunk olarak tembel yuklenir: ilk acilis hizli olsun.
 // (recharts + 6 sektor gorunumu + tum modallar ana pakete girmez.)
@@ -292,10 +291,10 @@ export default function App() {
 
   const bootstrapSession = async () => {
     try {
-      // /demo veya /demo/ rotası girildiyse doğrudan demoyu başlat
+      // /demo veya /demo/ rotası girildiyse doğrudan 14 günlük ücretsiz canlı kayıt sayfasına yönlendir
       if (window.location.pathname.toLowerCase().replace(/\/+$/, '') === '/demo') {
-        const demoErr = await demoLogin();
-        if (!demoErr) return;
+        window.location.replace('/kayit');
+        return;
       }
 
       const me = await fetch('/api/auth/me');
@@ -682,9 +681,8 @@ export default function App() {
       const profile: ShopProfile = saved.profile || saved;
       setShopProfile(profile);
       setActiveTab('sector_view');
-      toast.success(`${secObj?.shortLabel || newSector} moduna geçildi!`);
     } catch (e: any) {
-      toast.error(e.message || 'Sektör değiştirilemedi.');
+      console.error('Sektör değiştirilemedi:', e);
     }
   };
 

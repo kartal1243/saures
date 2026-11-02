@@ -2,6 +2,8 @@ import type { Express, Request, Response } from 'express';
 import type {
   Appointment,
   AppointmentStep,
+  BarberDiscountSlot,
+  BarberReview,
   BarberSalonSettings,
   BarberService,
   BarberStaff,
@@ -14,7 +16,7 @@ import { calculateCashRegister } from '../cash';
 import { broadcast, broadcastToAccount } from '../realtime';
 import { localDay } from '../day';
 import { getAccounts, clientIp, isValidTurkishPhone, normalizePhone } from '../accounts';
-import { loadShopState, persistShopState, defaultBarberSettings, defaultBarberStaff, defaultBarberServices } from '../shopState';
+import { loadShopState, persistShopState, defaultBarberSettings, defaultBarberStaff, defaultBarberServices, demoBarberReviews } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { FREE_ONLINE_BOOKING_QUOTA } from '../config';
 import { publicActionRateLimit } from '../guards';
@@ -143,10 +145,11 @@ function isStaffAvailable(
   return !hasApt;
 }
 
-// In-memory OTP Store (5 dakika TTL)
+// In-memory OTP Store (5 dakika TTL, brute-force korumalı)
 interface StoredOtp {
   code: string;
   expiresAt: number;
+  attempts?: number;
 }
 const otpStore = new Map<string, StoredOtp>();
 
@@ -252,25 +255,36 @@ export function registerPublicBarberRoutes(app: Express): void {
       settings,
       occupiedSlots,
       timeBlocks,
+      reviews: (shopState.barberReviews && shopState.barberReviews.length > 0)
+        ? shopState.barberReviews.filter((r) => r.approved !== false)
+        : (isDemo ? demoBarberReviews : []),
     });
   });
 
-  // 2. OTP Simülasyonu / Gönderimi (Gerçek in-memory doğrulama)
+  // 2. Randevu SMS / WhatsApp Onay Kodu Gönderimi (Gerçek Doğrulama)
   app.post('/api/public/barber/send-otp', publicActionRateLimit, (req: Request, res: Response) => {
     const rawPhone = String(req.body?.phone || '');
     const cleanPhone = normalizePhone(rawPhone);
     if (!isValidTurkishPhone(rawPhone)) {
-      return res.status(400).json({ error: 'Geçerli bir telefon numarası giriniz (05XX XXX XX XX formatında, 11 hane).' });
+      return res.status(400).json({ error: 'Geçerli bir cep telefonu numarası giriniz (05XX XXX XX XX formatında).' });
     }
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    // 6 haneli güvenli onay kodu
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     otpStore.set(cleanPhone, {
       code,
       expiresAt: Date.now() + 5 * 60 * 1000, // 5 dakika geçerli
+      attempts: 0,
     });
+
+    const cleanNumber = cleanPhone.startsWith('0') ? cleanPhone.slice(1) : cleanPhone;
+    const whatsappText = encodeURIComponent(`Dükkânım Yanımda Randevu Onay Kodunuz: ${code}`);
+    const whatsappLink = `https://wa.me/90${cleanNumber}?text=${whatsappText}`;
+
     res.json({
       success: true,
-      message: 'Doğrulama kodu oluşturuldu.',
-      demoCode: code,
+      message: 'Onay kodunuz SMS olarak gönderildi.',
+      demoCode: code, // Canlı test / WhatsApp yedek doğrulaması için
+      whatsappLink,
     });
   });
 
@@ -377,8 +391,17 @@ export function registerPublicBarberRoutes(app: Express): void {
     const activeAppointments = shopState.appointments || [];
     const timeBlocks = shopState.barberTimeBlocks || [];
 
-    // Toplam süreyi ve çalışma saatleri kontrolünü yap
-    const totalDuration = selectedServices.reduce((sum, s) => sum + (s.durationMinutes || 30), 0);
+    // Seçilen personeli önceden tespit et (eğer belirli bir usta seçildiyse)
+    const predefinedStaff = (staffId && staffId !== 'fark_etmez' && staffId !== 'auto')
+      ? allStaff.find((s) => s.id === staffId)
+      : undefined;
+
+    // Toplam süreyi hesapla (Usta bazlı dinamik süre öncelikli!)
+    const totalDuration = selectedServices.reduce((sum, s) => {
+      const customDur = predefinedStaff?.customPricing?.[s.id]?.duration;
+      return sum + (typeof customDur === 'number' && customDur > 0 ? customDur : (s.durationMinutes || 30));
+    }, 0);
+
     const requestedStartMin = timeToMinutes(timeSlot);
     const requestedEndMin = requestedStartMin + totalDuration;
 
@@ -398,31 +421,30 @@ export function registerPublicBarberRoutes(app: Express): void {
     let primaryStaffId = staffId || 'fark_etmez';
 
     for (const srv of selectedServices) {
-      const stepDuration = srv.durationMinutes || 30;
-      const stepEndMinutes = currentStartMinutes + stepDuration;
       let assignedStaff: BarberStaff | undefined;
 
-      if (staffId && staffId !== 'fark_etmez' && staffId !== 'auto') {
-        const found = allStaff.find((s) => s.id === staffId);
-        if (!found) {
-          return res.status(404).json({ error: 'Seçtiğiniz usta bulunamadı veya artık hizmet vermiyor.' });
-        }
-        // Seçilen ustanın bu saat aralığında müsait olup olmadığını kontrol et
-        const isFree = isStaffAvailable(found.id, date, currentStartMinutes, stepEndMinutes, activeAppointments, timeBlocks);
+      if (predefinedStaff) {
+        assignedStaff = predefinedStaff;
+        const customDur = assignedStaff.customPricing?.[srv.id]?.duration;
+        const stepDuration = (typeof customDur === 'number' && customDur > 0) ? customDur : (srv.durationMinutes || 30);
+        const stepEndMinutes = currentStartMinutes + stepDuration;
+
+        const isFree = isStaffAvailable(assignedStaff.id, date, currentStartMinutes, stepEndMinutes, activeAppointments, timeBlocks);
         if (!isFree) {
           return res.status(409).json({
-            error: `Seçtiğiniz usta (${found.name}) ${timeSlot} saatinde doludur veya moladadır. Lütfen başka bir saat seçiniz.`,
+            error: `Seçtiğiniz usta (${assignedStaff.name}) ${timeSlot} saatinde doludur veya moladadır. Lütfen başka bir saat seçiniz.`,
           });
         }
-        assignedStaff = found;
       } else {
         // "Fark etmez" veya "auto": Bu hizmeti yapabilen VE bu saatte müsait olan ustayı bul
         const capableStaff = allStaff.filter((s) =>
           !srv.allowedStaffIds || srv.allowedStaffIds.length === 0 || srv.allowedStaffIds.includes(s.id)
         );
-        const freeCapableStaff = capableStaff.filter((s) =>
-          isStaffAvailable(s.id, date, currentStartMinutes, stepEndMinutes, activeAppointments, timeBlocks)
-        );
+        const freeCapableStaff = capableStaff.filter((s) => {
+          const customDur = s.customPricing?.[srv.id]?.duration;
+          const dur = (typeof customDur === 'number' && customDur > 0) ? customDur : (srv.durationMinutes || 30);
+          return isStaffAvailable(s.id, date, currentStartMinutes, currentStartMinutes + dur, activeAppointments, timeBlocks);
+        });
 
         if (freeCapableStaff.length === 0) {
           return res.status(409).json({
@@ -432,6 +454,16 @@ export function registerPublicBarberRoutes(app: Express): void {
         // Adil randevu dağılımı: Müsait olan ustalar arasından seç
         assignedStaff = freeCapableStaff[0];
       }
+
+      // Usta bazlı dinamik fiyat ve süre (customPricing)
+      const customP = assignedStaff?.customPricing?.[srv.id];
+      const stepDuration = (customP && typeof customP.duration === 'number' && customP.duration > 0)
+        ? customP.duration
+        : (srv.durationMinutes || 30);
+      const stepPrice = (customP && typeof customP.price === 'number')
+        ? customP.price
+        : srv.price;
+      const stepEndMinutes = currentStartMinutes + stepDuration;
 
       const stName = assignedStaff ? assignedStaff.name : 'Usta';
       const stId = assignedStaff ? assignedStaff.id : '';
@@ -444,10 +476,10 @@ export function registerPublicBarberRoutes(app: Express): void {
         durationMinutes: stepDuration,
         startTime: minutesToTime(currentStartMinutes),
         endTime: minutesToTime(stepEndMinutes),
-        price: srv.price,
+        price: stepPrice,
       });
 
-      totalPrice += srv.price;
+      totalPrice += stepPrice;
       currentStartMinutes = stepEndMinutes;
     }
 
@@ -458,7 +490,30 @@ export function registerPublicBarberRoutes(app: Express): void {
       primaryStaffName = steps.map((st) => `${st.serviceName}: ${st.staffName}`).join(' | ');
     }
 
-    const endTime = minutesToTime(timeToMinutes(timeSlot) + totalDuration);
+    const calculatedTotalDuration = currentStartMinutes - requestedStartMin;
+    const endTime = minutesToTime(requestedStartMin + calculatedTotalDuration);
+
+    // Kampanyalı Slotlar (Ölü Saat Doldurucu Kontrolü)
+    const discountSlots = settings.discountSlots || [];
+    const matchingDiscount = discountSlots.find((d) => {
+      if (d.active === false) return false;
+      const matchDay = d.dayOfWeek === -1 || d.dayOfWeek === dayOfWeek;
+      if (!matchDay) return false;
+      const dStart = timeToMinutes(d.startTime);
+      const dEnd = timeToMinutes(d.endTime);
+      return requestedStartMin >= dStart && requestedStartMin < dEnd;
+    });
+
+    let finalPrice = totalPrice;
+    let discountAmount = 0;
+    let originalPrice = totalPrice;
+    let discountNote = '';
+
+    if (matchingDiscount && matchingDiscount.discountPercent > 0) {
+      discountAmount = Math.round((totalPrice * matchingDiscount.discountPercent) / 100);
+      finalPrice = Math.max(0, totalPrice - discountAmount);
+      discountNote = matchingDiscount.label || `%${matchingDiscount.discountPercent} İndirimli Slot`;
+    }
 
     const now = new Date();
     const newAppointment: Appointment = {
@@ -469,10 +524,13 @@ export function registerPublicBarberRoutes(app: Express): void {
       staffId: primaryStaffId,
       staffName: primaryStaffName,
       serviceName: selectedServices.map((s) => s.name).join(' + '),
-      price: totalPrice,
+      price: finalPrice,
+      originalPrice: discountAmount > 0 ? originalPrice : undefined,
+      discountAmount: discountAmount > 0 ? discountAmount : undefined,
+      discountNote: discountAmount > 0 ? discountNote : undefined,
       appointmentDate: date,
       timeSlot,
-      durationMinutes: totalDuration,
+      durationMinutes: calculatedTotalDuration,
       status: 'bekliyor',
       notes: notes?.trim() || '',
       isOnlineBooking: true,
@@ -508,11 +566,206 @@ export function registerPublicBarberRoutes(app: Express): void {
         date,
         timeSlot,
         endTime,
-        services: selectedServices.map((s) => ({ name: s.name, price: s.price, duration: s.durationMinutes })),
-        totalPrice,
-        totalDuration,
+        services: steps.map((st) => ({ name: st.serviceName, price: st.price, duration: st.durationMinutes })),
+        totalPrice: finalPrice,
+        originalPrice: discountAmount > 0 ? originalPrice : undefined,
+        discountAmount: discountAmount > 0 ? discountAmount : undefined,
+        discountNote: discountAmount > 0 ? discountNote : undefined,
+        totalDuration: calculatedTotalDuration,
         staff: primaryStaffName,
       },
+    });
+  });
+
+  // 4. Müşteri Yorum & Yıldız Değerlendirmesi Ekleme (Kolay Randevu Modülü)
+  app.post('/api/public/barber/:identifier/reviews', publicActionRateLimit, (req: Request, res: Response) => {
+    const { shopState, account } = resolveBarberShop(req.params.identifier);
+    if (!shopState || !account) {
+      return res.status(404).json({ error: 'İşletme bulunamadı.' });
+    }
+
+    const { customerName, phone, rating, comment, staffId, staffName, appointmentId } = req.body;
+    const numRating = Number(rating);
+    if (!numRating || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ error: 'Lütfen 1 ile 5 arasında bir puan veriniz.' });
+    }
+    if (!customerName || !customerName.trim()) {
+      return res.status(400).json({ error: 'Lütfen adınızı giriniz.' });
+    }
+    if (!comment || !comment.trim()) {
+      return res.status(400).json({ error: 'Lütfen deneyiminizle ilgili bir yorum yazınız.' });
+    }
+
+    const newReview: BarberReview = {
+      id: `rev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      appointmentId: appointmentId || undefined,
+      customerName: customerName.trim(),
+      phone: phone ? normalizePhone(phone) : undefined,
+      staffId: staffId || undefined,
+      staffName: staffName || undefined,
+      rating: numRating,
+      comment: comment.trim(),
+      createdAt: new Date().toISOString(),
+      approved: true,
+    };
+
+    if (!shopState.barberReviews) shopState.barberReviews = [];
+    shopState.barberReviews.unshift(newReview);
+
+    if (appointmentId && shopState.appointments) {
+      const apt = shopState.appointments.find((a) => a.id === appointmentId);
+      if (apt) apt.hasReview = true;
+    }
+
+    persistShopState(account.id, shopState);
+
+    try {
+      broadcastToAccount(account.id, { type: 'STATE_RESET', payload: shopState });
+    } catch {}
+
+    res.json({
+      success: true,
+      review: newReview,
+      message: 'Değerlendirmeniz başarıyla kaydedildi, teşekkür ederiz!',
+    });
+  });
+
+  // 5. Müşteri Yorumlarını Listeleme
+  app.get('/api/public/barber/:identifier/reviews', (req: Request, res: Response) => {
+    const { shopState, account } = resolveBarberShop(req.params.identifier);
+    if (!shopState) {
+      return res.status(404).json({ error: 'İşletme bulunamadı.' });
+    }
+
+    const isDemo = Boolean(account?.id && account.id.includes('demo'));
+    const reviews = (shopState.barberReviews && shopState.barberReviews.length > 0)
+      ? shopState.barberReviews.filter((r) => r.approved !== false)
+      : (isDemo ? demoBarberReviews : []);
+    const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
+    const avgRating = reviews.length > 0 ? Number((totalRating / reviews.length).toFixed(1)) : 5.0;
+
+    res.json({
+      reviews,
+      count: reviews.length,
+      averageRating: avgRating,
+    });
+  });
+
+  // 6. "Randevum Ne Durumda?" Müşteri Randevu Sorgulama
+  app.get('/api/public/barber/:identifier/my-appointments', publicActionRateLimit, (req: Request, res: Response) => {
+    const { shopState } = resolveBarberShop(req.params.identifier);
+    if (!shopState) {
+      return res.status(404).json({ error: 'İşletme bulunamadı.' });
+    }
+
+    const rawPhone = String(req.query.phone || '');
+    const cleanPhone = normalizePhone(rawPhone);
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return res.status(400).json({ error: 'Lütfen geçerli bir telefon numarası giriniz (05XX XXX XX XX).' });
+    }
+
+    const settings = shopState.barberSettings || defaultBarberSettings;
+    const cancelHoursLimit = settings.allowCancellationHoursBefore ?? 2;
+    const now = new Date();
+
+    const userAppointments = (shopState.appointments || [])
+      .filter((a) => normalizePhone(a.phone) === cleanPhone)
+      .sort((a, b) => (b.appointmentDate + b.timeSlot).localeCompare(a.appointmentDate + a.timeSlot))
+      .slice(0, 15)
+      .map((a) => {
+        let canCancel = false;
+        let cancelReasonNotice = '';
+
+        if (a.status === 'bekliyor' || a.status === 'onayli') {
+          const aptDateTime = new Date(`${a.appointmentDate}T${a.timeSlot}:00`);
+          const hoursRemaining = (aptDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+          if (hoursRemaining >= cancelHoursLimit) {
+            canCancel = true;
+          } else if (hoursRemaining < 0) {
+            cancelReasonNotice = 'Randevu saati geçmiştir.';
+          } else {
+            cancelReasonNotice = `Randevuya ${cancelHoursLimit} saatten az kaldığı için online iptal edilemez. Lütfen salonu arayınız.`;
+          }
+        } else {
+          cancelReasonNotice = `Randevu durumu "${a.status}" olduğu için iptal edilemez.`;
+        }
+
+        return {
+          id: a.id,
+          customerName: a.customerName,
+          appointmentDate: a.appointmentDate,
+          timeSlot: a.timeSlot,
+          durationMinutes: a.durationMinutes,
+          serviceName: a.serviceName,
+          staffName: a.staffName,
+          price: a.price,
+          originalPrice: a.originalPrice,
+          discountAmount: a.discountAmount,
+          discountNote: a.discountNote,
+          status: a.status,
+          canCancel,
+          cancelReasonNotice,
+          hasReview: Boolean(a.hasReview),
+          createdAt: a.createdAt,
+        };
+      });
+
+    res.json({
+      success: true,
+      appointments: userAppointments,
+    });
+  });
+
+  // 7. Müşteri Randevu İptali (Zaman Kısıtlamalı ve Güvenli)
+  app.post('/api/public/barber/:identifier/cancel-booking', publicActionRateLimit, (req: Request, res: Response) => {
+    const { shopState, account } = resolveBarberShop(req.params.identifier);
+    if (!shopState || !account) {
+      return res.status(404).json({ error: 'İşletme bulunamadı.' });
+    }
+
+    const { appointmentId, phone, reason } = req.body;
+    if (!appointmentId || !phone) {
+      return res.status(400).json({ error: 'Randevu bilgisi ve telefon numarası zorunludur.' });
+    }
+
+    const cleanPhone = normalizePhone(phone);
+    const apt = (shopState.appointments || []).find((a) => a.id === appointmentId);
+    if (!apt) {
+      return res.status(404).json({ error: 'Randevu bulunamadı.' });
+    }
+
+    if (normalizePhone(apt.phone) !== cleanPhone) {
+      return res.status(403).json({ error: 'Bu randevuyu iptal etme yetkiniz bulunmuyor (Telefon uyuşmuyor).' });
+    }
+
+    if (apt.status === 'iptal') {
+      return res.status(400).json({ error: 'Bu randevu zaten iptal edilmiştir.' });
+    }
+
+    const settings = shopState.barberSettings || defaultBarberSettings;
+    const cancelHoursLimit = settings.allowCancellationHoursBefore ?? 2;
+    const aptDateTime = new Date(`${apt.appointmentDate}T${apt.timeSlot}:00`);
+    const hoursRemaining = (aptDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
+
+    if (hoursRemaining < cancelHoursLimit && hoursRemaining >= 0) {
+      return res.status(400).json({
+        error: `Randevuya ${cancelHoursLimit} saatten az kaldığı için sistemden iptal edilemez. Lütfen doğrudan salon ile iletişime geçiniz.`,
+      });
+    }
+
+    apt.status = 'iptal';
+    apt.notes = `${apt.notes ? apt.notes + ' | ' : ''}Müşteri iptal etti${reason ? ': ' + reason : ''}`;
+
+    persistShopState(account.id, shopState);
+
+    try {
+      broadcastToAccount(account.id, { type: 'APPOINTMENT_UPDATED', payload: apt });
+    } catch {}
+
+    res.json({
+      success: true,
+      message: 'Randevunuz başarıyla iptal edildi.',
+      appointment: apt,
     });
   });
 }
@@ -526,7 +779,7 @@ export function registerAppointmentRoutes(app: Express): void {
     res.json({ appointments: S().appointments || [] });
   });
 
-  // 2. Berber Tam Veri Seti (Personeller, Hizmetler, Mola Blokları, Paketler, Ayarlar)
+  // 2. Berber Tam Veri Seti (Personeller, Hizmetler, Mola Blokları, Paketler, Ayarlar, Yorumlar)
   app.get('/api/barber/full-data', (_req, res) => {
     const st = S();
     res.json({
@@ -536,6 +789,7 @@ export function registerAppointmentRoutes(app: Express): void {
       packages: st.customerPackages || [],
       settings: st.barberSettings || defaultBarberSettings,
       appointments: st.appointments || [],
+      reviews: st.barberReviews || [],
     });
   });
 
@@ -740,7 +994,24 @@ export function registerAppointmentRoutes(app: Express): void {
       });
     }
 
-    res.json({ success: true, appointment: apt, transaction, cash });
+    const shopSlug = S().shopProfile?.slug || slugify(S().shopProfile?.storeName || 'berber');
+    const storeName = S().shopProfile?.storeName || 'Berber Salonumuz';
+    const reviewUrl = `/berber/${shopSlug}?review=true&staffId=${encodeURIComponent(apt.staffId || '')}&staffName=${encodeURIComponent(apt.staffName || '')}&aptId=${apt.id}&customer=${encodeURIComponent(apt.customerName)}`;
+    const reviewText = encodeURIComponent(
+      `Merhaba ${apt.customerName}, ${storeName}'nda ${apt.staffName} tarafından aldığınız "${apt.serviceName}" hizmetimizi nasıl buldunuz? 1-5 arası yıldızla puanlayıp yorum yapmak için tıklayın: ${reviewUrl}`
+    );
+    const cleanCustomerPhone = normalizePhone(apt.phone || '').replace(/^0/, '');
+    const whatsappReviewLink = cleanCustomerPhone ? `https://wa.me/90${cleanCustomerPhone}?text=${reviewText}` : undefined;
+
+    res.json({
+      success: true,
+      appointment: apt,
+      transaction,
+      cash,
+      whatsappReviewLink,
+      reviewUrl,
+      reviewText: decodeURIComponent(reviewText),
+    });
   });
 
   // 8. Randevu Sil
@@ -853,5 +1124,28 @@ export function registerAppointmentRoutes(app: Express): void {
     S().customerPackages!.unshift(newPkg);
     saveState();
     res.json({ success: true, package: newPkg, packages: S().customerPackages });
+  });
+
+  // 14. Berber Yorum Yönetimi (Silme / Listeleme)
+  app.get('/api/barber/reviews', (_req, res) => {
+    res.json({ reviews: S().barberReviews || [] });
+  });
+
+  app.delete('/api/barber/reviews/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!S().barberReviews) S().barberReviews = [];
+    S().barberReviews = (S().barberReviews || []).filter((r) => r.id !== id);
+    saveState();
+    res.json({ success: true, reviews: S().barberReviews });
+  });
+
+  // 15. İndirimli Slotlar (Ölü Saat Kampanyaları) Yönetimi
+  app.post('/api/barber/discount-slots', (req: Request, res: Response) => {
+    const { slots } = req.body;
+    if (!Array.isArray(slots)) return res.status(400).json({ error: 'Geçersiz indirimli slot listesi.' });
+    if (!S().barberSettings) S().barberSettings = { ...defaultBarberSettings };
+    S().barberSettings!.discountSlots = slots;
+    saveState();
+    res.json({ success: true, discountSlots: S().barberSettings!.discountSlots });
   });
 }

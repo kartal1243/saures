@@ -43,6 +43,8 @@ import {
   Percent,
   Search,
   Users,
+  Star,
+  Flame,
 } from 'lucide-react';
 import type {
   Appointment,
@@ -51,6 +53,8 @@ import type {
   BarberService,
   BarberTimeBlock,
   BarberSalonSettings,
+  BarberDiscountSlot,
+  BarberReview,
   CustomerPackage,
   Customer,
   ServiceItem,
@@ -116,6 +120,18 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   const [serviceList, setServiceList] = useState<BarberService[]>([]);
   const [timeBlocks, setTimeBlocks] = useState<BarberTimeBlock[]>([]);
   const [packages, setPackages] = useState<CustomerPackage[]>([]);
+  const [reviewsList, setReviewsList] = useState<BarberReview[]>([]);
+  const [completedFeedbackApt, setCompletedFeedbackApt] = useState<Appointment | null>(null);
+  const [staffCustomPricing, setStaffCustomPricing] = useState<Record<string, { price: number; duration: number }>>({});
+
+  // Kampanyalı Slot Ekleme Formu
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+  const [discDay, setDiscDay] = useState<number>(2); // 2: Salı varsayılan
+  const [discStartTime, setDiscStartTime] = useState('11:00');
+  const [discEndTime, setDiscEndTime] = useState('15:00');
+  const [discPercent, setDiscPercent] = useState<number>(20);
+  const [discLabel, setDiscLabel] = useState('Ölü Saat Kampanyası (%20)');
+
   const [settings, setSettings] = useState<BarberSalonSettings>({
     closedDays: [0],
     openHour: '09:00',
@@ -123,6 +139,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     slotDuration: 15,
     slug: shopSlug,
     autoConfirm: true,
+    discountSlots: [],
   });
 
   // Veri yükleme
@@ -136,6 +153,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
         if (json.timeBlocks) setTimeBlocks(json.timeBlocks);
         if (json.packages) setPackages(json.packages);
         if (json.settings) setSettings(json.settings);
+        if (json.reviews) setReviewsList(json.reviews);
       }
     } catch {}
   };
@@ -458,6 +476,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     setStaffFormCommission(st.commissionRate ?? 30);
     setStaffFormRole(st.role || st.title || 'Usta');
     setStaffFormPhone(st.phone || '');
+    setStaffCustomPricing(st.customPricing || {});
     setIsEditStaffModalOpen(true);
   };
 
@@ -476,6 +495,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             role: staffFormRole,
             title: staffFormRole,
             phone: staffFormPhone.trim(),
+            customPricing: staffCustomPricing,
           }
         : s
     );
@@ -707,9 +727,67 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   // Randevuyu Adisyona / Tahsilata Dönüştür
   const handleCompleteApt = async (method: 'nakit' | 'kart') => {
     if (!completingApt) return;
-    await onCompleteAppointment(completingApt.id, method, selectedPackageId || undefined);
+    const finishedApt = completingApt;
+    await onCompleteAppointment(finishedApt.id, method, selectedPackageId || undefined);
     setCompletingApt(null);
     setSelectedPackageId('');
+    setCompletedFeedbackApt(finishedApt);
+  };
+
+  // WhatsApp Yorum & Puan İsteme Gönderimi (Kolay Randevu Modülü)
+  const handleSendWhatsAppReview = (apt: Appointment) => {
+    const phoneClean = (apt.phone || '').replace(/\D/g, '').replace(/^90/, '').replace(/^0/, '');
+    if (!phoneClean) {
+      alert('Bu randevuda geçerli telefon numarası kayıtlı değil.');
+      return;
+    }
+    const origin = window.location.origin;
+    const reviewUrl = `${origin}/r/${shopSlug}?review=true&staffId=${encodeURIComponent(apt.staffId || '')}&staffName=${encodeURIComponent(apt.staffName || '')}&aptId=${apt.id}&customer=${encodeURIComponent(apt.customerName)}`;
+    const text = encodeURIComponent(
+      `Merhaba Sayın ${apt.customerName}, ${storeName} salonumuzda ${apt.staffName} tarafından aldığınız "${apt.serviceName}" hizmetimizden memnun kaldınız mı? ⭐ 1 dakikanızı ayırıp 1-5 yıldızla puanlayıp yorum yapmak için tıklayın: ${reviewUrl}`
+    );
+    window.open(`https://wa.me/90${phoneClean}?text=${text}`, '_blank');
+  };
+
+  // Kampanyalı Slot Ekle
+  const handleAddDiscountSlot = async () => {
+    const newSlot: BarberDiscountSlot = {
+      id: `disc_${Date.now()}`,
+      dayOfWeek: Number(discDay),
+      startTime: discStartTime,
+      endTime: discEndTime,
+      discountPercent: Number(discPercent) || 20,
+      label: discLabel.trim() || 'Kampanyalı İndirimli Saat',
+      active: true,
+    };
+    const updated = [...(settings.discountSlots || []), newSlot];
+    setSettings((prev) => ({ ...prev, discountSlots: updated }));
+    setIsDiscountModalOpen(false);
+
+    await fetch('/api/barber/discount-slots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slots: updated }),
+    });
+  };
+
+  // Kampanyalı Slot Sil
+  const handleDeleteDiscountSlot = async (slotId: string) => {
+    const updated = (settings.discountSlots || []).filter((s) => s.id !== slotId);
+    setSettings((prev) => ({ ...prev, discountSlots: updated }));
+    await fetch('/api/barber/discount-slots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slots: updated }),
+    });
+  };
+
+  // Yorum Sil
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!confirm('Bu değerlendirmeyi silmek istediğinize emin misiniz?')) return;
+    const updated = reviewsList.filter((r) => r.id !== reviewId);
+    setReviewsList(updated);
+    await fetch(`/api/barber/reviews/${reviewId}`, { method: 'DELETE' });
   };
 
   // WhatsApp Hatırlatma Gönder
@@ -1123,14 +1201,26 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                                           Gelmedi
                                         </button>
                                       )}
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSendWhatsApp(activeApt)}
-                                        className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer ml-auto"
-                                        title="WhatsApp Hatırlatması Gönder"
-                                      >
-                                        <MessageCircle className="w-3.5 h-3.5" />
-                                      </button>
+                                      {activeApt.status === 'tamamlandi' ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSendWhatsAppReview(activeApt)}
+                                          className="px-2 py-0.5 rounded-md bg-emerald-600/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white font-bold text-[10px] cursor-pointer ml-auto flex items-center gap-1 transition-colors"
+                                          title="WhatsApp Yorum ve Puan İste"
+                                        >
+                                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                          <span>Yorum İste</span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSendWhatsApp(activeApt)}
+                                          className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer ml-auto"
+                                          title="WhatsApp Hatırlatması Gönder"
+                                        >
+                                          <MessageCircle className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                 ) : (
@@ -1646,6 +1736,154 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               <span>Stand Kartını Yazdır (A4)</span>
             </button>
           </div>
+
+          {/* ========================================================= */}
+          {/* KOLAY RANDEVU MODÜLÜ 3: KAMPANYALI SLOTLAR (ÖLÜ SAAT DOLDURUCU) */}
+          {/* ========================================================= */}
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
+                  <Flame className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
+                    <span>Kampanyalı Slotlar (Ölü Saat Doldurucu)</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                      Kolay Randevu
+                    </span>
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    Hafta içi sakin saatleri (ör. Salı 11:00-14:00) %20 indirimle doldurarak salon doluluğunu %100'e çıkarın.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDiscountModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-rose-600/20"
+              >
+                <Plus className="w-4 h-4" />
+                <span>İndirimli Saat Ekle</span>
+              </button>
+            </div>
+
+            {(!settings.discountSlots || settings.discountSlots.length === 0) ? (
+              <div className="p-5 rounded-2xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-800 text-center text-xs text-stone-500">
+                Henüz tanımlanmış indirimli saat bulunmuyor. Hafta içi ölü saatlerinize özel indirimler tanımlayın.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {settings.discountSlots.map((ds) => {
+                  const dayText = ds.dayOfWeek === -1 ? 'Her Gün' : (DAYS_TR[ds.dayOfWeek] || 'Belirli Gün');
+                  return (
+                    <div
+                      key={ds.id}
+                      className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-rose-600 dark:text-rose-400">
+                            🔥 %{ds.discountPercent} İndirim
+                          </span>
+                          <span className="text-[11px] font-bold text-stone-700 dark:text-stone-300">
+                            {dayText}
+                          </span>
+                        </div>
+                        <p className="text-xs text-stone-600 dark:text-stone-400 font-semibold">
+                          {ds.startTime} - {ds.endTime}
+                        </p>
+                        {ds.label && (
+                          <p className="text-[10px] text-stone-400 italic">{ds.label}</p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDiscountSlot(ds.id)}
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                        title="İndirimli Saati Kaldır"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ========================================================= */}
+          {/* KOLAY RANDEVU MODÜLÜ 2: MÜŞTERİ YORUM & YILDIZ DEĞERLENDİRMELERİ */}
+          {/* ========================================================= */}
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                  <Star className="w-6 h-6 fill-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
+                    <span>Müşteri Yorumları &amp; Yıldız Vitrini</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                      ⭐ {reviewsList.length > 0 ? (reviewsList.reduce((s, r) => s + r.rating, 0) / reviewsList.length).toFixed(1) : '5.0'} / 5
+                    </span>
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    Randevu sonrası WhatsApp'tan istenen gerçek müşteri puanları ve yorumları. Online randevu sayfanızda vitrin olarak sergilenir.
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-stone-400">
+                {reviewsList.length} Değerlendirme
+              </span>
+            </div>
+
+            {reviewsList.length === 0 ? (
+              <div className="p-5 rounded-2xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-800 text-center text-xs text-stone-500">
+                Henüz değerlendirme yapılmamış. Randevuları tamamladıkça &quot;Yorum İste&quot; butonuyla müşterilerinizden yorum isteyebilirsiniz.
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                {reviewsList.map((rev) => (
+                  <div
+                    key={rev.id}
+                    className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700/60 flex items-start justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-stone-900 dark:text-white">{rev.customerName}</span>
+                        <div className="flex items-center text-amber-400">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-3 h-3 ${i < rev.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-300 dark:text-stone-600'}`}
+                            />
+                          ))}
+                        </div>
+                        {rev.staffName && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 font-semibold">
+                            {rev.staffName}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-stone-700 dark:text-stone-300 italic">&ldquo;{rev.comment}&rdquo;</p>
+                      <p className="text-[10px] text-stone-400">
+                        {new Date(rev.createdAt).toLocaleDateString('tr-TR')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReview(rev.id)}
+                      className="p-1 rounded-md text-stone-400 hover:text-rose-600 cursor-pointer shrink-0"
+                      title="Yorumu Sil"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -2159,6 +2397,76 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 />
               </div>
 
+              {/* Usta Bazlı Dinamik Fiyat ve Süre Ayarları (Kolay Randevu Modülü) */}
+              <div className="pt-2 border-t border-stone-200 dark:border-stone-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                    <Scissors className="w-3.5 h-3.5" />
+                    <span>Usta Özel Fiyat &amp; Süre Farkı</span>
+                  </span>
+                  <span className="text-[10px] text-stone-400">Boş bırakılanlar standart kalır</span>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                  {serviceList.map((srv) => {
+                    const custom = staffCustomPricing[srv.id] || {};
+                    return (
+                      <div key={srv.id} className="p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700/60 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-stone-900 dark:text-stone-100">{srv.name}</span>
+                          <span className="text-[10px] text-stone-400">
+                            Standart: ₺{srv.price} • {srv.durationMinutes || 30} dk
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] text-stone-500 font-bold block mb-0.5">Usta Fiyatı (₺)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder={`Örn: ${srv.price}`}
+                              value={custom.price ?? ''}
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                setStaffCustomPricing((prev) => ({
+                                  ...prev,
+                                  [srv.id]: {
+                                    price: val !== undefined ? val : srv.price,
+                                    duration: prev[srv.id]?.duration ?? (srv.durationMinutes || 30),
+                                  },
+                                }));
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-bold text-stone-900 dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-stone-500 font-bold block mb-0.5">Usta Süresi (dk)</label>
+                            <input
+                              type="number"
+                              min={5}
+                              step={5}
+                              placeholder={`Örn: ${srv.durationMinutes || 30}`}
+                              value={custom.duration ?? ''}
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                setStaffCustomPricing((prev) => ({
+                                  ...prev,
+                                  [srv.id]: {
+                                    price: prev[srv.id]?.price ?? srv.price,
+                                    duration: val !== undefined ? val : (srv.durationMinutes || 30),
+                                  },
+                                }));
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-bold text-stone-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
@@ -2535,6 +2843,161 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               >
                 <CreditCard className="w-4 h-4" />
                 <span>Kredi Kartı / POS</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 7: KAMPANYALI SLOT (ÖLÜ SAAT DOLDURUCU) EKLE */}
+      {/* ========================================================= */}
+      {isDiscountModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
+          <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-sm w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
+                <Flame className="w-5 h-5 text-rose-500" />
+                <span>İndirimli Saat Tanımla</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsDiscountModalOpen(false)}
+                className="p-1 rounded-xl text-stone-400 hover:text-stone-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                  Geçerli Gün
+                </label>
+                <select
+                  value={discDay}
+                  onChange={(e) => setDiscDay(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold"
+                >
+                  <option value={-1}>Her Gün (Tüm Hafta)</option>
+                  <option value={1}>Pazartesi</option>
+                  <option value={2}>Salı</option>
+                  <option value={3}>Çarşamba</option>
+                  <option value={4}>Perşembe</option>
+                  <option value={5}>Cuma</option>
+                  <option value={6}>Cumartesi</option>
+                  <option value={0}>Pazar</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Başlangıç
+                  </label>
+                  <input
+                    type="time"
+                    value={discStartTime}
+                    onChange={(e) => setDiscStartTime(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Bitiş
+                  </label>
+                  <input
+                    type="time"
+                    value={discEndTime}
+                    onChange={(e) => setDiscEndTime(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    İndirim Oranı (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={80}
+                    step={5}
+                    value={discPercent}
+                    onChange={(e) => setDiscPercent(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-rose-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Kampanya Başlığı
+                  </label>
+                  <input
+                    type="text"
+                    value={discLabel}
+                    onChange={(e) => setDiscLabel(e.target.value)}
+                    placeholder="Örn: Salı Öğle İndirimi"
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDiscountModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-100"
+                >
+                  İptal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddDiscountSlot}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs cursor-pointer shadow-md shadow-rose-600/20"
+                >
+                  Kampanyayı Başlat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 8: TAHSİLAT SONRASI WHATSAPP YORUM & PUAN İSTEME POPUP'I */}
+      {/* ========================================================= */}
+      {completedFeedbackApt && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
+          <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-sm w-full border border-stone-200 dark:border-stone-800 p-6 shadow-2xl text-center space-y-4">
+            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-9 h-9" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-stone-900 dark:text-white">Randevu Tamamlandı!</h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                Sayın <span className="font-bold text-stone-800 dark:text-stone-200">{completedFeedbackApt.customerName}</span> müşterinizden <span className="font-bold text-stone-800 dark:text-stone-200">{completedFeedbackApt.staffName}</span> için yıldızlı puan ve Google tarzı değerlendirme isteyin.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleSendWhatsAppReview(completedFeedbackApt);
+                  setCompletedFeedbackApt(null);
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/25 active:scale-98"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>💬 WhatsApp'tan Yorum &amp; Puan İste</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCompletedFeedbackApt(null)}
+                className="w-full py-2 text-xs text-stone-400 hover:text-stone-600 cursor-pointer"
+              >
+                Şimdilik Geç
               </button>
             </div>
           </div>

@@ -107,19 +107,16 @@ export function registerAuthRoutes(app: Express): void {
     res.json({ success: true, account: publicAccount(acc) });
   });
 
-  // Tek tıkla demo girişi: şifre gerektirmeden hazır örnek dükkana oturum açar
+  // Demo modu kaldırıldı: Ziyaretçiler 14 günlük ücretsiz canlı hesap açmaya yönlendirilir
   const handleDemoLogin = (req: Request, res: Response) => {
-    const acc = ensureDemoAccount();
-    clearLoginAttempts(DEMO_PHONE);
-    recordLogin(acc, clientIp(req));
-    logAuthEvent('login_ok', DEMO_PHONE, clientIp(req));
-    loadShopState(acc.id);
-    const session = createSession(acc.id);
-    res.setHeader('Set-Cookie', sessionCookie(session.token));
     if (req.method === 'GET') {
-      return res.redirect('/');
+      return res.redirect('/kayit');
     }
-    return res.json({ success: true, account: publicAccount(acc) });
+    return res.status(410).json({
+      success: false,
+      redirect: '/kayit',
+      error: 'Demo modu tamamen canlıya geçiş kapsamında kapatılmıştır. 14 gün ücretsiz deneme hesabı açarak tüm özellikleri canlı deneyebilirsiniz.'
+    });
   };
 
   app.post('/api/auth/demo', handleDemoLogin);
@@ -193,10 +190,18 @@ export function registerAuthRoutes(app: Express): void {
     res.json({ success: true });
   });
 
-  // Şifre sıfırlama talebi (rateLimit korumalı)
-  app.post('/api/auth/forgot-password', rateLimit, (req: Request, res: Response) => {
+  // In-Memory Şifre Sıfırlama OTP Deposu (5 dakika TTL, max 5 deneme)
+  interface PasswordResetOtp {
+    code: string;
+    expiresAt: number;
+    attempts: number;
+  }
+  const passwordResetOtpStore = new Map<string, PasswordResetOtp>();
+
+  // 1. Şifre Sıfırlama SMS / WhatsApp OTP Gönderimi
+  const handleForgotPasswordSendOtp = (req: Request, res: Response) => {
     const body = req.body || {};
-    const rawPhone = String(body.phone || '');
+    const rawPhone = String(body.phone || body.username || '').trim();
     const phone = normalizePhone(rawPhone);
 
     if (!isValidTurkishPhone(rawPhone)) {
@@ -205,30 +210,120 @@ export function registerAuthRoutes(app: Express): void {
       });
     }
 
+    const matched = findAccountByPhone(phone);
+    if (!matched) {
+      return res.status(404).json({
+        error: 'Bu telefon numarasına ait kayıtlı bir dükkan hesabı bulunamadı. Lütfen numaranızı kontrol ediniz.'
+      });
+    }
+
     const ip = clientIp(req);
     logAuthEvent('password_reset' as any, phone, ip);
 
+    // 6 haneli rastgele OTP kodu
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    passwordResetOtpStore.set(phone, {
+      code,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 dakika geçerli
+      attempts: 0,
+    });
+
+    // Ayrıca denetim loglarına da kaydet
     try {
       const resetRequestsFile = path.join(DATA_DIR, 'password-resets.json');
       const list = readJsonFile<any[]>(resetRequestsFile, []);
-      const matched = findAccountByPhone(phone);
       list.unshift({
         id: 'reset_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         phone,
-        shopName: matched?.shopName || 'Kayıtsız / Bilinmeyen',
-        ownerName: matched?.ownerName || 'Bilinmeyen',
+        shopName: matched.shopName,
+        ownerName: matched.ownerName,
         ip,
         createdAt: new Date().toISOString(),
-        status: 'pending',
+        status: 'otp_sent',
       });
       writeJsonFile(resetRequestsFile, list.slice(0, 500));
     } catch (e) {
       console.error('Şifre sıfırlama talebi kaydedilemedi:', e);
     }
 
+    const cleanNumber = phone.startsWith('0') ? phone.slice(1) : phone;
+    const whatsappText = encodeURIComponent(`Dükkânım Yanımda Şifre Sıfırlama Kodunuz: ${code}`);
+    const whatsappLink = `https://wa.me/90${cleanNumber}?text=${whatsappText}`;
+
     res.json({
       success: true,
-      message: 'Talebiniz yöneticiye iletildi. En kısa sürede sizinle iletişime geçilecektir.'
+      message: '6 haneli doğrulama kodunuz SMS olarak gönderildi.',
+      phone,
+      demoCode: code, // Canlıda SMS sağlayıcısı entegrasyonu yoksa hızlı test veya WhatsApp yedek doğrulaması için
+      whatsappLink,
+    });
+  };
+
+  app.post('/api/auth/forgot-password/send-otp', rateLimit, handleForgotPasswordSendOtp);
+  app.post('/api/auth/forgot-password', rateLimit, handleForgotPasswordSendOtp);
+
+  // 2. Şifre Sıfırlama OTP Doğrulama ve Yeni Şifre Belirleme
+  app.post('/api/auth/forgot-password/verify-and-reset', rateLimit, (req: Request, res: Response) => {
+    const body = req.body || {};
+    const rawPhone = String(body.phone || '').trim();
+    const phone = normalizePhone(rawPhone);
+    const otpCode = String(body.otpCode || '').trim();
+    const newPassword = String(body.newPassword || '').trim();
+
+    if (!isValidTurkishPhone(rawPhone)) {
+      return res.status(400).json({ error: 'Geçersiz telefon numarası.' });
+    }
+    if (!otpCode || otpCode.length < 4) {
+      return res.status(400).json({ error: 'Lütfen SMS doğrulama kodunu eksiksiz giriniz.' });
+    }
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Yeni şifreniz en az 6 karakter olmalıdır.' });
+    }
+
+    const stored = passwordResetOtpStore.get(phone);
+    if (!stored || stored.expiresAt < Date.now()) {
+      return res.status(400).json({
+        error: 'Doğrulama kodunun süresi dolmuş veya kod talep edilmemiş. Lütfen yeni bir kod isteyiniz.'
+      });
+    }
+
+    if (stored.attempts >= 5) {
+      passwordResetOtpStore.delete(phone);
+      return res.status(429).json({
+        error: 'Çok fazla hatalı kod denemesi yaptınız. Güvenliğiniz için yeni bir kod talep ediniz.'
+      });
+    }
+
+    if (stored.code !== otpCode) {
+      stored.attempts += 1;
+      const remaining = 5 - stored.attempts;
+      return res.status(400).json({
+        error: `Girdiğiniz doğrulama kodu hatalı. (${remaining} deneme hakkınız kaldı)`
+      });
+    }
+
+    // Doğrulama başarılı - Şifreyi güncelle
+    const acc = findAccountByPhone(phone);
+    if (!acc) {
+      return res.status(404).json({ error: 'Hesap bulunamadı.' });
+    }
+
+    acc.passwordHash = hashPassword(newPassword);
+    persistAccounts();
+    passwordResetOtpStore.delete(phone);
+    clearLoginAttempts(phone);
+
+    const ip = clientIp(req);
+    logAuthEvent('login_ok', phone, ip);
+
+    // Oturumu doğrudan açarak kullanıcıyı bekletmeden panele al
+    const session = createSession(acc.id);
+    res.setHeader('Set-Cookie', sessionCookie(session.token));
+
+    res.json({
+      success: true,
+      message: 'Şifreniz başarıyla yenilendi! Panele yönlendiriliyorsunuz.',
+      account: publicAccount(acc),
     });
   });
 

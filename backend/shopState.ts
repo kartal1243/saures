@@ -3,7 +3,7 @@ import { SHOPS_DIR } from './config';
 import { localDay } from './day';
 import { readJsonFile, writeJsonFile } from './fsdb';
 import { findAccountById, getAccounts } from './accounts';
-import type { AppState, BarberSalonSettings, BarberStaff, BarberService } from '../shared/types';
+import type { AppState, BarberSalonSettings, BarberStaff, BarberService, BarberReview } from '../shared/types';
 
 export function slugify(text: string): string {
   const trMap: Record<string, string> = {
@@ -35,6 +35,26 @@ export const defaultBarberSettings: BarberSalonSettings = {
   requireOtp: true,
   enableWhatsAppReminders: true,
   allowCancellationHoursBefore: 2,
+  discountSlots: [
+    {
+      id: 'disc-1',
+      dayOfWeek: 2, // Salı
+      startTime: '11:00',
+      endTime: '15:00',
+      discountPercent: 20,
+      label: 'Salı Ölü Saat Kampanyası (%20)',
+      active: true,
+    },
+    {
+      id: 'disc-2',
+      dayOfWeek: 3, // Çarşamba
+      startTime: '11:00',
+      endTime: '15:00',
+      discountPercent: 20,
+      label: 'Çarşamba Öğle Fırsatı (%20)',
+      active: true,
+    },
+  ],
 };
 
 // Gerçek yeni hesaplar için varsayılan boş listeler
@@ -55,6 +75,11 @@ export const demoBarberStaff: BarberStaff[] = [
     workingHours: { start: '09:00', end: '20:30' },
     active: true,
     color: '#3b82f6',
+    customPricing: {
+      'srv-1': { price: 500, duration: 25 }, // Modern Saç: Baş Usta farkı 500 TL, 25 dk
+      'srv-2': { price: 250, duration: 15 }, // Sakal Tıraşı: 250 TL, 15 dk
+      'srv-3': { price: 700, duration: 35 }, // Saç & Sakal Kombin: 700 TL, 35 dk
+    },
   },
   {
     id: 'staff-2',
@@ -68,6 +93,10 @@ export const demoBarberStaff: BarberStaff[] = [
     workingHours: { start: '09:30', end: '21:00' },
     active: true,
     color: '#10b981',
+    customPricing: {
+      'srv-1': { price: 300, duration: 40 }, // Kalfa: 300 TL, 40 dk
+      'srv-2': { price: 180, duration: 25 }, // Sakal: 180 TL, 25 dk
+    },
   },
   {
     id: 'staff-3',
@@ -137,6 +166,36 @@ export const demoBarberServices: BarberService[] = [
   },
 ];
 
+export const demoBarberReviews: BarberReview[] = [
+  {
+    id: 'rev-1',
+    customerName: 'Burak Yılmaz',
+    staffName: 'Ahmet Usta (Baş Kuaför)',
+    rating: 5,
+    comment: 'Ahmet Usta saç kesiminde gerçekten usta! Randevum tam vaktinde başladı, ilgi ve alaka kusursuzdu.',
+    createdAt: '2026-11-01T14:30:00.000Z',
+    approved: true,
+  },
+  {
+    id: 'rev-2',
+    customerName: 'Can Demir',
+    staffName: 'Mehmet Kalfa',
+    rating: 5,
+    comment: 'Sakal tıraşı ve buhar maskesi harikaydı, eline sağlık Mehmet kardeşim. Tertemiz salon.',
+    createdAt: '2026-10-30T16:15:00.000Z',
+    approved: true,
+  },
+  {
+    id: 'rev-3',
+    customerName: 'Serdar K.',
+    staffName: 'Ahmet Usta (Baş Kuaför)',
+    rating: 5,
+    comment: 'VIP Damat Paketi aldım, düğün öncesi tüm stresi aldı. Şiddetle tavsiye ederim.',
+    createdAt: '2026-10-28T11:00:00.000Z',
+    approved: true,
+  },
+];
+
 // Boş state — GERÇEK HESAPLAR İÇİN demo/seed veri YOKTUR, tertemiz başlar!
 export function emptyState(seed?: { storeName: string; ownerName: string; phone: string; isDemo?: boolean }): AppState {
   const isDemo = Boolean(
@@ -187,6 +246,7 @@ export function emptyState(seed?: { storeName: string; ownerName: string; phone:
     barberServices: isDemo ? demoBarberServices : [],
     barberTimeBlocks: [],
     customerPackages: [],
+    barberReviews: isDemo ? demoBarberReviews : [],
     barberSettings: {
       ...defaultBarberSettings,
       slug: storeSlug,

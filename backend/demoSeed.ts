@@ -457,7 +457,7 @@ export function ensureMasterAccount(): Account {
     isConfigured: true,
     isVip: true,
     vipTier: 'patron',
-    vipPlan: 'patron_lifetime',
+    vipPlan: 'patron',
     vipUntil: expiry2099,
     vipExpiresAt: expiry2099,
     slug: 'patron',
@@ -468,18 +468,18 @@ export function ensureMasterAccount(): Account {
   // Restoran masaları hazır olsun
   if (!Array.isArray(updatedState.tables) || updatedState.tables.length === 0) {
     updatedState.tables = [
-      { id: 'tbl_1', name: 'Masa 1 (Cam Kenarı)', status: 'bos', capacity: 4, orders: [], currentTotal: 0, createdAt: now },
-      { id: 'tbl_2', name: 'Masa 2 (Bahçe)', status: 'bos', capacity: 6, orders: [], currentTotal: 0, createdAt: now },
-      { id: 'tbl_3', name: 'Masa 3 (Salon)', status: 'bos', capacity: 2, orders: [], currentTotal: 0, createdAt: now },
+      { id: 'tbl_1', name: 'Masa 1 (Cam Kenarı)', status: 'bos', capacity: 4, orders: [], isOccupied: false, totalAmount: 0 },
+      { id: 'tbl_2', name: 'Masa 2 (Bahçe)', status: 'bos', capacity: 6, orders: [], isOccupied: false, totalAmount: 0 },
+      { id: 'tbl_3', name: 'Masa 3 (Salon)', status: 'bos', capacity: 2, orders: [], isOccupied: false, totalAmount: 0 },
     ];
   }
 
   // Market ürünleri hazır olsun
   if (!Array.isArray(updatedState.products) || updatedState.products.length === 0) {
     updatedState.products = [
-      { id: 'prod_1', name: 'Çay 1 Kg (Rize Turist)', price: 160, cost: 120, stock: 45, barcode: '8690555001015', unit: 'adet', createdAt: now },
-      { id: 'prod_2', name: 'Küp Şeker 1 Kg', price: 50, cost: 35, stock: 30, barcode: '8690555001022', unit: 'adet', createdAt: now },
-      { id: 'prod_3', name: 'Salkım Domates (Yerli)', price: 40, cost: 25, stock: 100, barcode: '2700101000000', unit: 'kg', isWeighable: true, pluCode: '00101', createdAt: now },
+      { id: 'prod_1', name: 'Çay 1 Kg (Rize Turist)', sellPrice: 160, salePrice: 160, buyPrice: 120, currentStock: 45, criticalThreshold: 10, barcode: '8690555001015', unit: 'adet', createdAt: now, updatedAt: now },
+      { id: 'prod_2', name: 'Küp Şeker 1 Kg', sellPrice: 50, salePrice: 50, buyPrice: 35, currentStock: 30, criticalThreshold: 5, barcode: '8690555001022', unit: 'adet', createdAt: now, updatedAt: now },
+      { id: 'prod_3', name: 'Salkım Domates (Yerli)', sellPrice: 40, salePrice: 40, buyPrice: 25, currentStock: 100, criticalThreshold: 15, barcode: '2700101000000', unit: 'kg', createdAt: now, updatedAt: now },
     ];
   }
 

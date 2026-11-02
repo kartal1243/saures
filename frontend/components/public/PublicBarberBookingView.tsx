@@ -22,8 +22,15 @@ import {
   Star,
   Users,
   Crown,
+  Search,
+  Flame,
+  ShoppingBag,
+  X,
+  MessageSquare,
+  ThumbsUp,
+  Tag,
 } from 'lucide-react';
-import type { BarberStaff, BarberService, BarberSalonSettings } from '../../../shared/types';
+import type { BarberStaff, BarberService, BarberSalonSettings, BarberReview, BarberDiscountSlot } from '../../../shared/types';
 
 interface OccupiedSlot {
   date: string;
@@ -54,6 +61,7 @@ interface PublicBarberData {
   settings: BarberSalonSettings;
   occupiedSlots: OccupiedSlot[];
   timeBlocks: TimeBlock[];
+  reviews?: BarberReview[];
 }
 
 function timeToMinutes(t: string): number {
@@ -86,6 +94,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(''); // YYYY-MM-DD
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(''); // HH:MM
+  const [selectedCategory, setSelectedCategory] = useState<string>('Tümü');
 
   // Müşteri Bilgileri
   const [customerName, setCustomerName] = useState('');
@@ -100,10 +109,49 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
   const [otpSent, setOtpSent] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
   const [otpDemoHint, setOtpDemoHint] = useState<string | null>(null);
+  const [otpWhatsappLink, setOtpWhatsappLink] = useState<string | null>(null);
 
   // Başarılı Randevu Ekranı
   const [bookingSuccess, setBookingSuccess] = useState<any | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Yorum & Puan Vitrini & Modalı (Kolay Randevu Modülü)
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewCustomerName, setReviewCustomerName] = useState('');
+  const [reviewPhone, setReviewPhone] = useState('');
+  const [reviewStaffId, setReviewStaffId] = useState('');
+  const [reviewStaffName, setReviewStaffName] = useState('');
+  const [reviewComment, setReviewComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string | null>(null);
+
+  // "Randevum Ne Durumda?" Müşteri Sorgulama ve İptal Ekranı (Kolay Randevu Modülü)
+  const [isMyBookingsOpen, setIsMyBookingsOpen] = useState(false);
+  const [queryPhone, setQueryPhone] = useState('');
+  const [isQuerying, setIsQuerying] = useState(false);
+  const [myAppointments, setMyAppointments] = useState<any[]>([]);
+  const [queryError, setQueryError] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  // URL'den Yorum İsteme veya Sorgulama Açma Kontrolü
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('review') === 'true' || urlParams.get('review')) {
+        setIsReviewModalOpen(true);
+        const stName = urlParams.get('staffName') || urlParams.get('staff');
+        const stId = urlParams.get('staffId');
+        const cust = urlParams.get('customer');
+        if (stName) setReviewStaffName(stName);
+        if (stId) setReviewStaffId(stId);
+        if (cust) setReviewCustomerName(cust);
+      }
+      if (urlParams.get('sorgula') === 'true' || urlParams.get('sorgu')) {
+        setIsMyBookingsOpen(true);
+      }
+    } catch {}
+  }, []);
 
   // Veri Çekme
   useEffect(() => {
@@ -144,19 +192,88 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
     };
   }, [identifier]);
 
+  // Seçilen Personel
+  const selectedStaff = useMemo(() => {
+    if (!data || selectedStaffId === 'auto') return null;
+    return data.staff.find((s) => s.id === selectedStaffId) || null;
+  }, [data, selectedStaffId]);
+
+  // Usta Bazlı Dinamik Fiyat ve Süre Yardımcıları (Kolay Randevu Modülü)
+  const getServicePrice = (srv: BarberService): number => {
+    if (selectedStaff?.customPricing?.[srv.id]?.price !== undefined) {
+      return selectedStaff.customPricing[srv.id].price;
+    }
+    return srv.price;
+  };
+
+  const getServiceDuration = (srv: BarberService): number => {
+    if (selectedStaff?.customPricing?.[srv.id]?.duration !== undefined) {
+      return selectedStaff.customPricing[srv.id].duration;
+    }
+    return srv.durationMinutes || srv.duration || 30;
+  };
+
   // Seçilen Hizmetler ve Süre / Tutar Hesabı
   const selectedServices = useMemo(() => {
     if (!data) return [];
     return data.services.filter((s) => selectedServiceIds.includes(s.id));
   }, [data, selectedServiceIds]);
 
+  const rawTotalPrice = useMemo(() => {
+    return selectedServices.reduce((sum, s) => sum + getServicePrice(s), 0);
+  }, [selectedServices, selectedStaff]);
+
   const totalDuration = useMemo(() => {
-    return selectedServices.reduce((sum, s) => sum + (s.durationMinutes || s.duration || 30), 0);
-  }, [selectedServices]);
+    return selectedServices.reduce((sum, s) => sum + getServiceDuration(s), 0);
+  }, [selectedServices, selectedStaff]);
+
+  // Kampanyalı Slotlar (Ölü Saat Doldurucu) Kontrolü
+  const activeDiscount = useMemo(() => {
+    if (!data?.settings?.discountSlots || !selectedDate || !selectedTimeSlot) return null;
+    const d = new Date(selectedDate);
+    const dayOfWeek = d.getDay();
+    return (
+      data.settings.discountSlots.find((slot) => {
+        if (slot.active === false) return false;
+        const matchDay = slot.dayOfWeek === -1 || slot.dayOfWeek === dayOfWeek;
+        if (!matchDay) return false;
+        return selectedTimeSlot >= slot.startTime && selectedTimeSlot < slot.endTime;
+      }) || null
+    );
+  }, [data?.settings?.discountSlots, selectedDate, selectedTimeSlot]);
+
+  const discountAmount = useMemo(() => {
+    if (!activeDiscount || !activeDiscount.discountPercent) return 0;
+    return Math.round((rawTotalPrice * activeDiscount.discountPercent) / 100);
+  }, [rawTotalPrice, activeDiscount]);
 
   const totalPrice = useMemo(() => {
-    return selectedServices.reduce((sum, s) => sum + s.price, 0);
-  }, [selectedServices]);
+    return Math.max(0, rawTotalPrice - discountAmount);
+  }, [rawTotalPrice, discountAmount]);
+
+  // Hizmet Paketleri & Kategori Filtreleme (Kolay Randevu Modülü)
+  const categories = useMemo(() => {
+    if (!data) return ['Tümü'];
+    const cats = new Set<string>();
+    cats.add('Tümü');
+    const hasBundle = data.services.some((s) => s.isBundle || s.category === 'Paket' || s.category === 'VIP');
+    if (hasBundle) cats.add('✨ Paketler & Kombinler');
+    data.services.forEach((s) => {
+      if (s.category && s.category !== 'Paket' && s.category !== 'VIP') {
+        cats.add(s.category);
+      }
+    });
+    return Array.from(cats);
+  }, [data]);
+
+  const filteredServices = useMemo(() => {
+    if (!data) return [];
+    if (selectedCategory === 'Tümü') return data.services;
+    if (selectedCategory === '✨ Paketler & Kombinler') {
+      return data.services.filter((s) => s.isBundle || s.category === 'Paket' || s.category === 'VIP');
+    }
+    return data.services.filter((s) => s.category === selectedCategory);
+  }, [data, selectedCategory]);
 
   // Seçilen hizmetlere göre atanabilecek ustalar (Filtreleme)
   // "Listede sadece o hizmeti yapan ustalar çıkar (manikür isteyene boyacı atanmaz)"
@@ -323,9 +440,12 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       const resJson = await res.json();
       if (res.ok) {
         setOtpSent(true);
+        if (resJson.whatsappLink) {
+          setOtpWhatsappLink(resJson.whatsappLink);
+        }
         if (resJson.demoCode) {
           setOtpDemoHint(resJson.demoCode);
-          setOtpCode(resJson.demoCode); // Otomatik doldur (kolaylık)
+          setOtpCode(resJson.demoCode); // Otomatik doldur
         }
       } else {
         alert(resJson.error || 'SMS kodu gönderilemedi.');
@@ -387,6 +507,114 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       alert(err.message || 'Randevu oluşturulurken bir hata oluştu.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Yorum Gönderimi (Kolay Randevu Modülü)
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewCustomerName.trim()) {
+      alert('Lütfen adınızı giriniz.');
+      return;
+    }
+    if (!reviewComment.trim()) {
+      alert('Lütfen değerlendirmenizi yazınız.');
+      return;
+    }
+    setIsSubmittingReview(true);
+    try {
+      const res = await fetch(`/api/public/barber/${encodeURIComponent(identifier)}/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: reviewCustomerName.trim(),
+          phone: reviewPhone.trim(),
+          rating: reviewRating,
+          comment: reviewComment.trim(),
+          staffId: reviewStaffId || undefined,
+          staffName: reviewStaffName || (data?.staff.find((s) => s.id === reviewStaffId)?.name) || undefined,
+        }),
+      });
+      const resJson = await res.json();
+      if (res.ok) {
+        setReviewSuccessMsg('Değerlendirmeniz için teşekkür ederiz! ⭐ Yorumunuz kaydedildi.');
+        if (data && resJson.review) {
+          setData({
+            ...data,
+            reviews: [resJson.review, ...(data.reviews || [])],
+          });
+        }
+        setTimeout(() => {
+          setIsReviewModalOpen(false);
+          setReviewSuccessMsg(null);
+          setReviewComment('');
+        }, 1500);
+      } else {
+        alert(resJson.error || 'Yorum kaydedilemedi.');
+      }
+    } catch {
+      alert('Sunucuya bağlanılamadı.');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  // Randevumu Sorgula (Kolay Randevu Modülü)
+  const handleQueryAppointments = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanP = queryPhone.replace(/\D/g, '');
+    if (cleanP.length < 10) {
+      setQueryError('Lütfen en az 10 haneli geçerli telefon numaranızı giriniz (05XX XXX XX XX).');
+      return;
+    }
+    setQueryError(null);
+    setIsQuerying(true);
+    try {
+      const res = await fetch(`/api/public/barber/${encodeURIComponent(identifier)}/my-appointments?phone=${cleanP}`);
+      const resJson = await res.json();
+      if (res.ok) {
+        setMyAppointments(resJson.appointments || []);
+        if ((resJson.appointments || []).length === 0) {
+          setQueryError('Bu telefon numarasına ait aktif veya geçmiş randevu bulunamadı.');
+        }
+      } else {
+        setQueryError(resJson.error || 'Randevular sorgulanamadı.');
+      }
+    } catch {
+      setQueryError('Sunucuya bağlanılamadı.');
+    } finally {
+      setIsQuerying(false);
+    }
+  };
+
+  // Randevu İptali (Kolay Randevu Modülü)
+  const handleCancelBooking = async (appointmentId: string) => {
+    if (!confirm('Bu randevunuzu iptal etmek istediğinize emin misiniz?')) return;
+    const cleanP = queryPhone.replace(/\D/g, '');
+    setCancellingId(appointmentId);
+    try {
+      const res = await fetch(`/api/public/barber/${encodeURIComponent(identifier)}/cancel-booking`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appointmentId,
+          phone: cleanP,
+          reason: 'Müşteri sorgu ekranından iptal etti',
+        }),
+      });
+      const resJson = await res.json();
+      if (res.ok) {
+        alert('Randevunuz başarıyla iptal edildi.');
+        setMyAppointments((prev) =>
+          prev.map((a) => (a.id === appointmentId ? { ...a, status: 'iptal', canCancel: false } : a))
+        );
+      } else {
+        alert(resJson.error || 'İptal işlemi gerçekleştirilemedi.');
+      }
+    } catch {
+      alert('İptal işlemi sırasında hata oluştu.');
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -588,21 +816,33 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
             </div>
           </div>
 
-          <div className="text-right">
-            <span className="text-[11px] font-bold text-stone-400">Adım {currentStep} / 4</span>
-            <div className="flex items-center gap-1 mt-1">
-              {[1, 2, 3, 4].map((stepNum) => (
-                <div
-                  key={stepNum}
-                  className={`h-1.5 rounded-full transition-all ${
-                    stepNum === currentStep
-                      ? 'w-6 bg-amber-500'
-                      : stepNum < currentStep
-                      ? 'w-3 bg-amber-500/60'
-                      : 'w-3 bg-stone-800'
-                  }`}
-                />
-              ))}
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsMyBookingsOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-stone-800/90 hover:bg-stone-700 text-stone-200 hover:text-white border border-stone-700/80 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs active:scale-95"
+            >
+              <Search className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Randevumu</span>
+              <span>Sorgula</span>
+            </button>
+
+            <div className="text-right">
+              <span className="text-[11px] font-bold text-stone-400">Adım {currentStep} / 4</span>
+              <div className="flex items-center gap-1 mt-1">
+                {[1, 2, 3, 4].map((stepNum) => (
+                  <div
+                    key={stepNum}
+                    className={`h-1.5 rounded-full transition-all ${
+                      stepNum === currentStep
+                        ? 'w-6 bg-amber-500'
+                        : stepNum < currentStep
+                        ? 'w-3 bg-amber-500/60'
+                        : 'w-3 bg-stone-800'
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -680,6 +920,24 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
               </div>
             </div>
 
+            {/* Kategori & Paket Seçici Filtreler (Kolay Randevu Modülü) */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${
+                    selectedCategory === cat
+                      ? 'bg-amber-500 text-stone-950 font-black shadow-md shadow-amber-500/20'
+                      : 'bg-stone-900 border border-stone-800 text-stone-400 hover:text-stone-200 hover:border-stone-700'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
             {/* Hizmet Listesi */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -692,9 +950,11 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
               </div>
 
               <div className="space-y-2.5">
-                {data.services.map((srv) => {
+                {filteredServices.map((srv) => {
                   const isSelected = selectedServiceIds.includes(srv.id);
-                  const duration = srv.durationMinutes || srv.duration || 30;
+                  const price = getServicePrice(srv);
+                  const duration = getServiceDuration(srv);
+                  const hasCustom = selectedStaff?.customPricing?.[srv.id] !== undefined;
 
                   return (
                     <div
@@ -717,11 +977,16 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                           {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-sm font-bold text-white">{srv.name}</h3>
-                            {srv.isBundle && (
+                            {(srv.isBundle || srv.category === 'Paket' || srv.category === 'VIP') && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-950/80 text-purple-300 border border-purple-800/60">
-                                Paket / Fırsat
+                                ✨ Avantajlı Paket
+                              </span>
+                            )}
+                            {hasCustom && (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                {selectedStaff?.name.split(' ')[0]} Özel
                               </span>
                             )}
                           </div>
@@ -741,7 +1006,10 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                       </div>
 
                       <div className="text-right shrink-0">
-                        <span className="text-base font-black text-amber-400">₺{srv.price}</span>
+                        {hasCustom && price !== srv.price && (
+                          <span className="text-xs text-stone-500 line-through block">₺{srv.price}</span>
+                        )}
+                        <span className="text-base font-black text-amber-400">₺{price}</span>
                       </div>
                     </div>
                   );
@@ -832,6 +1100,14 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                   {availableSlots.map((slot) => {
                     const isSelected = selectedTimeSlot === slot.time;
+                    const slotDayOfWeek = new Date(selectedDate).getDay();
+                    const slotDiscount = (data.settings?.discountSlots || []).find((ds) => {
+                      if (ds.active === false) return false;
+                      const matchDay = ds.dayOfWeek === -1 || ds.dayOfWeek === slotDayOfWeek;
+                      if (!matchDay) return false;
+                      return slot.time >= ds.startTime && slot.time < ds.endTime;
+                    });
+
                     if (!slot.available) {
                       return (
                         <div
@@ -849,16 +1125,48 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                         key={slot.time}
                         type="button"
                         onClick={() => setSelectedTimeSlot(slot.time)}
-                        className={`py-2.5 px-2 rounded-xl border text-xs font-black transition-all cursor-pointer text-center ${
+                        className={`py-2 px-1 rounded-xl border text-xs font-black transition-all cursor-pointer text-center relative flex flex-col items-center justify-center ${
                           isSelected
                             ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md shadow-amber-500/20'
+                            : slotDiscount
+                            ? 'bg-rose-950/40 border-rose-600/70 text-rose-200 hover:border-rose-400'
                             : 'bg-stone-900 border-stone-800 text-stone-200 hover:border-amber-500/60 hover:text-white'
                         }`}
                       >
-                        {slot.time}
+                        <span>{slot.time}</span>
+                        {slotDiscount && (
+                          <span
+                            className={`text-[9px] font-black px-1 rounded-full mt-0.5 ${
+                              isSelected ? 'bg-stone-900 text-rose-400' : 'bg-rose-500/20 text-rose-300'
+                            }`}
+                          >
+                            🔥 %{slotDiscount.discountPercent}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Kampanya Bilgilendirme Kutusu */}
+              {activeDiscount && (
+                <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-xs text-rose-200 flex items-center justify-between animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-5 h-5 text-rose-400 shrink-0" />
+                    <div>
+                      <p className="font-bold text-white">
+                        {activeDiscount.label || 'Ölü Saat Doldurucu Kampanyası'}
+                      </p>
+                      <p className="text-[11px] text-rose-300">
+                        Bu saat diliminde %{activeDiscount.discountPercent} indirim kazandınız!
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[11px] text-stone-400 line-through block">₺{rawTotalPrice}</span>
+                    <span className="text-sm font-black text-rose-400">₺{totalPrice}</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -961,19 +1269,31 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                     <input
                       type="text"
-                      maxLength={4}
+                      maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value)}
-                      placeholder="1234"
-                      className="w-32 text-center tracking-widest text-lg font-black py-2.5 rounded-xl border border-stone-700 bg-stone-950 text-white focus:outline-hidden focus:border-amber-500"
+                      placeholder="6 Haneli Kod"
+                      className="w-36 text-center tracking-widest text-lg font-black py-2.5 rounded-xl border border-stone-700 bg-stone-950 text-white focus:outline-hidden focus:border-amber-500"
                     />
                     {otpSent && (
-                      <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
-                        <span>Kod telefonunuza iletildi (Demo kodu: 1234)</span>
+                      <div className="flex flex-col text-xs text-emerald-400 font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                          <span>Onay kodu telefonunuza SMS ile iletildi.</span>
+                        </div>
+                        {otpWhatsappLink && (
+                          <a
+                            href={otpWhatsappLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-emerald-300 underline font-bold hover:text-white mt-1"
+                          >
+                            WhatsApp ile hızlı doğrulama bağlantısı →
+                          </a>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1031,7 +1351,17 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                 </div>
                 <div className="text-right">
                   <span className="text-xs text-stone-400">Toplam Ücret</span>
-                  <p className="text-xl font-black text-amber-400">₺{totalPrice}</p>
+                  {discountAmount > 0 ? (
+                    <div>
+                      <span className="text-xs text-stone-500 line-through mr-1.5">₺{rawTotalPrice}</span>
+                      <span className="text-xl font-black text-rose-400">₺{totalPrice}</span>
+                      <span className="block text-[10px] text-rose-400 font-bold">
+                        🔥 %{activeDiscount?.discountPercent} İndirim ({activeDiscount?.label})
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-xl font-black text-amber-400">₺{totalPrice}</p>
+                  )}
                 </div>
               </div>
 
@@ -1043,7 +1373,9 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-stone-800/60">
                   <span className="text-stone-400">Randevu Saati:</span>
-                  <span className="font-bold text-amber-400">{selectedTimeSlot} (Tahmini Bitiş: {minutesToTime(timeToMinutes(selectedTimeSlot) + totalDuration)})</span>
+                  <span className="font-bold text-amber-400">
+                    {selectedTimeSlot} (Tahmini Bitiş: {minutesToTime(timeToMinutes(selectedTimeSlot) + totalDuration)})
+                  </span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-stone-800/60">
                   <span className="text-stone-400">Usta / Personel:</span>
@@ -1060,12 +1392,23 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                 <div className="py-2">
                   <span className="text-stone-400 block mb-1.5 font-bold">Seçilen Hizmetler:</span>
                   <div className="space-y-1.5 pl-2 border-l-2 border-amber-500">
-                    {selectedServices.map((srv) => (
-                      <div key={srv.id} className="flex justify-between text-xs">
-                        <span className="text-stone-200">{srv.name} ({srv.durationMinutes || 30} dk)</span>
-                        <span className="font-bold text-amber-400">₺{srv.price}</span>
-                      </div>
-                    ))}
+                    {selectedServices.map((srv) => {
+                      const srvPrice = getServicePrice(srv);
+                      const srvDur = getServiceDuration(srv);
+                      return (
+                        <div key={srv.id} className="flex justify-between text-xs">
+                          <span className="text-stone-200">
+                            {srv.name} ({srvDur} dk)
+                            {selectedStaff?.customPricing?.[srv.id] && (
+                              <span className="text-[10px] text-amber-400 font-bold ml-1">
+                                ({selectedStaff.name.split(' ')[0]} Özel)
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-bold text-amber-400">₺{srvPrice}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1080,6 +1423,121 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
             </div>
           </div>
         )}
+
+        {/* ========================================================= */}
+        {/* CANLI SEPET ÇUBUĞU (KOLAY RANDEVU MODÜLÜ 4) */}
+        {/* ========================================================= */}
+        {selectedServiceIds.length > 0 && currentStep < 4 && (
+          <div className="sticky bottom-20 z-30 animate-in slide-in-from-bottom-2 duration-200">
+            <div className="bg-stone-900/95 backdrop-blur-md border border-amber-500/40 rounded-2xl p-3.5 shadow-2xl flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="font-bold text-white flex items-center gap-1.5">
+                    <span>Randevu Sepeti</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 font-black">
+                      {selectedServiceIds.length} Hizmet
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-stone-400">
+                    Toplam Süre: <span className="text-stone-200 font-semibold">{totalDuration} Dk</span>
+                    {selectedStaff && <span className="text-amber-400 ml-1">({selectedStaff.name.split(' ')[0]})</span>}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                {discountAmount > 0 ? (
+                  <div>
+                    <span className="text-[11px] text-stone-500 line-through mr-1">₺{rawTotalPrice}</span>
+                    <span className="text-base font-black text-rose-400">₺{totalPrice}</span>
+                    <span className="block text-[9px] text-rose-400 font-bold">🔥 %{activeDiscount?.discountPercent} İndirim</span>
+                  </div>
+                ) : (
+                  <span className="text-base font-black text-amber-400">₺{totalPrice}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* VİTRİN: MÜŞTERİ DEĞERLENDİRMELERİ VE YILDIZLAR (KOLAY RANDEVU MODÜLÜ 2) */}
+        {/* ========================================================= */}
+        <section className="bg-stone-900/90 border border-stone-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-800">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-base sm:text-lg font-black text-white">Müşteri Değerlendirmeleri</span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                  <span>
+                    {(data.reviews && data.reviews.length > 0)
+                      ? (data.reviews.reduce((sum, r) => sum + r.rating, 0) / data.reviews.length).toFixed(1)
+                      : '5.0'} / 5
+                  </span>
+                </span>
+                <span className="text-[11px] text-stone-400 font-bold">
+                  ({(data.reviews || []).length} Değerlendirme)
+                </span>
+              </div>
+              <p className="text-xs text-stone-400 mt-0.5">
+                {data.shop.storeName} salonundan hizmet alan onaylı müşterilerimizin deneyimleri.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsReviewModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors self-start sm:self-auto shrink-0"
+            >
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              <span>✍️ Deneyiminizi Puanlayın</span>
+            </button>
+          </div>
+
+          {(!data.reviews || data.reviews.length === 0) ? (
+            <div className="p-6 text-center text-xs text-stone-500 bg-stone-950/40 rounded-2xl border border-stone-800/60">
+              Henüz müşteri değerlendirmesi bulunmuyor. Hizmet aldıktan sonra deneyiminizi ilk siz puanlayın!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+              {data.reviews.map((rev) => (
+                <div
+                  key={rev.id}
+                  className="p-3.5 rounded-2xl bg-stone-950/70 border border-stone-800/80 space-y-2 text-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center font-bold text-[10px] text-amber-400">
+                        {rev.customerName.charAt(0)}
+                      </div>
+                      <span className="font-bold text-stone-200">{rev.customerName}</span>
+                    </div>
+                    <div className="flex items-center text-amber-400">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`w-3 h-3 ${i < rev.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-700'}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-stone-300 italic leading-relaxed">&ldquo;{rev.comment}&rdquo;</p>
+
+                  <div className="flex items-center justify-between text-[10px] text-stone-500 pt-1 border-t border-stone-800/60">
+                    {rev.staffName && (
+                      <span className="text-amber-400/90 font-medium">Usta: {rev.staffName}</span>
+                    )}
+                    <span>{new Date(rev.createdAt).toLocaleDateString('tr-TR')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* Viral Branding Footer */}
         {(data.shop as any)?.brandingRequired !== false && (
@@ -1154,6 +1612,292 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
           )}
         </div>
       </footer>
+
+      {/* ========================================================= */}
+      {/* MODAL 1: "RANDEVUM NE DURUMDA?" MÜŞTERİ SORGULAMA VE İPTAL EKRANI */}
+      {/* ========================================================= */}
+      {isMyBookingsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="p-5 bg-stone-850 border-b border-stone-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <Search className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Randevumu Sorgula &amp; Yönet</h3>
+                  <p className="text-[11px] text-stone-400">Telefon numaranızı girerek yaklaşan randevunuzu görüntüleyin.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMyBookingsOpen(false);
+                  setQueryError(null);
+                }}
+                className="p-1 rounded-xl text-stone-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4">
+              <form onSubmit={handleQueryAppointments} className="flex gap-2">
+                <div className="relative flex-1">
+                  <Phone className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    required
+                    value={queryPhone}
+                    onChange={(e) => setQueryPhone(e.target.value)}
+                    placeholder="05XX XXX XX XX"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-950 text-white text-xs font-bold focus:outline-hidden focus:border-amber-500"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isQuerying}
+                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-stone-950 font-black text-xs cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  {isQuerying ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                  <span>Sorgula</span>
+                </button>
+              </form>
+
+              {queryError && (
+                <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800/80 text-rose-300 text-xs">
+                  {queryError}
+                </div>
+              )}
+
+              {myAppointments.length > 0 && (
+                <div className="space-y-3 pt-1">
+                  <p className="text-xs font-black uppercase text-stone-400">Bulunan Randevularınız ({myAppointments.length})</p>
+                  {myAppointments.map((apt) => {
+                    const isUpcoming = apt.status === 'bekliyor' || apt.status === 'onayli';
+                    return (
+                      <div
+                        key={apt.id}
+                        className={`p-4 rounded-2xl border space-y-2.5 text-xs ${
+                          isUpcoming
+                            ? 'bg-stone-950 border-amber-500/40 shadow-md'
+                            : 'bg-stone-950/50 border-stone-800 opacity-80'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-amber-400 text-sm">
+                            {apt.appointmentDate} • {apt.timeSlot}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              apt.status === 'onayli'
+                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                : apt.status === 'tamamlandi'
+                                ? 'bg-blue-950 text-blue-400 border border-blue-800'
+                                : apt.status === 'iptal'
+                                ? 'bg-rose-950 text-rose-400 border border-rose-800'
+                                : 'bg-amber-950 text-amber-400 border border-amber-800'
+                            }`}
+                          >
+                            {apt.status}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1 text-stone-300">
+                          <div className="flex justify-between">
+                            <span className="text-stone-500">Hizmet:</span>
+                            <span className="font-bold text-white text-right">{apt.serviceName}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-stone-500">Usta:</span>
+                            <span className="font-semibold text-stone-200">{apt.staffName}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-stone-500">Tutar:</span>
+                            <span className="font-black text-amber-400">
+                              {apt.discountAmount ? (
+                                <>
+                                  <span className="line-through text-stone-500 text-[10px] mr-1">₺{apt.originalPrice}</span>
+                                  <span>₺{apt.price}</span>
+                                </>
+                              ) : (
+                                `₺${apt.price}`
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* İptal Butonu veya Bilgilendirme */}
+                        <div className="pt-2 border-t border-stone-850 flex items-center justify-between gap-2">
+                          {apt.canCancel ? (
+                            <button
+                              type="button"
+                              disabled={cancellingId === apt.id}
+                              onClick={() => handleCancelBooking(apt.id)}
+                              className="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-[11px] font-bold cursor-pointer transition-colors"
+                            >
+                              {cancellingId === apt.id ? 'İptal Ediliyor...' : 'Randevuyu İptal Et'}
+                            </button>
+                          ) : apt.cancelReasonNotice ? (
+                            <span className="text-[10px] text-stone-500 italic">
+                              {apt.cancelReasonNotice}
+                            </span>
+                          ) : null}
+
+                          {apt.status === 'tamamlandi' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReviewStaffName(apt.staffName || '');
+                                setReviewCustomerName(apt.customerName || '');
+                                setIsMyBookingsOpen(false);
+                                setIsReviewModalOpen(true);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-stone-950 border border-amber-500/40 text-[11px] font-bold cursor-pointer transition-colors flex items-center gap-1 ml-auto"
+                            >
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              <span>Puan &amp; Yorum Bırak</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 2: "YORUM & YILDIZ DEĞERLENDİRMESİ BIRAK" EKRANI */}
+      {/* ========================================================= */}
+      {isReviewModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                <h3 className="text-base font-black text-white">Deneyiminizi Puanlayın</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsReviewModalOpen(false);
+                  setReviewSuccessMsg(null);
+                }}
+                className="p-1 rounded-xl text-stone-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {reviewSuccessMsg ? (
+              <div className="p-4 rounded-2xl bg-emerald-950/60 border border-emerald-800/80 text-emerald-300 text-xs font-bold text-center">
+                {reviewSuccessMsg}
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitReview} className="space-y-3.5">
+                {/* 1-5 Yıldız Seçimi */}
+                <div className="text-center py-1">
+                  <label className="block text-xs font-bold text-stone-400 mb-1.5">
+                    Hizmetten ne kadar memnun kaldınız?
+                  </label>
+                  <div className="flex items-center justify-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((starNum) => (
+                      <button
+                        key={starNum}
+                        type="button"
+                        onClick={() => setReviewRating(starNum)}
+                        className="p-1 cursor-pointer transition-transform hover:scale-115 active:scale-95"
+                      >
+                        <Star
+                          className={`w-7 h-7 ${
+                            starNum <= reviewRating
+                              ? 'fill-amber-400 text-amber-400'
+                              : 'text-stone-700 hover:text-stone-500'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[11px] font-black text-amber-400 mt-1 block">
+                    {reviewRating === 5
+                      ? '⭐ 5 Yıldız: Mükemmel!'
+                      : reviewRating === 4
+                      ? '⭐ 4 Yıldız: Çok İyi'
+                      : reviewRating === 3
+                      ? '⭐ 3 Yıldız: Orta'
+                      : reviewRating === 2
+                      ? '⭐ 2 Yıldız: Zayıf'
+                      : '⭐ 1 Yıldız: Memnun Kalmadım'}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
+                    Adınız ve Soyadınız *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={reviewCustomerName}
+                    onChange={(e) => setReviewCustomerName(e.target.value)}
+                    placeholder="Örn: Burak Yılmaz"
+                    className="w-full px-3 py-2 rounded-xl border border-stone-700 bg-stone-950 text-white text-xs font-semibold focus:outline-hidden focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
+                    Hizmet Veren Usta
+                  </label>
+                  <select
+                    value={reviewStaffId}
+                    onChange={(e) => {
+                      setReviewStaffId(e.target.value);
+                      const st = data.staff.find((s) => s.id === e.target.value);
+                      if (st) setReviewStaffName(st.name);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-700 bg-stone-950 text-white text-xs font-semibold"
+                  >
+                    <option value="">Salon Genel Deneyimi</option>
+                    {data.staff.map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} ({st.title || st.role || 'Usta'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
+                    Değerlendirmeniz / Yorumunuz *
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Aldığınız hizmet, saç kesimi ve salon hakkındaki düşünceleriniz..."
+                    className="w-full p-3 rounded-xl border border-stone-700 bg-stone-950 text-white text-xs resize-none focus:outline-hidden focus:border-amber-500"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview}
+                  className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-stone-950 font-black text-xs cursor-pointer shadow-lg shadow-amber-500/20 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+                >
+                  {isSubmittingReview ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  <span>Değerlendirmeyi Yayınla</span>
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

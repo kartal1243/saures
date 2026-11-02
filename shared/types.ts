@@ -385,6 +385,29 @@ export interface CustomerPackage {
   createdAt: string;
 }
 
+export interface BarberDiscountSlot {
+  id: string;
+  dayOfWeek: number; // 0: Pazar, 1: Pazartesi, ..., 6: Cumartesi, -1: Her Gün
+  startTime: string; // örn. "11:00"
+  endTime: string;   // örn. "14:00"
+  discountPercent: number; // örn. 20
+  label?: string; // örn. "Ölü Saat Doldurucu"
+  active?: boolean;
+}
+
+export interface BarberReview {
+  id: string;
+  appointmentId?: string;
+  customerName: string;
+  phone?: string;
+  staffId?: string;
+  staffName?: string;
+  rating: number; // 1 - 5
+  comment: string;
+  createdAt: string;
+  approved?: boolean;
+}
+
 export interface BarberSalonSettings {
   slotIntervalMinutes?: number;
   slotDuration?: number;
@@ -402,6 +425,7 @@ export interface BarberSalonSettings {
   slug?: string;
   autoConfirm?: boolean;
   notes?: string;
+  discountSlots?: BarberDiscountSlot[];
 }
 
 export interface AppointmentStep {
@@ -445,6 +469,10 @@ export interface Appointment {
     count: number;
     parentAptId?: string;
   };
+  discountAmount?: number;
+  originalPrice?: number;
+  discountNote?: string;
+  hasReview?: boolean;
   createdAt: string;
 }
 
@@ -481,6 +509,7 @@ export interface AppState {
   barberTimeBlocks?: BarberTimeBlock[];
   customerPackages?: CustomerPackage[];
   barberSettings?: BarberSalonSettings;
+  barberReviews?: BarberReview[];
   businessDate: string;
   lastUpdated: string;
 }

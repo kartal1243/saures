@@ -37,7 +37,6 @@ import {
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
-import { demoLogin } from '../../utils/demo';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -179,8 +178,6 @@ const FAQS = [
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
   useForceLightTheme();
-  const [demoLoading, setDemoLoading] = useState(false);
-  const [demoError, setDemoError] = useState<string | null>(null);
   const [selectedSector, setSelectedSector] = useState<string>('berber');
   const [stats, setStats] = useState({
     shopsLabel: '50+',
@@ -204,16 +201,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
       })
       .catch(() => {});
   }, []);
-
-  const handleDemo = async () => {
-    setDemoLoading(true);
-    setDemoError(null);
-    const err = await demoLogin();
-    if (err) {
-      setDemoError(err);
-      setDemoLoading(false);
-    }
-  };
 
   const currentSector = SECTOR_DATA.find((s) => s.id === selectedSector) || SECTOR_DATA[0];
 
@@ -265,17 +252,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
             <button
               type="button"
-              onClick={handleDemo}
-              disabled={demoLoading}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black text-orange-700 dark:text-orange-300 bg-orange-100/70 hover:bg-orange-200/80 dark:bg-orange-950/40 dark:hover:bg-orange-900/60 transition-all border border-orange-300/40 cursor-pointer"
-              title="Şifresiz doğrudan demo hesaba gir"
+              onClick={onRegister}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black text-white bg-orange-600 hover:bg-orange-700 transition-all shadow-xs cursor-pointer"
+              title="14 Gün Ücretsiz Başla (Kredi Kartsız)"
             >
-              {demoLoading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <PlayCircle className="w-3.5 h-3.5 text-orange-600" />
-              )}
-              Hızlı Demo
+              <Sparkles className="w-3.5 h-3.5" />
+              14 Gün Ücretsiz Başla
             </button>
 
             <button
@@ -344,30 +326,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 onClick={onRegister}
                 className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-xl text-base font-black text-white bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-xl shadow-orange-500/30 hover:shadow-orange-500/40 active:scale-98 transition-all cursor-pointer"
               >
-                Hemen Ücretsiz Başla
+                14 Gün Ücretsiz Başla
                 <ArrowRight className="w-5 h-5" />
               </button>
 
               <button
                 type="button"
-                onClick={handleDemo}
-                disabled={demoLoading}
+                onClick={onLogin}
                 className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-base font-bold text-stone-800 dark:text-stone-100 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-orange-400 dark:hover:border-orange-600 shadow-xs hover:shadow-md transition-all cursor-pointer"
               >
-                {demoLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
-                ) : (
-                  <PlayCircle className="w-5 h-5 text-orange-500" />
-                )}
-                {demoLoading ? 'Demo Hazırlanıyor…' : 'Canlı Demoyu Aç (Şifresiz)'}
+                <LogIn className="w-5 h-5 text-orange-500" />
+                Giriş Yap
               </button>
             </div>
-
-            {demoError && (
-              <p className="text-xs font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/40 p-2.5 rounded-lg border border-rose-200 dark:border-rose-800">
-                ⚠️ {demoError}
-              </p>
-            )}
 
             {/* Güven Rozetleri */}
             <div className="pt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-bold text-stone-500 dark:text-stone-400">
@@ -481,12 +452,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               {/* Hızlı Demo Giriş Butonu */}
               <button
                 type="button"
-                onClick={handleDemo}
-                disabled={demoLoading}
-                className="mt-4 w-full py-2.5 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+                onClick={onRegister}
+                className="mt-4 w-full py-2.5 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
               >
-                <PlayCircle className="w-4 h-4 text-orange-400" />
-                Bu Paneli Canlı Test Et (Ahmet Usta Hesabı)
+                <Sparkles className="w-4 h-4 text-white" />
+                14 Gün Ücretsiz Canlı Dene (Kredi Kartsız)
               </button>
             </div>
           </div>
@@ -951,18 +921,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 onClick={onRegister}
                 className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-base font-black text-[#0F172A] bg-orange-400 hover:bg-orange-300 transition-colors shadow-lg shadow-orange-500/20 cursor-pointer"
               >
-                Ücretsiz Hesap Aç
+                14 Gün Ücretsiz Başla
                 <ArrowRight className="w-5 h-5" />
               </button>
 
               <button
                 type="button"
-                onClick={handleDemo}
-                disabled={demoLoading}
+                onClick={onLogin}
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-base font-bold text-white bg-white/10 hover:bg-white/20 transition-colors border border-white/20 cursor-pointer"
               >
-                {demoLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlayCircle className="w-5 h-5 text-orange-400" />}
-                Canlı Demoyu Aç
+                <LogIn className="w-5 h-5 text-orange-400" />
+                Dükkanıma Giriş Yap
               </button>
             </div>
           </div>
