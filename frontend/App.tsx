@@ -23,7 +23,7 @@ import {
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { HomeDashboard } from './components/panel/HomeDashboard';
-import { SECTORS, SectorSwitcherBar } from './components/sector/SectorSwitcherBar';
+import { SECTORS } from './components/sector/SectorSwitcherBar';
 
 import { CashSummary } from './components/panel/CashSummary';
 import { QuickActionBar } from './components/panel/QuickActionBar';
@@ -1672,12 +1672,6 @@ export default function App() {
         onExportCsv={handleExportCsv}
       />
 
-      {/* 2. Hızlı Sektör & Meslek Değiştirici (Tüm meslekler arasında anında geçiş) */}
-      <SectorSwitcherBar
-        currentSector={currentSector}
-        onSelectSector={handleSwitchSector}
-        shopProfile={shopProfile}
-      />
 
       {/* Mobil ayar menüsü (telefonda tek ayar noktası) */}
       {mobileMenuOpen && (

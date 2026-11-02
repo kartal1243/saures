@@ -106,55 +106,38 @@ export function registerProfileRoutes(app: Express): void {
     }
 
     const currentProfile = S().shopProfile;
-    const isAlreadyConfigured = currentProfile && currentProfile.isConfigured;
+    checkAndUpdateVipStatus(currentProfile);
 
-    let updatedProfile: ShopProfile;
-
-    if (isAlreadyConfigured) {
-      // Kural: İlk kurulumdan sonra SADECE dükkan adı ve günlük ciro hedefi değiştirilebilir!
-      // Sektör, sahip adı, telefon, şehir, çalışan sayısı, isVip kilitlidir.
-      checkAndUpdateVipStatus(currentProfile);
-      updatedProfile = {
-        ...currentProfile,
-        storeName: data.storeName.trim(),
-        dailyTarget: Number(data.dailyTarget) || currentProfile.dailyTarget || 2500,
-        sectorKey: data.sectorKey === 'kuafor_berber' ? 'berber_kuafor' : (data.sectorKey || currentProfile.sectorKey),
-        // isVip, vipUntil, vipPlan gibi alanlar asla istemciden değiştirilemez
-      };
-    } else {
-      // İlk kurulum aşaması: isVip istemciden ASLA alınmaz, ancak 14 günlük deneme süresi varsa korunur
-      checkAndUpdateVipStatus(currentProfile);
-      let shopPhone = (data.phone || '').trim();
-      if (shopPhone) {
-        if (!isValidTurkishPhone(shopPhone)) {
-          return res.status(400).json({
-            error: 'Geçersiz dükkan telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz (harf veya sahte numara kabul edilmez).'
-          });
-        }
-        shopPhone = normalizePhone(shopPhone);
-      } else if (currentProfile?.phone) {
-        shopPhone = currentProfile.phone;
+    let shopPhone = (data.phone || '').trim();
+    if (shopPhone) {
+      if (!isValidTurkishPhone(shopPhone)) {
+        return res.status(400).json({
+          error: 'Geçersiz dükkan telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz (harf veya sahte numara kabul edilmez).'
+        });
       }
-
-      updatedProfile = {
-        storeName: data.storeName.trim(),
-        ownerName: (data.ownerName || 'Esnaf').trim(),
-        businessField: data.businessField || 'Berber / Kuaför',
-        sectorKey: data.sectorKey || 'berber_kuafor',
-        employeeCount: data.employeeCount || '1',
-        phone: shopPhone,
-        cityDistrict: (data.cityDistrict || '').trim(),
-        dailyTarget: Number(data.dailyTarget) || 2500,
-        slogan: (data.slogan || '').trim(),
-        slug: data.slug || currentProfile?.slug,
-        isConfigured: true,
-        isVip: currentProfile?.isVip ?? false,
-        vipTier: currentProfile?.vipTier,
-        vipUntil: currentProfile?.vipUntil,
-        vipExpiresAt: currentProfile?.vipExpiresAt,
-        vipPlan: currentProfile?.vipPlan,
-      };
+      shopPhone = normalizePhone(shopPhone);
+    } else if (currentProfile?.phone) {
+      shopPhone = currentProfile.phone;
     }
+
+    const updatedProfile: ShopProfile = {
+      storeName: data.storeName.trim(),
+      ownerName: (data.ownerName || currentProfile?.ownerName || 'Esnaf').trim(),
+      businessField: data.businessField || currentProfile?.businessField || 'Berber / Kuaför',
+      sectorKey: data.sectorKey === 'kuafor_berber' ? 'berber_kuafor' : (data.sectorKey || currentProfile?.sectorKey || 'berber_kuafor'),
+      employeeCount: data.employeeCount || currentProfile?.employeeCount || '1',
+      phone: shopPhone,
+      cityDistrict: (data.cityDistrict !== undefined ? data.cityDistrict : (currentProfile?.cityDistrict || '')).trim(),
+      dailyTarget: Number(data.dailyTarget) || currentProfile?.dailyTarget || 2500,
+      slogan: (data.slogan !== undefined ? data.slogan : (currentProfile?.slogan || '')).trim(),
+      slug: data.slug || currentProfile?.slug,
+      isConfigured: true,
+      isVip: currentProfile?.isVip ?? true,
+      vipTier: currentProfile?.vipTier,
+      vipUntil: currentProfile?.vipUntil,
+      vipExpiresAt: currentProfile?.vipExpiresAt,
+      vipPlan: currentProfile?.vipPlan,
+    };
 
     S().shopProfile = updatedProfile;
     S().storeName = updatedProfile.storeName;
