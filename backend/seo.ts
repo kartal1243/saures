@@ -365,10 +365,22 @@ export function invalidateHtmlCache(): void {
  * dist/index.html dosyasını diskten mtime kontrolüyle okur (dosya değiştiğinde otomatik güncellenir).
  */
 export function getBaseHtmlTemplate(): string {
-  const distPath = path.join(process.cwd(), 'dist', 'index.html');
-  const frontendPath = path.join(process.cwd(), 'frontend', 'index.html');
+  const candidates = [
+    path.join(__dirname, 'index.html'),
+    path.join(__dirname, '..', 'dist', 'index.html'),
+    path.join(process.cwd(), 'dist', 'index.html'),
+    '/var/www/dukkanim/dist/index.html',
+    path.join(process.cwd(), 'frontend', 'index.html'),
+  ];
 
-  const targetPath = fs.existsSync(distPath) ? distPath : (fs.existsSync(frontendPath) ? frontendPath : null);
+  let targetPath: string | null = null;
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      targetPath = p;
+      break;
+    }
+  }
+
   if (targetPath) {
     try {
       const stat = fs.statSync(targetPath);

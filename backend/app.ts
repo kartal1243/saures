@@ -237,7 +237,13 @@ export async function startServer(): Promise<void> {
       }
     });
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPathCandidates = [
+      path.join(__dirname),
+      path.join(__dirname, '..', 'dist'),
+      path.join(process.cwd(), 'dist'),
+      '/var/www/dukkanim/dist',
+    ];
+    const distPath = distPathCandidates.find((p) => fs.existsSync(path.join(p, 'index.html'))) || path.join(process.cwd(), 'dist');
     // Statik varlıklar (JS/CSS/görseller) sunulur; ancak HTML rotalarını dinamik SEO motoru karşılar
     app.use(express.static(distPath, { index: false }));
 
