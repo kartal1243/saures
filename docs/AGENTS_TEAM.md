@@ -79,11 +79,28 @@ Bu belge, **Dükkânım Yanımda** platformundaki geliştirme süreçlerinin izo
   - `backend/guards.ts`
   - `backend/app.ts`
   - `backend/routes/auth.ts`
-  - `backend/routes/admin.ts`
   - `deploy/backup.sh`
 * **Temel Görevler:**
-  - Kimlik doğrulama, parola hashleme ve oturum yönetimi (`sid`, `aid`)
+  - Kimlik doğrulama, parola hashleme ve oturum yönetimi (`sid`)
   - HTTPS 301 zorlaması, HSTS ve Secure/HttpOnly çerez bayrakları
   - IP bazlı rate limiting ve bot korumaları (429 Too Many Requests)
   - AES-256-CBC ile şifreli otomatik yedekleme ve oturum anahtarlarını yedekten ayırma
-  - Kaynak kodda sır/anahtar sızıntısı kontrolü ve yetki aşımı (privilege escalation) engelleme
+  - Kaynak kodda sır/anahtar sızıntısı kontrolü ve yetki aşımı engelleme
+
+---
+
+## 👑 6. Admin & Sistem Yönetim Ajanı (`admin_agent`)
+* **Rol:** Baş Sistem Yöneticisi ve Süpervizör Araçları Uzmanı
+* **Sorumlu Olduğu Dosyalar:**
+  - `frontend/components/admin/AdminPanel.tsx`
+  - `frontend/components/admin/AdminSite.tsx`
+  - `backend/routes/admin.ts`
+  - `backend/maintenance.ts`
+* **Temel Görevler:**
+  - `/admin` rotası ve süperadmin yönetim konsolu tasarımı
+  - Kayıtlı tüm dükkanların listelenmesi, arama, filtreleme ve detaylı denetim
+  - Manuel VIP yetkisi tanımlama, paket yükseltme ve süre uzatma
+  - Gelen "Özel Panel Talepleri" (Leads) takibi ve esnaf iletişim durumu
+  - Sunucu sistem sağlığı (RAM, uptime, aktif bağlantılar) ve canlı log ekranı
+  - Otomatik ve manuel yedekleme tetikleyicileri
+
