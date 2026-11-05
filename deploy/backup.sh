@@ -74,10 +74,10 @@ if [ -n "${BACKUP_PASSPHRASE:-}" ]; then
   log "arsiv AES-256 ile sifrelendi: $ENC_ARCHIVE"
 fi
 
-# 7) Google Drive'a Otomatik Yukleme (.env icindeki GDRIVE_WEBHOOK_URL uzerinden)
-GDRIVE_WEBHOOK="${GDRIVE_WEBHOOK_URL:-}"
+# 7) Google Drive'a Otomatik Yukleme (GDRIVE_WEBHOOK_URL veya varsayilan Apps Script uzerinden)
+GDRIVE_WEBHOOK="${GDRIVE_WEBHOOK_URL:-https://script.google.com/macros/s/AKfycbxWBecPLiZol93UIUfg9TnMxtGsFfZm_trJlMgpBa7_CchCP6UURUD8tzDX5mz_OcSv8w/exec}"
 if [ -n "$GDRIVE_WEBHOOK" ]; then
-  log "Google Drive'a yukleniyor..."
+  log "Google Drive'a yukleniyor (sauresyaaaa475@gmail.com)..."
   node -e '
   const fs = require("fs");
   async function upload() {

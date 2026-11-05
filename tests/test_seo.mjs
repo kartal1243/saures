@@ -8,6 +8,7 @@ const {
   renderSeoHtml,
   generateSitemapXml,
   getRobotsTxt,
+  getDynamicSeoFreshness,
 } = require('../dist/server.cjs');
 
 console.log('🧪 SEO ve Sosyal Paylaşım Önizleme Testleri Başlatılıyor...\n');
@@ -86,6 +87,23 @@ it('/bakkal ve /market hızlı POS ve veresiye defteri SEO etiketleri üretir', 
   assert.ok(metaBakkal.ogDescription.includes('Mahallenin veresiye defteri'));
 });
 
+it('/guzellik-salonu ve seans/paket takibi için zengin Google SEO & FAQ etiketleri üretir', () => {
+  const meta = getSeoMetadata('/guzellik-salonu');
+  assert.ok(meta.title.includes('Güzellik Salonu ve Merkez Yönetim Sistemi'));
+  assert.ok(meta.title.includes('Seans & Paket Takibi'));
+  assert.ok(meta.description.includes('lazer epilasyon'));
+  assert.ok(meta.faqJson && meta.faqJson.length > 0, 'FAQPage verisi bulunmalı');
+  assert.ok(meta.schemaJson, 'SoftwareApplication şeması bulunmalı');
+});
+
+it('getDynamicSeoFreshness dinamik yıl, ay ve mevsim üretir', () => {
+  const fresh = getDynamicSeoFreshness();
+  assert.strictEqual(typeof fresh.year, 'number');
+  assert.ok(fresh.year >= 2026);
+  assert.ok(fresh.month.length > 0);
+  assert.ok(fresh.season.length > 0);
+});
+
 // 5. HTML Enjeksiyon ve Memory Caching (renderSeoHtml)
 it('renderSeoHtml şablondaki <title>, og ve twitter etiketlerini eksiksiz değiştirir', () => {
   const mockTemplate = `<!doctype html><html><head>
@@ -128,6 +146,8 @@ it('generateSitemapXml geçerli ve zengin bir sitemap üretir', () => {
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/berber</loc>'), 'Berber rotası olmalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/kafe-restoran</loc>'), 'Kafe rotası olmalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/bakkal-market</loc>'), 'Bakkal rotası olmalı');
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/guzellik-salonu</loc>'), 'Güzellik salonu rotası olmalı');
+  assert.ok(xml.includes('sitemap-image'), 'Google image sitemap namespace olmalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/r/demo</loc>'), 'Demo randevu loc olmalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/m/demo</loc>'), 'Demo menü loc olmalı');
 });

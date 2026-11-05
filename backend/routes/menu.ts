@@ -4,7 +4,7 @@ import type { MenuItem } from '../../shared/types';
 import { S, saveState, als } from '../context';
 import { broadcast, broadcastToAccount } from '../realtime';
 import { getAccounts } from '../accounts';
-import { loadShopState, persistShopState } from '../shopState';
+import { loadShopState, persistShopState, isReservedSlug } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { publicActionRateLimit } from '../guards';
 import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
@@ -428,6 +428,9 @@ export function registerProtectedMenuRoutes(app: Express): void {
     if (!slug) return res.status(400).json({ error: 'Slug zorunludur.' });
 
     const cleanSlug = slugify(slug);
+    if (isReservedSlug(cleanSlug)) {
+      return res.status(400).json({ error: 'Bu bağlantı adı sistem tarafından ayrılmıştır. Lütfen işletmenize özel farklı bir isim seçin.' });
+    }
     const ctx = als.getStore();
     const currentId = ctx?.accountId;
 

@@ -4,6 +4,7 @@ import { S, saveState, als } from '../context';
 import { broadcast } from '../realtime';
 import { DEMO_ACCOUNT_ID } from '../demoSeed';
 import { isValidTurkishPhone, normalizePhone } from '../accounts';
+import { slugify, isReservedSlug, isSlugTaken } from '../shopState';
 
 export type VipTier = 'cirak' | 'usta' | 'patron';
 
@@ -120,6 +121,20 @@ export function registerProfileRoutes(app: Express): void {
       shopPhone = currentProfile.phone;
     }
 
+    let finalSlug = currentProfile?.slug;
+    if (data.slug && typeof data.slug === 'string') {
+      const cleanSlug = slugify(data.slug);
+      if (cleanSlug && cleanSlug !== currentProfile?.slug) {
+        if (isReservedSlug(cleanSlug)) {
+          return res.status(400).json({ error: 'Bu bağlantı adı sistem tarafından ayrılmıştır. Lütfen işletmenize özel farklı bir isim seçin.' });
+        }
+        if (isSlugTaken(cleanSlug, ctx?.accountId)) {
+          return res.status(409).json({ error: 'Bu bağlantı adı başka bir işletme tarafından kullanılıyor.' });
+        }
+        finalSlug = cleanSlug;
+      }
+    }
+
     const updatedProfile: ShopProfile = {
       storeName: data.storeName.trim(),
       ownerName: (data.ownerName || currentProfile?.ownerName || 'Esnaf').trim(),
@@ -130,7 +145,7 @@ export function registerProfileRoutes(app: Express): void {
       cityDistrict: (data.cityDistrict !== undefined ? data.cityDistrict : (currentProfile?.cityDistrict || '')).trim(),
       dailyTarget: Number(data.dailyTarget) || currentProfile?.dailyTarget || 2500,
       slogan: (data.slogan !== undefined ? data.slogan : (currentProfile?.slogan || '')).trim(),
-      slug: data.slug || currentProfile?.slug,
+      slug: finalSlug,
       isConfigured: true,
       isVip: currentProfile?.isVip ?? true,
       vipTier: currentProfile?.vipTier,

@@ -35,8 +35,9 @@ import {
   Download,
 } from 'lucide-react';
 import { AdminPanel } from './AdminPanel';
+import { VisitorsTab } from './VisitorsTab';
 
-type Tab = 'panel' | 'shops' | 'requests' | 'events' | 'logs';
+type Tab = 'panel' | 'shops' | 'visitors' | 'requests' | 'events' | 'logs';
 
 interface AuthEvent {
   at: string;
@@ -167,11 +168,13 @@ function OverviewTab({
   loading,
   liveActivities,
   onGoShops,
+  onGoVisitors,
 }: {
   data: Overview | null;
   loading: boolean;
   liveActivities: LiveActivityItem[];
   onGoShops: (q: string) => void;
+  onGoVisitors?: () => void;
 }) {
   if (loading && !data) {
     return (
@@ -240,13 +243,19 @@ function OverviewTab({
           subtitle="Giriş & İşlem"
           tint="bg-rose-500/10 border-rose-500/20 text-rose-400"
         />
-        <StatCard
-          icon={Globe}
-          value={data.uniqueIps}
-          label="Benzersiz IP"
-          subtitle="Trafik Kaynağı"
-          tint="bg-orange-500/10 border-orange-500/20 text-orange-400"
-        />
+        <div
+          onClick={onGoVisitors}
+          className="cursor-pointer transition-transform hover:scale-[1.02]"
+          title="Tüm ziyaretçi trafiği ve yabancı IP akışını aç"
+        >
+          <StatCard
+            icon={Globe}
+            value={data.uniqueIps}
+            label="Ziyaretçi & IP"
+            subtitle="Yabancı IP & Canlı"
+            tint="bg-orange-500/10 border-orange-500/20 text-orange-400"
+          />
+        </div>
       </div>
 
       {/* BÜYÜME & DÖNÜŞÜM HUNİSİ (PRODUCT & GROWTH FUNNEL) */}
@@ -1109,6 +1118,7 @@ export const AdminSite: React.FC = () => {
           {(
             [
               { key: 'panel', label: 'Canlı Takip Kokpiti', Icon: LayoutDashboard },
+              { key: 'visitors', label: 'Ziyaretçiler & Yabancı IP', Icon: Globe },
               { key: 'shops', label: `Dükkanlar${ov ? ` (${ov.shops})` : ''}`, Icon: Store },
               { key: 'requests', label: 'Özel Panel Talepleri', Icon: Sparkles },
               { key: 'events', label: 'Olaylar & Girişler', Icon: Activity },
@@ -1136,8 +1146,10 @@ export const AdminSite: React.FC = () => {
             loading={ovLoading}
             liveActivities={liveActivities}
             onGoShops={goShops}
+            onGoVisitors={() => setTab('visitors')}
           />
         )}
+        {tab === 'visitors' && <VisitorsTab />}
         {tab === 'shops' && <AdminPanel initialQuery={shopQuery} />}
         {tab === 'requests' && <CustomPanelRequestsTab />}
         {tab === 'events' && <EventsTab />}

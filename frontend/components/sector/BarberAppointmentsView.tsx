@@ -1144,7 +1144,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
           .join('');
 
     const totalRevenue = dayAppointments
-      .filter((a) => a.status === 'tamamlandi' || a.status === 'onaylandi')
+      .filter((a) => a.status === 'tamamlandi' || a.status === 'onayli')
       .reduce((sum, a) => sum + (a.price || 0), 0);
 
     const html = `

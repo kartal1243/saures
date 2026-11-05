@@ -31,6 +31,12 @@ import {
   getRecentLiveActivities,
   getLiveMetrics,
 } from '../realtime';
+import {
+  getVisitorRecords,
+  getBlockedIps,
+  blockIp,
+  unblockIp,
+} from '../visitorTracker';
 
 // Admin oturumu dukkan oturumundan ayridir (ayri cookie: aid, 12 saat).
 // Sifre .env'deki ADMIN_PASSWORD'dur; tanimli degilse admin girisi kapali kalir.
@@ -741,5 +747,56 @@ export function registerAdminRoutes(app: Express): void {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(JSON.stringify(backupData, null, 2));
+  });
+
+  // ---------------- Ziyaretçi & Yabancı IP Takibi API Uçları ----------------
+  app.get('/api/admin/visitors', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const foreignOnly = req.query.foreignOnly === '1' || req.query.foreignOnly === 'true';
+    const botsOnly = req.query.botsOnly === '1' || req.query.botsOnly === 'true';
+    const humanOnly = req.query.humanOnly === '1' || req.query.humanOnly === 'true';
+    const suspiciousOnly = req.query.suspiciousOnly === '1' || req.query.suspiciousOnly === 'true';
+    const customerOnly = req.query.customerOnly === '1' || req.query.customerOnly === 'true';
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 150;
+
+    const data = getVisitorRecords({
+      foreignOnly,
+      botsOnly,
+      humanOnly,
+      suspiciousOnly,
+      customerOnly,
+      search,
+      limit,
+    });
+    res.json(data);
+  });
+
+  // Engellenen IP Listesi
+  app.get('/api/admin/visitors/blocked', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    res.json({ blockedIps: getBlockedIps() });
+  });
+
+  // Manuel veya Şüpheli IP Engelleme
+  app.post('/api/admin/visitors/block', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const { ip, reason, country } = req.body || {};
+    if (!ip || typeof ip !== 'string') {
+      return res.status(400).json({ error: 'Geçerli bir IP adresi gereklidir.' });
+    }
+    const success = blockIp(ip, reason, country);
+    res.json({ success, blockedIps: getBlockedIps() });
+  });
+
+  // IP Engelini Kaldırma
+  app.delete('/api/admin/visitors/block/:ip', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const ip = req.params.ip;
+    if (!ip) {
+      return res.status(400).json({ error: 'IP parametresi eksik.' });
+    }
+    const success = unblockIp(ip);
+    res.json({ success, blockedIps: getBlockedIps() });
   });
 }

@@ -11,6 +11,7 @@ export type PublicRouteKey =
   | 'kayit'
   | 'fiyat'
   | 'berber'
+  | 'guzellik-salonu'
   | 'kafe-restoran'
   | 'bakkal-market'
   | 'teknik-servis'
@@ -34,7 +35,15 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
       return 'fiyat';
     case 'berber':
     case 'kuafor':
+    case 'kuafor-randevu':
+    case 'kadin-kuafor':
+    case 'randevu-sistemi':
       return 'berber';
+    case 'guzellik-salonu':
+    case 'guzellik-merkezi':
+    case 'guzellik':
+    case 'lazer-epilasyon':
+      return 'guzellik-salonu';
     case 'kafe-restoran':
     case 'kafe':
     case 'restoran':
@@ -527,6 +536,31 @@ const SECTORS: Record<string, SectorDef> = {
     ctaText: 'İlk randevunu 2 dakikada gir. Kredi kartı gerekmez.',
     ctaButton: 'Berber Panelini Aç',
   },
+  'guzellik-salonu': {
+    title: 'Güzellik Salonu ve Merkez Yönetim Sistemi',
+    intro:
+      'Seans paketleri, estetisyen randevu takvimi, uzman primleri ve kapora takibi tek ekranda. Cilt bakımı, lazer epilasyon, kalıcı makyaj ve tırnak işlemlerinde seans kaçırma, çakışan randevu ve kayıp ödemeler son bulur.',
+    bullets: [
+      'Seans & Paket Takibi: 6-8 seanslık lazer veya cilt bakımı paketleri, kalan seans sayacı ve geçmiş işlemler',
+      'Uzman & Kabin Planlaması: Hangi estetisyen/uzman hangi odada çalışıyor, anlık çakışmasız takvim',
+      'Online Randevu & WhatsApp: Müşteri Instagram veya WhatsApp linkinden boş saatleri seçer, randevu anında düşer',
+      'Otomatik Hatırlatma: Seansı yaklaşan müşteriye hatırlatma mesajı, no-show ve boş kabin kaybı son bulur',
+      'Hizmet & Ürün Satışı: Bakım kremleri, serumlar ve ek seanslar tek tıkla adisyona ve kasaya işlenir',
+      'Personel Prim Hesabı: Uzman başına ciro, yapılan işlem sayısı ve hakediş anında hesaplanır',
+    ],
+    modules: ['Seans & Paket Takibi', 'Uzman Takvimi', 'Online Randevu', 'Kabin & Cihaz Yönetimi', 'WhatsApp Hatırlatma', 'Kasa & Gün Sonu'],
+    vip:
+      'Seanslar yarım kalmasın: Tahsilat Turu kalan seans borcu olan müşterileri tek listede toplar, tek dokunuşla kibar hatırlatma gönderirsin. Patron Raporu en kârlı bakım hizmetlerini gösterir.',
+    faq: [
+      { q: 'Lazer epilasyon ve cilt bakımı seans takibi var mı?', a: 'Evet. Müşteriye 6 seanslık veya 8 seanslık paket tanımlarsınız; her geldiğinde tek tıkla 1 seans düşer, kalan seansı ve borcu net görürsünüz.' },
+      { q: 'Müşteriler randevuyu online alabilir mi?', a: 'Evet! Size özel online randevu linkinizi Instagram biyografinize ve WhatsApp hattınıza ekleyin; müşteriler boş saatleri görüp anında randevu alsın.' },
+    ],
+    closing:
+      'Güzellik merkezi, lazer stüdyosu, nail art veya cilt bakım salonunuzu tek ekrandan yönetin. Akşam kasayı say, günü kapat.',
+    ctaTitle: 'Seanslar dolsun, randevular kendiliğinden işlensin.',
+    ctaText: 'İlk randevunu 2 dakikada gir. Kredi kartı gerekmez.',
+    ctaButton: 'Güzellik Salonu Panelini Aç',
+  },
   'kafe-restoran': {
     title: 'Kafe ve Restoran Adisyon Takibi',
     intro:
@@ -654,7 +688,7 @@ const SECTORS: Record<string, SectorDef> = {
   },
 };
 
-function SectorPage({ route, ...props }: PageProps & { route: 'berber' | 'kafe-restoran' | 'bakkal-market' | 'teknik-servis' | 'hukuk' | 'terzi' }) {
+function SectorPage({ route, ...props }: PageProps & { route: 'berber' | 'guzellik-salonu' | 'kafe-restoran' | 'bakkal-market' | 'teknik-servis' | 'hukuk' | 'terzi' }) {
   const s = SECTORS[route];
   return (
     <Shell
@@ -736,6 +770,7 @@ export function PublicPage({
     case 'fiyat':
       return <FiyatPage {...props} />;
     case 'berber':
+    case 'guzellik-salonu':
     case 'kafe-restoran':
     case 'bakkal-market':
     case 'teknik-servis':

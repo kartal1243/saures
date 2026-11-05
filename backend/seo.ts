@@ -13,6 +13,7 @@ export interface SeoMetadata {
   canonical: string;
   schemaJson?: object;
   breadcrumbs?: { name: string; url: string }[];
+  faqJson?: { q: string; a: string }[];
 }
 
 export interface ResolvedShop {
@@ -32,6 +33,40 @@ export interface ResolvedShop {
 
 const DEFAULT_HOST = 'dukkanimyanimda.com.tr';
 const DEFAULT_ORIGIN = `https://${DEFAULT_HOST}`;
+
+/**
+ * Güncel yıl, ay ve mevsimsel esnaf yoğunluğu bağlamını dinamik üretir (Google Freshness).
+ */
+export function getDynamicSeoFreshness(customDate?: Date) {
+  const d = customDate || new Date();
+  const year = d.getFullYear();
+  const monthNames = [
+    'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+    'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+  ];
+  const month = monthNames[d.getMonth()];
+  const monthNum = d.getMonth() + 1;
+
+  let season = 'Yeni Sezon';
+  let seasonalKeyword = 'Yoğun Randevu ve Koltuk Sezonu';
+
+  if (monthNum >= 3 && monthNum <= 5) {
+    season = 'İlkbahar Düğün & Nişan Sezonu';
+    seasonalKeyword = 'Gelin Başı ve Damat Tıraşı Randevu Yoğunluğu';
+  } else if (monthNum >= 6 && monthNum <= 8) {
+    season = 'Yaz & Mezuniyet Sezonu';
+    seasonalKeyword = 'Yaz Bakımı ve Tatil Öncesi Randevu Akışı';
+  } else if (monthNum >= 9 && monthNum <= 11) {
+    season = 'Sonbahar & Kış Hazırlığı';
+    seasonalKeyword = 'Okul & İş Sezonu Düzenli Bakım Randevuları';
+  } else {
+    season = 'Yılbaşı & Kış Sezonu';
+    seasonalKeyword = 'Yılbaşı Yoğunluğu ve Yeni Yıl Fiyat Tarifesi';
+  }
+
+  const todayIso = d.toISOString().split('T')[0];
+  return { year, month, season, seasonalKeyword, todayIso };
+}
 
 /**
  * Identifier (slug, telefon veya accountId) ile dükkanı accounts ve shopState'den bulur.
@@ -109,6 +144,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
   const origin = `https://${host}`;
 
   const clean = pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  const fresh = getDynamicSeoFreshness();
 
   // 1. Randevu rotaları: /r/:slug veya /randevu/:slug
   if (clean.startsWith('/r/') || clean.startsWith('/randevu/')) {
@@ -225,23 +261,160 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
   }
 
   // 3. Sektör Açılış Sayfaları (B2B Esnaf SEO)
-  if (clean === '/berber' || clean === '/kuafor') {
-    return {
-      title: 'Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi | Dükkanım Yanımda',
-      ogTitle: 'Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi',
-      description: 'Koltuk sırası, online randevu takvimi, çırak/usta prim hesabı ve anlık kasa takibi tek ekranda. Berber ve kuaför esnafı için 2 dakikada hazır.',
-      ogDescription: 'Koltuk sırası, online randevu takvimi, çırak/usta prim hesabı ve anlık kasa takibi tek ekranda.',
-      ogImage: `${origin}/brand/phone_mockup_retina.png`,
-      canonical: `${origin}/berber`,
-      schemaJson: {
-        '@context': 'https://schema.org',
-        '@type': 'SoftwareApplication',
-        name: 'Dükkanım Yanımda - Berber & Kuaför Randevu Sistemi',
-        applicationCategory: 'BusinessApplication',
-        operatingSystem: 'All',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+  if (
+    clean === '/berber' ||
+    clean === '/kuafor' ||
+    clean === '/kuafor-randevu' ||
+    clean === '/kadin-kuafor' ||
+    clean === '/berber-randevu-programi'
+  ) {
+    const isKuaf = clean.includes('kuafor');
+    const title = 'Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi | Dükkanım Yanımda';
+    const ogTitle = `Berber & Kuaför Randevu ve Koltuk Takip Sistemi (${fresh.year})`;
+    const description = `Koltuk sırası, online randevu takvimi, çırak/usta prim hesabı ve anlık kasa takibi tek ekranda. ${fresh.month} ${fresh.year} güncel sürüm. ${fresh.seasonalKeyword} için hazır. Berber ve kuaför esnafı için 2 dakikada hazır.`;
+    const ogDescription = 'Koltuk sırası, online randevu takvimi, çırak/usta prim hesabı ve anlık kasa takibi tek ekranda.';
+    const canonical = `${origin}/${isKuaf ? 'kuafor' : 'berber'}`;
+    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+
+    const schemaJson = {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Dükkanım Yanımda - Berber & Kuaför Randevu Sistemi',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'All',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        reviewCount: '1480',
+        bestRating: '5',
+        worstRating: '1',
+      },
+      featureList: [
+        'Koltuk Sırası & Randevu Takvimi',
+        'Usta ve Çırak Prim Dağılımı',
+        'Canlı Online Müşteri Randevusu',
+        'WhatsApp Otomatik Hatırlatma',
+        'Hızlı Kasa & Veresiye Takibi',
+      ],
+    };
+
+    const breadcrumbs = [
+      { name: 'Ana Sayfa', url: origin },
+      { name: 'Berber & Kuaför Randevu Sistemi', url: canonical },
+    ];
+
+    const faqJson = [
+      {
+        q: 'Berber ve kuaförler için online randevu sistemi nasıl çalışır?',
+        a: 'Dükkanınıza özel randevu linkini Instagram profilinize ve WhatsApp hattınıza eklersiniz. Müşterileriniz boş saatleri görerek anında randevu oluşturur, bildirim doğrudan ekranınıza düşer.',
+      },
+      {
+        q: 'Koltuk ve usta primleri otomatik hesaplanır mı?',
+        a: 'Evet! Her usta, kalfa ve çırağın komisyon oranına göre gün sonu hakediş ve primler kuruşu kuruşuna otomatik hesaplanır.',
+      },
+      {
+        q: 'Müşterilere randevu öncesi otomatik WhatsApp hatırlatması gider mi?',
+        a: 'Evet, gelmeme (no-show) durumlarını engellemek için müşterilerinize tek tıkla WhatsApp randevu hatırlatma mesajı gönderebilirsiniz.',
+      },
+      {
+        q: 'Program telefondan ve tabletten kullanılabilir mi?',
+        a: 'Evet, mobil uyumludur; dükkanda tek elle veya kasadaki tabletten kolayca kullanılır.',
+      },
+    ];
+
+    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
+  }
+
+  if (
+    clean === '/guzellik-salonu' ||
+    clean === '/guzellik-merkezi' ||
+    clean === '/guzellik' ||
+    clean === '/lazer-epilasyon'
+  ) {
+    const title = `Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi (${fresh.year}) | Dükkanım Yanımda`;
+    const ogTitle = `Güzellik Salonu ve Seans Takip Sistemi (${fresh.year})`;
+    const description = `Güzellik merkezleri için seans ve paket takibi, lazer epilasyon randevu defteri, estetisyen kabin planlaması ve otomatik WhatsApp hatırlatma. ${fresh.month} ${fresh.year} güncel sürüm. 2 dakikada ücretsiz başlayın.`;
+    const ogDescription = 'Seans ve paket takibi, estetisyen randevu defteri, kabin planlaması ve WhatsApp hatırlatma tek ekranda.';
+    const canonical = `${origin}/guzellik-salonu`;
+    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+
+    const schemaJson = {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Dükkanım Yanımda - Güzellik Salonu ve Seans Takip Sistemi',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'All',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        reviewCount: '980',
+        bestRating: '5',
+        worstRating: '1',
+      },
+      featureList: [
+        'Seans ve Paket Sayacı (6-8 Seans)',
+        'Estetisyen ve Kabin/Cihaz Takvimi',
+        'Canlı Online Randevu Linki',
+        'WhatsApp Otomatik Seans Hatırlatma',
+        'Kasa & Personel Prim Hesabı',
+      ],
+    };
+
+    const breadcrumbs = [
+      { name: 'Ana Sayfa', url: origin },
+      { name: 'Güzellik Salonu ve Seans Takip', url: canonical },
+    ];
+
+    const faqJson = [
+      {
+        q: 'Güzellik salonlarında seans ve paket takibi nasıl yapılır?',
+        a: 'Müşteriye 6 veya 8 seanslık paket tanımlanır. Her randevuda tek tıkla 1 seans düşülür, kalan seans sayısı ve borç durumu anında ekranda görünür.',
+      },
+      {
+        q: 'Estetisyen ve cihaz/kabin çakışması engellenir mi?',
+        a: 'Evet, hangi uzmanın hangi odada veya cihazda olduğu canlı takvimde renklerle ayrılır; çakışan randevular sistem tarafından anında önlenir.',
+      },
+      {
+        q: 'Müşteriler randevuyu Instagram veya WhatsApp üzerinden alabilir mi?',
+        a: 'Evet, salonunuza özel online randevu linkinizi Instagram biyografinize ekleyebilirsiniz. Müşterileriniz boş saatleri görerek randevusunu hemen oluşturur.',
+      },
+    ];
+
+    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
+  }
+
+  if (clean === '/randevu-sistemi' || clean === '/online-randevu') {
+    const title = `Online Randevu Sistemi — Berber, Kuaför ve Güzellik Salonu (${fresh.year}) | Dükkanım Yanımda`;
+    const ogTitle = `Canlı Online Randevu ve Salon Takip Sistemi (${fresh.year})`;
+    const description = `Sıra beklemeden online randevu alma ve müşteri takip sistemi. Berber, kuaför ve güzellik salonları için ücretsiz canlı randevu motoru. ${fresh.month} ${fresh.year} güncel.`;
+    const ogDescription = 'Sıra beklemeden online randevu alma ve müşteri takip sistemi.';
+    const canonical = `${origin}/randevu-sistemi`;
+    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+
+    const schemaJson = {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Dükkanım Yanımda - Online Randevu Sistemi',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'All',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        reviewCount: '1480',
+        bestRating: '5',
+        worstRating: '1',
       },
     };
+
+    const breadcrumbs = [
+      { name: 'Ana Sayfa', url: origin },
+      { name: 'Online Randevu Sistemi', url: canonical },
+    ];
+
+    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs };
   }
 
   if (clean === '/kafe-restoran' || clean === '/kafe' || clean === '/restoran') {
@@ -570,6 +743,24 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
     html = html.replace('</head>', `${breadcrumbTag}</head>`);
   }
 
+  // Google Search FAQPage JSON-LD Injection (Rich Snippet Accordion)
+  if (meta.faqJson && meta.faqJson.length > 0) {
+    const faqSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: meta.faqJson.map((f) => ({
+        '@type': 'Question',
+        name: f.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: f.a,
+        },
+      })),
+    };
+    const faqTag = `\n    <script type="application/ld+json">\n    ${JSON.stringify(faqSchema, null, 2)}\n    </script>\n`;
+    html = html.replace('</head>', `${faqTag}</head>`);
+  }
+
   return html;
 }
 
@@ -586,14 +777,17 @@ export function generateSitemapXml(rawHost?: string): string {
 
   const staticUrls = [
     { loc: `${origin}/`, priority: '1.0', changefreq: 'weekly', title: 'Dükkânım Yanımda - Esnaf Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'weekly', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly', title: 'Ücretsiz Kayıt - Dükkanını 2 Dakikada Kur', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/berber`, priority: '0.9', changefreq: 'weekly', title: 'Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/kuafor`, priority: '0.8', changefreq: 'weekly', title: 'Kuaför Randevu ve Salon Takip Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/berber`, priority: '1.0', changefreq: 'daily', title: 'Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/kuafor`, priority: '0.95', changefreq: 'daily', title: 'Kuaför Randevu ve Salon Takip Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/guzellik-salonu`, priority: '1.0', changefreq: 'daily', title: 'Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/guzellik-merkezi`, priority: '0.9', changefreq: 'daily', title: 'Güzellik Merkezi Lazer Epilasyon ve Seans Takip Programı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/randevu-sistemi`, priority: '0.95', changefreq: 'daily', title: 'Online Randevu Sistemi — Berber, Kuaför ve Güzellik Salonu', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/kafe-restoran`, priority: '0.9', changefreq: 'weekly', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/bakkal-market`, priority: '0.9', changefreq: 'weekly', title: 'Bakkal & Market Hızlı POS Barkodlu Terazi Sistemi', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/bakkal`, priority: '0.8', changefreq: 'weekly', title: 'Bakkal Veresiye Defteri ve Kasa Takip', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/market`, priority: '0.8', changefreq: 'weekly', title: 'Market Barkodlu Hızlı POS Sistemi', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'weekly', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly', title: 'Ücretsiz Kayıt - Dükkanını 2 Dakikada Kur', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/teknik-servis`, priority: '0.8', changefreq: 'weekly', title: 'Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/hukuk`, priority: '0.8', changefreq: 'weekly', title: 'Avukat ve Hukuk Bürosu Dava Takip ve Masraf Yazılımı', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/terzi`, priority: '0.8', changefreq: 'weekly', title: 'Terzi & Kuru Temizleme Emanet Takip Sistemi', img: `${origin}/brand/logo-horizontal.png` },

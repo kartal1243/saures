@@ -280,10 +280,12 @@ export function registerPublicBarberRoutes(app: Express): void {
     const whatsappText = encodeURIComponent(`Dükkânım Yanımda Randevu Onay Kodunuz: ${code}`);
     const whatsappLink = `https://wa.me/90${cleanNumber}?text=${whatsappText}`;
 
+    const isDemo = cleanPhone === '05900000011' || cleanPhone === '05550000000' || process.env.NODE_ENV !== 'production';
+
     res.json({
       success: true,
       message: 'Onay kodunuz SMS olarak gönderildi.',
-      demoCode: code, // Canlı test / WhatsApp yedek doğrulaması için
+      demoCode: isDemo ? code : undefined,
       whatsappLink,
     });
   });

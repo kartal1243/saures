@@ -420,6 +420,13 @@ export function isLoginLocked(phone: string): number {
 }
 
 export function registerFailedLogin(phone: string): void {
+  // DoS / Bellek şişmesini önle: harita çok büyürse süresi dolmuş kilitleri temizle
+  if (loginAttempts.size > 1000) {
+    const now = Date.now();
+    for (const [k, v] of loginAttempts.entries()) {
+      if (v.lockedUntil <= now && v.count === 0) loginAttempts.delete(k);
+    }
+  }
   const att = loginAttempts.get(phone) || { count: 0, lockedUntil: 0 };
   att.count += 1;
   if (att.count >= MAX_LOGIN_ATTEMPTS) {

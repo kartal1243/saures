@@ -259,7 +259,8 @@ export function emptyState(seed?: { storeName: string; ownerName: string; phone:
 const shopStateCache = new Map<string, AppState>();
 
 function shopStateFile(accountId: string): string {
-  return path.join(SHOPS_DIR, accountId + '.json');
+  const safeId = String(accountId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+  return path.join(SHOPS_DIR, safeId + '.json');
 }
 
 export function loadShopState(accountId: string): AppState {
@@ -335,10 +336,40 @@ export function setShopState(accountId: string, st: AppState): void {
   persistShopState(accountId, st);
 }
 
+export const RESERVED_SLUGS = new Set([
+  'admin',
+  'api',
+  'auth',
+  'assets',
+  'panel',
+  'giris',
+  'kayit',
+  'fiyat',
+  'demo',
+  'gizlilik',
+  'kullanim-kosullari',
+  'randevu',
+  'menu',
+  'berber',
+  'kafe-restoran',
+  'bakkal-market',
+  'teknik-servis',
+  'hukuk',
+  'terzi',
+  'guzellik-salonu',
+  'health',
+  'webhook',
+  'static',
+]);
+
+export function isReservedSlug(slug: string): boolean {
+  return RESERVED_SLUGS.has(slugify(slug));
+}
+
 export function isSlugTaken(slug: string, excludeAccountId?: string): boolean {
   const clean = slugify(slug);
   if (!clean) return true;
-  if (clean === 'demo' && excludeAccountId !== 'acc_demo_dukkan') return true;
+  if (isReservedSlug(clean) && excludeAccountId !== 'acc_demo_dukkan') return true;
   const owners = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
   for (const acc of owners) {
     if (excludeAccountId && acc.id === excludeAccountId) continue;

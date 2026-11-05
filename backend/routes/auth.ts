@@ -250,11 +250,14 @@ export function registerAuthRoutes(app: Express): void {
     const whatsappText = encodeURIComponent(`Dükkânım Yanımda Şifre Sıfırlama Kodunuz: ${code}`);
     const whatsappLink = `https://wa.me/90${cleanNumber}?text=${whatsappText}`;
 
+    // Güvenlik: Canlı ortamda gerçek dükkan hesaplarının OTP kodu ASLA JSON yanıtında dönülmez!
+    const isDemo = phone === DEMO_PHONE || phone === '05550000000' || process.env.NODE_ENV !== 'production';
+
     res.json({
       success: true,
       message: '6 haneli doğrulama kodunuz SMS olarak gönderildi.',
       phone,
-      demoCode: code, // Canlıda SMS sağlayıcısı entegrasyonu yoksa hızlı test veya WhatsApp yedek doğrulaması için
+      demoCode: isDemo ? code : undefined,
       whatsappLink,
     });
   };

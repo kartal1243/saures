@@ -33,6 +33,7 @@ import { registerAdminRoutes, isAdminSession } from './routes/admin';
 import { registerPublicMenuRoutes, registerProtectedMenuRoutes } from './routes/menu';
 import { registerShopierWebhook } from './routes/shopierWebhook';
 import { renderSeoHtml, generateSitemapXml, getRobotsTxt, getBaseHtmlTemplate } from './seo';
+import { visitorTrackerMiddleware } from './visitorTracker';
 
 export async function startServer(): Promise<void> {
   const app = express();
@@ -71,6 +72,9 @@ export async function startServer(): Promise<void> {
 
     next();
   });
+
+  // Gelen tüm site trafiğini, yabancı IP'leri ve bot taramalarını kaydet & zararlı IP'leri engelle
+  app.use(visitorTrackerMiddleware);
 
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
