@@ -245,6 +245,9 @@ export function resolveVisitorCountry(req: Request, ip: string): { country: stri
   return { country: 'TR', isForeign: false };
 }
 
+// Bellek içi şüpheli tarama sayacı (Otomatik Savunma / Auto-Ban Kalkanı)
+const suspiciousScanCounts = new Map<string, { count: number; firstSeen: number }>();
+
 export function visitorTrackerMiddleware(req: Request, res: Response, next: NextFunction): void {
   const urlPath = req.originalUrl || req.url || '';
   const ip = clientIp(req);
@@ -259,6 +262,27 @@ export function visitorTrackerMiddleware(req: Request, res: Response, next: Next
   if (shouldIgnorePath(urlPath)) {
     next();
     return;
+  }
+
+  // 3. Otomatik Tarama Tehdidi Kalkanı (Honeypot / Auto-Ban)
+  const isSuspicious = SUSPICIOUS_PATHS.some((regex) => regex.test(urlPath));
+  if (isSuspicious) {
+    const now = Date.now();
+    const entry = suspiciousScanCounts.get(ip) || { count: 0, firstSeen: now };
+    if (now - entry.firstSeen > 30 * 60 * 1000) {
+      entry.count = 0;
+      entry.firstSeen = now;
+    }
+    entry.count += 1;
+    suspiciousScanCounts.set(ip, entry);
+
+    // 2 veya daha fazla güvenlik taraması yapan bot IP'yi anında kalıcı engelle
+    if (entry.count >= 2) {
+      const { country } = resolveVisitorCountry(req, ip);
+      blockIp(ip, `Otomatik Güvenlik Kalkanı: Hassas dosya taraması tespit edildi (${urlPath})`, country);
+      res.status(403).json({ error: 'Güvenlik ihlali: Otomatik tarama engellendi.' });
+      return;
+    }
   }
 
   const startTime = Date.now();
@@ -304,7 +328,6 @@ export function visitorTrackerMiddleware(req: Request, res: Response, next: Next
   const { country, isForeign } = resolveVisitorCountry(req, ip);
   const countryFlag = getCountryFlag(country);
   const countryName = getCountryName(country);
-  const isSuspicious = SUSPICIOUS_PATHS.some((regex) => regex.test(urlPath));
   const category = detectCategory(urlPath);
 
   // Yanıt tamamlandığında kaydı oluştur
