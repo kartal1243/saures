@@ -25,6 +25,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { Product, Customer } from '../../../shared/types.ts';
+import { cleanPhoneForWhatsApp } from '../../utils/formatters.ts';
 
 interface FastRetailCounterViewProps {
   products: Product[];
@@ -563,11 +564,14 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
 
   // Müşteriye WhatsApp Fişi Gönder
   const handleSendWhatsAppReceipt = (customer: Customer, total: number, items: CartItem[]) => {
-    const cleanPhone = (customer.phone || '').replace(/\D/g, '');
+    const targetPhone = cleanPhoneForWhatsApp(customer.phone || '');
+    if (!targetPhone) {
+      alert('Bu müşterinin geçerli bir telefon numarası bulunmuyor.');
+      return;
+    }
     const itemsText = items.map((i) => `• ${i.quantity}x ${i.name}: ${(i.quantity * i.unitPrice).toFixed(2)} TL`).join('\n');
     const newBal = (customer.balance || 0) + total;
     const msg = `Sayın ${customer.name},\n${storeName || 'Bakkalımızdan'} yapmış olduğunuz alışveriş fişi:\n\n${itemsText}\n\nToplam: ${total.toFixed(2)} TL\nGüncel Kalan Borcunuz: ${newBal.toFixed(2)} TL\n\nTeşekkür eder, hayırlı günler dileriz.`;
-    const targetPhone = cleanPhone.startsWith('90') ? cleanPhone : `90${cleanPhone}`;
     window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 

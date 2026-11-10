@@ -61,6 +61,7 @@ import type {
   ServiceItem,
 } from '../../../shared/types.ts';
 import { BarberVoiceAssistant } from './BarberVoiceAssistant';
+import { cleanPhoneForWhatsApp } from '../../utils/formatters.ts';
 
 interface BarberAppointmentsViewProps {
   appointments: Appointment[];
@@ -771,17 +772,17 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
   // WhatsApp Yorum & Puan İsteme Gönderimi (Kolay Randevu Modülü)
   const handleSendWhatsAppReview = (apt: Appointment) => {
-    const phoneClean = (apt.phone || '').replace(/\D/g, '').replace(/^90/, '').replace(/^0/, '');
+    const phoneClean = cleanPhoneForWhatsApp(apt.phone || '');
     if (!phoneClean) {
       alert('Bu randevuda geçerli telefon numarası kayıtlı değil.');
       return;
     }
-    const origin = window.location.origin;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const reviewUrl = `${origin}/r/${shopSlug}?review=true&staffId=${encodeURIComponent(apt.staffId || '')}&staffName=${encodeURIComponent(apt.staffName || '')}&aptId=${apt.id}&customer=${encodeURIComponent(apt.customerName)}`;
     const text = encodeURIComponent(
       `Merhaba Sayın ${apt.customerName}, ${storeName} salonumuzda ${apt.staffName} tarafından aldığınız "${apt.serviceName}" hizmetimizden memnun kaldınız mı? ⭐ 1 dakikanızı ayırıp 1-5 yıldızla puanlayıp yorum yapmak için tıklayın: ${reviewUrl}`
     );
-    window.open(`https://wa.me/90${phoneClean}?text=${text}`, '_blank');
+    window.open(`https://wa.me/${phoneClean}?text=${text}`, '_blank');
   };
 
   // Kampanyalı Slot Ekle
@@ -827,7 +828,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
   // WhatsApp Hatırlatma Gönder
   const handleSendWhatsApp = (apt: Appointment) => {
-    const phoneClean = apt.phone.replace(/\D/g, '');
+    const phoneClean = cleanPhoneForWhatsApp(apt.phone || '');
     if (!phoneClean) {
       alert('Bu randevuda telefon numarası kayıtlı değil.');
       return;
@@ -835,7 +836,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     const text = encodeURIComponent(
       `Merhaba Sayın ${apt.customerName}, ${storeName} salonumuzda ${apt.appointmentDate} saat ${apt.timeSlot} için "${apt.serviceName}" randevunuz bulunmaktadır. Sizi ağırlamaktan mutluluk duyarız!`
     );
-    window.open(`https://wa.me/90${phoneClean}?text=${text}`, '_blank');
+    window.open(`https://wa.me/${phoneClean}?text=${text}`, '_blank');
   };
 
   // QR Stand Kartı Yazdırma (A4 Formatında Tezgâh / Ayna Standı)
@@ -1950,7 +1951,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                         return c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q));
                       })
                       .map((c) => {
-                        const cleanPhone = (c.phone || '').replace(/\D/g, '');
+                        const cleanPhone = cleanPhoneForWhatsApp(c.phone || '');
                         return (
                           <tr key={c.id} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors">
                             <td className="p-3.5">
@@ -1969,7 +1970,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                                 <span className="font-mono text-stone-700 dark:text-stone-300">{c.phone || '-'}</span>
                                 {cleanPhone && (
                                   <a
-                                    href={`https://wa.me/90${cleanPhone}`}
+                                    href={`https://wa.me/${cleanPhone}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
