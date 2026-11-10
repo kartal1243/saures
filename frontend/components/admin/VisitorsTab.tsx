@@ -1,26 +1,22 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Globe,
-  ShieldAlert,
-  ShieldCheck,
-  ShieldX,
   Search,
   RefreshCw,
-  Bot,
   User,
-  Clock,
   Smartphone,
   Monitor,
   Tablet,
-  AlertTriangle,
-  Trash2,
-  SlidersHorizontal,
   Check,
   Copy,
-  ExternalLink,
   Ban,
   Activity,
-  Layers,
+  Users,
+  Eye,
+  ShieldX,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export interface VisitorRecord {
@@ -66,20 +62,56 @@ export interface BlockedIpEntry {
   country?: string;
 }
 
-type FilterMode = 'all' | 'foreign' | 'human' | 'bots' | 'customers' | 'suspicious' | 'blocked';
+type FilterMode = 'all' | 'human' | 'foreign' | 'bots' | 'blocked';
 
-function formatRelativeTime(iso: string): string {
+function formatTarihSaat(iso: string): { saat: string; tarih: string; goreceli: string } {
   try {
-    const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (diffSec < 5) return 'Az önce';
-    if (diffSec < 60) return `${diffSec} sn önce`;
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} dk önce`;
-    const diffHour = Math.floor(diffMin / 60);
-    if (diffHour < 24) return `${diffHour} sa önce`;
-    return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const d = new Date(iso);
+    const saat = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const tarih = d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
+
+    const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+    let goreceli = 'Az önce';
+    if (diffSec >= 60 && diffSec < 3600) goreceli = `${Math.floor(diffSec / 60)} dk önce`;
+    else if (diffSec >= 3600 && diffSec < 86400) goreceli = `${Math.floor(diffSec / 3600)} sa önce`;
+    else if (diffSec >= 86400) goreceli = `${Math.floor(diffSec / 86400)} gün önce`;
+
+    return { saat, tarih, goreceli };
   } catch {
-    return iso;
+    return { saat: '', tarih: iso, goreceli: '' };
+  }
+}
+
+function formatSayfaAdi(path: string): { baslik: string; altYol: string } {
+  if (!path || path === '/') return { baslik: 'Ana Sayfa', altYol: '/' };
+  if (path.startsWith('/r/')) {
+    const slug = path.replace('/r/', '').split(/[?#]/)[0];
+    return { baslik: `✂️ Randevu (${slug})`, altYol: path };
+  }
+  if (path.startsWith('/m/')) {
+    const slug = path.replace('/m/', '').split(/[?#]/)[0];
+    return { baslik: `🍽️ Menü (${slug})`, altYol: path };
+  }
+  if (path.startsWith('/giris') || path.startsWith('/login')) return { baslik: 'Giriş Sayfası', altYol: path };
+  if (path.startsWith('/kayit') || path.startsWith('/register')) return { baslik: 'Kayıt Sayfası', altYol: path };
+  if (path.startsWith('/admin')) return { baslik: '🛡️ Yönetim Paneli', altYol: path };
+  if (path.startsWith('/api/')) return { baslik: 'API Çağrısı', altYol: path };
+
+  return { baslik: path.length > 28 ? path.slice(0, 28) + '...' : path, altYol: path };
+}
+
+function formatReferrer(ref: string): string {
+  if (!ref || ref === 'direct' || ref === '-') return 'Direkt Ziyaret';
+  try {
+    if (ref.includes('google.')) return 'Google Arama';
+    if (ref.includes('instagram.')) return 'Instagram';
+    if (ref.includes('facebook.')) return 'Facebook';
+    if (ref.includes('t.co') || ref.includes('twitter') || ref.includes('x.com')) return 'X / Twitter';
+    if (ref.includes('whatsapp')) return 'WhatsApp';
+    const u = new URL(ref);
+    return u.hostname.replace('www.', '');
+  } catch {
+    return ref.length > 25 ? ref.slice(0, 25) + '...' : ref;
   }
 }
 
@@ -90,8 +122,8 @@ export function VisitorsTab() {
   const [loading, setLoading] = useState(true);
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [search, setSearch] = useState('');
-  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(10); // 10 saniye varsayılan
-  const [selectedRecord, setSelectedRecord] = useState<VisitorRecord | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [copiedIp, setCopiedIp] = useState<string | null>(null);
   const [manualBlockIp, setManualBlockIp] = useState('');
   const [manualBlockReason, setManualBlockReason] = useState('');
@@ -104,10 +136,8 @@ export function VisitorsTab() {
       if (filterMode === 'foreign') params.set('foreignOnly', '1');
       if (filterMode === 'human') params.set('humanOnly', '1');
       if (filterMode === 'bots') params.set('botsOnly', '1');
-      if (filterMode === 'suspicious') params.set('suspiciousOnly', '1');
-      if (filterMode === 'customers') params.set('customerOnly', '1');
       if (search.trim()) params.set('search', search.trim());
-      params.set('limit', '250');
+      params.set('limit', '200');
 
       const [resVisitors, resBlocked] = await Promise.all([
         fetch(`/api/admin/visitors?${params.toString()}`),
@@ -134,14 +164,14 @@ export function VisitorsTab() {
     loadData();
   }, [filterMode]);
 
-  // Otomatik yenileme zamanlayıcısı
+  // Otomatik yenileme (10 saniye)
   useEffect(() => {
-    if (autoRefreshInterval <= 0) return;
+    if (!autoRefresh) return;
     const interval = setInterval(() => {
       loadData(true);
-    }, autoRefreshInterval * 1000);
+    }, 10000);
     return () => clearInterval(interval);
-  }, [autoRefreshInterval, filterMode, search]);
+  }, [autoRefresh, filterMode, search]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -149,10 +179,8 @@ export function VisitorsTab() {
     setTimeout(() => setCopiedIp(null), 2000);
   };
 
-  const handleBlockIp = async (ip: string, country?: string, reason = 'Şüpheli yabancı istek / Admin engeli') => {
-    if (!window.confirm(`${ip} IP adresini engellemek istediğinize emin misiniz? Bu IP artık siteye erişemeyecektir.`)) {
-      return;
-    }
+  const handleBlockIp = async (ip: string, country?: string, reason = 'Manuel admin engeli') => {
+    if (!window.confirm(`${ip} IP adresini engellemek istiyor musunuz?`)) return;
     setBlockBusy(true);
     try {
       const res = await fetch('/api/admin/visitors/block', {
@@ -171,7 +199,7 @@ export function VisitorsTab() {
   };
 
   const handleUnblockIp = async (ip: string) => {
-    if (!window.confirm(`${ip} üzerindeki engeli kaldırmak istiyor musunuz?`)) return;
+    if (!window.confirm(`${ip} engelini kaldırmak istiyor musunuz?`)) return;
     setBlockBusy(true);
     try {
       const res = await fetch(`/api/admin/visitors/block/${encodeURIComponent(ip)}`, {
@@ -197,7 +225,7 @@ export function VisitorsTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ip: manualBlockIp.trim(),
-          reason: manualBlockReason.trim() || 'Manuel IP engeli',
+          reason: manualBlockReason.trim() || 'Manuel engelleme',
         }),
       });
       if (res.ok) {
@@ -214,501 +242,457 @@ export function VisitorsTab() {
 
   const isBlocked = (ip: string) => blockedIps.some((b) => b.ip === ip);
 
-  const foreignPercent = summary && summary.totalToday > 0
-    ? Math.round((summary.foreignToday / summary.totalToday) * 100)
-    : 0;
-
   return (
-    <div className="space-y-5 font-sans">
-      {/* 1. ÜST ÖZET KARTLARI */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Canlı Ziyaretçi */}
-        <div className="rounded-2xl bg-[#12172b] border border-white/5 p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400">Canlı (15 Dk)</span>
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+    <div className="space-y-4 font-sans text-slate-200">
+      {/* 1. ÜST İSTATİSTİK KARTLARI (Seyir Terası Sade Kart Stili) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Bugünkü Ziyaret */}
+        <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
+          <div className="w-11 h-11 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center shrink-0">
+            <Eye className="w-5 h-5" />
           </div>
-          <div className="mt-2">
-            <p className="text-2xl font-black text-white">{summary?.liveLast15Min ?? 0}</p>
-            <p className="text-[10px] font-semibold text-emerald-400">Aktif Tekil IP</p>
-          </div>
-        </div>
-
-        {/* Yabancı IP Trafiği */}
-        <div className="rounded-2xl bg-[#12172b] border border-amber-500/20 bg-amber-500/[0.02] p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-amber-300">Yabancı IP</span>
-            <Globe className="w-4 h-4 text-amber-400" />
-          </div>
-          <div className="mt-2">
-            <p className="text-2xl font-black text-amber-400">{summary?.foreignToday ?? 0}</p>
-            <p className="text-[10px] font-semibold text-amber-300/80">%{foreignPercent} yurt dışı</p>
+          <div>
+            <b className="text-2xl font-black text-white block leading-none">
+              {summary?.totalToday ?? 0}
+            </b>
+            <span className="text-xs font-semibold text-slate-400">Bugünkü Ziyaret</span>
           </div>
         </div>
 
-        {/* Toplam Günlük İstek */}
-        <div className="rounded-2xl bg-[#12172b] border border-white/5 p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400">Bugün Toplam</span>
-            <Activity className="w-4 h-4 text-sky-400" />
+        {/* Tekil Ziyaretçi */}
+        <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
+          <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5" />
           </div>
-          <div className="mt-2">
-            <p className="text-2xl font-black text-white">{summary?.totalToday ?? 0}</p>
-            <p className="text-[10px] font-semibold text-slate-400">{summary?.uniqueIpsToday ?? 0} Tekil IP</p>
-          </div>
-        </div>
-
-        {/* Gerçek İnsan */}
-        <div className="rounded-2xl bg-[#12172b] border border-white/5 p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400">İnsan Trafiği</span>
-            <User className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="mt-2">
-            <p className="text-2xl font-black text-emerald-400">{summary?.humanToday ?? 0}</p>
-            <p className="text-[10px] font-semibold text-slate-400">Kullanıcı & Esnaf</p>
+          <div>
+            <b className="text-2xl font-black text-white block leading-none">
+              {summary?.uniqueIpsToday ?? 0}
+            </b>
+            <span className="text-xs font-semibold text-slate-400">Tekil Kişi / IP</span>
           </div>
         </div>
 
-        {/* Bot & Arama Motoru */}
-        <div className="rounded-2xl bg-[#12172b] border border-white/5 p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400">Botlar</span>
-            <Bot className="w-4 h-4 text-violet-400" />
+        {/* Canlı & Gerçek İnsan */}
+        <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
+          <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+            <Activity className="w-5 h-5" />
           </div>
-          <div className="mt-2">
-            <p className="text-2xl font-black text-violet-400">{summary?.botToday ?? 0}</p>
-            <p className="text-[10px] font-semibold text-slate-400">Google, Yandex vb.</p>
+          <div>
+            <div className="flex items-center gap-2">
+              <b className="text-2xl font-black text-white block leading-none">
+                {summary?.humanToday ?? 0}
+              </b>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {summary?.liveLast15Min ?? 0} aktif
+              </span>
+            </div>
+            <span className="text-xs font-semibold text-slate-400">Gerçek Müşteri / Esnaf</span>
           </div>
         </div>
 
-        {/* Şüpheli / Güvenlik Taramaları */}
-        <div className="rounded-2xl bg-[#12172b] border border-rose-500/20 bg-rose-500/[0.02] p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-rose-300">Güvenlik</span>
-            <ShieldAlert className="w-4 h-4 text-rose-400" />
+        {/* Engellenen IP'ler */}
+        <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
+          <div className="w-11 h-11 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
+            <ShieldX className="w-5 h-5" />
           </div>
-          <div className="mt-2">
-            <p className="text-2xl font-black text-rose-400">{summary?.suspiciousToday ?? 0}</p>
-            <p className="text-[10px] font-semibold text-rose-300/80">{blockedIps.length} Engelli IP</p>
+          <div>
+            <b className="text-2xl font-black text-white block leading-none">
+              {blockedIps.length}
+            </b>
+            <span className="text-xs font-semibold text-slate-400">Engelli Zararlı IP</span>
           </div>
         </div>
       </div>
 
-      {/* 2. ÜLKELER DAĞILIMI VE KATEGORİ DAĞILIMI BİLGİ BANDI */}
-      {summary && summary.topCountries && summary.topCountries.length > 0 && (
-        <div className="rounded-2xl bg-[#12172b] border border-white/5 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-black text-slate-300 flex items-center gap-2">
-              <Globe className="w-3.5 h-3.5 text-amber-400" />
-              Ülkelere Göre Ziyaretçi Dağılımı (Cloudflare Anlık Tespiti)
-            </h3>
-            <span className="text-[10px] font-semibold text-slate-500">Ülkeye tıklayarak anında filtreleyebilirsiniz</span>
-          </div>
+      {/* 2. SADE KONTROL VE FİLTRE ÇUBUĞU */}
+      <div className="bg-[#12172b] border border-white/5 rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Sekme Butonları */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setFilterMode('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              filterMode === 'all'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            Tüm Ziyaretler ({summary?.totalToday ?? 0})
+          </button>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-            {summary.topCountries.map((c) => (
-              <button
-                key={c.code}
-                type="button"
-                onClick={() => {
-                  setSearch(c.code);
-                  loadData();
-                }}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                  search.toUpperCase() === c.code
-                    ? 'bg-amber-500/20 border-amber-500 text-white'
-                    : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.06] text-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xl leading-none">{c.flag}</span>
-                  <span className="text-[10px] font-black font-mono text-slate-400">{c.code}</span>
-                </div>
-                <p className="mt-1.5 text-xs font-black truncate">{c.name}</p>
-                <div className="mt-1 flex items-baseline justify-between text-[10px]">
-                  <span className="font-bold text-white">{c.count} hit</span>
-                  <span className="text-slate-500">%{c.percentage}</span>
-                </div>
-                {/* Progress bar */}
-                <div className="mt-1.5 w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${c.code === 'TR' ? 'bg-emerald-400' : 'bg-amber-400'}`}
-                    style={{ width: `${Math.min(100, c.percentage)}%` }}
-                  />
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+          <button
+            type="button"
+            onClick={() => setFilterMode('human')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              filterMode === 'human'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            👤 Gerçek Kişiler ({summary?.humanToday ?? 0})
+          </button>
 
-      {/* 3. FİLTRE VE ARAMA KONTROLLERİ */}
-      <div className="rounded-2xl bg-[#12172b] border border-white/5 p-4 space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Filtre Butonları */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              { id: 'all', label: 'Tüm Ziyaretler', count: summary?.totalToday },
-              { id: 'foreign', label: '🌍 Yalnızca Yabancı IP', count: summary?.foreignToday, highlight: 'text-amber-400' },
-              { id: 'human', label: '👤 İnsan Trafiği', count: summary?.humanToday },
-              { id: 'bots', label: '🤖 Bot & Arama Motoru', count: summary?.botToday },
-              { id: 'customers', label: '✂️ Randevu & Menü (/r/ & /m/)' },
-              { id: 'suspicious', label: '⚠️ Güvenlik Taramaları', count: summary?.suspiciousToday, highlight: 'text-rose-400' },
-              { id: 'blocked', label: `🚫 Engellenen IP'ler (${blockedIps.length})` },
-            ].map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilterMode(f.id as FilterMode)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                  filterMode === f.id
-                    ? 'bg-amber-500 text-white shadow-md'
-                    : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <span>{f.label}</span>
-                {typeof f.count === 'number' && f.count > 0 && (
-                  <span className="ml-1.5 px-1.5 py-0.2 rounded-md bg-white/20 text-[10px]">
-                    {f.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => setFilterMode('foreign')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              filterMode === 'foreign'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            🌍 Yabancı IP ({summary?.foreignToday ?? 0})
+          </button>
 
-          {/* Yenileme & Otomatik Akış Kontrolleri */}
-          <div className="flex items-center gap-2 self-end lg:self-auto shrink-0">
-            <span className="text-[11px] font-semibold text-slate-400">Oto Yenile:</span>
-            <select
-              value={autoRefreshInterval}
-              onChange={(e) => setAutoRefreshInterval(Number(e.target.value))}
-              aria-label="Otomatik yenileme aralığı"
-              className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
-            >
-              <option value={0} className="bg-[#12172b]">Kapalı</option>
-              <option value={5} className="bg-[#12172b]">5 saniye</option>
-              <option value={10} className="bg-[#12172b]">10 saniye</option>
-              <option value={30} className="bg-[#12172b]">30 saniye</option>
-            </select>
-
-            <button
-              type="button"
-              onClick={() => loadData()}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-black transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Yenile</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setFilterMode('blocked')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              filterMode === 'blocked'
+                ? 'bg-rose-500 text-white shadow-sm'
+                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            🚫 Engellenenler ({blockedIps.length})
+          </button>
         </div>
 
-        {/* Arama Alanı */}
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') loadData(); }}
-            placeholder="IP adresi, ülke (örn: US, DE), taranan sayfa (/r/..., /wp-login) veya tarayıcı ara..."
-            className="w-full rounded-xl bg-white/5 border border-white/10 pl-9 pr-20 py-2.5 text-xs font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => { setSearch(''); setTimeout(() => loadData(), 50); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-white"
-            >
-              Temizle
-            </button>
-          )}
+        {/* Arama ve Yenile */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') loadData(); }}
+              placeholder="IP, ülke veya sayfa ara..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            title={autoRefresh ? 'Canlı akış açık (10 sn)' : 'Canlı akış duraklatıldı'}
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer flex items-center gap-1.5 ${
+              autoRefresh
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                : 'bg-white/5 border-white/10 text-slate-400'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+            <span className="hidden sm:inline">Canlı</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => loadData()}
+            disabled={loading}
+            className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Yenile</span>
+          </button>
         </div>
       </div>
 
-      {/* 4. ENGELLENEN IP'LER YÖNETİM MODU */}
+      {/* 3. ENGELLENEN IP'LER MODU */}
       {filterMode === 'blocked' ? (
-        <div className="rounded-2xl bg-[#12172b] border border-white/5 p-5 space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
             <div>
-              <h3 className="text-sm font-black text-white flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Ban className="w-4 h-4 text-rose-400" />
-                Engellenen Zararlı / Yabancı IP Adresleri
+                Engellenen IP Adresleri ({blockedIps.length})
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Bu listedeki IP adreslerinin sunucuya yaptığı tüm istekler anında 403 Forbidden ile engellenir.
+                Bu IP'ler siteye erişemez, istekleri anında 403 Forbidden ile kesilir.
               </p>
             </div>
           </div>
 
-          {/* Manuel IP Ekleme Formu */}
-          <form onSubmit={handleManualBlock} className="flex flex-col sm:flex-row gap-2 pt-2">
+          {/* Manuel IP Engelleme Formu */}
+          <form onSubmit={handleManualBlock} className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={manualBlockIp}
               onChange={(e) => setManualBlockIp(e.target.value)}
-              placeholder="Engellenecek IP (örn: 198.51.100.42)"
-              className="flex-1 rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
+              placeholder="Engellenecek IP (örn: 169.40.142.177)"
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-rose-500"
             />
             <input
               type="text"
               value={manualBlockReason}
               onChange={(e) => setManualBlockReason(e.target.value)}
-              placeholder="Engelleme nedeni (örn: Port taraması, Brute-force)"
-              className="flex-1 rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-xs font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
+              placeholder="Engelleme sebebi (örn: Güvenlik taraması)"
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-rose-500"
             />
             <button
               type="submit"
               disabled={blockBusy || !manualBlockIp.trim()}
-              className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-black transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0"
+              className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 shrink-0"
             >
-              <Ban className="w-3.5 h-3.5" />
-              <span>IP'yi Engelle</span>
+              IP'yi Engelle
             </button>
           </form>
 
-          {/* Engelli Liste */}
-          <div className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden mt-3">
-            {blockedIps.length === 0 ? (
-              <p className="p-6 text-center text-xs text-slate-500 font-semibold">
-                Henüz engellenmiş bir IP adresi bulunmuyor.
-              </p>
-            ) : (
-              blockedIps.map((b) => (
-                <div key={b.ip} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-white/[0.02]">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-2 h-2 rounded-full bg-rose-500" />
-                    <span className="font-mono font-black text-rose-300 text-xs">{b.ip}</span>
-                    {b.country && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-white/5 font-semibold text-slate-300">
-                        {b.country}
-                      </span>
-                    )}
-                    <span className="text-xs text-slate-400">{b.reason}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-slate-500">{formatRelativeTime(b.blockedAt)}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleUnblockIp(b.ip)}
-                      disabled={blockBusy}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-black transition-colors cursor-pointer"
-                    >
-                      Engeli Kaldır
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+          {/* Engelli IP Tablosu */}
+          <div className="overflow-x-auto border border-white/5 rounded-xl">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-white/[0.03] text-slate-400 font-bold border-b border-white/5">
+                  <th className="py-2.5 px-3">IP Adresi</th>
+                  <th className="py-2.5 px-3">Ülke</th>
+                  <th className="py-2.5 px-3">Engelleme Sebebi</th>
+                  <th className="py-2.5 px-3">Tarih</th>
+                  <th className="py-2.5 px-3 text-right">İşlem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 font-medium">
+                {blockedIps.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-slate-500">
+                      Henüz engellenmiş bir IP adresi yok.
+                    </td>
+                  </tr>
+                ) : (
+                  blockedIps.map((b) => (
+                    <tr key={b.ip} className="hover:bg-white/[0.02]">
+                      <td className="py-2.5 px-3 font-mono font-bold text-rose-300">{b.ip}</td>
+                      <td className="py-2.5 px-3">{b.country || '-'}</td>
+                      <td className="py-2.5 px-3 text-slate-300">{b.reason}</td>
+                      <td className="py-2.5 px-3 text-slate-400">{formatTarihSaat(b.blockedAt).tarih} {formatTarihSaat(b.blockedAt).saat}</td>
+                      <td className="py-2.5 px-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleUnblockIp(b.ip)}
+                          disabled={blockBusy}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-bold transition-colors cursor-pointer"
+                        >
+                          Engeli Kaldır
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       ) : (
-        /* 5. CANLI ZİYARETÇİ VE YABANCI IP TABLOSU */
-        <div className="rounded-2xl bg-[#12172b] border border-white/5 overflow-hidden">
-          <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
-            <p className="text-xs font-black text-slate-300">
-              Son Ziyaret Akışı ({records.length} istek gösteriliyor)
-            </p>
-            <span className="text-[10px] font-semibold text-slate-500">
-              Sayfa tıklamaları, yabancı IP'ler ve tarayıcı detayları
+        /* 4. SEYİR TERASI STİLİ SADE ZİYARETÇİ TABLOSU */
+        <div className="bg-[#12172b] border border-white/5 rounded-2xl overflow-hidden shadow-sm">
+          <div className="p-3.5 sm:px-4 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+            <h3 className="text-xs font-bold text-slate-300 flex items-center gap-2">
+              <Activity className="w-3.5 h-3.5 text-amber-400" />
+              <span>Son Ziyaretler ({records.length} kayıt)</span>
+            </h3>
+            <span className="text-[11px] text-slate-500">
+              Kim, nereden, hangi sayfayı ziyaret etti
             </span>
           </div>
 
-          {records.length === 0 && !loading && (
-            <div className="p-12 text-center space-y-2">
-              <Globe className="w-8 h-8 text-slate-600 mx-auto" />
-              <p className="text-xs font-bold text-slate-400">Bu filtrelere uygun ziyaret kaydı bulunamadı.</p>
-              <p className="text-[11px] text-slate-500">Filtreleri temizleyerek tüm site trafiğini görebilirsiniz.</p>
-            </div>
-          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse min-w-[720px]">
+              <thead>
+                <tr className="bg-white/[0.02] text-slate-400 text-[11px] font-bold border-b border-white/5">
+                  <th className="py-2.5 px-3.5 w-32">Tarih / Saat</th>
+                  <th className="py-2.5 px-3.5 w-56">Kim / Nereden (IP & Ülke)</th>
+                  <th className="py-2.5 px-3.5">Ziyaret Edilen Sayfa</th>
+                  <th className="py-2.5 px-3.5 w-40">Nereden Geldi</th>
+                  <th className="py-2.5 px-3.5 w-36">Cihaz / Tarayıcı</th>
+                  <th className="py-2.5 px-3.5 w-28 text-right">İşlem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {records.length === 0 && !loading ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-slate-500">
+                      Bu filtreye uygun ziyaret kaydı bulunamadı.
+                    </td>
+                  </tr>
+                ) : (
+                  records.map((r) => {
+                    const blocked = isBlocked(r.ip);
+                    const isExpanded = expandedRowId === r.id;
+                    const zaman = formatTarihSaat(r.timestamp);
+                    const sayfa = formatSayfaAdi(r.path);
+                    const nereden = formatReferrer(r.referer);
 
-          <div className="divide-y divide-white/5">
-            {records.map((r) => {
-              const blocked = isBlocked(r.ip);
-              return (
-                <div
-                  key={r.id}
-                  className={`p-3.5 sm:px-4 text-xs transition-colors hover:bg-white/[0.03] ${
-                    r.isSuspicious ? 'bg-rose-500/[0.04]' : r.isForeign ? 'bg-amber-500/[0.02]' : ''
-                  }`}
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2">
-                    {/* Sol Kısım: Ülke, IP, Rozetler */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Ülke Bayrağı ve Kodu */}
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-slate-200 font-bold shrink-0">
-                        <span className="text-base leading-none">{r.countryFlag}</span>
-                        <span className="font-mono text-[11px]">{r.country}</span>
-                        <span className="text-slate-400 hidden sm:inline">({r.countryName})</span>
-                      </span>
-
-                      {/* IP Adresi ve Kopyalama */}
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(r.ip)}
-                        title="IP'yi panoya kopyala"
-                        className="inline-flex items-center gap-1 font-mono font-black text-white hover:text-amber-400 transition-colors cursor-pointer"
-                      >
-                        <span>{r.ip}</span>
-                        {copiedIp === r.ip ? (
-                          <Check className="w-3 h-3 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-3 h-3 text-slate-500 opacity-60" />
-                        )}
-                      </button>
-
-                      {/* Yabancı IP Rozeti */}
-                      {r.isForeign && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          Yabancı IP
-                        </span>
-                      )}
-
-                      {/* Bot / Tarayıcı Rozeti */}
-                      {r.isBot ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                          <Bot className="w-3 h-3" />
-                          <span>{r.botName || 'Bot'}</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
-                          {r.deviceType === 'mobile' ? (
-                            <Smartphone className="w-3 h-3" />
-                          ) : r.deviceType === 'tablet' ? (
-                            <Tablet className="w-3 h-3" />
-                          ) : (
-                            <Monitor className="w-3 h-3" />
-                          )}
-                          <span>{r.browser}</span>
-                        </span>
-                      )}
-
-                      {/* Şüpheli / Güvenlik Girişimi Rozeti */}
-                      {r.isSuspicious && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span>Tarama Tehdidi</span>
-                        </span>
-                      )}
-
-                      {/* Randevu / QR Menü Rozeti */}
-                      {r.category === 'barber' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                          Online Randevu Sayfası
-                        </span>
-                      )}
-                      {r.category === 'menu' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-500/20 text-orange-300 border border-orange-500/30">
-                          Müşteri QR Menü
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Sağ Kısım: Zaman, Yanıt Kodu, Aksiyon */}
-                    <div className="flex items-center gap-2 self-start lg:self-auto shrink-0">
-                      {/* Durum Kodu */}
-                      <span
-                        className={`font-mono text-[11px] font-black px-1.5 py-0.5 rounded ${
-                          r.statusCode >= 200 && r.statusCode < 300
-                            ? 'bg-emerald-500/20 text-emerald-300'
-                            : r.statusCode >= 300 && r.statusCode < 400
-                            ? 'bg-sky-500/20 text-sky-300'
-                            : r.statusCode === 403
-                            ? 'bg-rose-500/20 text-rose-400'
-                            : 'bg-zinc-700/50 text-slate-300'
-                        }`}
-                      >
-                        {r.statusCode}
-                      </span>
-
-                      <span className="text-[10px] font-mono text-slate-500">
-                        {r.durationMs}ms
-                      </span>
-
-                      <span className="text-[11px] font-semibold text-slate-400">
-                        {formatRelativeTime(r.timestamp)}
-                      </span>
-
-                      {/* Engelleme Aksiyonu */}
-                      {blocked ? (
-                        <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-black">
-                          Engellendi
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleBlockIp(r.ip, r.country, `Şüpheli yabancı istek: ${r.path}`)}
-                          className="px-2 py-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-[10px] font-black transition-colors cursor-pointer"
-                          title="Bu IP adresinin siteye erişimini engelle"
+                    return (
+                      <React.Fragment key={r.id}>
+                        <tr
+                          onClick={() => setExpandedRowId(isExpanded ? null : r.id)}
+                          className={`hover:bg-white/[0.03] transition-colors cursor-pointer ${
+                            r.isSuspicious
+                              ? 'bg-rose-500/[0.03]'
+                              : r.isForeign
+                              ? 'bg-amber-500/[0.015]'
+                              : ''
+                          }`}
                         >
-                          Engelle
-                        </button>
-                      )}
+                          {/* 1. Tarih / Saat */}
+                          <td className="py-2.5 px-3.5 align-middle whitespace-nowrap">
+                            <span className="font-bold text-white block leading-tight">
+                              {zaman.saat}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              {zaman.tarih} ({zaman.goreceli})
+                            </span>
+                          </td>
 
-                      {/* İncele Butonu */}
-                      <button
-                        type="button"
-                        onClick={() => setSelectedRecord(selectedRecord?.id === r.id ? null : r)}
-                        className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 text-[10px] font-black transition-colors cursor-pointer"
-                      >
-                        {selectedRecord?.id === r.id ? 'Kapat' : 'Detay'}
-                      </button>
-                    </div>
-                  </div>
+                          {/* 2. Kim / Nereden (IP & Ülke) */}
+                          <td className="py-2.5 px-3.5 align-middle">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base leading-none" title={r.countryName}>
+                                {r.countryFlag}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      copyToClipboard(r.ip);
+                                    }}
+                                    title="IP'yi kopyala"
+                                    className="font-mono font-bold text-white hover:text-amber-400 transition-colors inline-flex items-center gap-1"
+                                  >
+                                    <span>{r.ip}</span>
+                                    {copiedIp === r.ip ? (
+                                      <Check className="w-3 h-3 text-emerald-400" />
+                                    ) : (
+                                      <Copy className="w-2.5 h-2.5 text-slate-500 opacity-60" />
+                                    )}
+                                  </button>
+                                  {r.isForeign && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-500/20 text-amber-300">
+                                      Yabancı
+                                    </span>
+                                  )}
+                                  {r.isSuspicious && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-500/20 text-rose-300">
+                                      Tarama
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-slate-400 block truncate">
+                                  {r.countryName || r.country}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
 
-                  {/* İstek Satırı: Metot & Yol */}
-                  <div className="mt-2 flex items-baseline gap-2">
-                    <span className="text-[10px] font-mono font-black text-slate-500 uppercase shrink-0">
-                      {r.method}
-                    </span>
-                    <a
-                      href={r.path.startsWith('http') ? r.path : r.path}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-xs text-amber-300/90 hover:text-amber-200 hover:underline truncate max-w-2xl"
-                    >
-                      {r.path}
-                    </a>
-                    {r.referer && (
-                      <span className="text-[10px] text-slate-500 truncate hidden sm:inline">
-                        (Ref: {r.referer})
-                      </span>
-                    )}
-                  </div>
+                          {/* 3. Ziyaret Edilen Sayfa */}
+                          <td className="py-2.5 px-3.5 align-middle">
+                            <div className="max-w-md">
+                              <span className="font-bold text-amber-300/90 block truncate leading-tight">
+                                {sayfa.baslik}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-500 truncate block">
+                                {r.method} {sayfa.altYol}
+                              </span>
+                            </div>
+                          </td>
 
-                  {/* Detay Açılır Paneli */}
-                  {selectedRecord?.id === r.id && (
-                    <div className="mt-3 p-3 rounded-xl bg-black/40 border border-white/5 space-y-2 text-[11px] font-mono">
-                      <div className="grid sm:grid-cols-2 gap-2 text-slate-300">
-                        <div>
-                          <span className="text-slate-500">İşletim Sistemi:</span> {r.os}
-                        </div>
-                        <div>
-                          <span className="text-slate-500">Tarayıcı:</span> {r.browser}
-                        </div>
-                        <div>
-                          <span className="text-slate-500">Zaman Damgası:</span> {new Date(r.timestamp).toLocaleString('tr-TR')}
-                        </div>
-                        <div>
-                          <span className="text-slate-500">Kategori:</span> {r.category}
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-white/5 break-all">
-                        <span className="text-slate-500">Tam User-Agent:</span>{' '}
-                        <span className="text-slate-300">{r.userAgent || 'Yok'}</span>
-                      </div>
-                      {r.referer && (
-                        <div className="break-all">
-                          <span className="text-slate-500">Geliş Kaynağı (Referer):</span>{' '}
-                          <span className="text-slate-300">{r.referer}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                          {/* 4. Nereden Geldi (Kaynak / Referrer) */}
+                          <td className="py-2.5 px-3.5 align-middle whitespace-nowrap">
+                            <span className="text-slate-300 block truncate font-medium">
+                              {nereden}
+                            </span>
+                          </td>
+
+                          {/* 5. Cihaz / Tarayıcı */}
+                          <td className="py-2.5 px-3.5 align-middle whitespace-nowrap">
+                            <div className="flex items-center gap-1.5 text-slate-300">
+                              {r.isBot ? (
+                                <span className="text-violet-400 font-bold text-[11px]">
+                                  🤖 {r.botName || 'Bot'}
+                                </span>
+                              ) : (
+                                <>
+                                  {r.deviceType === 'mobile' ? (
+                                    <Smartphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  ) : r.deviceType === 'tablet' ? (
+                                    <Tablet className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                  ) : (
+                                    <Monitor className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  )}
+                                  <span className="text-[11px]">
+                                    {r.browser || 'Web'}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 6. İşlem & Durum */}
+                          <td className="py-2.5 px-3.5 align-middle text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <span
+                                className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                                  r.statusCode >= 200 && r.statusCode < 300
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : r.statusCode === 403
+                                    ? 'bg-rose-500/20 text-rose-300'
+                                    : 'bg-white/10 text-slate-400'
+                                }`}
+                              >
+                                {r.statusCode}
+                              </span>
+
+                              {blocked ? (
+                                <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">
+                                  Engelli
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleBlockIp(r.ip, r.country, `Admin engeli: ${r.path}`)}
+                                  disabled={blockBusy}
+                                  className="px-2 py-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-[10px] font-bold transition-colors cursor-pointer"
+                                  title="Bu IP'yi engelle"
+                                >
+                                  Engelle
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => setExpandedRowId(isExpanded ? null : r.id)}
+                                className="p-1 rounded text-slate-500 hover:text-white transition-colors"
+                                title="Detayları Göster"
+                              >
+                                {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Açılır Ayrıntı Satırı */}
+                        {isExpanded && (
+                          <tr className="bg-black/30 border-b border-white/5">
+                            <td colSpan={6} className="py-2.5 px-4 text-[11px] font-mono text-slate-400">
+                              <div className="flex flex-wrap gap-x-6 gap-y-1">
+                                <div><b className="text-slate-500">Tam Yol:</b> <span className="text-white">{r.path}</span></div>
+                                <div><b className="text-slate-500">İşletim Sistemi:</b> <span className="text-slate-300">{r.os}</span></div>
+                                <div><b className="text-slate-500">Yanıt Süresi:</b> <span className="text-slate-300">{r.durationMs}ms</span></div>
+                                {r.referer && <div><b className="text-slate-500">Tam Referer:</b> <span className="text-slate-300">{r.referer}</span></div>}
+                                <div className="w-full text-[10px] text-slate-500 truncate pt-1">
+                                  <b>User-Agent:</b> {r.userAgent}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
