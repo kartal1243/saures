@@ -45,6 +45,7 @@ import {
   Users,
   Star,
   Flame,
+  Share2,
 } from 'lucide-react';
 import type {
   Appointment,
@@ -2027,37 +2028,38 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             </div>
 
             {isVip ? (
-              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-400 font-bold">
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-emerald-400 font-bold">
                 <span className="flex items-center gap-2">
-                  <Crown className="w-4 h-4 text-amber-400 fill-amber-400" />
-                  <span>VIP Aktif: Online Randevu Alımı Açık (7/24 Randevu Kabul Ediliyor)</span>
+                  <Crown className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
+                  <span>👑 Patron VIP: Sınırsız 7/24 Online Randevu &amp; Koltuk Dağılımı Aktif</span>
                 </span>
-                <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">Aktif</span>
+                <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 self-start sm:self-auto">Sınırsız</span>
               </div>
             ) : (
-              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs text-amber-300 font-bold">
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-300 font-bold">
                 <span className="flex items-center gap-2">
-                  <Crown className="w-4 h-4 text-amber-400" />
-                  <span>Online Randevu Sistemi VIP Özelliktir (Şu an kilitli)</span>
+                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>🎁 Çırak Paketi: Ayda 20 Ücretsiz Online Randevu Açık ve Kullanıma Hazır!</span>
                 </span>
                 <button
                   type="button"
                   onClick={onOpenVip}
-                  className="px-2.5 py-1 rounded-xl bg-linear-to-r from-orange-500 to-amber-500 text-stone-950 text-xs font-black cursor-pointer hover:opacity-90"
+                  className="px-3 py-1 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-stone-950 text-xs font-black cursor-pointer hover:opacity-90 self-start sm:self-auto shrink-0 shadow-xs"
                 >
-                  VIP'ye Geç
+                  Sınırsız VIP'ye Geç →
                 </button>
               </div>
             )}
 
             <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
               <span className="text-xs font-mono text-stone-700 dark:text-stone-300 px-2 line-clamp-1 flex-1">
-                {window.location.origin}/r/{shopSlug}
+                {typeof window !== 'undefined' ? `${window.location.origin}/r/${shopSlug}` : `/r/${shopSlug}`}
               </span>
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/r/${shopSlug}`);
+                  const url = `${window.location.origin}/r/${shopSlug}`;
+                  navigator.clipboard.writeText(url);
                   alert('Randevu linki panoya kopyalandı!');
                 }}
                 className="px-3 py-1.5 rounded-xl bg-white dark:bg-stone-700 text-xs font-bold text-stone-800 dark:text-white hover:bg-stone-200 cursor-pointer flex items-center gap-1.5 shadow-xs shrink-0"
@@ -2070,10 +2072,72 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 target="_blank"
                 rel="noreferrer"
                 className="p-2 rounded-xl bg-amber-500 text-stone-950 hover:bg-amber-400 cursor-pointer shrink-0"
-                title="Müşteri Ekranını Aç"
+                title="Müşteri Ekranını Canlı Aç"
               >
                 <ExternalLink className="w-4 h-4" />
               </a>
+            </div>
+
+            {/* Müşterileri Toplama & Yayılım Araçları */}
+            <div className="space-y-2 pt-2 border-t border-stone-200 dark:border-stone-800">
+              <p className="text-xs font-black text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
+                <Share2 className="w-3.5 h-3.5 text-amber-500" />
+                <span>Müşterileri Buraya Çekme &amp; Duyuru Araçları:</span>
+              </p>
+
+              <div className="grid sm:grid-cols-3 gap-2">
+                {/* 1. WhatsApp Toplu Duyuru */}
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `Değerli müşterimiz, sıra beklemeden dilediğiniz gün ve saate randevunuzu 7/24 online olarak oluşturabilirsiniz:\n${typeof window !== 'undefined' ? window.location.origin : ''}/r/${shopSlug}`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2.5 rounded-2xl bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-black flex items-center gap-2 cursor-pointer transition-all"
+                  title="WhatsApp rehberinizdeki müşterilere duyuru mesajı gönderin"
+                >
+                  <MessageCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <div className="text-left">
+                    <p className="leading-tight">WhatsApp Duyurusu</p>
+                    <p className="text-[10px] font-normal opacity-80">Müşterilere mesaj at</p>
+                  </div>
+                </a>
+
+                {/* 2. Instagram Biyografi Linki */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/r/${shopSlug}`);
+                    alert('Instagram biyografi linki panoya kopyalandı!\n\nInstagram uygulamasında "Profili Düzenle > Bağlantılar > Bağlantı Ekle" kısmına bu linki yapıştırabilirsiniz.');
+                  }}
+                  className="p-2.5 rounded-2xl bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-600 dark:text-pink-400 text-xs font-black flex items-center gap-2 cursor-pointer transition-all text-left"
+                  title="Instagram profiline eklenecek linki kopyalar"
+                >
+                  <Camera className="w-4 h-4 text-pink-500 shrink-0" />
+                  <div>
+                    <p className="leading-tight">Instagram Biyografi</p>
+                    <p className="text-[10px] font-normal opacity-80">Bio için linki kopyala</p>
+                  </div>
+                </button>
+
+                {/* 3. SMS Duyuru Metni */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const smsText = `Değerli müşterimiz, ${storeName} salonumuzda sıra beklemeden online randevu alabilirsiniz: ${window.location.origin}/r/${shopSlug}`;
+                    navigator.clipboard.writeText(smsText);
+                    alert('SMS ve durum paylaşım metni panoya kopyalandı!');
+                  }}
+                  className="p-2.5 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-black flex items-center gap-2 cursor-pointer transition-all text-left"
+                  title="Müşterilere SMS göndermek için hazır metni kopyalar"
+                >
+                  <Copy className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div>
+                    <p className="leading-tight">SMS &amp; Durum Metni</p>
+                    <p className="text-[10px] font-normal opacity-80">Hazır metni kopyala</p>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 

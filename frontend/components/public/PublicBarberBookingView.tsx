@@ -88,6 +88,19 @@ const MONTHS_TR = [
   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
 ];
 
+function formatTurkishPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+  let d = digits;
+  if (d.startsWith('90')) d = d.slice(2);
+  if (!d.startsWith('0') && d.length > 0) d = '0' + d;
+  d = d.slice(0, 11);
+  if (d.length <= 4) return d;
+  if (d.length <= 7) return `${d.slice(0, 4)} ${d.slice(4)}`;
+  if (d.length <= 9) return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7, 9)} ${d.slice(9, 11)}`;
+}
+
 export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ identifier }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -461,7 +474,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       const res = await fetch('/api/public/barber/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone }),
+        body: JSON.stringify({ phone: cleanPhone, identifier }),
       });
       const resJson = await res.json();
       if (res.ok) {
@@ -705,37 +718,69 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
     );
   }
 
-  // VIP Paketi Olmayan İşletmeler İçin Paywall Ekranı
+  // VIP Paketi Olmayan veya Kontenjanı Dolan İşletmeler İçin İletişim Ekranı
   if ((data as any).vipRequired) {
+    const rawShopPhone = (data.shop.phone || '').replace(/\D/g, '');
+    const cleanShopPhone = rawShopPhone.startsWith('90') ? rawShopPhone.slice(2) : rawShopPhone;
+    const formattedPhone = cleanShopPhone.length >= 10 ? (cleanShopPhone.startsWith('0') ? cleanShopPhone : '0' + cleanShopPhone) : (data.shop.phone || '');
+    const whatsappShopUrl = `https://wa.me/90${cleanShopPhone.replace(/^0/, '')}?text=${encodeURIComponent(
+      `Merhaba ${data.shop.storeName}, online randevu kontenjanı dolduğu için doğrudan yazıyorum. Müsait bir gün ve saat için randevu alabilir miyim?`
+    )}`;
+
     return (
       <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-full max-w-md bg-stone-900/90 border border-amber-500/30 rounded-3xl p-8 shadow-2xl space-y-5 animate-in zoom-in-95">
+        <div className="w-full max-w-md bg-stone-900/95 border border-amber-500/30 rounded-3xl p-8 shadow-2xl space-y-6 animate-in zoom-in-95">
           <div className="w-16 h-16 rounded-3xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/10">
-            <Crown className="w-8 h-8" />
+            <Calendar className="w-8 h-8" />
           </div>
           <div className="space-y-2">
             <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              VIP Randevu Sistemi
+              Yoğun Talep · Kontenjan Dolu
             </span>
             <h2 className="text-2xl font-black text-white">{data.shop.storeName}</h2>
-            <p className="text-sm text-stone-400 leading-relaxed">
-              Bu kuaför salonunun 7/24 Online Randevu Sistemi henüz aktif edilmemiştir.
+            <p className="text-xs text-stone-400 leading-relaxed">
+              Bu salonun bu ayki online randevu kapasitesi dolmuştur. Sıra beklemeden randevunuzu oluşturmak için salonu doğrudan arayabilir veya WhatsApp üzerinden yazabilirsiniz:
             </p>
           </div>
-          <div className="p-4 rounded-2xl bg-stone-950/70 border border-stone-800 text-left text-xs text-stone-300 space-y-2">
+
+          <div className="space-y-2.5 pt-1">
+            {formattedPhone && (
+              <a
+                href={`tel:${formattedPhone}`}
+                className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+              >
+                <Phone className="w-4 h-4 fill-stone-950" />
+                <span>Salonu Hemen Ara ({formattedPhone})</span>
+              </a>
+            )}
+
+            {cleanShopPhone && (
+              <a
+                href={whatsappShopUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20 transition-all active:scale-95"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>WhatsApp ile Hızlı Randevu İste</span>
+              </a>
+            )}
+          </div>
+
+          <div className="p-4 rounded-2xl bg-stone-950/70 border border-stone-800 text-left text-xs text-stone-400 space-y-1.5">
             <p className="font-bold text-amber-400 flex items-center gap-1.5">
               <span>👑</span> İşletme Sahibi misiniz?
             </p>
-            <p className="text-stone-400">
-              Dükkanım Yanımda panelinizden VIP paketi açarak tezgâh QR standınızı ve müşterilerinize özel randevu linkinizi saniyeler içinde aktif edebilirsiniz.
+            <p className="text-[11px] text-stone-400">
+              Bu salon sizin işletmenizse, online randevu kontenjanınızı sınırsıza yükseltmek için Dükkânım Yanımda panelinizden VIP Pakete geçebilirsiniz.
             </p>
+            <a
+              href="/"
+              className="inline-block text-[11px] font-bold text-amber-400 hover:underline pt-1"
+            >
+              Yönetim Paneline Giriş Yap →
+            </a>
           </div>
-          <a
-            href="/"
-            className="w-full block py-3 rounded-2xl bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-stone-950 font-black text-sm shadow-lg transition-transform active:scale-95"
-          >
-            Yönetim Paneline Giriş Yap
-          </a>
         </div>
       </div>
     );
@@ -746,6 +791,26 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
   // ==========================================
   if (bookingSuccess) {
     const apt = bookingSuccess.appointment;
+    const startIso = `${apt.appointmentDate.replace(/-/g, '')}T${apt.timeSlot.replace(':', '')}00`;
+    const endMinutes = timeToMinutes(apt.timeSlot) + (apt.durationMinutes || 30);
+    const endIso = `${apt.appointmentDate.replace(/-/g, '')}T${minutesToTime(endMinutes).replace(':', '')}00`;
+
+    const shopLocation = [data?.shop.storeName, data?.shop.cityDistrict].filter(Boolean).join(', ');
+
+    const googleCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+      (data?.shop.storeName || 'Kuaför') + ' Randevusu'
+    )}&dates=${startIso}/${endIso}&details=${encodeURIComponent(
+      `Hizmetler: ${apt.serviceName}\nPersonel: ${apt.staffName}\nÜcret: ₺${apt.price}`
+    )}&location=${encodeURIComponent(shopLocation)}`;
+
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      shopLocation || data?.shop.storeName || 'Kuaför'
+    )}`;
+
+    const friendShareUrl = `https://wa.me/?text=${encodeURIComponent(
+      `Selam! Ben ${data?.shop.storeName} salonundan sıra beklemeden online randevumu aldım, sen de buradan gün ve saatini seçip kolayca randevu alabilirsin: ${window.location.origin}/r/${data?.shop.slug}`
+    )}`;
+
     return (
       <div className="min-h-screen bg-stone-950 text-stone-100 p-4 sm:p-6 flex flex-col items-center justify-center">
         <div className="w-full max-w-md bg-stone-900 border border-stone-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-6 animate-in zoom-in-95">
@@ -786,26 +851,63 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
           </div>
 
           {/* Eylem Butonları */}
-          <div className="space-y-3 pt-2">
-            <button
-              onClick={downloadIcsFile}
-              className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-amber-500/20 active:scale-98"
-            >
-              <CalendarPlus className="w-4 h-4 stroke-[2.5]" />
-              <span>Takvimime Ekle (.ics İndir)</span>
-            </button>
+          <div className="space-y-2.5 pt-2">
+            {/* 1. Google Takvim (1 Tık) & .ics İndir */}
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={googleCalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="py-3 px-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md active:scale-98"
+              >
+                <CalendarPlus className="w-3.5 h-3.5" />
+                <span>Google Takvime Ekle</span>
+              </a>
 
+              <button
+                onClick={downloadIcsFile}
+                className="py-3 px-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Apple (.ics İndir)</span>
+              </button>
+            </div>
+
+            {/* 2. WhatsApp'tan Salona Yaz */}
             {bookingSuccess.whatsappUrl && (
               <a
                 href={bookingSuccess.whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-emerald-600/20 active:scale-98"
+                className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-emerald-600/20 active:scale-98"
               >
                 <Share2 className="w-4 h-4" />
-                <span>WhatsApp'tan Salona Yaz / Paylaş</span>
+                <span>WhatsApp'tan Salona Randevuyu Bildir</span>
               </a>
             )}
+
+            {/* 3. Haritada Gör & Arkadaşına Tavsiye Et */}
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="py-2.5 px-3 rounded-2xl bg-stone-900 border border-stone-800 hover:border-stone-700 text-stone-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+              >
+                <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                <span>Haritada Konum</span>
+              </a>
+
+              <a
+                href={friendShareUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="py-2.5 px-3 rounded-2xl bg-stone-900 border border-stone-800 hover:border-stone-700 text-stone-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Arkadaşa Öner</span>
+              </a>
+            </div>
 
             <button
               onClick={() => {
@@ -813,7 +915,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                 setCurrentStep(1);
                 setSelectedServiceIds([]);
               }}
-              className="w-full py-2.5 text-xs text-stone-400 hover:text-white transition-colors cursor-pointer"
+              className="w-full py-2 text-xs text-stone-400 hover:text-white transition-colors cursor-pointer"
             >
               Yeni Bir Randevu Al
             </button>
@@ -1245,7 +1347,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                     type="tel"
                     required
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(formatTurkishPhone(e.target.value))}
                     placeholder="05XX XXX XX XX"
                     className="w-full pl-10 pr-3.5 py-3 rounded-xl border border-stone-700 bg-stone-950 text-white text-sm font-semibold focus:outline-hidden focus:border-amber-500"
                   />

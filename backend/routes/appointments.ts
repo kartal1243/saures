@@ -280,7 +280,8 @@ export function registerPublicBarberRoutes(app: Express): void {
     const whatsappText = encodeURIComponent(`Dükkânım Yanımda Randevu Onay Kodunuz: ${code}`);
     const whatsappLink = `https://wa.me/90${cleanNumber}?text=${whatsappText}`;
 
-    const isDemo = cleanPhone === '05900000011' || cleanPhone === '05550000000' || process.env.NODE_ENV !== 'production';
+    const identifier = String(req.body?.identifier || '').toLowerCase().trim();
+    const isDemo = cleanPhone === '05900000011' || cleanPhone === '05550000000' || identifier === 'demo' || process.env.NODE_ENV !== 'production';
 
     res.json({
       success: true,
@@ -573,7 +574,8 @@ export function registerPublicBarberRoutes(app: Express): void {
       `Merhaba ${storeTitle}, ${date} saat ${timeSlot} için "${newAppointment.serviceName}" randevumu oluşturdum. Bilgilerinize sunarım. Ad Soyad: ${newAppointment.customerName}`
     );
     const shopPhone = normalizePhone(shopState.shopProfile?.phone || account.phone);
-    const whatsappUrl = `https://wa.me/90${shopPhone.replace(/^0/, '')}?text=${whatsappMessage}`;
+    const cleanShopPhone = shopPhone ? shopPhone.replace(/^0/, '') : '';
+    const whatsappUrl = cleanShopPhone ? `https://wa.me/90${cleanShopPhone}?text=${whatsappMessage}` : undefined;
 
     res.json({
       success: true,
