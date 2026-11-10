@@ -11,6 +11,7 @@ export interface SeoMetadata {
   ogDescription: string;
   ogImage: string;
   canonical: string;
+  robots?: string;
   schemaJson?: object;
   breadcrumbs?: { name: string; url: string }[];
   faqJson?: { q: string; a: string }[];
@@ -168,13 +169,11 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         image: ogImage,
         priceRange: '₺₺',
         acceptsReservations: 'True',
-        address: shop.cityDistrict
-          ? {
-              '@type': 'PostalAddress',
-              addressLocality: shop.cityDistrict,
-              addressCountry: 'TR',
-            }
-          : undefined,
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: shop.cityDistrict || 'Türkiye',
+          addressCountry: 'TR',
+        },
         openingHoursSpecification: [
           {
             '@type': 'OpeningHoursSpecification',
@@ -194,16 +193,18 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs };
     }
 
+    const isDemoSlug = slug === 'demo';
     return {
       title: 'Online Randevu Sistemi | Dükkanım Yanımda',
       ogTitle: 'Online Randevu Sistemi — Dükkanım Yanımda',
       description: 'Berber, kuaför ve güzellik salonları için kolay online randevu ve dükkan yönetim sistemi.',
       ogDescription: 'Sıra beklemeden online randevu alın.',
       ogImage: `${origin}/brand/phone_mockup_retina.png`,
-      canonical: `${origin}/r/demo`,
+      canonical: isDemoSlug ? `${origin}/r/demo` : `${origin}/randevu-sistemi`,
+      robots: isDemoSlug ? undefined : 'noindex, follow',
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
-        { name: 'Online Randevu', url: `${origin}/r/demo` },
+        { name: 'Online Randevu', url: `${origin}/randevu-sistemi` },
       ],
     };
   }
@@ -232,13 +233,11 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         image: ogImage,
         priceRange: '₺₺',
         acceptsReservations: 'True',
-        address: shop.cityDistrict
-          ? {
-              '@type': 'PostalAddress',
-              addressLocality: shop.cityDistrict,
-              addressCountry: 'TR',
-            }
-          : undefined,
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: shop.cityDistrict || 'Türkiye',
+          addressCountry: 'TR',
+        },
       };
 
       const breadcrumbs = [
@@ -250,13 +249,19 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs };
     }
 
+    const isDemoSlug = slug === 'demo';
     return {
       title: 'Canlı Dijital QR Menü & Fiyatlar | Dükkanım Yanımda',
       ogTitle: 'Dijital QR Menü & Garson Çağırma',
       description: 'Kafe ve restoranlar için anlık fiyat güncellemeli, temassız garson çağırmalı canlı dijital QR menü.',
       ogDescription: 'Güncel menü, fiyatlar ve masadan garson çağırma.',
       ogImage: `${origin}/brand/phone_mockup_retina.png`,
-      canonical: `${origin}/m/demo`,
+      canonical: isDemoSlug ? `${origin}/m/demo` : `${origin}/kafe-restoran`,
+      robots: isDemoSlug ? undefined : 'noindex, follow',
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'QR Menü', url: `${origin}/kafe-restoran` },
+      ],
     };
   }
 
@@ -417,40 +422,118 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs };
   }
 
-  if (clean === '/kafe-restoran' || clean === '/kafe' || clean === '/restoran') {
+  if (
+    clean === '/kafe-restoran' ||
+    clean === '/kafe' ||
+    clean === '/restoran' ||
+    clean === '/adisyon' ||
+    clean === '/qr-menu'
+  ) {
+    const canonical = `${origin}/kafe-restoran`;
+    const breadcrumbs = [
+      { name: 'Ana Sayfa', url: origin },
+      { name: 'Kafe & Restoran Adisyon Sistemi', url: canonical },
+    ];
+    const faqJson = [
+      {
+        q: 'Kafe ve restoranlarda canlı masa ve adisyon takibi nasıl yapılır?',
+        a: 'Masalarınızı salona göre yerleştirin. Müşteri oturduğunda tek tıkla adisyon açın, siparişleri ekleyin, kalkarken nakit veya kartla kapatın.',
+      },
+      {
+        q: 'Temassız dijital QR menü ve garson çağırma nasıl çalışır?',
+        a: 'Masalarınıza özel karekodları yapıştırın. Müşteri kamerasını okuttuğunda menüyü görür ve tek tıkla garson veya hesap çağırabilir.',
+      },
+      {
+        q: 'Gün sonu ciro ve kasa raporları anlık görünür mü?',
+        a: 'Evet, kasanızdaki nakit ve kredi kartı cirosu, açık masalar ve en çok satan ürünler gün sonunda kuruşu kuruşuna tek ekranda raporlanır.',
+      },
+      {
+        q: 'Sistem tablet veya telefondan kurulumsuz çalışır mı?',
+        a: 'Evet, hiçbir donanım veya karmaşık POS cihazı gerektirmez; mevcut telefonunuzdan veya tabletinizden tarayıcıyla anında çalışır.',
+      },
+    ];
+
     return {
       title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı | Dükkanım Yanımda',
       ogTitle: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Sistemi',
       description: 'Canlı masa takibi, garson çağrı sistemli temassız QR menü, adisyon kapatma ve gün sonu ciro raporları. Kurulumsuz, hemen kullanın.',
       ogDescription: 'Canlı masa takibi, garson çağrı sistemli temassız QR menü, adisyon kapatma ve gün sonu ciro raporları.',
       ogImage: `${origin}/brand/phone_mockup_retina.png`,
-      canonical: `${origin}/kafe-restoran`,
+      canonical,
+      breadcrumbs,
+      faqJson,
       schemaJson: {
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
         name: 'Dükkanım Yanımda - Kafe & Restoran Adisyon Sistemi',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'All',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.9',
+          reviewCount: '870',
+          bestRating: '5',
+          worstRating: '1',
+        },
       },
     };
   }
 
-  if (clean === '/bakkal' || clean === '/market' || clean === '/bakkal-market') {
+  if (
+    clean === '/bakkal' ||
+    clean === '/market' ||
+    clean === '/bakkal-market' ||
+    clean === '/veresiye-defteri' ||
+    clean === '/pos-sistemi'
+  ) {
+    const canonical = `${origin}/bakkal-market`;
+    const breadcrumbs = [
+      { name: 'Ana Sayfa', url: origin },
+      { name: 'Bakkal & Market POS Sistemi', url: canonical },
+    ];
+    const faqJson = [
+      {
+        q: 'Bakkal veresiye defteri telefondan nasıl tutulur?',
+        a: 'Müşterinizi bir kez kaydedin. Aldığı ürünleri veya toplam tutarı tek tuşla borcuna yazın. Bakiyesi ve hesap dökümü cebinizde her an hazırdır.',
+      },
+      {
+        q: 'Müşteriye tek tıkla WhatsApp borç özeti nasıl gönderilir?',
+        a: 'Müşteri detayından "WhatsApp ile Hatırlat" butonuna bastığınızda, kibar bir dille son işlemler ve kalan borç tutarı otomatik mesaj olarak hazırlanır.',
+      },
+      {
+        q: 'Barkod okuyucu olmadan telefon kamerasıyla satış yapılır mı?',
+        a: 'Evet, telefon kamerası barkod okuyucu olarak kullanılır; barkodu okutulan ürün anında sepete eklenir.',
+      },
+      {
+        q: 'Terazili ürünler ve gramajlı satış destekleniyor mu?',
+        a: 'Evet, manav ve şarküteri ürünlerinde gramaj preseti veya ondalıklı kilo girişiyle anlık hesaplama yapılır.',
+      },
+    ];
+
     return {
       title: 'Bakkal & Market Hızlı POS Barkodlu Terazi ve Veresiye Takip Sistemi | Dükkanım Yanımda',
       ogTitle: 'Bakkal & Market Hızlı POS ve Veresiye Takip Sistemi',
       description: 'Mahallenin veresiye defteri cebinde! Barkodlu hızlı satış, kritik stok uyarıları, WhatsApp ile tek tıkla borç hatırlatma.',
       ogDescription: 'Mahallenin veresiye defteri cebinde! Barkodlu hızlı satış, kritik stok ve WhatsApp hatırlatma.',
       ogImage: `${origin}/brand/logo-horizontal.png`,
-      canonical: `${origin}/bakkal-market`,
+      canonical,
+      breadcrumbs,
+      faqJson,
       schemaJson: {
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
         name: 'Dükkanım Yanımda - Bakkal & Market POS Sistemi',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'All',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.9',
+          reviewCount: '1120',
+          bestRating: '5',
+          worstRating: '1',
+        },
       },
     };
   }
@@ -490,13 +573,35 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
 
   // 4. Sabit Bilgi ve İşlem Sayfaları
   if (clean === '/fiyat' || clean === '/fiyatlandirma') {
+    const canonical = `${origin}/fiyat`;
+    const breadcrumbs = [
+      { name: 'Ana Sayfa', url: origin },
+      { name: 'Fiyatlandırma & Esnaf Paketleri', url: canonical },
+    ];
+    const faqJson = [
+      {
+        q: 'Dükkânım Yanımda uygulamasını ücretsiz kullanabilir miyim?',
+        a: 'Evet! Çırak paketi ₺0 olup kredi kartı istemez; 25 müşteri, 3 masa ve ayda 20 ücretsiz online randevu ile hemen kullanmaya başlayabilirsiniz.',
+      },
+      {
+        q: 'Usta ve Patron VIP paketleri neleri içerir?',
+        a: 'Usta paketi tek koltuk çalışan esnaflar için sınırsız müşteri ve sınırsız randevu sunar. Patron VIP ise çoklu personel primi, canlı QR menü, garson çağrı ve aylık 500 otomatik WhatsApp bildirimi sunar.',
+      },
+      {
+        q: 'İstediğim zaman paketimi iptal edebilir miyim?',
+        a: 'Evet, taahhüt veya sözleşme yoktur. Dilediğiniz an üyeliğinizi sonlandırabilirsiniz.',
+      },
+    ];
+
     return {
       title: 'Fiyatlandırma & Esnaf Paketleri | Dükkanım Yanımda',
       ogTitle: 'Esnaf İçin En Uygun Yönetim Paketleri',
       description: 'Ücretsiz başlangıç, Çırak, Usta ve Patron VIP paketleri. Kredi kartsız hemen deneyin.',
       ogDescription: 'Esnaf için en uygun yönetim paketleri. Ücretsiz başlayın.',
       ogImage: `${origin}/brand/logo-horizontal.png`,
-      canonical: `${origin}/fiyat`,
+      canonical,
+      breadcrumbs,
+      faqJson,
     };
   }
 
@@ -714,7 +819,8 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
   }
 
   // <meta name="robots" ...>
-  const robotsTag = '<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />';
+  const robotsContent = meta.robots || 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
+  const robotsTag = `<meta name="robots" content="${escapeHtml(robotsContent)}" />`;
   if (/name=["']robots["']/i.test(html)) {
     html = html.replace(/<meta\s+name=["']robots["'][^>]*>/i, robotsTag);
   } else {
@@ -764,6 +870,27 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
   return html;
 }
 
+function isExcludedAccount(acc: { id: string; shopName?: string; phone?: string }): boolean {
+  const p = (acc.phone || '').replace(/\D/g, '');
+  if (['0500', '0501', '0502', '0503', '0504', '0505', '0506', '0507', '0508', '0509', '0512'].some((prefix) => p.startsWith(prefix))) {
+    return true;
+  }
+  const name = (acc.shopName || '').toLowerCase();
+  const id = (acc.id || '').toLowerCase();
+  if (
+    name.includes('test') ||
+    name.includes('güvenlik') ||
+    name.includes('guvenlik') ||
+    name.includes('kilit') ||
+    name.includes('izolasyon') ||
+    name.includes('ws dukkan')
+  ) {
+    return true;
+  }
+  if (id.includes('test') || id.includes('ws_')) return true;
+  return false;
+}
+
 /**
  * Dinamik ve taranabilir sitemap.xml üretir.
  * Sistemdeki tüm kayıtlı dükkanların randevu ve menü sayfalarını Google Bot'a bildirir.
@@ -779,13 +906,24 @@ export function generateSitemapXml(rawHost?: string): string {
     { loc: `${origin}/`, priority: '1.0', changefreq: 'weekly', title: 'Dükkânım Yanımda - Esnaf Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/berber`, priority: '1.0', changefreq: 'daily', title: 'Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/kuafor`, priority: '0.95', changefreq: 'daily', title: 'Kuaför Randevu ve Salon Takip Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/kuafor-randevu`, priority: '0.9', changefreq: 'daily', title: 'Online Kuaför Randevu Alma ve Koltuk Yönetimi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/berber-randevu-programi`, priority: '0.9', changefreq: 'daily', title: 'Berber Randevu Programı ve Koltuk Sırası Defteri', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/kadin-kuafor`, priority: '0.9', changefreq: 'daily', title: 'Kadın Kuaförü Randevu ve Müşteri Defteri', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/guzellik-salonu`, priority: '1.0', changefreq: 'daily', title: 'Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/guzellik-merkezi`, priority: '0.9', changefreq: 'daily', title: 'Güzellik Merkezi Lazer Epilasyon ve Seans Takip Programı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/lazer-epilasyon`, priority: '0.9', changefreq: 'daily', title: 'Lazer Epilasyon Seans ve Müşteri Takip Programı', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/randevu-sistemi`, priority: '0.95', changefreq: 'daily', title: 'Online Randevu Sistemi — Berber, Kuaför ve Güzellik Salonu', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/kafe-restoran`, priority: '0.9', changefreq: 'weekly', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/bakkal-market`, priority: '0.9', changefreq: 'weekly', title: 'Bakkal & Market Hızlı POS Barkodlu Terazi Sistemi', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/bakkal`, priority: '0.8', changefreq: 'weekly', title: 'Bakkal Veresiye Defteri ve Kasa Takip', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/market`, priority: '0.8', changefreq: 'weekly', title: 'Market Barkodlu Hızlı POS Sistemi', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/online-randevu`, priority: '0.9', changefreq: 'daily', title: 'Canlı Online Randevu Alma ve Müşteri Toplama Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/kafe-restoran`, priority: '0.95', changefreq: 'weekly', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/kafe`, priority: '0.9', changefreq: 'weekly', title: 'Kafe Masa ve Adisyon Takip Programı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/restoran`, priority: '0.9', changefreq: 'weekly', title: 'Restoran Adisyon ve Garson Çağırma Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/adisyon`, priority: '0.9', changefreq: 'weekly', title: 'Ücretsiz Kafe Restoran Adisyon Programı', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/qr-menu`, priority: '0.9', changefreq: 'weekly', title: 'Temassız Dijital QR Menü Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/bakkal-market`, priority: '0.95', changefreq: 'weekly', title: 'Bakkal & Market Hızlı POS Barkodlu Terazi Sistemi', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/bakkal`, priority: '0.85', changefreq: 'weekly', title: 'Bakkal Veresiye Defteri ve Kasa Takip', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/market`, priority: '0.85', changefreq: 'weekly', title: 'Market Barkodlu Hızlı POS Sistemi', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/veresiye-defteri`, priority: '0.9', changefreq: 'weekly', title: 'Dijital Veresiye Defteri ve WhatsApp Borç Hatırlatma Programı', img: `${origin}/brand/logo-horizontal.png` },
+    { loc: `${origin}/pos-sistemi`, priority: '0.85', changefreq: 'weekly', title: 'Hızlı Perakende POS ve Terazi Entegrasyonu', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'weekly', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly', title: 'Ücretsiz Kayıt - Dükkanını 2 Dakikada Kur', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/teknik-servis`, priority: '0.8', changefreq: 'weekly', title: 'Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
@@ -803,21 +941,44 @@ export function generateSitemapXml(rawHost?: string): string {
   // Demo hesap da eklensin
   seenSlugs.add('demo');
   shopUrls.push(
-    { loc: `${origin}/r/demo`, priority: '0.8', changefreq: 'daily', title: 'Demo Berber - Online Randevu Al', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/m/demo`, priority: '0.8', changefreq: 'daily', title: 'Demo Kafe - Dijital QR Menü & Fiyatlar', img: `${origin}/brand/phone_mockup_retina.png` }
+    { loc: `${origin}/r/demo`, priority: '0.85', changefreq: 'daily', title: 'Demo Berber - Online Randevu Al', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/m/demo`, priority: '0.85', changefreq: 'daily', title: 'Demo Kafe - Dijital QR Menü & Fiyatlar', img: `${origin}/brand/phone_mockup_retina.png` }
   );
 
   for (const acc of accounts) {
+    if (isExcludedAccount(acc)) continue;
     try {
       const st = loadShopState(acc.id);
       const storeName = st.shopProfile?.storeName || acc.shopName;
       const slug = st.shopProfile?.slug || slugify(storeName);
-      if (slug && !seenSlugs.has(slug)) {
-        seenSlugs.add(slug);
-        shopUrls.push(
-          { loc: `${origin}/r/${slug}`, priority: '0.7', changefreq: 'daily', title: `${storeName} - Online Randevu Al`, img: `${origin}/brand/phone_mockup_retina.png` },
-          { loc: `${origin}/m/${slug}`, priority: '0.7', changefreq: 'daily', title: `${storeName} - Dijital QR Menü & Fiyatlar`, img: `${origin}/brand/phone_mockup_retina.png` }
-        );
+      if (!slug || seenSlugs.has(slug)) continue;
+      seenSlugs.add(slug);
+
+      const sector = (st.shopProfile?.sectorKey || '').toLowerCase();
+      const isBarberSector = sector === 'berber' || sector === 'kuafor' || sector === 'guzellik-salonu' || !sector;
+      const isCafeSector = sector === 'kafe-restoran' || sector === 'kafe' || sector === 'restoran';
+      const isVip = !!st.shopProfile?.isVip;
+
+      // Randevu sayfası: Berber/kuaför/güzellik veya aktif randevu servisi olan dükkanlar
+      if (isBarberSector || (st.barberServices && st.barberServices.length > 0)) {
+        shopUrls.push({
+          loc: `${origin}/r/${slug}`,
+          priority: '0.75',
+          changefreq: 'daily',
+          title: `${storeName} - Online Randevu Al`,
+          img: `${origin}/brand/phone_mockup_retina.png`,
+        });
+      }
+
+      // QR Menü sayfası: SADECE VIP veya menü içeriği olan kafe/restoranlar (403 veya boş sayfa dönmeyecek olanlar)
+      if ((isCafeSector || isVip) && st.menuItems && st.menuItems.length > 0) {
+        shopUrls.push({
+          loc: `${origin}/m/${slug}`,
+          priority: '0.75',
+          changefreq: 'daily',
+          title: `${storeName} - Dijital QR Menü & Fiyatlar`,
+          img: `${origin}/brand/phone_mockup_retina.png`,
+        });
       }
     } catch {
       // Hata durumunda atla

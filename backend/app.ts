@@ -32,7 +32,7 @@ import { registerCustodyRoutes } from './routes/custody';
 import { registerAdminRoutes, isAdminSession } from './routes/admin';
 import { registerPublicMenuRoutes, registerProtectedMenuRoutes } from './routes/menu';
 import { registerShopierWebhook } from './routes/shopierWebhook';
-import { renderSeoHtml, generateSitemapXml, getRobotsTxt, getBaseHtmlTemplate } from './seo';
+import { renderSeoHtml, generateSitemapXml, getRobotsTxt, getBaseHtmlTemplate, findShopForSeo } from './seo';
 import { visitorTrackerMiddleware } from './visitorTracker';
 
 export async function startServer(): Promise<void> {
@@ -63,9 +63,17 @@ export async function startServer(): Promise<void> {
 
     if (process.env.NODE_ENV === 'production') {
       res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+      const host = req.headers.host || '';
       const proto = req.headers['x-forwarded-proto'];
+
+      // 1. www -> non-www 301 yönlendirmesi (Google SEO Canonical Bütünlüğü & PageRank Birleştirme)
+      if (host.toLowerCase().startsWith('www.')) {
+        const cleanHost = host.replace(/^www\./i, '');
+        return res.redirect(301, `https://${cleanHost}${req.url}`);
+      }
+
+      // 2. HTTP -> HTTPS 301 yönlendirmesi
       if (proto && proto === 'http') {
-        const host = req.headers.host;
         return res.redirect(301, `https://${host}${req.url}`);
       }
     }
@@ -261,15 +269,49 @@ export async function startServer(): Promise<void> {
       '/m/:slug',
       '/menu/:slug',
       '/berber',
+      '/kuafor',
+      '/kuafor-randevu',
+      '/kadin-kuafor',
+      '/berber-randevu-programi',
+      '/randevu-sistemi',
+      '/online-randevu',
+      '/guzellik-salonu',
+      '/guzellik-merkezi',
+      '/lazer-epilasyon',
       '/kafe-restoran',
+      '/kafe',
+      '/restoran',
+      '/adisyon',
+      '/qr-menu',
       '/bakkal',
       '/market',
       '/bakkal-market',
+      '/veresiye-defteri',
+      '/pos-sistemi',
+      '/fiyat',
+      '/fiyatlandirma',
+      '/kayit',
+      '/teknik-servis',
+      '/hukuk',
+      '/terzi',
     ];
 
     app.get(dynamicSeoRoutes, (req, res) => {
+      const isShopRoute = req.path.startsWith('/r/') || req.path.startsWith('/randevu/') || req.path.startsWith('/m/') || req.path.startsWith('/menu/');
+      let isNotFound = false;
+      if (isShopRoute) {
+        const slug = req.path.replace(/^\/(r|randevu|m|menu)\/?/, '').split('/')[0];
+        if (slug !== 'demo' && !findShopForSeo(slug)) {
+          isNotFound = true;
+        }
+      }
+
       const html = renderSeoHtml(req.path, req.get('host'));
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      if (isNotFound) {
+        res.setHeader('Cache-Control', 'no-cache, no-store');
+        return res.status(404).send(html);
+      }
       res.setHeader('Cache-Control', 'public, max-age=60');
       res.send(html);
     });
@@ -279,8 +321,22 @@ export async function startServer(): Promise<void> {
       if (req.path.startsWith('/api') || req.path.startsWith('/assets') || req.path.includes('.')) {
         return res.status(404).send('Not Found');
       }
+
+      const isShopRoute = req.path.startsWith('/r/') || req.path.startsWith('/randevu/') || req.path.startsWith('/m/') || req.path.startsWith('/menu/');
+      let isNotFound = false;
+      if (isShopRoute) {
+        const slug = req.path.replace(/^\/(r|randevu|m|menu)\/?/, '').split('/')[0];
+        if (slug !== 'demo' && !findShopForSeo(slug)) {
+          isNotFound = true;
+        }
+      }
+
       const html = renderSeoHtml(req.path, req.get('host'));
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      if (isNotFound) {
+        res.setHeader('Cache-Control', 'no-cache, no-store');
+        return res.status(404).send(html);
+      }
       res.send(html);
     });
   }

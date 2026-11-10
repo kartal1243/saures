@@ -162,6 +162,44 @@ it('getRobotsTxt arama motorları için doğru kuralları döner', () => {
   assert.ok(robots.includes('Sitemap: https://dukkanimyanimda.com.tr/sitemap.xml'));
 });
 
+// 8. Soft 404 & Noindex Koruması
+it('Var olmayan randevu veya menü slugı için noindex döner (Soft 404 engelleme)', () => {
+  const metaRandevu = getSeoMetadata('/r/olmayan-bir-berber-xyz');
+  assert.strictEqual(metaRandevu.robots, 'noindex, follow');
+  assert.strictEqual(metaRandevu.canonical, 'https://dukkanimyanimda.com.tr/randevu-sistemi');
+
+  const metaMenu = getSeoMetadata('/m/olmayan-bir-kafe-xyz');
+  assert.strictEqual(metaMenu.robots, 'noindex, follow');
+  assert.strictEqual(metaMenu.canonical, 'https://dukkanimyanimda.com.tr/kafe-restoran');
+});
+
+// 9. Zengin FAQPage JSON-LD Testi
+it('/kafe-restoran, /bakkal-market ve /fiyat zengin Google FAQPage schema içerir', () => {
+  const metaKafe = getSeoMetadata('/kafe-restoran');
+  assert.ok(metaKafe.faqJson && metaKafe.faqJson.length >= 3, 'Kafe FAQPage olmalı');
+
+  const metaBakkal = getSeoMetadata('/bakkal-market');
+  assert.ok(metaBakkal.faqJson && metaBakkal.faqJson.length >= 3, 'Bakkal FAQPage olmalı');
+
+  const metaFiyat = getSeoMetadata('/fiyat');
+  assert.ok(metaFiyat.faqJson && metaFiyat.faqJson.length >= 3, 'Fiyat FAQPage olmalı');
+});
+
+// 10. Sitemap Test Hesapları İzolasyonu
+it('generateSitemapXml test veya şüpheli hesapları hariç tutar, temiz linkler üretir', () => {
+  const xml = generateSitemapXml('dukkanimyanimda.com.tr');
+  assert.ok(!xml.includes('test-market'), 'Test marketleri sitemape sızmamalı');
+  assert.ok(!xml.includes('guvenlik-testi'), 'Güvenlik test hesapları sitemape sızmamalı');
+  assert.ok(!xml.includes('ws-dukkan'), 'WS dükkan testleri sitemape sızmamalı');
+});
+
+// 11. Google Search Console Doğrulama Meta Etiketi
+it('renderSeoHtml Google Search Console doğrulama meta etiketini korur', () => {
+  const html = renderSeoHtml('/');
+  assert.ok(html.includes('google-site-verification'), 'Google doğrulama meta etiketi bulunmalı');
+  assert.ok(html.includes('googlef0e9499536bdd56a'), 'Doğrulama anahtarı eksiksiz olmalı');
+});
+
 console.log(`\n========================================`);
 console.log(`SEO TESTLERİ SONUCU: ${passed} / ${total} BAŞARILI`);
 console.log(`========================================\n`);

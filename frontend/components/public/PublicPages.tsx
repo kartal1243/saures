@@ -37,7 +37,9 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
     case 'kuafor':
     case 'kuafor-randevu':
     case 'kadin-kuafor':
+    case 'berber-randevu-programi':
     case 'randevu-sistemi':
+    case 'online-randevu':
       return 'berber';
     case 'guzellik-salonu':
     case 'guzellik-merkezi':
@@ -47,10 +49,14 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
     case 'kafe-restoran':
     case 'kafe':
     case 'restoran':
+    case 'adisyon':
+    case 'qr-menu':
       return 'kafe-restoran';
     case 'bakkal-market':
     case 'bakkal':
     case 'market':
+    case 'veresiye-defteri':
+    case 'pos-sistemi':
       return 'bakkal-market';
     case 'teknik-servis':
     case 'servis':
