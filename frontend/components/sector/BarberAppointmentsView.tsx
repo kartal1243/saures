@@ -169,6 +169,18 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
   useEffect(() => {
     reloadFullData();
+
+    const handleBlocksUpdated = (e: any) => {
+      if (Array.isArray(e.detail)) {
+        setTimeBlocks(e.detail);
+      } else {
+        reloadFullData();
+      }
+    };
+    window.addEventListener('barber_timeblocks_updated', handleBlocksUpdated);
+    return () => {
+      window.removeEventListener('barber_timeblocks_updated', handleBlocksUpdated);
+    };
   }, []);
 
   // Takvim Görünümü Seçicisi: 'grid' (Usta Sütunları) | 'calendar' (Aylık) | 'list' (Mobil Liste)

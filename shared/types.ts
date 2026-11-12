@@ -227,6 +227,9 @@ export interface ShopProfile {
   receiptFooter?: string;
   slug?: string;
   aiOcrScansUsed?: number;
+  showOnPublicMap?: boolean;
+  coordinates?: { lat: number; lng: number };
+  address?: string;
 }
 
 export interface DailyClosing {
@@ -552,4 +555,102 @@ export type WSEvent =
   | { type: 'CUSTODY_DELETED'; payload: { id: string } }
   | { type: 'MENU_ITEM_UPDATED'; payload: MenuItem }
   | { type: 'MENU_ITEM_DELETED'; payload: { id: string } }
-  | { type: 'MENU_UPDATED'; payload: MenuItem[] };
+  | { type: 'MENU_UPDATED'; payload: MenuItem[] }
+  | { type: 'BARBER_TIMEBLOCKS_UPDATED'; payload: BarberTimeBlock[] }
+  | { type: 'COMMUNITY_POST_CREATED'; payload: CommunityPost }
+  | { type: 'COMMUNITY_POST_UPDATED'; payload: CommunityPost }
+  | { type: 'COMMUNITY_POST_DELETED'; payload: { id: string } }
+  | { type: 'COMMUNITY_NEW_POST'; payload: CommunityPost }
+  | { type: 'COMMUNITY_NEW_MESSAGE'; payload: DirectMessage };
+
+export type CommunityCategory =
+  | 'malzeme'
+  | 'kasa_bozuk'
+  | 'personel'
+  | 'toptanci'
+  | 'genel'
+  | 'yardimlasma'
+  | 'duyuru'
+  | 'tavsiye';
+
+export interface CommunityReply {
+  id: string;
+  postId?: string;
+  authorAccountId: string;
+  authorShopName: string;
+  authorOwnerName?: string;
+  authorCity?: string;
+  authorSector?: string;
+  content: string;
+  createdAt: string;
+}
+
+export type CommunityComment = CommunityReply;
+
+export interface CommunityPost {
+  id: string;
+  authorAccountId: string;
+  authorShopName: string;
+  authorOwnerName?: string;
+  authorCity?: string;
+  authorDistrict?: string;
+  authorSector?: string;
+  title: string;
+  content: string;
+  category: CommunityCategory;
+  urgent?: boolean;
+  resolved?: boolean;
+  likesCount?: number;
+  likedAccountIds?: string[];
+  commentsCount?: number;
+  comments?: CommunityComment[];
+  replies?: CommunityReply[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  fromAccountId: string;
+  fromShopName: string;
+  toAccountId: string;
+  toShopName: string;
+  text: string;
+  createdAt: string;
+  read?: boolean;
+}
+
+export interface CommunityShopDirectory {
+  id: string;
+  shopName: string;
+  ownerName?: string;
+  sectorKey: string;
+  city?: string;
+  district?: string;
+  phone?: string;
+  isOnline?: boolean;
+  lastActive?: string;
+}
+
+export interface PublicShopMapItem {
+  id: string;
+  name: string;
+  slug: string;
+  sectorKey: BusinessSector | string;
+  city: string;
+  district: string;
+  address: string;
+  lat: number;
+  lng: number;
+  isOpen: boolean;
+  rating: number;
+  servicesCount: number;
+  hasBooking: boolean;
+  hasMenu: boolean;
+  phone?: string;
+  slogan?: string;
+  isVip?: boolean;
+}
+
+export type PublicMapShop = PublicShopMapItem;
+

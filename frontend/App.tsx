@@ -464,6 +464,8 @@ export default function App() {
             });
           } else if (wsEvent.type === 'APPOINTMENT_DELETED') {
             setAppointments((prev) => prev.filter((a) => a.id !== wsEvent.payload.id));
+          } else if (wsEvent.type === 'BARBER_TIMEBLOCKS_UPDATED') {
+            window.dispatchEvent(new CustomEvent('barber_timeblocks_updated', { detail: wsEvent.payload }));
           } else if (wsEvent.type === 'TABLE_UPDATED') {
             setTables((prev) => {
               const exists = prev.some((t) => t.id === wsEvent.payload.id);

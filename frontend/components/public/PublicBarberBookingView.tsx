@@ -401,56 +401,97 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
         }
       }
 
-      // Mola / Saati Kapatma çakışması
-      const isBlocked = dayBlocks.some((b) => {
+      // 1. Genel Salon Kapatma / Mola kontrolü (Tüm salonu veya tüm personelleri kapsayan mola)
+      const isSalonGeneralBlocked = dayBlocks.some((b) => {
+        const matchesAll = !b.staffId || b.staffId === 'all';
+        if (!matchesAll) return false;
         const bStart = timeToMinutes(b.startTime);
         const bEnd = timeToMinutes(b.endTime);
-        const matchesStaff = !b.staffId || b.staffId === 'all' || selectedStaffId === 'auto' || b.staffId === selectedStaffId;
-        return matchesStaff && m < bEnd && m + neededDuration > bStart;
+        return m < bEnd && m + neededDuration > bStart;
       });
 
-      if (isBlocked) {
-        slots.push({ time: slotTime, available: false, reason: 'Mola / Kapalı' });
+      if (isSalonGeneralBlocked) {
+        slots.push({ time: slotTime, available: false, reason: 'Salon Kapalı / Mola' });
         continue;
       }
 
-      // Randevu çakışması
-      let isBusy = false;
-      const isStaffBusy = (targetStaffId: string) => {
-        return dayAppointments.some((a) => {
+      // Personelin o gün ve saat aralığında müsait olup olmadığını kontrol eden yardımcı
+      const isStaffMemberAvailable = (st: BarberStaff): boolean => {
+        if (st.active === false) return false;
+
+        // Haftalık izin günü kontrolü
+        const [sy, sm, sd] = selectedDate.split('-').map(Number);
+        const dayOfWeek = new Date(sy, sm - 1, sd).getDay();
+        if (st.offDays && Array.isArray(st.offDays) && st.offDays.includes(dayOfWeek)) {
+          return false;
+        }
+
+        // Şahsi mesai saatleri kontrolü
+        const staffStartStr = st.workingHours?.start || st.workStart;
+        const staffEndStr = st.workingHours?.end || st.workEnd;
+        if (staffStartStr && staffEndStr) {
+          const sMin = timeToMinutes(staffStartStr);
+          const eMin = timeToMinutes(staffEndStr);
+          if (m < sMin || m + neededDuration > eMin) {
+            return false;
+          }
+        }
+
+        // Personelin mola / kapatma saati çakışması
+        const hasStaffBlock = dayBlocks.some((b) => {
+          if (b.staffId !== st.id) return false;
+          const bStart = timeToMinutes(b.startTime);
+          const bEnd = timeToMinutes(b.endTime);
+          return m < bEnd && m + neededDuration > bStart;
+        });
+        if (hasStaffBlock) return false;
+
+        // Personelin randevu çakışması
+        const hasApt = dayAppointments.some((a) => {
           if (Array.isArray(a.steps) && a.steps.length > 0) {
-            return a.steps.some((st) => {
-              if (st.staffId !== targetStaffId) return false;
-              const stStart = timeToMinutes(st.startTime);
-              const stEnd = timeToMinutes(st.endTime);
+            return a.steps.some((step) => {
+              if (step.staffId !== st.id) return false;
+              const stStart = timeToMinutes(step.startTime);
+              const stEnd = timeToMinutes(step.endTime);
               return m < stEnd && m + neededDuration > stStart;
             });
           }
-          if (a.staffId !== targetStaffId) return false;
+          if (a.staffId && a.staffId !== st.id) return false;
           const aStart = timeToMinutes(a.timeSlot);
           const aEnd = aStart + (a.durationMinutes || 30);
           return m < aEnd && m + neededDuration > aStart;
         });
+        if (hasApt) return false;
+
+        return true;
       };
 
       if (selectedStaffId !== 'auto') {
-        // Belirli bir usta seçildiyse: o ustanın randevuları kontrol edilir
-        isBusy = isStaffBusy(selectedStaffId);
+        // Belirli bir usta seçildiyse: sadece o ustanın müsaitliği kontrol edilir
+        const targetStaff = data.staff.find((s) => s.id === selectedStaffId);
+        const isFree = targetStaff ? isStaffMemberAvailable(targetStaff) : false;
+        slots.push({
+          time: slotTime,
+          available: isFree,
+          reason: !isFree ? 'Dolu / Mola' : undefined,
+        });
       } else {
-        // "Fark etmez" seçildiyse: Eğer salondaki TÜM yetkili ustalar o saatte doluysa slot kapalıdır
-        const availableStaffCount = data.staff.filter((st) => !isStaffBusy(st.id)).length;
-        isBusy = availableStaffCount === 0;
+        // "Fark etmez / Otomatik" seçildiyse:
+        // Hizmeti yapabilecek ustalar arasından en az 1 tanesi müsaitse slot açıktır.
+        // Yalnızca o saatteki TÜM yetkili ustalar molada/doluysa slot kapatılır.
+        const candidateStaff = capableStaffList.length > 0 ? capableStaffList : data.staff;
+        const availableStaff = candidateStaff.filter((st) => isStaffMemberAvailable(st));
+        const isSlotAvailable = availableStaff.length > 0;
+        slots.push({
+          time: slotTime,
+          available: isSlotAvailable,
+          reason: !isSlotAvailable ? 'Dolu' : undefined,
+        });
       }
-
-      slots.push({
-        time: slotTime,
-        available: !isBusy,
-        reason: isBusy ? 'Dolu' : undefined,
-      });
     }
 
     return slots;
-  }, [data, selectedDate, selectedStaffId, totalDuration]);
+  }, [data, selectedDate, selectedStaffId, totalDuration, capableStaffList]);
 
   // Otomatik boş saat atama
   useEffect(() => {

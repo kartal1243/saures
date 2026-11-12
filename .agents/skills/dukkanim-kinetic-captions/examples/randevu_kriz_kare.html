@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<title>Dükkanım Yanımda — Randevu Krizi (Kinetik Yazı Demo)</title>
+<script src="../../dukkanim-video-producer/scripts/usta_vector_rig.js"></script>
+<script src="../scripts/kinetic_captions.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 1080px; height: 1920px; overflow: hidden; background: #181C24; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden;
+    background: linear-gradient(#3a2618 0%, #4a3020 58%, #6b4a2e 58%, #8a6038 100%); }
+  /* wood slats */
+  .slats { position:absolute; left:0; top:0; width:100%; height:1115px;
+    background: repeating-linear-gradient(90deg, #5a3a22 0 70px, #4b2f1b 70px 74px, #644126 74px 140px, #4b2f1b 140px 144px); }
+  .slats::after { content:""; position:absolute; inset:0;
+    background: radial-gradient(ellipse at 70% 30%, rgba(255,170,90,.35), transparent 55%),
+                linear-gradient(transparent 70%, rgba(0,0,0,.45)); }
+  /* floor */
+  .floor { position:absolute; left:0; top:1115px; width:100%; height:805px;
+    background: linear-gradient(rgba(0,0,0,.35), transparent 30%),
+      repeating-linear-gradient(90deg, transparent 0 134px, rgba(0,0,0,.18) 134px 138px),
+      repeating-linear-gradient(0deg, #9b6c40 0 90px, #8a5e36 90px 94px); }
+  /* door with glass */
+  .door { position:absolute; left:40px; top:330px; width:440px; height:800px; background:#20252e;
+    border:14px solid #2b313c; border-radius:10px 10px 0 0; box-shadow: inset 0 0 60px rgba(0,0,0,.5); }
+  .door .glass { position:absolute; inset:24px; border-radius:6px;
+    background: linear-gradient(160deg, rgba(190,225,255,.55), rgba(120,170,210,.25) 50%, rgba(255,190,120,.25)); }
+  .door .glass::before { content:""; position:absolute; left:18%; top:0; width:14%; height:100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); transform:skewX(-14deg); }
+  .awning { position:absolute; left:64px; top:350px; width:392px; height:56px;
+    background: repeating-linear-gradient(90deg, #FF6B00 0 49px, #fff 49px 98px);
+    clip-path: polygon(0 0,100% 0,100% 70%, 93.75% 100%, 87.5% 70%, 81.25% 100%, 75% 70%, 68.75% 100%, 62.5% 70%, 56.25% 100%, 50% 70%, 43.75% 100%, 37.5% 70%, 31.25% 100%, 25% 70%, 18.75% 100%, 12.5% 70%, 6.25% 100%, 0 70%); }
+  .bell { position:absolute; left:440px; top:330px; width:40px; height:40px; border-radius:50% 50% 8px 8px;
+    background: radial-gradient(circle at 35% 30%, #ffe28a, #d79a18); border:4px solid #181C24; }
+  /* mirror with bulbs */
+  .mirror { position:absolute; right:60px; top:250px; width:430px; height:640px; border-radius:215px 215px 30px 30px;
+    background: linear-gradient(150deg, #9fb4c4, #5d7180 60%, #43525e); border:16px solid #181C24;
+    box-shadow: 0 0 0 6px #FF6B00, 0 0 70px rgba(255,140,40,.55); }
+  .mirror::after { content:""; position:absolute; left:16%; top:6%; width:18%; height:80%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.28), transparent); transform:skewX(-12deg); }
+  .bulb { position:absolute; width:26px; height:26px; border-radius:50%; background:#fff6dc;
+    box-shadow: 0 0 22px 8px rgba(255,214,140,.85); }
+  /* clock */
+  .clock { position:absolute; left:560px; top:110px; width:190px; height:190px; border-radius:50%; background:#fff;
+    border:12px solid #FF6B00; box-shadow: 0 0 0 6px #181C24, 0 18px 40px rgba(0,0,0,.4); }
+  .clock .h, .clock .m { position:absolute; left:50%; bottom:50%; background:#181C24; border-radius:6px; transform-origin: 50% 100%; }
+  .clock .h { width:12px; height:46px; margin-left:-6px; transform: rotate(150deg); }
+  .clock .m { width:8px; height:70px; margin-left:-4px; }
+  .clock .dot { position:absolute; left:50%; top:50%; width:20px; height:20px; margin:-10px; border-radius:50%; background:#FF6B00; border:4px solid #181C24; }
+  .clock .t { position:absolute; width:6px; height:16px; left:50%; top:6px; margin-left:-3px; background:#181C24; transform-origin:50% 77px; }
+  /* barber pole */
+  .pole { position:absolute; left:500px; top:470px; width:44px; height:230px; border-radius:22px; border:6px solid #181C24;
+    background: repeating-linear-gradient(-35deg, #FF6B00 0 22px, #fff 22px 44px); box-shadow: 0 0 30px rgba(255,107,0,.5); }
+  /* warm spotlight + bokeh */
+  .spot { position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(ellipse 60% 40% at 72% 62%, rgba(255,190,110,.28), transparent 70%),
+                radial-gradient(ellipse 50% 35% at 25% 60%, rgba(255,220,170,.18), transparent 70%); }
+  .bokeh { position:absolute; border-radius:50%; background: rgba(255,200,130,.35); filter: blur(6px); }
+  .vignette { position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.55)); z-index:40; }
+  .shadow { position:absolute; background: radial-gradient(ellipse, rgba(0,0,0,.45), transparent 70%); border-radius:50%; }
+  #usta { position:absolute; left:450px; top:900px; width:640px; height:870px; z-index:20; }
+  .cust { position:absolute; z-index:18; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="slats"></div>
+  <div class="floor"></div>
+  <div class="door"><div class="glass"></div></div>
+  <div class="awning"></div>
+  <div class="bell"></div>
+  <div class="pole"></div>
+  <div class="mirror"></div>
+  <div class="clock" id="clock"><div class="h"></div><div class="m"></div><div class="dot"></div></div>
+  <div class="spot"></div>
+
+  <div class="shadow" style="left:60px;top:1720px;width:280px;height:50px"></div>
+  <div class="shadow" style="left:310px;top:1730px;width:280px;height:50px"></div>
+  <div class="shadow" style="left:580px;top:1780px;width:460px;height:70px"></div>
+
+  <!-- CUSTOMER A: young man, grey hoodie, white sneakers -->
+  <svg class="cust" style="left:50px;top:1010px" width="276" height="748" viewBox="0 0 240 650">
+    <g stroke="#181C24" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+      <rect x="78" y="380" width="38" height="220" rx="14" fill="#2f3b52"/>
+      <rect x="124" y="380" width="38" height="220" rx="14" fill="#2f3b52"/>
+      <path d="M66,600 h56 v26 h-62 z" fill="#fff"/><path d="M120,600 h56 v26 h-60 z" fill="#fff"/>
+      <path d="M50,200 Q120,170 190,200 L200,400 Q120,420 40,400 Z" fill="#9aa3ad"/>
+      <path d="M95,330 h50 v40 h-50 z" fill="#8a929c"/>
+      <!-- arm pointing to self -->
+      <path d="M190,215 Q225,300 170,330" fill="none" stroke-width="34" stroke="#181C24"/>
+      <path d="M190,215 Q225,300 170,330" fill="none" stroke-width="24" stroke="#9aa3ad"/>
+      <circle cx="160" cy="322" r="17" fill="#F4C29F"/>
+      <path d="M50,215 Q22,300 40,390" fill="none" stroke-width="34" stroke="#181C24"/>
+      <path d="M50,215 Q22,300 40,390" fill="none" stroke-width="24" stroke="#9aa3ad"/>
+      <circle cx="42" cy="398" r="17" fill="#F4C29F"/>
+      <path d="M78,195 Q120,240 162,195" fill="none" stroke-width="4"/>
+      <rect x="104" y="160" width="32" height="40" fill="#F4C29F"/>
+      <ellipse cx="120" cy="110" rx="64" ry="72" fill="#F4C29F"/>
+      <path d="M58,96 Q60,30 122,32 Q186,30 184,98 Q168,62 120,66 Q78,64 58,96 Z" fill="#3b2a1e"/>
+      <circle cx="98" cy="112" r="7" fill="#181C24"/><circle cx="144" cy="112" r="7" fill="#181C24"/>
+      <path d="M86,92 l22,-6 M134,86 l22,6" stroke-width="5"/>
+      <ellipse cx="121" cy="150" rx="16" ry="12" fill="#7a2a1e"/>
+      <ellipse cx="56" cy="114" rx="10" ry="14" fill="#F4C29F"/><ellipse cx="184" cy="114" rx="10" ry="14" fill="#F4C29F"/>
+    </g>
+  </svg>
+
+  <!-- CUSTOMER B: man 30s, navy jacket, glasses, holding phone -->
+  <svg class="cust" style="left:300px;top:990px" width="288" height="771" viewBox="0 0 250 670">
+    <g stroke="#181C24" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+      <rect x="82" y="400" width="40" height="220" rx="12" fill="#c8a97e"/>
+      <rect x="130" y="400" width="40" height="220" rx="12" fill="#c8a97e"/>
+      <path d="M70,620 h58 v24 h-64 z" fill="#4a2e1c"/><path d="M126,620 h58 v24 h-60 z" fill="#4a2e1c"/>
+      <path d="M50,210 Q125,185 200,210 L208,420 Q125,436 42,420 Z" fill="#1e2f5a"/>
+      <path d="M105,206 L125,300 L145,206 Z" fill="#fff"/>
+      <path d="M50,225 Q20,310 44,400" fill="none" stroke-width="34" stroke="#181C24"/>
+      <path d="M50,225 Q20,310 44,400" fill="none" stroke-width="24" stroke="#1e2f5a"/>
+      <circle cx="46" cy="408" r="17" fill="#F4C29F"/>
+      <!-- raised arm with phone -->
+      <path d="M200,225 Q236,170 214,100" fill="none" stroke-width="34" stroke="#181C24"/>
+      <path d="M200,225 Q236,170 214,100" fill="none" stroke-width="24" stroke="#1e2f5a"/>
+      <g transform="translate(186,22) rotate(10)">
+        <rect x="0" y="0" width="58" height="100" rx="12" fill="#181C24" stroke="#FF6B00" stroke-width="4"/>
+        <rect x="6" y="10" width="46" height="80" rx="6" fill="#fff" stroke="none"/>
+        <rect x="10" y="16" width="38" height="16" rx="4" fill="#FF6B00" stroke="none"/>
+        <text x="29" y="62" font-family="Impact" font-size="22" text-anchor="middle" fill="#181C24" stroke="none">17:00</text>
+        <rect x="12" y="72" width="34" height="9" rx="4" fill="#22C55E" stroke="none"/>
+      </g>
+      <circle cx="214" cy="104" r="17" fill="#F4C29F"/>
+      <rect x="108" y="168" width="34" height="42" fill="#F4C29F"/>
+      <ellipse cx="125" cy="116" rx="64" ry="72" fill="#F4C29F"/>
+      <path d="M62,100 Q62,38 126,40 Q190,40 188,100 Q170,70 126,72 Q82,72 62,100 Z" fill="#5a4a3a"/>
+      <circle cx="102" cy="118" r="18" fill="rgba(255,255,255,.3)"/><circle cx="150" cy="118" r="18" fill="rgba(255,255,255,.3)"/>
+      <path d="M120,118 h12" />
+      <circle cx="102" cy="118" r="6" fill="#181C24"/><circle cx="150" cy="118" r="6" fill="#181C24"/>
+      <path d="M88,90 l24,4 M138,94 l24,-4" stroke-width="5"/>
+      <path d="M104,154 Q126,140 148,154" fill="none"/>
+      <path d="M90,150 Q126,200 162,150 Q160,186 126,190 Q92,186 90,150 Z" fill="#5a4a3a" opacity=".9"/>
+      <ellipse cx="60" cy="120" rx="10" ry="14" fill="#F4C29F"/><ellipse cx="190" cy="120" rx="10" ry="14" fill="#F4C29F"/>
+    </g>
+  </svg>
+
+  <div id="usta"></div>
+  <!-- BARBER CHAIR + SEATED CUSTOMER (shaving foam, black cape) -->
+  <svg class="cust" style="left:545px;top:1180px;z-index:22" width="450" height="680" viewBox="0 0 450 680">
+    <defs><linearGradient id="lea" x1="0" x2="1"><stop offset="0" stop-color="#2a2f3a"/><stop offset=".5" stop-color="#3a414f"/><stop offset="1" stop-color="#1c2028"/></linearGradient>
+    <linearGradient id="chr" x1="0" x2="1"><stop offset="0" stop-color="#8d96a3"/><stop offset=".45" stop-color="#f4f7fb"/><stop offset="1" stop-color="#6c7480"/></linearGradient></defs>
+    <g stroke="#181C24" stroke-width="5" stroke-linejoin="round">
+      <!-- base -->
+      <ellipse cx="225" cy="650" rx="150" ry="24" fill="url(#chr)"/>
+      <rect x="200" y="540" width="50" height="110" fill="url(#chr)"/>
+      <!-- chair back + headrest -->
+      <rect x="95" y="70" width="260" height="340" rx="40" fill="url(#lea)"/>
+      <rect x="110" y="85" width="230" height="310" rx="30" fill="none" stroke="#FF6B00" stroke-width="4" stroke-dasharray="10 8"/>
+      <!-- cape body -->
+      <path d="M90,250 Q225,200 360,250 L392,520 Q225,560 58,520 Z" fill="#181C24" stroke="#000"/>
+      <path d="M150,260 L130,520 M225,250 V540 M300,260 L320,520" stroke="#2c3240" stroke-width="4"/>
+      <path d="M175,232 Q225,256 275,232 L268,262 Q225,280 182,262 Z" fill="#fff"/>
+      <!-- armrests -->
+      <rect x="30" y="400" width="90" height="46" rx="20" fill="url(#lea)"/>
+      <rect x="330" y="400" width="90" height="46" rx="20" fill="url(#lea)"/>
+      <rect x="40" y="446" width="20" height="70" fill="url(#chr)"/><rect x="390" y="446" width="20" height="70" fill="url(#chr)"/>
+      <!-- seat front -->
+      <rect x="70" y="510" width="310" height="50" rx="20" fill="url(#lea)"/>
+      <path d="M80,515 H370" stroke="#FF6B00" stroke-width="4"/>
+      <!-- legs / shoes -->
+      <rect x="150" y="555" width="44" height="60" rx="10" fill="#3b4252"/><rect x="256" y="555" width="44" height="60" rx="10" fill="#3b4252"/>
+      <path d="M140,612 h60 v20 h-66 z" fill="#4a2e1c"/><path d="M250,612 h60 v20 h-56 z" fill="#4a2e1c"/>
+      <!-- head -->
+      <ellipse cx="225" cy="160" rx="66" ry="74" fill="#F4C29F"/>
+      <path d="M160,140 Q162,78 226,80 Q290,78 290,142 Q270,108 226,110 Q182,108 160,140 Z" fill="#2d2d2d"/>
+      <ellipse cx="160" cy="166" rx="10" ry="15" fill="#F4C29F"/><ellipse cx="290" cy="166" rx="10" ry="15" fill="#F4C29F"/>
+      <!-- foam -->
+      <path d="M168,172 Q160,210 180,232 Q200,250 225,250 Q252,250 272,232 Q292,210 282,172 Q262,196 245,186 Q225,200 205,186 Q188,196 168,172 Z" fill="#fff" stroke-width="4"/>
+      <circle cx="176" cy="214" r="12" fill="#fff" stroke-width="3"/><circle cx="276" cy="210" r="13" fill="#fff" stroke-width="3"/><circle cx="225" cy="246" r="12" fill="#fff" stroke-width="3"/>
+      <!-- amused face: one eye open, one shut -->
+      <path d="M190,150 q12,-8 24,0" fill="none" stroke-width="5"/>
+      <circle cx="252" cy="152" r="8" fill="#181C24"/>
+      <path d="M238,130 l26,-6 M188,134 l24,2" stroke-width="5"/>
+      <path d="M212,204 Q228,214 244,202" fill="none" stroke-width="5"/>
+    </g>
+  </svg>
+
+  <div class="vignette"></div></div>
+
+<script>
+  // clock ticks + bulbs + bokeh
+  const clock = document.getElementById("clock");
+  for (let i = 0; i < 12; i++) { const t = document.createElement("div"); t.className = "t"; t.style.transform = `rotate(${i*30}deg)`; clock.appendChild(t); }
+  const root = document.getElementById("root");
+  const mx = 1080 - 60 - 430, my = 250;
+  [[0,.25],[0,.45],[0,.65],[0,.85],[1,.25],[1,.45],[1,.65],[1,.85]].forEach(([side, f]) => {
+    const b = document.createElement("div"); b.className = "bulb";
+    b.style.left = (side ? mx + 430 - 6 : mx - 20) + "px"; b.style.top = (my + 640 * f) + "px"; root.appendChild(b);
+  });
+  [[120,180,60],[900,140,40],[980,1000,70],[60,1050,50],[760,60,30]].forEach(([x,y,s]) => {
+    const b = document.createElement("div"); b.className = "bokeh";
+    Object.assign(b.style, { left:x+"px", top:y+"px", width:s+"px", height:s+"px" }); root.appendChild(b);
+  });
+
+  // Official Usta rig with customer in chair (static still)
+  UstaVectorRig.create("#usta", { idPrefix: "usta", showCustomer: false, showChair: false });
+
+  const K = KineticCaptions;
+  // Dialogue — bubbles point at the speakers' mouths
+  K.comicBubble(root, { x: 30, y: 700, w: 470, h: 220, name: "MÜŞTERİ 1",
+    text: "Usta, benim randevum<br><em>saat 5'te!</em>", fontSize: 50, tailX: 190, tailY: 1150, tilt: -3 });
+  K.comicBubble(root, { x: 470, y: 470, w: 560, h: 250, name: "MÜŞTERİ 2", shout: true,
+    text: "Pardon ama<br>benimki de <em>5'te!</em>", fontSize: 56, tailX: 470, tailY: 1120, tilt: 3 });
+  // Reaction effects on Usta + clock sticker
+  K.burst(root, { x: 990, y: 1090, size: 150, text: "!?", fontSize: 90 });
+  K.sticker(root, { x: 700, y: 330, text: "AYNI SAAT?!", tilt: 8, orange: true, fontSize: 40 });
+</script>
+</body>
+</html>

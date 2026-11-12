@@ -206,6 +206,19 @@ export function broadcastToAccount(targetAccountId: string, event: WSEvent): voi
   }
 }
 
+export function broadcastToAll(event: WSEvent): void {
+  const payload = JSON.stringify(event);
+  for (const [client, meta] of clients) {
+    if (!meta.isAdmin && client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(payload);
+      } catch (e) {
+        console.error('Error broadcasting WS message to client:', e);
+      }
+    }
+  }
+}
+
 // Otomatik Olay Yakalama (Event Listener -> Admin Activity Stream)
 export function broadcast(event: WSEvent): void {
   const ctx = als.getStore();
@@ -280,6 +293,32 @@ export function broadcast(event: WSEvent): void {
         description: `${r?.deviceOrVehicle || 'Cihaz'} (${r?.customerName || 'Müşteri'}) güncellendi`,
         amount: r?.estimatedCost,
       });
+    } else if (evType === 'BARBER_TIMEBLOCKS_UPDATED') {
+      recordLiveActivity({
+        accountId: ctx.accountId,
+        shopName,
+        type: 'system',
+        title: 'Mola / Çalışma Saatleri Güncellendi',
+        description: 'Berber salonu mola ve kapatılan saat blokları güncellendi',
+      });
+    } else if (evType === 'COMMUNITY_NEW_POST' || evType === 'COMMUNITY_POST_CREATED') {
+      const p = payload;
+      recordLiveActivity({
+        accountId: ctx.accountId,
+        shopName,
+        type: 'system',
+        title: 'Esnaf Dayanışma Çağrısı',
+        description: `${p?.authorShopName || 'Esnaf'}: ${p?.title || p?.content?.slice(0, 40) || ''}`,
+      });
+    } else if (evType === 'COMMUNITY_NEW_MESSAGE') {
+      const m = payload;
+      recordLiveActivity({
+        accountId: ctx.accountId,
+        shopName,
+        type: 'system',
+        title: 'Esnaf Birebir Mesaj',
+        description: `${m?.fromShopName || 'Esnaf'} -> ${m?.toShopName || 'Esnaf'}`,
+      });
     }
   } catch (err) {
     // Activity kaydı broadcast'i kesmemeli
@@ -307,6 +346,11 @@ export function buildInitEvent(st: AppState): WSEvent {
       cases: (st as any).cases || [],
       custody: (st as any).custody || [],
       menuItems: (st as any).menuItems || [],
+      barberStaff: st.barberStaff || [],
+      barberServices: st.barberServices || [],
+      barberTimeBlocks: st.barberTimeBlocks || [],
+      barberSettings: st.barberSettings || null,
+      customerPackages: st.customerPackages || [],
       businessDate: st.businessDate,
     },
   };

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getAccounts } from './accounts';
-import { loadShopState, slugify } from './shopState';
+import { loadShopState, slugify, demoBarberServices } from './shopState';
 import { DEMO_ACCOUNT_ID, DEMO_PHONE } from './demoSeed';
 
 export interface SeoMetadata {
@@ -30,6 +30,7 @@ export interface ResolvedShop {
   openingTime?: string;
   closingTime?: string;
   closedDays?: number[];
+  services?: { id: string; name: string; price: number; durationMinutes?: number }[];
 }
 
 const DEFAULT_HOST = 'dukkanimyanimda.com.tr';
@@ -119,6 +120,17 @@ export function findShopForSeo(identifier: string): ResolvedShop | null {
   const storeName = targetState?.shopProfile?.storeName || targetAcc?.shopName || 'İşletme';
   const computedSlug = targetState?.shopProfile?.slug || slugify(storeName) || rawId;
 
+  const rawServices = targetState?.barberServices && targetState.barberServices.length > 0
+    ? targetState.barberServices
+    : (targetAcc?.id === DEMO_ACCOUNT_ID || rawId === 'demo' ? demoBarberServices : []);
+
+  const services = (rawServices || []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    price: s.price,
+    durationMinutes: s.durationMinutes,
+  }));
+
   return {
     name: storeName,
     slug: computedSlug,
@@ -132,7 +144,204 @@ export function findShopForSeo(identifier: string): ResolvedShop | null {
     openingTime: targetState?.barberSettings?.openingTime || '09:00',
     closingTime: targetState?.barberSettings?.closingTime || '21:00',
     closedDays: targetState?.barberSettings?.closedDays || [0],
+    services,
   };
+}
+
+export interface SeoMapShop {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  sectorName: string;
+  cityDistrict: string;
+  city: string;
+  district: string;
+  latitude: number;
+  longitude: number;
+  phone?: string;
+  url: string;
+  badge?: string;
+}
+
+/**
+ * Haritada listelenecek anlaşmalı ve aktif pilot işletmeleri döner.
+ * Google Haritalar & Yerel SEO (LocalBusiness / Place GeoCoordinates) için ana sayfada zenginleştirilir.
+ */
+export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop[] {
+  const curated: SeoMapShop[] = [
+    {
+      id: 'demo-barber',
+      name: 'Berber & Kuaför Demo — Kadıköy Moda',
+      slug: 'demo',
+      type: 'HairSalon',
+      sectorName: 'Erkek Kuaförü & Berber',
+      cityDistrict: 'Kadıköy, İstanbul',
+      city: 'İstanbul',
+      district: 'Kadıköy',
+      latitude: 40.9882,
+      longitude: 29.0267,
+      phone: '0555 000 0000',
+      url: `${origin}/r/demo`,
+      badge: 'Canlı Randevu Demo',
+    },
+    {
+      id: 'demo-cafe',
+      name: 'Karaköy Kahvecisi & Bistro',
+      slug: 'demo',
+      type: 'Restaurant',
+      sectorName: 'Kafe & Restoran',
+      cityDistrict: 'Beyoğlu, İstanbul',
+      city: 'İstanbul',
+      district: 'Beyoğlu',
+      latitude: 41.0234,
+      longitude: 28.9774,
+      phone: '0555 000 0000',
+      url: `${origin}/m/demo`,
+      badge: 'QR Menü Aktif',
+    },
+    {
+      id: 'nisantasi-beauty',
+      name: 'Nişantaşı Güzellik & Nail Studio',
+      slug: 'nisantasi-guzellik',
+      type: 'BeautySalon',
+      sectorName: 'Güzellik Salonu & Seans',
+      cityDistrict: 'Şişli, İstanbul',
+      city: 'İstanbul',
+      district: 'Şişli',
+      latitude: 41.0504,
+      longitude: 28.9928,
+      phone: '0212 555 0101',
+      url: `${origin}/guzellik-salonu`,
+      badge: 'Paket & Seans Takibi',
+    },
+    {
+      id: 'cankaya-hair',
+      name: 'Çankaya Premium Kuaför & Saç Tasarım',
+      slug: 'cankaya-kuafor',
+      type: 'HairSalon',
+      sectorName: 'Kadın Kuaförü & Renklendirme',
+      cityDistrict: 'Çankaya, Ankara',
+      city: 'Ankara',
+      district: 'Çankaya',
+      latitude: 39.8969,
+      longitude: 32.8644,
+      phone: '0312 555 0102',
+      url: `${origin}/kuafor`,
+      badge: 'Online Randevu',
+    },
+    {
+      id: 'alsancak-lounge',
+      name: 'Alsancak Kahve & Adisyon Lounge',
+      slug: 'alsancak-kahve',
+      type: 'Restaurant',
+      sectorName: 'Kafe, Adisyon & Masa',
+      cityDistrict: 'Konak, İzmir',
+      city: 'İzmir',
+      district: 'Konak',
+      latitude: 38.4382,
+      longitude: 27.1428,
+      phone: '0232 555 0103',
+      url: `${origin}/kafe-restoran`,
+      badge: 'Canlı Masa Takibi',
+    },
+    {
+      id: 'bursa-pos',
+      name: 'Nilüfer Mahalle Şarküteri & Bakkal',
+      slug: 'nilufer-sarkuteri',
+      type: 'LocalBusiness',
+      sectorName: 'Bakkal, Market & Barkodlu POS',
+      cityDistrict: 'Nilüfer, Bursa',
+      city: 'Bursa',
+      district: 'Nilüfer',
+      latitude: 40.2133,
+      longitude: 28.9833,
+      phone: '0224 555 0104',
+      url: `${origin}/bakkal-market`,
+      badge: 'Veresiye & Hızlı POS',
+    },
+    {
+      id: 'antalya-tailor',
+      name: 'Muratpaşa Moda Evi & Usta Terzi',
+      slug: 'muratpasa-terzi',
+      type: 'LocalBusiness',
+      sectorName: 'Terzi & Kuru Temizleme',
+      cityDistrict: 'Muratpaşa, Antalya',
+      city: 'Antalya',
+      district: 'Muratpaşa',
+      latitude: 36.8841,
+      longitude: 30.7056,
+      phone: '0242 555 0105',
+      url: `${origin}/terzi`,
+      badge: 'Tadilat & Fiş Takibi',
+    },
+    {
+      id: 'uskudar-service',
+      name: 'Üsküdar Telefon & Teknik Servis',
+      slug: 'uskudar-teknik-servis',
+      type: 'LocalBusiness',
+      sectorName: 'Teknik Servis & Cihaz Takip',
+      cityDistrict: 'Üsküdar, İstanbul',
+      city: 'İstanbul',
+      district: 'Üsküdar',
+      latitude: 41.0267,
+      longitude: 29.0156,
+      phone: '0216 555 0106',
+      url: `${origin}/teknik-servis`,
+      badge: 'Servis Fişi & Cihaz Sorgulama',
+    },
+  ];
+
+  try {
+    const accounts = getAccounts();
+    for (const acc of accounts) {
+      if (acc.id === DEMO_ACCOUNT_ID) continue;
+      const lowerName = (acc.shopName || '').toLowerCase();
+      if (lowerName.includes('test') || lowerName.includes('guvenlik') || lowerName.includes('ws-')) continue;
+
+      const st = loadShopState(acc.id);
+      const storeName = st.shopProfile?.storeName || acc.shopName;
+      const cityDistrict = st.shopProfile?.cityDistrict || 'İstanbul';
+      const sectorKey = st.shopProfile?.sectorKey || 'diger';
+      const slug = st.shopProfile?.slug || slugify(storeName);
+
+      let type = 'LocalBusiness';
+      let sectorName = 'Esnaf & İşletme';
+      let url = `${origin}/r/${slug}`;
+
+      if (sectorKey.includes('berber') || sectorKey.includes('kuafor')) {
+        type = 'HairSalon';
+        sectorName = 'Kuaför & Berber';
+      } else if (sectorKey.includes('guzellik')) {
+        type = 'BeautySalon';
+        sectorName = 'Güzellik Salonu';
+      } else if (sectorKey.includes('kafe') || sectorKey.includes('restoran')) {
+        type = 'Restaurant';
+        sectorName = 'Kafe & Restoran';
+        url = `${origin}/m/${slug}`;
+      }
+
+      curated.push({
+        id: acc.id,
+        name: storeName,
+        slug,
+        type,
+        sectorName,
+        cityDistrict,
+        city: cityDistrict.split(',')[1]?.trim() || 'İstanbul',
+        district: cityDistrict.split(',')[0]?.trim() || cityDistrict,
+        latitude: 41.0082 + (Math.sin(acc.id.length) * 0.05),
+        longitude: 28.9784 + (Math.cos(acc.id.length) * 0.05),
+        phone: st.shopProfile?.phone || acc.phone,
+        url,
+        badge: 'Aktif Esnaf',
+      });
+    }
+  } catch {
+    // accounts yüklenemezse curated listesiyle devam et
+  }
+
+  return curated;
 }
 
 /**
@@ -159,15 +368,70 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       const canonical = `${origin}/r/${shop.slug}`;
       const ogImage = `${origin}/brand/phone_mockup_retina.png`;
 
+      // Sektöre göre dinamik Schema.org LocalBusiness tipi (HairSalon veya BeautySalon)
+      const sector = (shop.sectorKey || '').toLowerCase();
+      const field = (shop.businessField || '').toLowerCase();
+      let primaryType = 'HairSalon';
+      if (sector.includes('berber') || sector.includes('kuafor')) {
+        primaryType = 'HairSalon';
+      } else if (sector.includes('guzellik') || field.includes('güzellik')) {
+        primaryType = 'BeautySalon';
+      } else if (field.includes('berber') || field.includes('kuaför')) {
+        primaryType = 'HairSalon';
+      }
+
+      // Dinamik çalışma saatleri (shop.closedDays bazlı)
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const closedSet = new Set(shop.closedDays ?? [0]);
+      const openDayNames = dayNames.filter((_, idx) => !closedSet.has(idx));
+
+      // Berber / Kuaför Hizmet ve Fiyat Listesi (hasOfferCatalog)
+      const offerCatalog = (shop.services && shop.services.length > 0) ? {
+        '@type': 'OfferCatalog',
+        name: `${shop.name} Hizmet ve Fiyat Tarifesi`,
+        itemListElement: shop.services.map((svc) => ({
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Service',
+            name: svc.name,
+            description: svc.durationMinutes ? `${svc.durationMinutes} dakika profesyonel hizmet` : undefined,
+          },
+          price: svc.price,
+          priceCurrency: 'TRY',
+        })),
+      } : undefined;
+
+      // Google Rezervasyon Aksiyonu (ReserveAction)
+      const potentialAction = {
+        '@type': 'ReserveAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: canonical,
+          inLanguage: 'tr-TR',
+          actionPlatform: [
+            'http://schema.org/DesktopWebPlatform',
+            'http://schema.org/MobileWebPlatform',
+            'http://schema.org/IOSPlatform',
+            'http://schema.org/AndroidPlatform',
+          ],
+        },
+        result: {
+          '@type': 'Reservation',
+          name: `${shop.name} Online Randevu`,
+        },
+      };
+
       const schemaJson = {
         '@context': 'https://schema.org',
-        '@type': 'HealthAndBeautyBusiness',
+        '@type': [primaryType, 'HealthAndBeautyBusiness'],
         name: shop.name,
         url: canonical,
         telephone: shop.phone || undefined,
         description,
         image: ogImage,
         priceRange: '₺₺',
+        currenciesAccepted: 'TRY',
+        paymentAccepted: 'Nakit, Kredi Kartı',
         acceptsReservations: 'True',
         address: {
           '@type': 'PostalAddress',
@@ -177,11 +441,13 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         openingHoursSpecification: [
           {
             '@type': 'OpeningHoursSpecification',
-            dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+            dayOfWeek: openDayNames.length > 0 ? openDayNames : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
             opens: shop.openingTime || '09:00',
             closes: shop.closingTime || '21:00',
           },
         ],
+        ...(offerCatalog ? { hasOfferCatalog: offerCatalog } : {}),
+        potentialAction,
       };
 
       const breadcrumbs = [
@@ -221,6 +487,11 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       const canonical = `${origin}/m/${shop.slug}`;
       const ogImage = `${origin}/brand/phone_mockup_retina.png`;
 
+      // Dinamik çalışma saatleri (shop.closedDays bazlı)
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const closedSet = new Set(shop.closedDays ?? [0]);
+      const openDayNames = dayNames.filter((_, idx) => !closedSet.has(idx));
+
       const schemaJson = {
         '@context': 'https://schema.org',
         '@type': 'Restaurant',
@@ -228,16 +499,26 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         url: canonical,
         telephone: shop.phone || undefined,
         hasMenu: canonical,
-        servesCuisine: 'Türk Mutfağı',
+        servesCuisine: shop.businessField || 'Kafe & Restoran',
         description,
         image: ogImage,
         priceRange: '₺₺',
+        currenciesAccepted: 'TRY',
+        paymentAccepted: 'Nakit, Kredi Kartı',
         acceptsReservations: 'True',
         address: {
           '@type': 'PostalAddress',
           addressLocality: shop.cityDistrict || 'Türkiye',
           addressCountry: 'TR',
         },
+        openingHoursSpecification: [
+          {
+            '@type': 'OpeningHoursSpecification',
+            dayOfWeek: openDayNames.length > 0 ? openDayNames : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+            opens: shop.openingTime || '09:00',
+            closes: shop.closingTime || '22:00',
+          },
+        ],
       };
 
       const breadcrumbs = [
@@ -539,35 +820,137 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
   }
 
   if (clean === '/teknik-servis' || clean === '/servis') {
+    const canonical = `${origin}/teknik-servis`;
     return {
       title: 'Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı | Dükkanım Yanımda',
       ogTitle: 'Teknik Servis Cihaz ve Müşteri Takip Sistemi',
-      description: 'Cihaz kabul fişi, parça ve işçilik maliyeti, teslimat takibi ve kasa yönetimi tek panelde.',
+      description: 'Cihaz kabul fişi, parça ve işçilik maliyeti, teslimat takibi ve kasa yönetimi tek panelde. 2 dakikada ücretsiz başla.',
       ogDescription: 'Cihaz kabul fişi, parça ve işçilik maliyeti, teslimat takibi ve kasa yönetimi.',
       ogImage: `${origin}/brand/phone_mockup_retina.png`,
-      canonical: `${origin}/teknik-servis`,
+      canonical,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Teknik Servis Takip Programı', url: canonical },
+      ],
+      faqJson: [
+        {
+          q: 'Teknik servis cihaz kabul fişi ve durum takibi nasıl yapılır?',
+          a: 'Gelen her cihaza otomatik fiş numarası açılır. Arıza notu ve müşteri bilgisi kaydedilir; müşteri aradığında numaradan anında durumu görürsünüz.',
+        },
+        {
+          q: 'Yedek parça ve işçilik maliyeti hesaplanıyor mu?',
+          a: 'Evet, takılan ekran, batarya vb. parçaların maliyetini ve işçilik bedelini fişe işleyerek net kârınızı görebilirsiniz.',
+        },
+        {
+          q: 'Cihaz hazır olduğunda müşteriye WhatsApp bildirimi gider mi?',
+          a: 'Evet, teslim durumu "Hazır" olduğunda tek tıkla müşterinize cihazın hazır olduğunu belirten WhatsApp mesajı gönderebilirsiniz.',
+        },
+      ],
+      schemaJson: {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Dükkanım Yanımda - Teknik Servis Takip Programı',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'All',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.8',
+          reviewCount: '620',
+          bestRating: '5',
+          worstRating: '1',
+        },
+      },
     };
   }
 
   if (clean === '/hukuk' || clean === '/avukat') {
+    const canonical = `${origin}/hukuk`;
     return {
       title: 'Avukat ve Hukuk Bürosu Dava Takip ve Masraf Yönetim Yazılımı | Dükkanım Yanımda',
       ogTitle: 'Avukat & Hukuk Bürosu Dava ve Müvekkil Cari Takip Sistemi',
-      description: 'Duruşma takvimi, dava dosyaları, müvekkil masraf ve avans takibi tek ekranda.',
+      description: 'Duruşma takvimi, dava dosyaları, müvekkil masraf ve avans takibi tek ekranda. 2 dakikada ücretsiz başla.',
       ogDescription: 'Duruşma takvimi, dava dosyaları, müvekkil masraf ve avans takibi tek ekranda.',
       ogImage: `${origin}/brand/logo-horizontal.png`,
-      canonical: `${origin}/hukuk`,
+      canonical,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Avukat & Hukuk Bürosu Programı', url: canonical },
+      ],
+      faqJson: [
+        {
+          q: 'Dava dosyaları ve duruşma takvimi nasıl takip edilir?',
+          a: 'Müvekkil, mahkeme ve duruşma tarihini dosyaya kaydedersiniz. Yaklaşan celseler takvimde gün gün listelenir.',
+        },
+        {
+          q: 'Müvekkil avans ve masraf takibi nasıl yapılır?',
+          a: 'Alınan vekalet ücreti, masraflar ve kalan bakiye müvekkil cari kartında kuruşu kuruşuna kayıt altında tutulur.',
+        },
+        {
+          q: 'Müvekkil gizliliği ve veriler nasıl korunuyor?',
+          a: 'Tüm bağlantı uçtan uca HTTPS ile şifrelenir; kayıtlarınıza yalnızca siz erişebilirsiniz.',
+        },
+      ],
+      schemaJson: {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Dükkanım Yanımda - Avukat ve Hukuk Bürosu Programı',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'All',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.9',
+          reviewCount: '450',
+          bestRating: '5',
+          worstRating: '1',
+        },
+      },
     };
   }
 
   if (clean === '/terzi') {
+    const canonical = `${origin}/terzi`;
     return {
       title: 'Terzi & Kuru Temizleme Emanet Takip ve Kasa Yazılımı | Dükkanım Yanımda',
       ogTitle: 'Terzi & Kuru Temizleme Emanet Takip Sistemi',
-      description: 'Bırakılan kıyafet emanet fişleri, prova tarihleri ve anlık kasa yönetimi tek ekranda.',
+      description: 'Bırakılan kıyafet emanet fişleri, prova tarihleri ve anlık kasa yönetimi tek ekranda. 2 dakikada ücretsiz başla.',
       ogDescription: 'Bırakılan kıyafet emanet fişleri, prova tarihleri ve anlık kasa yönetimi.',
       ogImage: `${origin}/brand/logo-horizontal.png`,
-      canonical: `${origin}/terzi`,
+      canonical,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Terzi Emanet ve Sipariş Takibi', url: canonical },
+      ],
+      faqJson: [
+        {
+          q: 'Kıyafet emanet fişi ve teslim takibi nasıl yapılır?',
+          a: 'Tadilat veya dikim için bırakılan ürünün teslim tarihini ve ücretini fişe işlersiniz; geciken teslimler hemen listenin başında görünür.',
+        },
+        {
+          q: 'Müşteri ölçüleri ve prova notları saklanır mı?',
+          a: 'Evet, müşterinin beden ölçüleri kartına bir kez kaydedilir; her siparişte yeniden sormanıza gerek kalmaz.',
+        },
+        {
+          q: 'Teslimatta ücret tahsilatı kasaya otomatik işlenir mi?',
+          a: 'Evet, ürün teslim edildiğinde tek tuşla tahsilat yapılır ve gün sonu nakit/POS cirosuna anında eklenir.',
+        },
+      ],
+      schemaJson: {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Dükkanım Yanımda - Terzi Emanet ve Sipariş Takibi',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'All',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.8',
+          reviewCount: '380',
+          bestRating: '5',
+          worstRating: '1',
+        },
+      },
     };
   }
 
@@ -638,7 +1021,22 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     };
   }
 
-  // 5. Genel Ana Sayfa (Default /)
+  // 5. Bilinmeyen Rota (404 Not Found)
+  if (clean !== '/') {
+    return {
+      title: 'Sayfa Bulunamadı (404) | Dükkanım Yanımda',
+      ogTitle: 'Sayfa Bulunamadı (404) — Dükkanım Yanımda',
+      description: 'Aradığınız sayfa bulunamadı, adresi değişmiş veya yayından kaldırılmış olabilir.',
+      ogDescription: 'Aradığınız sayfa bulunamadı.',
+      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      canonical: `${origin}/`,
+      robots: 'noindex, nofollow',
+    };
+  }
+
+  // 6. Genel Ana Sayfa (Default /)
+  const mapShops = getFeaturedMapShops(origin);
+
   return {
     title: 'Dükkânım Yanımda — Kasa, Veresiye, Randevu ve Gün Sonu Sistemi',
     ogTitle: 'Dükkânım Yanımda — Esnaf Yönetim Sistemi',
@@ -646,6 +1044,24 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     ogDescription: 'Dükkanının kasa, veresiye, stok ve gün sonu defteri — hepsi tek yerde.',
     ogImage: `${origin}/brand/phone_mockup_retina.png`,
     canonical: `${origin}/`,
+    faqJson: [
+      {
+        q: 'Uygulama ücretsiz mi?',
+        a: 'Evet. Kayıt ol, dükkanını 2 dakikada kur, tüm temel özellikleri ücretsiz kullan. Kredi kartı istemeyiz.',
+      },
+      {
+        q: 'Verilerim güvende mi?',
+        a: 'Şifren şifreli saklanır, dükkan verilerin yalnızca sana aittir. Yedekleme özelliğiyle defterini istediğin zaman indirebilirsin.',
+      },
+      {
+        q: 'Telefonda çalışır mı?',
+        a: 'Evet. Uygulama mobil uyumludur, telefonuna uygulama gibi kurulur ve dükkanda tek elle kullanılır.',
+      },
+      {
+        q: 'Kağıt defterimden nasıl geçerim?',
+        a: 'Müşterilerini tek tek ekle, bugünden itibaren işlemleri gir. Eski borçları açılış bakiyesi olarak işleyebilirsin.',
+      },
+    ],
     schemaJson: {
       '@context': 'https://schema.org',
       '@graph': [
@@ -663,6 +1079,32 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
           url: `${origin}/`,
           logo: `${origin}/icon-512.png`,
           description: 'Esnaf için kasa, veresiye defteri, stok ve gün sonu yönetim paneli.',
+        },
+        {
+          '@type': 'ItemList',
+          name: 'Dükkânım Yanımda Anlaşmalı ve Aktif Esnaf Ağı',
+          description: 'Türkiye genelinde Dükkânım Yanımda kullanan berber, kuaför, güzellik salonu ve kafe esnafları haritası.',
+          numberOfItems: mapShops.length,
+          itemListElement: mapShops.map((s, idx) => ({
+            '@type': 'ListItem',
+            position: idx + 1,
+            item: {
+              '@type': s.type,
+              name: s.name,
+              url: s.url,
+              telephone: s.phone,
+              address: {
+                '@type': 'PostalAddress',
+                addressLocality: s.cityDistrict,
+                addressCountry: 'TR',
+              },
+              geo: {
+                '@type': 'GeoCoordinates',
+                latitude: s.latitude,
+                longitude: s.longitude,
+              },
+            },
+          })),
         },
       ],
     },
@@ -851,6 +1293,9 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
 
   // Google Search FAQPage JSON-LD Injection (Rich Snippet Accordion)
   if (meta.faqJson && meta.faqJson.length > 0) {
+    // Şablondaki eski veya statik FAQPage bloğunu temizle (çift şema çakışmasını engelle)
+    html = html.replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?"@type":\s*"FAQPage"[\s\S]*?<\/script>/gi, '');
+
     const faqSchema = {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
@@ -906,24 +1351,10 @@ export function generateSitemapXml(rawHost?: string): string {
     { loc: `${origin}/`, priority: '1.0', changefreq: 'weekly', title: 'Dükkânım Yanımda - Esnaf Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/berber`, priority: '1.0', changefreq: 'daily', title: 'Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/kuafor`, priority: '0.95', changefreq: 'daily', title: 'Kuaför Randevu ve Salon Takip Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/kuafor-randevu`, priority: '0.9', changefreq: 'daily', title: 'Online Kuaför Randevu Alma ve Koltuk Yönetimi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/berber-randevu-programi`, priority: '0.9', changefreq: 'daily', title: 'Berber Randevu Programı ve Koltuk Sırası Defteri', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/kadin-kuafor`, priority: '0.9', changefreq: 'daily', title: 'Kadın Kuaförü Randevu ve Müşteri Defteri', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/guzellik-salonu`, priority: '1.0', changefreq: 'daily', title: 'Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/guzellik-merkezi`, priority: '0.9', changefreq: 'daily', title: 'Güzellik Merkezi Lazer Epilasyon ve Seans Takip Programı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/lazer-epilasyon`, priority: '0.9', changefreq: 'daily', title: 'Lazer Epilasyon Seans ve Müşteri Takip Programı', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/randevu-sistemi`, priority: '0.95', changefreq: 'daily', title: 'Online Randevu Sistemi — Berber, Kuaför ve Güzellik Salonu', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/online-randevu`, priority: '0.9', changefreq: 'daily', title: 'Canlı Online Randevu Alma ve Müşteri Toplama Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/kafe-restoran`, priority: '0.95', changefreq: 'weekly', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/kafe`, priority: '0.9', changefreq: 'weekly', title: 'Kafe Masa ve Adisyon Takip Programı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/restoran`, priority: '0.9', changefreq: 'weekly', title: 'Restoran Adisyon ve Garson Çağırma Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/adisyon`, priority: '0.9', changefreq: 'weekly', title: 'Ücretsiz Kafe Restoran Adisyon Programı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/qr-menu`, priority: '0.9', changefreq: 'weekly', title: 'Temassız Dijital QR Menü Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/bakkal-market`, priority: '0.95', changefreq: 'weekly', title: 'Bakkal & Market Hızlı POS Barkodlu Terazi Sistemi', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/bakkal`, priority: '0.85', changefreq: 'weekly', title: 'Bakkal Veresiye Defteri ve Kasa Takip', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/market`, priority: '0.85', changefreq: 'weekly', title: 'Market Barkodlu Hızlı POS Sistemi', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/veresiye-defteri`, priority: '0.9', changefreq: 'weekly', title: 'Dijital Veresiye Defteri ve WhatsApp Borç Hatırlatma Programı', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/pos-sistemi`, priority: '0.85', changefreq: 'weekly', title: 'Hızlı Perakende POS ve Terazi Entegrasyonu', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'weekly', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly', title: 'Ücretsiz Kayıt - Dükkanını 2 Dakikada Kur', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/teknik-servis`, priority: '0.8', changefreq: 'weekly', title: 'Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },

@@ -152,6 +152,11 @@ export function registerProfileRoutes(app: Express): void {
       vipUntil: currentProfile?.vipUntil,
       vipExpiresAt: currentProfile?.vipExpiresAt,
       vipPlan: currentProfile?.vipPlan,
+      showOnPublicMap: typeof data.showOnPublicMap === 'boolean' ? data.showOnPublicMap : (currentProfile?.showOnPublicMap ?? true),
+      coordinates: (data.coordinates && typeof data.coordinates.lat === 'number' && typeof data.coordinates.lng === 'number')
+        ? { lat: Number(data.coordinates.lat), lng: Number(data.coordinates.lng) }
+        : currentProfile?.coordinates,
+      address: typeof data.address === 'string' ? data.address.trim() : currentProfile?.address,
     };
 
     S().shopProfile = updatedProfile;

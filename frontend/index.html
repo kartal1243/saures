@@ -34,31 +34,6 @@
           "name": "Dükkanım Yanımda",
           "url": "https://dukkanimyanimda.com.tr/",
           "inLanguage": "tr-TR"
-        },
-        {
-          "@type": "FAQPage",
-          "mainEntity": [
-            {
-              "@type": "Question",
-              "name": "Uygulama ücretsiz mi?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Evet. Kayıt ol, dükkanını 2 dakikada kur, tüm temel özellikleri ücretsiz kullan. Kredi kartı istemeyiz." }
-            },
-            {
-              "@type": "Question",
-              "name": "Verilerim güvende mi?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Şifren şifreli saklanır, dükkan verilerin yalnızca sana aittir. Yedekleme özelliğiyle defterini istediğin zaman indirebilirsin." }
-            },
-            {
-              "@type": "Question",
-              "name": "Telefonda çalışır mı?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Evet. Uygulama mobil uyumludur, telefonuna uygulama gibi kurulur ve dükkanda tek elle kullanılır." }
-            },
-            {
-              "@type": "Question",
-              "name": "Kağıt defterimden nasıl geçerim?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Müşterilerini tek tek ekle, bugünden itibaren işlemleri gir. Eski borçları açılış bakiyesi olarak işleyebilirsin." }
-            }
-          ]
         }
       ]
     }
@@ -69,13 +44,17 @@
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Dükkânım Yanımda" />
+    <link rel="preload" as="image" href="/brand/phone_mockup_retina.png" fetchpriority="high" type="image/png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    </noscript>
   </head>
   <body class="bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 antialiased selection:bg-orange-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/main.tsx"></script>
   </body>
 </html>
-

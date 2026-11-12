@@ -107,9 +107,42 @@ function isStaffAvailable(
   startMin: number,
   endMin: number,
   appointments: Appointment[],
-  timeBlocks: BarberTimeBlock[]
+  timeBlocks: BarberTimeBlock[],
+  staffOrList?: BarberStaff | BarberStaff[] | null,
+  excludeAppointmentId?: string
 ): boolean {
-  // 1. Mola / Kapatma saati çakışma kontrolü
+  // Personel nesnesini çözümle
+  const staffObj: BarberStaff | undefined = Array.isArray(staffOrList)
+    ? staffOrList.find((s) => s.id === staffId)
+    : (staffOrList || undefined);
+
+  // 1. Personel aktiflik kontrolü
+  if (staffObj && staffObj.active === false) {
+    return false;
+  }
+
+  // 2. Personel haftalık izin günü (offDays) kontrolü (0: Pazar, 1: Pazartesi, ..., 6: Cumartesi)
+  if (staffObj?.offDays && Array.isArray(staffObj.offDays) && staffObj.offDays.length > 0) {
+    const [y, m, d] = date.split('-').map(Number);
+    const targetDateObj = new Date(y, m - 1, d);
+    const dayOfWeek = targetDateObj.getDay();
+    if (staffObj.offDays.includes(dayOfWeek)) {
+      return false; // Personel bugün izinli
+    }
+  }
+
+  // 3. Personel şahsi mesai saatleri (workingHours / workStart-workEnd) kontrolü
+  const staffStartStr = staffObj?.workingHours?.start || staffObj?.workStart;
+  const staffEndStr = staffObj?.workingHours?.end || staffObj?.workEnd;
+  if (staffStartStr && staffEndStr) {
+    const sStartMin = timeToMinutes(staffStartStr);
+    const sEndMin = timeToMinutes(staffEndStr);
+    if (startMin < sStartMin || endMin > sEndMin) {
+      return false; // Randevu personelin mesai saatleri dışında
+    }
+  }
+
+  // 4. Mola / Kapatma saati çakışma kontrolü
   const hasBlock = timeBlocks.some((b) => {
     if (b.date !== date) return false;
     const matchesStaff = !b.staffId || b.staffId === 'all' || b.staffId === staffId;
@@ -120,8 +153,9 @@ function isStaffAvailable(
   });
   if (hasBlock) return false;
 
-  // 2. Çakışan aktif randevu kontrolü
+  // 5. Çakışan aktif randevu kontrolü
   const hasApt = appointments.some((a) => {
+    if (excludeAppointmentId && a.id === excludeAppointmentId) return false;
     if (a.appointmentDate !== date) return false;
     if (a.status === 'iptal' || a.status === 'arsiv' || a.status === 'gelmedi') return false;
 
@@ -169,6 +203,28 @@ function publicBookingRateLimit(req: Request, res: Response, next: () => void) {
     return res.status(429).json({ error: 'Çok fazla randevu denemesi yapıldı. Güvenlik gereği lütfen 1 dakika bekleyiniz.' });
   }
   next();
+}
+
+// KVKK Uyumluluğu: Müşteri Adı ve Soyadı Maskeleme (Örn: "Ahmet Yılmaz" -> "Ah*** Yıl***")
+export function maskCustomerName(name?: string): string {
+  if (!name || typeof name !== 'string') return '***';
+  const parts = name.trim().split(/\s+/);
+  return parts
+    .map((p) => {
+      if (p.length <= 2) return p[0] ? p[0] + '*' : '*';
+      return p.slice(0, 2) + '*'.repeat(Math.max(1, p.length - 2));
+    })
+    .join(' ');
+}
+
+// KVKK Uyumluluğu: Telefon Numarası Maskeleme (Örn: "05321234567" -> "0532 *** ** 67")
+export function maskPhoneNumber(phone?: string): string {
+  if (!phone) return '05** *** ** **';
+  const norm = normalizePhone(phone);
+  if (norm.length === 11) {
+    return norm.slice(0, 4) + ' *** ** ' + norm.slice(-2);
+  }
+  return '05** *** ** **';
 }
 
 // ==========================================
@@ -449,10 +505,26 @@ export function registerPublicBarberRoutes(app: Express): void {
         const stepDuration = (typeof customDur === 'number' && customDur > 0) ? customDur : (srv.durationMinutes || 30);
         const stepEndMinutes = currentStartMinutes + stepDuration;
 
-        const isFree = isStaffAvailable(assignedStaff.id, date, currentStartMinutes, stepEndMinutes, activeAppointments, timeBlocks);
+        const isFree = isStaffAvailable(
+          assignedStaff.id,
+          date,
+          currentStartMinutes,
+          stepEndMinutes,
+          activeAppointments,
+          timeBlocks,
+          assignedStaff
+        );
         if (!isFree) {
+          const [y, m, d] = date.split('-').map(Number);
+          const targetDateObj = new Date(y, m - 1, d);
+          const dayOfWeek = targetDateObj.getDay();
+          if (assignedStaff.offDays && Array.isArray(assignedStaff.offDays) && assignedStaff.offDays.includes(dayOfWeek)) {
+            return res.status(409).json({
+              error: `Seçtiğiniz usta (${assignedStaff.name}) ${date} tarihinde haftalık izindedir. Lütfen başka bir gün veya usta seçiniz.`,
+            });
+          }
           return res.status(409).json({
-            error: `Seçtiğiniz usta (${assignedStaff.name}) ${timeSlot} saatinde doludur veya moladadır. Lütfen başka bir saat seçiniz.`,
+            error: `Seçtiğiniz usta (${assignedStaff.name}) ${timeSlot} saatinde doludur, mesai dışındadır veya moladadır. Lütfen başka bir saat seçiniz.`,
           });
         }
       } else {
@@ -463,7 +535,7 @@ export function registerPublicBarberRoutes(app: Express): void {
         const freeCapableStaff = capableStaff.filter((s) => {
           const customDur = s.customPricing?.[srv.id]?.duration;
           const dur = (typeof customDur === 'number' && customDur > 0) ? customDur : (srv.durationMinutes || 30);
-          return isStaffAvailable(s.id, date, currentStartMinutes, currentStartMinutes + dur, activeAppointments, timeBlocks);
+          return isStaffAvailable(s.id, date, currentStartMinutes, currentStartMinutes + dur, activeAppointments, timeBlocks, s);
         });
 
         if (freeCapableStaff.length === 0) {
@@ -712,7 +784,8 @@ export function registerPublicBarberRoutes(app: Express): void {
 
         return {
           id: a.id,
-          customerName: a.customerName,
+          customerName: maskCustomerName(a.customerName),
+          phone: maskPhoneNumber(a.phone),
           appointmentDate: a.appointmentDate,
           timeSlot: a.timeSlot,
           durationMinutes: a.durationMinutes,
@@ -821,11 +894,91 @@ export function registerAppointmentRoutes(app: Express): void {
     }
     if (!S().appointments) S().appointments = [];
 
+    const st = S();
+    const staffList: BarberStaff[] = st.barberStaff && st.barberStaff.length > 0 ? st.barberStaff : defaultBarberStaff;
+    const timeBlocks: BarberTimeBlock[] = st.barberTimeBlocks || [];
+    const settings: BarberSalonSettings = st.barberSettings || defaultBarberSettings;
+
+    const existingIdx = data.id ? st.appointments.findIndex((a) => a.id === data.id) : -1;
+    if (data.id && existingIdx === -1) {
+      return res.status(404).json({ error: 'Randevu bulunamadı.' });
+    }
+
+    const aptDate = data.appointmentDate || (existingIdx !== -1 ? st.appointments[existingIdx].appointmentDate : localDay()) || localDay();
+    const aptTime = data.timeSlot || (existingIdx !== -1 ? st.appointments[existingIdx].timeSlot : '10:00') || '10:00';
+    const aptDur = Number(data.durationMinutes) || (existingIdx !== -1 ? st.appointments[existingIdx].durationMinutes : 30) || 30;
+    const aptStaffId = (data.staffId !== undefined) ? data.staffId : (existingIdx !== -1 ? st.appointments[existingIdx].staffId : '') || '';
+
+    const [ay, am, ad] = aptDate.split('-').map(Number);
+    const aptDateObj = new Date(ay, am - 1, ad);
+    const dayOfWeek = aptDateObj.getDay();
+
+    // 1. Salon Kapalı Gün Kontrolü
+    if (settings.closedDays && settings.closedDays.includes(dayOfWeek)) {
+      return res.status(400).json({
+        error: `Seçilen tarihte (${aptDate}) salon kapalıdır (${settings.closedReason || 'Kapalı gün'}).`,
+        code: 'SALON_CLOSED',
+      });
+    }
+
+    // 2. Salon Çalışma Saatleri Kontrolü
+    const startMin = timeToMinutes(aptTime);
+    const endMin = startMin + aptDur;
+    const openMin = timeToMinutes(settings.openHour || settings.openingTime || '09:00');
+    const closeMin = timeToMinutes(settings.closeHour || settings.closingTime || '21:00');
+    if (startMin < openMin || endMin > closeMin) {
+      return res.status(400).json({
+        error: `Randevu saati salon çalışma saatleri (${settings.openHour || '09:00'} - ${settings.closeHour || '21:00'}) dışında kalmaktadır.`,
+        code: 'OUT_OF_HOURS',
+      });
+    }
+
+    // 3. Personel Çakışma, İzin ve Mola Kontrolü
+    if (aptStaffId && aptStaffId !== 'auto' && aptStaffId !== 'fark_etmez' && aptStaffId !== 'all') {
+      const targetStaff = staffList.find((s) => s.id === aptStaffId);
+      const isFree = isStaffAvailable(
+        aptStaffId,
+        aptDate,
+        startMin,
+        endMin,
+        st.appointments,
+        timeBlocks,
+        targetStaff,
+        data.id
+      );
+      if (!isFree) {
+        if (targetStaff?.offDays && targetStaff.offDays.includes(dayOfWeek)) {
+          return res.status(409).json({
+            error: `Seçtiğiniz personel (${targetStaff.name}) ${aptDate} tarihinde haftalık izindedir.`,
+            code: 'STAFF_OFF_DAY',
+          });
+        }
+        return res.status(409).json({
+          error: `Seçtiğiniz personel (${targetStaff?.name || 'Usta'}) ${aptTime} saatinde doludur, mesai dışındadır veya moladadır.`,
+          code: 'SLOT_CONFLICT',
+        });
+      }
+    } else {
+      // Genel salon kapatma kontrolü
+      const hasGeneralBlock = timeBlocks.some((b) => {
+        if (b.date !== aptDate) return false;
+        if (b.staffId && b.staffId !== 'all') return false;
+        const bStart = timeToMinutes(b.startTime);
+        const bEnd = timeToMinutes(b.endTime);
+        return startMin < bEnd && endMin > bStart;
+      });
+      if (hasGeneralBlock) {
+        return res.status(409).json({
+          error: `Seçilen ${aptTime} saatinde salon kapatılmıştır / genel mola bulunmaktadır.`,
+          code: 'TIMEBLOCK_CONFLICT',
+        });
+      }
+    }
+
     const now = new Date();
 
     if (data.id) {
-      const idx = S().appointments.findIndex((a) => a.id === data.id);
-      if (idx === -1) return res.status(404).json({ error: 'Randevu bulunamadı.' });
+      const idx = existingIdx;
       if (data.phone) {
         const rawP = String(data.phone || '');
         if (!isValidTurkishPhone(rawP)) {
@@ -884,6 +1037,28 @@ export function registerAppointmentRoutes(app: Express): void {
       for (let i = 1; i < count; i++) {
         currentDateObj.setDate(currentDateObj.getDate() + intervalDays);
         const recurringDateStr = currentDateObj.toISOString().split('T')[0];
+        const [ry, rm, rd] = recurringDateStr.split('-').map(Number);
+        const rDayOfWeek = new Date(ry, rm - 1, rd).getDay();
+
+        // Salon kapalı günleri atla
+        if (settings.closedDays && settings.closedDays.includes(rDayOfWeek)) {
+          continue;
+        }
+
+        // Personel dolu veya izinliyse çakışan tekrarlayan seansı atla
+        if (baseApt.staffId && baseApt.staffId !== 'auto' && baseApt.staffId !== 'fark_etmez') {
+          const targetStaff = staffList.find((s) => s.id === baseApt.staffId);
+          const isFree = isStaffAvailable(
+            baseApt.staffId,
+            recurringDateStr,
+            startMin,
+            endMin,
+            st.appointments,
+            timeBlocks,
+            targetStaff
+          );
+          if (!isFree) continue;
+        }
 
         const recApt: Appointment = {
           ...baseApt,
@@ -929,6 +1104,30 @@ export function registerAppointmentRoutes(app: Express): void {
     if (!S().appointments) S().appointments = [];
     const apt = S().appointments.find((a) => a.id === id);
     if (!apt) return res.status(404).json({ error: 'Randevu bulunamadı.' });
+
+    if (staffId && staffId !== 'auto' && staffId !== 'fark_etmez') {
+      const st = S();
+      const staffList: BarberStaff[] = st.barberStaff && st.barberStaff.length > 0 ? st.barberStaff : defaultBarberStaff;
+      const targetStaff = staffList.find((s) => s.id === staffId);
+      const startMin = timeToMinutes(apt.timeSlot);
+      const endMin = startMin + (apt.durationMinutes || 30);
+      const isFree = isStaffAvailable(
+        staffId,
+        apt.appointmentDate,
+        startMin,
+        endMin,
+        st.appointments,
+        st.barberTimeBlocks || [],
+        targetStaff,
+        apt.id
+      );
+      if (!isFree) {
+        return res.status(409).json({
+          error: `Atanmak istenen personel (${staffName || targetStaff?.name || 'Usta'}) ${apt.timeSlot} saatinde doludur, izinlidir veya moladadır.`,
+          code: 'STAFF_BUSY',
+        });
+      }
+    }
 
     apt.staffId = staffId;
     apt.staffName = staffName;
@@ -1089,6 +1288,7 @@ export function registerAppointmentRoutes(app: Express): void {
 
     S().barberTimeBlocks!.unshift(newBlock);
     saveState();
+    broadcast({ type: 'BARBER_TIMEBLOCKS_UPDATED', payload: S().barberTimeBlocks || [] });
     res.json({ success: true, block: newBlock, timeBlocks: S().barberTimeBlocks });
   });
 
@@ -1097,6 +1297,7 @@ export function registerAppointmentRoutes(app: Express): void {
     if (!S().barberTimeBlocks) S().barberTimeBlocks = [];
     S().barberTimeBlocks = (S().barberTimeBlocks || []).filter((b) => b.id !== id);
     saveState();
+    broadcast({ type: 'BARBER_TIMEBLOCKS_UPDATED', payload: S().barberTimeBlocks || [] });
     res.json({ success: true, timeBlocks: S().barberTimeBlocks });
   });
 

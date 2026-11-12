@@ -1,4 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  Star,
+  Check,
+  ShieldCheck,
+  Sparkles,
+  Smartphone,
+  ChevronDown,
+  ArrowRight,
+  MessageCircle,
+  Calendar,
+  Clock,
+  ExternalLink,
+  Users,
+  Award,
+  Zap,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 
 // İletişim e-postası tek noktada. Değişirse sadece burası güncellenir.
@@ -533,7 +551,10 @@ const SECTORS: Record<string, SectorDef> = {
     vip:
       'Koltuk boş kalmasın: Tahsilat Turu “abi yarın uğrarım” diyenlerin listesini önüne koyar, toplu turla hepsine WhatsApp hatırlatması gönderirsin. Patron Raporu hangi günlerin ölü geçtiğini gösterir.',
     faq: [
-      { q: 'Randevuyu müşteri kendisi alabiliyor mu?', a: 'Şimdilik randevuyu sen giriyorsun; telefonla arayan müşteriyi 10 saniyede takvime işlersin. Online müşteri randevusu yol haritasında.' },
+      {
+        q: 'Randevuyu müşteri kendisi online alabiliyor mu?',
+        a: 'Evet! İşletmenize özel "dukkanimyanimda.com.tr/r/dukkan-adiniz" web rezervasyon linki üretilir. Müşterileriniz bu link üzerinden sıra beklemeden usta, hizmet ve boş saat seçip anında online randevu alabilir. Randevular panelinize anında düşer ve WhatsApp teyit mesajı gönderilir.',
+      },
       { q: 'Birden fazla koltuk/usta var, olur mu?', a: 'Olur. Usta, kalfa ve çırakları Personel Menüsü’nden tanımlarsın; kasa, müşteri ve stok kayıtları sadece senin gözünde kalır.' },
     ],
     closing:
@@ -729,6 +750,46 @@ function SectorPage({ route, ...props }: PageProps & { route: 'berber' | 'guzell
         <a href="/fiyat" className="relative mt-4 inline-block px-5 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-black hover:bg-amber-600 transition-colors">
           VIP Paketlere Bak
         </a>
+      </div>
+
+      <H2>Geleneksel Yöntemler ve Rakiplere Göre Farkımız</H2>
+      <div className="mt-4 overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-xs">
+        <table className="w-full text-left text-xs sm:text-sm">
+          <thead className="bg-stone-50 border-b border-stone-200 text-stone-700">
+            <tr>
+              <th className="p-3.5 sm:p-4 font-black">Özellik / Karşılaştırma</th>
+              <th className="p-3.5 sm:p-4 font-black text-rose-600 bg-rose-50/50">Kağıt Defter / Klasik POS</th>
+              <th className="p-3.5 sm:p-4 font-black text-amber-700 bg-amber-50/70">Dükkânım Yanımda</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-100 font-medium">
+            <tr>
+              <td className="p-3.5 sm:p-4 font-bold text-stone-900">Donanım & Kurulum Maliyeti</td>
+              <td className="p-3.5 sm:p-4 text-stone-500">Pahalı POS cihazı, termal rulo ve servis ücreti</td>
+              <td className="p-3.5 sm:p-4 font-bold text-emerald-600 bg-amber-50/30">₺0 — Mevcut telefon ve tabletinizden hemen çalışır</td>
+            </tr>
+            <tr>
+              <td className="p-3.5 sm:p-4 font-bold text-stone-900">Online Randevu & QR Menü</td>
+              <td className="p-3.5 sm:p-4 text-stone-500">Yok veya pahalı üçüncü parti yazılımlar</td>
+              <td className="p-3.5 sm:p-4 font-bold text-emerald-600 bg-amber-50/30">7/24 dükkanınıza özel web linki (/r/:slug ve /m/:slug)</td>
+            </tr>
+            <tr>
+              <td className="p-3.5 sm:p-4 font-bold text-stone-900">Veresiye ve Alacak Hatırlatma</td>
+              <td className="p-3.5 sm:p-4 text-stone-500">Unutulan borçlar, sayfalar arası hesap arama</td>
+              <td className="p-3.5 sm:p-4 font-bold text-emerald-600 bg-amber-50/30">WhatsApp ile tek tıkla nazik borç ekstresi bildirimi</td>
+            </tr>
+            <tr>
+              <td className="p-3.5 sm:p-4 font-bold text-stone-900">Akşam Kasa & Gün Sonu</td>
+              <td className="p-3.5 sm:p-4 text-stone-500">1 saat hesap makinesiyle fiş toplama stresi</td>
+              <td className="p-3.5 sm:p-4 font-bold text-emerald-600 bg-amber-50/30">30 saniyede nakit, kart ve net kâr dökümü</td>
+            </tr>
+            <tr>
+              <td className="p-3.5 sm:p-4 font-bold text-stone-900">Veri Güvenliği ve Yedekleme</td>
+              <td className="p-3.5 sm:p-4 text-stone-500">Defter kaybolur veya ıslanırsa kayıtlar silinir</td>
+              <td className="p-3.5 sm:p-4 font-bold text-emerald-600 bg-amber-50/30">%100 şifreli bulut + tek tıkla Excel/PDF yedekleme</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <H2>Merak edilenler</H2>

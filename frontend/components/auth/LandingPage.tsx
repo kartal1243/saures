@@ -38,6 +38,57 @@ import {
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
 
+const LazyMerchantNetworkMap = React.lazy(() => import('../home/MerchantNetworkMap'));
+
+function LazyMapSection() {
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (shouldLoad) return;
+    if (!('IntersectionObserver' in window)) {
+      setShouldLoad(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [shouldLoad]);
+
+  return (
+    <div ref={containerRef} className="min-h-[520px]">
+      {shouldLoad ? (
+        <React.Suspense
+          fallback={
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
+              <div className="h-[480px] rounded-3xl bg-stone-100 dark:bg-stone-800 animate-pulse border border-stone-200 dark:border-stone-700" />
+            </div>
+          }
+        >
+          <LazyMerchantNetworkMap />
+        </React.Suspense>
+      ) : (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
+          <div className="h-[480px] rounded-3xl bg-stone-50 dark:bg-stone-900/40 border border-stone-200/60 dark:border-stone-800" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface LandingPageProps {
   onLogin: () => void;
   onRegister: () => void;
@@ -660,6 +711,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
           ))}
         </div>
       </section>
+
+      {/* TÜRKİYE ESNAF İLETİŞİM AĞI & CANLI HARİTA (LAZY LOADED - ZERO CLS & FCP KORUMA) */}
+      <LazyMapSection />
 
       {/* İŞLETMEYE ÖZEL VIP PANEL & ŞEFFAF FİYATLANDIRMA */}
       <section id="vip" className="bg-stone-100/70 dark:bg-stone-900/40 border-y border-stone-200/80 dark:border-stone-800/80 py-16 sm:py-24 scroll-mt-20">

@@ -2,6 +2,9 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
+const appDir = typeof __dirname !== 'undefined'
+  ? __dirname
+  : process.cwd();
 import { createServer as createViteServer } from 'vite';
 import { WebSocketServer } from 'ws';
 import { PORT, JSON_BODY_LIMIT } from './config';
@@ -32,6 +35,8 @@ import { registerCustodyRoutes } from './routes/custody';
 import { registerAdminRoutes, isAdminSession } from './routes/admin';
 import { registerPublicMenuRoutes, registerProtectedMenuRoutes } from './routes/menu';
 import { registerShopierWebhook } from './routes/shopierWebhook';
+import { registerPublicShopsMapRoutes } from './routes/publicShopsMap';
+import { registerCommunityRoutes } from './routes/community';
 import { renderSeoHtml, generateSitemapXml, getRobotsTxt, getBaseHtmlTemplate, findShopForSeo } from './seo';
 import { visitorTrackerMiddleware } from './visitorTracker';
 
@@ -104,6 +109,26 @@ export async function startServer(): Promise<void> {
   // WebSocket Server setup
   const wss = new WebSocketServer({ server });
   wss.on('connection', (ws, req) => {
+    // CSWSH Koruması (Cross-Site WebSocket Hijacking): Origin başlığı doğrulaması
+    const origin = req.headers.origin;
+    const host = req.headers.host;
+    if (origin) {
+      const originHost = origin.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+      const cleanHost = (host || '').split('/')[0].toLowerCase();
+      const isAllowed =
+        originHost === cleanHost ||
+        originHost === 'dukkanimyanimda.com.tr' ||
+        originHost === 'www.dukkanimyanimda.com.tr' ||
+        originHost.endsWith('.dukkanimyanimda.com.tr') ||
+        originHost.startsWith('localhost') ||
+        originHost.startsWith('127.0.0.1');
+
+      if (!isAllowed) {
+        ws.close(4003, 'Unauthorized Origin');
+        return;
+      }
+    }
+
     // Admin Paneli bağlantısı kontrolü
     if (isAdminSession(req as any)) {
       addClient(ws, 'ADMIN', {
@@ -158,6 +183,9 @@ export async function startServer(): Promise<void> {
   // ---------------- Shopier OSB (Otomatik Sipariş Bildirimi / Webhook) ----------------
   registerShopierWebhook(app);
 
+  // ---------------- Herkese açık esnaf haritası (KVKK Uyumlu) ----------------
+  registerPublicShopsMapRoutes(app);
+
   // ---------------- Koruma: sonrası için giriş + rol zorunlu ----------------
   app.use('/api', apiGuard);
 
@@ -178,6 +206,7 @@ export async function startServer(): Promise<void> {
   registerCaseRoutes(app);
   registerCustodyRoutes(app);
   registerProtectedMenuRoutes(app);
+  registerCommunityRoutes(app);
 
   // ---------------- Google Play TWA Doğrulaması (Digital Asset Links) ----------------
   app.get('/.well-known/assetlinks.json', (_req, res) => {
@@ -226,6 +255,54 @@ export async function startServer(): Promise<void> {
   });
 
   // Vite geliştirme sunucusu yalnızca açıkça development modunda ve dist/index.html yokken çalışır
+  const VALID_PUBLIC_ROUTES = new Set([
+    '/',
+    '/admin',
+    '/berber',
+    '/kuafor',
+    '/kuafor-randevu',
+    '/kadin-kuafor',
+    '/berber-randevu-programi',
+    '/randevu-sistemi',
+    '/online-randevu',
+    '/guzellik-salonu',
+    '/guzellik-merkezi',
+    '/guzellik',
+    '/lazer-epilasyon',
+    '/kafe-restoran',
+    '/kafe',
+    '/restoran',
+    '/adisyon',
+    '/qr-menu',
+    '/bakkal',
+    '/market',
+    '/bakkal-market',
+    '/veresiye-defteri',
+    '/pos-sistemi',
+    '/fiyat',
+    '/fiyatlandirma',
+    '/kayit',
+    '/teknik-servis',
+    '/servis',
+    '/hukuk',
+    '/avukat',
+    '/terzi',
+    '/iletisim',
+    '/gizlilik',
+    '/gizlilik-politikasi',
+  ]);
+
+  function isPublicRouteValid(pathname: string): boolean {
+    const clean = (pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+    if (VALID_PUBLIC_ROUTES.has(clean)) return true;
+    const isShop = clean.startsWith('/r/') || clean.startsWith('/randevu/') || clean.startsWith('/m/') || clean.startsWith('/menu/');
+    if (isShop) {
+      const slug = clean.replace(/^\/(r|randevu|m|menu)\/?/, '').split('/')[0];
+      return slug === 'demo' || !!findShopForSeo(slug);
+    }
+    return false;
+  }
+
   const isDev = process.env.NODE_ENV === 'development' || (!process.env.NODE_ENV && !fs.existsSync(path.join(process.cwd(), 'dist', 'index.html')));
   if (isDev) {
     const vite = await createViteServer({
@@ -240,10 +317,15 @@ export async function startServer(): Promise<void> {
         return next();
       }
       try {
+        const isNotFound = !isPublicRouteValid(req.path);
         const rawTemplate = getBaseHtmlTemplate();
         const transformed = await vite.transformIndexHtml(req.url, rawTemplate);
         const html = renderSeoHtml(req.path, req.get('host'), transformed);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        if (isNotFound) {
+          res.setHeader('Cache-Control', 'no-cache, no-store');
+          return res.status(404).send(html);
+        }
         res.send(html);
       } catch (err) {
         vite.ssrFixStacktrace(err as Error);
@@ -252,8 +334,8 @@ export async function startServer(): Promise<void> {
     });
   } else {
     const distPathCandidates = [
-      path.join(__dirname),
-      path.join(__dirname, '..', 'dist'),
+      path.join(appDir),
+      path.join(appDir, '..', 'dist'),
       path.join(process.cwd(), 'dist'),
       '/var/www/dukkanim/dist',
     ];
@@ -261,51 +343,15 @@ export async function startServer(): Promise<void> {
     // Statik varlıklar (JS/CSS/görseller) sunulur; ancak HTML rotalarını dinamik SEO motoru karşılar
     app.use(express.static(distPath, { index: false }));
 
-    // Production HTML sunumunda (/r/:slug, /m/:slug, /berber, /kafe-restoran, /bakkal)
-    // dist/index.html içindeki <title> ve og:title / og:description meta etiketlerini ilgili dükkanın gerçek adıyla dinamik değiştirerek gönder
-    const dynamicSeoRoutes = [
-      '/r/:slug',
-      '/randevu/:slug',
-      '/m/:slug',
-      '/menu/:slug',
-      '/berber',
-      '/kuafor',
-      '/kuafor-randevu',
-      '/kadin-kuafor',
-      '/berber-randevu-programi',
-      '/randevu-sistemi',
-      '/online-randevu',
-      '/guzellik-salonu',
-      '/guzellik-merkezi',
-      '/lazer-epilasyon',
-      '/kafe-restoran',
-      '/kafe',
-      '/restoran',
-      '/adisyon',
-      '/qr-menu',
-      '/bakkal',
-      '/market',
-      '/bakkal-market',
-      '/veresiye-defteri',
-      '/pos-sistemi',
-      '/fiyat',
-      '/fiyatlandirma',
-      '/kayit',
-      '/teknik-servis',
-      '/hukuk',
-      '/terzi',
-    ];
-
-    app.get(dynamicSeoRoutes, (req, res) => {
-      const isShopRoute = req.path.startsWith('/r/') || req.path.startsWith('/randevu/') || req.path.startsWith('/m/') || req.path.startsWith('/menu/');
-      let isNotFound = false;
-      if (isShopRoute) {
-        const slug = req.path.replace(/^\/(r|randevu|m|menu)\/?/, '').split('/')[0];
-        if (slug !== 'demo' && !findShopForSeo(slug)) {
-          isNotFound = true;
-        }
+    // Production HTML sunumunda (/r/:slug, /m/:slug, /berber, /kafe-restoran, /bakkal vb.)
+    // dist/index.html içindeki <title> ve og:title / og:description meta etiketlerini dinamik değiştirerek gönder
+    app.get('*', (req, res, next) => {
+      // Statik varlıklar (JS, CSS, PNG vb.) veya API rotaları bulunamadıysa 404 dönmeli; kesinlikle index.html dönmemeli!
+      if (req.path.startsWith('/api') || req.path.startsWith('/assets') || req.path.includes('.')) {
+        return res.status(404).send('Not Found');
       }
 
+      const isNotFound = !isPublicRouteValid(req.path);
       const html = renderSeoHtml(req.path, req.get('host'));
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       if (isNotFound) {
@@ -313,30 +359,6 @@ export async function startServer(): Promise<void> {
         return res.status(404).send(html);
       }
       res.setHeader('Cache-Control', 'public, max-age=60');
-      res.send(html);
-    });
-
-    app.get('*', (req, res, next) => {
-      // Statik varlıklar (JS, CSS, PNG vb.) veya API rotaları bulunamadıysa 404 dönmeli; kesinlikle index.html dönmemeli!
-      if (req.path.startsWith('/api') || req.path.startsWith('/assets') || req.path.includes('.')) {
-        return res.status(404).send('Not Found');
-      }
-
-      const isShopRoute = req.path.startsWith('/r/') || req.path.startsWith('/randevu/') || req.path.startsWith('/m/') || req.path.startsWith('/menu/');
-      let isNotFound = false;
-      if (isShopRoute) {
-        const slug = req.path.replace(/^\/(r|randevu|m|menu)\/?/, '').split('/')[0];
-        if (slug !== 'demo' && !findShopForSeo(slug)) {
-          isNotFound = true;
-        }
-      }
-
-      const html = renderSeoHtml(req.path, req.get('host'));
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      if (isNotFound) {
-        res.setHeader('Cache-Control', 'no-cache, no-store');
-        return res.status(404).send(html);
-      }
       res.send(html);
     });
   }

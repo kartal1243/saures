@@ -12,6 +12,8 @@ export const AUTH_EVENTS_FILE = path.join(DATA_DIR, 'auth-events.json');
 export const FUNNEL_EVENTS_FILE = path.join(DATA_DIR, 'funnel-events.json');
 export const SHOPS_DIR = path.join(DATA_DIR, 'shops');
 export const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+export const COMMUNITY_POSTS_FILE = path.join(DATA_DIR, 'community-posts.json');
+export const COMMUNITY_MESSAGES_FILE = path.join(DATA_DIR, 'community-messages.json');
 
 export const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 gun
 export const MAX_LOGIN_ATTEMPTS = 5;

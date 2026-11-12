@@ -42,7 +42,7 @@ it('findShopForSeo var olmayan dükkan için null döner', () => {
 });
 
 // 2. Randevu Rotaları Metadata (/r/:slug)
-it('/r/:slug rotası için dükkan adıyla dinamik title ve og etiketleri üretir', () => {
+it('/r/:slug rotası için dükkan adıyla dinamik title, HairSalon şeması ve ReserveAction üretir', () => {
   const meta = getSeoMetadata('/r/demo');
   assert.ok(meta.title.includes('Online Randevu Al | Dükkanım Yanımda'), 'Title randevu içermeli');
   assert.ok(meta.ogTitle.includes('Kolay Online Randevu'), 'og:title randevu içermeli');
@@ -50,7 +50,13 @@ it('/r/:slug rotası için dükkan adıyla dinamik title ve og etiketleri üreti
   assert.ok(meta.canonical.includes('/r/'), 'canonical URL randevu ucu olmalı');
   assert.ok(meta.ogImage.startsWith('https://'), 'og:image tam URL olmalı');
   assert.ok(meta.schemaJson, 'schema.org JSON-LD verisi olmalı');
-  assert.strictEqual(meta.schemaJson['@type'], 'HealthAndBeautyBusiness');
+  assert.ok(
+    meta.schemaJson['@type'].includes('HairSalon') && meta.schemaJson['@type'].includes('HealthAndBeautyBusiness'),
+    'HairSalon ve HealthAndBeautyBusiness tipleri olmalı'
+  );
+  assert.ok(meta.schemaJson.hasOfferCatalog, 'hasOfferCatalog hizmet listesi bulunmalı');
+  assert.ok(meta.schemaJson.potentialAction, 'ReserveAction Google rezervasyon aksiyonu bulunmalı');
+  assert.ok(meta.schemaJson.openingHoursSpecification && meta.schemaJson.openingHoursSpecification.length > 0, 'Dinamik çalışma saatleri bulunmalı');
 });
 
 // 3. QR Menü Rotaları Metadata (/m/:slug)
@@ -150,6 +156,11 @@ it('generateSitemapXml geçerli ve zengin bir sitemap üretir', () => {
   assert.ok(xml.includes('sitemap-image'), 'Google image sitemap namespace olmalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/r/demo</loc>'), 'Demo randevu loc olmalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/m/demo</loc>'), 'Demo menü loc olmalı');
+
+  // Alias ve başka sayfalara canonical veren linkler sitemap'te yer almamalı (Google Search Console uyarısı önleme)
+  assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/kuafor-randevu</loc>'), 'Alias rotası sitemapte olmamalı');
+  assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/adisyon</loc>'), 'Alias rotası sitemapte olmamalı');
+  assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/veresiye-defteri</loc>'), 'Alias rotası sitemapte olmamalı');
 });
 
 // 7. Robots.txt Testi
@@ -171,10 +182,14 @@ it('Var olmayan randevu veya menü slugı için noindex döner (Soft 404 engelle
   const metaMenu = getSeoMetadata('/m/olmayan-bir-kafe-xyz');
   assert.strictEqual(metaMenu.robots, 'noindex, follow');
   assert.strictEqual(metaMenu.canonical, 'https://dukkanimyanimda.com.tr/kafe-restoran');
+
+  const metaBilinmeyen = getSeoMetadata('/bu-sayfa-kesinlikle-yok-xyz');
+  assert.strictEqual(metaBilinmeyen.robots, 'noindex, nofollow');
+  assert.ok(metaBilinmeyen.title.includes('404'), 'Bilinmeyen rota 404 başlığı taşımalı');
 });
 
 // 9. Zengin FAQPage JSON-LD Testi
-it('/kafe-restoran, /bakkal-market ve /fiyat zengin Google FAQPage schema içerir', () => {
+it('/kafe-restoran, /bakkal-market, /fiyat, /teknik-servis, /hukuk ve /terzi zengin Google FAQPage schema içerir', () => {
   const metaKafe = getSeoMetadata('/kafe-restoran');
   assert.ok(metaKafe.faqJson && metaKafe.faqJson.length >= 3, 'Kafe FAQPage olmalı');
 
@@ -183,6 +198,16 @@ it('/kafe-restoran, /bakkal-market ve /fiyat zengin Google FAQPage schema içeri
 
   const metaFiyat = getSeoMetadata('/fiyat');
   assert.ok(metaFiyat.faqJson && metaFiyat.faqJson.length >= 3, 'Fiyat FAQPage olmalı');
+
+  const metaServis = getSeoMetadata('/teknik-servis');
+  assert.ok(metaServis.faqJson && metaServis.faqJson.length >= 3, 'Teknik servis FAQPage olmalı');
+  assert.ok(metaServis.schemaJson, 'Teknik servis SoftwareApplication şeması olmalı');
+
+  const metaHukuk = getSeoMetadata('/hukuk');
+  assert.ok(metaHukuk.faqJson && metaHukuk.faqJson.length >= 3, 'Hukuk FAQPage olmalı');
+
+  const metaTerzi = getSeoMetadata('/terzi');
+  assert.ok(metaTerzi.faqJson && metaTerzi.faqJson.length >= 3, 'Terzi FAQPage olmalı');
 });
 
 // 10. Sitemap Test Hesapları İzolasyonu
@@ -198,6 +223,26 @@ it('renderSeoHtml Google Search Console doğrulama meta etiketini korur', () => 
   const html = renderSeoHtml('/');
   assert.ok(html.includes('google-site-verification'), 'Google doğrulama meta etiketi bulunmalı');
   assert.ok(html.includes('googlef0e9499536bdd56a'), 'Doğrulama anahtarı eksiksiz olmalı');
+});
+
+// 12. Esnaf İletişim Ağı ve Ana Sayfa Harita Schema.org Testi (Local SEO & GeoCoordinates)
+it('Ana sayfa (/) Schema.org JSON-LD harita esnaf ağı ItemList ve GeoCoordinates içerir', () => {
+  const meta = getSeoMetadata('/');
+  assert.ok(meta.schemaJson, 'Ana sayfa schemaJson içermeli');
+  assert.ok(Array.isArray(meta.schemaJson['@graph']), '@graph array formatında olmalı');
+
+  const itemList = meta.schemaJson['@graph'].find((item) => item['@type'] === 'ItemList');
+  assert.ok(itemList, 'ItemList tipi bulunmalı');
+  assert.ok(itemList.numberOfItems > 0, 'Harita dükkan sayısı > 0 olmalı');
+  assert.ok(Array.isArray(itemList.itemListElement), 'itemListElement array olmalı');
+
+  const firstShop = itemList.itemListElement[0].item;
+  assert.ok(firstShop.name, 'Harita dükkanının adı olmalı');
+  assert.ok(firstShop.geo, 'geo GeoCoordinates nesnesi bulunmalı');
+  assert.strictEqual(firstShop.geo['@type'], 'GeoCoordinates');
+  assert.strictEqual(typeof firstShop.geo.latitude, 'number');
+  assert.strictEqual(typeof firstShop.geo.longitude, 'number');
+  assert.ok(firstShop.address && firstShop.address.addressCountry === 'TR', 'Türkiye adres formatı olmalı');
 });
 
 console.log(`\n========================================`);

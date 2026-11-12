@@ -414,14 +414,14 @@ export function ensureDemoAccount(): Account {
 }
 
 export const MASTER_USERNAME = 'patron';
-export const MASTER_PHONE = '05559998877';
-export const MASTER_PASSWORD = '123456';
+export const MASTER_PHONE = '05519666030';
 export const MASTER_ACCOUNT_ID = 'acc_master_patron';
 
 export function ensureMasterAccount(): Account {
   let acc = findAccountByPhone(MASTER_PHONE);
 
   if (!acc) {
+    const initialPass = process.env.MASTER_PASSWORD || 'OmerYaman2026!Master';
     acc = {
       id: MASTER_ACCOUNT_ID,
       username: MASTER_USERNAME,
@@ -429,7 +429,7 @@ export function ensureMasterAccount(): Account {
       ownerName: 'Ömer Yaman',
       phone: MASTER_PHONE,
       email: 'patron@dukkanimyanimda.com.tr',
-      passwordHash: hashPassword(MASTER_PASSWORD),
+      passwordHash: hashPassword(initialPass),
       createdAt: '2026-11-01T00:00:00.000Z',
       createdIp: '127.0.0.1',
       loginCount: 1,
@@ -437,7 +437,11 @@ export function ensureMasterAccount(): Account {
     addAccount(acc);
   } else {
     acc.username = MASTER_USERNAME;
-    acc.passwordHash = hashPassword(MASTER_PASSWORD);
+    // Güvenlik (P0): Mevcut şifreyi sabit şifreyle asla ezme!
+    // Yalnızca .env içinde MASTER_PASSWORD açıkça tanımlanmışsa güncelle.
+    if (process.env.MASTER_PASSWORD) {
+      acc.passwordHash = hashPassword(process.env.MASTER_PASSWORD);
+    }
   }
 
   // Master hesaba sınırsız Patron VIP ve tüm sektör örnek verilerini yükle
