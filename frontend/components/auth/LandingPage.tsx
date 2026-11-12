@@ -38,7 +38,7 @@ import {
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
 
-const LazyMerchantNetworkMap = React.lazy(() => import('../home/MerchantNetworkMap'));
+const LazyShopsDiscoveryMap = React.lazy(() => import('../public/ShopsDiscoveryMap'));
 
 function LazyMapSection() {
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -78,7 +78,7 @@ function LazyMapSection() {
             </div>
           }
         >
-          <LazyMerchantNetworkMap />
+          <LazyShopsDiscoveryMap />
         </React.Suspense>
       ) : (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16">

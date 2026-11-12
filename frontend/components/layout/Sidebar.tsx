@@ -21,6 +21,7 @@ import {
   LogOut,
   Wifi,
   WifiOff,
+  Handshake,
 } from 'lucide-react';
 import type { ActiveTab } from '../../App';
 import type { LawyerTab } from '../sector/LawyerCasesView';
@@ -176,6 +177,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <Activity className="w-4 h-4 shrink-0" />
         <span>Gün Sonu</span>
       </button>
+      <button id="nav-tab-community" type="button" onClick={() => onNavigate('community')} className={tabBtn(activeTab === 'community')}>
+        <Handshake className="w-4 h-4 shrink-0 text-orange-400" />
+        <span>Esnaf Meydanı</span>
+      </button>
     </>
   );
 
@@ -309,7 +314,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="grid"
           style={{
             gridTemplateColumns: `repeat(${
-              3 +
+              4 +
               (isBarber ? 1 : 0) +
               (isLawyer ? 1 : 0) +
               (isRetail ? 2 : 0) +
@@ -348,6 +353,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ...(!isLawyer && !isBarber
                 ? [{ id: 'nav-tab-stock', label: 'Stok', Icon: Package, badge: criticalStockCount, active: activeTab === 'stock', onClick: () => onOpenStock(false) }]
                 : []),
+              { id: 'nav-tab-community', label: 'Meydan', Icon: Handshake, badge: 0, active: activeTab === 'community', onClick: () => onNavigate('community') },
               { id: 'nav-tab-activity', label: 'Gün Sonu', Icon: Activity, badge: 0, active: activeTab === 'activity', onClick: () => onNavigate('activity') },
             ]
           ).map(({ id, label, Icon, badge, active, onClick }) => {

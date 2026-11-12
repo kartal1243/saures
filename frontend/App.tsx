@@ -56,6 +56,9 @@ const AppModals = lazy(() =>
 const AdminSite = lazy(() =>
   import('./components/admin/AdminSite').then((m) => ({ default: m.AdminSite })),
 );
+const CommunityView = lazy(() =>
+  import('./components/community/CommunityView').then((m) => ({ default: m.CommunityView })),
+);
 
 function ChunkFallback() {
   return <div className="animate-pulse rounded-2xl bg-stone-200 dark:bg-stone-800 h-24" />;
@@ -99,9 +102,10 @@ import {
   Trash2,
   Wallet,
   HandCoins,
+  Handshake,
 } from 'lucide-react';
 
-export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock';
+export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock' | 'community';
 
 // Aynı id'li çift kayıtları temizler (çift tıklama artıkları)
 function dedupeById<T extends { id: string }>(list: T[]): T[] {
@@ -601,6 +605,8 @@ export default function App() {
             });
           } else if (wsEvent.type === 'CUSTODY_DELETED') {
             setCustody((prev) => prev.filter((t) => t.id !== wsEvent.payload.id));
+          } else if (wsEvent.type.startsWith('COMMUNITY_')) {
+            window.dispatchEvent(new CustomEvent('community_ws_event', { detail: wsEvent }));
           }
         } catch (err) {
           console.error('Failed to parse WS message:', err);
@@ -1789,6 +1795,11 @@ export default function App() {
                     </span>
                   )}
                 </>
+              ) : activeTab === 'community' ? (
+                <>
+                  <Handshake className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  <span>Esnaf Meydanı</span>
+                </>
               ) : (
                 <>
                   <Users className="w-5 h-5 text-stone-600 dark:text-stone-300" />
@@ -1803,6 +1814,8 @@ export default function App() {
                 ? 'Kapanış arşivi, kâr/zarar ve fişler'
                 : activeTab === 'stock'
                 ? 'Ürünler, mal giriş/çıkışları ve kritik stok alarmları'
+                : activeTab === 'community'
+                ? 'Mahalle esnaflarıyla dayanışma, bozuk para takası ve anlık sohbet'
                 : 'Veresiye kartları, borç takibi ve WhatsApp hatırlatmaları'}
             </p>
           </div>
@@ -2258,6 +2271,10 @@ export default function App() {
               onOpenWhatsApp={(cust) => openWhatsAppForCustomer(cust)}
             />
           </div>
+        ) : activeTab === 'community' ? (
+          <Suspense fallback={<ChunkFallback />}>
+            <CommunityView currentShopProfile={shopProfile} />
+          </Suspense>
         ) : null}
       </main>
 
