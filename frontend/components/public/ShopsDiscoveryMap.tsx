@@ -245,9 +245,12 @@ export const ShopsDiscoveryMap: React.FC<ShopsDiscoveryMapProps> = ({
               ● ${shop.isOpen ? 'Açık' : 'Randevu Açık'}
             </span>
           </div>
-          <h4 style="font-size: 14px; font-weight: 900; margin: 0 0 4px 0; color: #1c1917;">
-            ${shop.name}
-          </h4>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            ${shop.logoUrl ? `<img src="${shop.logoUrl}" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover; border: 1px solid #e7e5e4; flex-shrink: 0;" />` : ''}
+            <h4 style="font-size: 13px; font-weight: 900; margin: 0; color: #1c1917; line-height: 1.2;">
+              ${shop.name}
+            </h4>
+          </div>
           <p style="font-size: 11px; color: #78716c; margin: 0 0 10px 0;">
             ${shop.address || `${shop.district}, ${shop.city}`}
           </p>
@@ -404,8 +407,12 @@ export const ShopsDiscoveryMap: React.FC<ShopsDiscoveryMapProps> = ({
             {activeShop && (
               <div className="p-3.5 rounded-2xl bg-orange-50/80 dark:bg-stone-800/80 border border-orange-200 dark:border-orange-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center font-black text-sm shrink-0">
-                    <Store className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center font-black text-sm shrink-0 overflow-hidden border border-orange-200 dark:border-orange-800">
+                    {activeShop.logoUrl ? (
+                      <img src={activeShop.logoUrl} alt={activeShop.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Store className="w-5 h-5" />
+                    )}
                   </div>
                   <div className="truncate">
                     <h3 className="text-sm font-black text-stone-900 dark:text-white truncate">
@@ -505,12 +512,21 @@ export const ShopsDiscoveryMap: React.FC<ShopsDiscoveryMapProps> = ({
                       </span>
                     </div>
 
-                    <h3 className="mt-2 text-sm font-black text-stone-900 dark:text-white">
-                      {shop.name}
-                    </h3>
-                    <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">
-                      {shop.address || `${shop.district}, ${shop.city}`}
-                    </p>
+                    <div className="flex items-center gap-2.5 mt-2">
+                      {shop.logoUrl && (
+                        <div className="w-8 h-8 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 shrink-0">
+                          <img src={shop.logoUrl} alt={shop.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-black text-stone-900 dark:text-white truncate">
+                          {shop.name}
+                        </h3>
+                        <p className="text-xs text-stone-500 dark:text-stone-400 font-medium truncate">
+                          {shop.address || `${shop.district}, ${shop.city}`}
+                        </p>
+                      </div>
+                    </div>
 
                     <div className="mt-3 flex items-center justify-between text-xs pt-2.5 border-t border-stone-100 dark:border-stone-800">
                       <div className="flex items-center gap-1.5">

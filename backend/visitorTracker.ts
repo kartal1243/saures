@@ -99,6 +99,24 @@ export function getCountryName(countryCode: string): string {
 // Engellenen IP Listesi
 let blockedIps: BlockedIpEntry[] = readJsonFile<BlockedIpEntry[]>(BLOCKED_IPS_FILE, []);
 
+export function isWhitelistedOrPrivateIp(ip: string): boolean {
+  if (!ip || ip === 'unknown') return true;
+  const clean = ip.replace(/^::ffff:/, '').trim().toLowerCase();
+  return (
+    clean === '127.0.0.1' ||
+    clean === '::1' ||
+    clean === 'localhost' ||
+    clean.startsWith('192.168.') ||
+    clean.startsWith('10.') ||
+    clean.startsWith('172.16.') ||
+    clean.startsWith('172.17.') ||
+    clean.startsWith('172.18.') ||
+    clean.startsWith('172.19.') ||
+    clean.startsWith('172.2') ||
+    clean.startsWith('172.3')
+  );
+}
+
 export function getBlockedIps(): BlockedIpEntry[] {
   return blockedIps;
 }
@@ -109,6 +127,8 @@ export function isIpBlocked(ip: string): boolean {
 
 export function blockIp(ip: string, reason: string = 'Şüpheli aktivite / Manuel admin engeli', country?: string): boolean {
   if (!ip || ip === 'unknown') return false;
+  // Localhost ve özel ağ IP'leri asla engellenemez
+  if (isWhitelistedOrPrivateIp(ip)) return false;
   if (blockedIps.some((b) => b.ip === ip)) return true;
   blockedIps.unshift({
     ip,
@@ -245,15 +265,59 @@ export function resolveVisitorCountry(req: Request, ip: string): { country: stri
   return { country: 'TR', isForeign: false };
 }
 
+// Meşru Arama Motoru Botları (Kritik SEO Koruması: ASLA engellenmezler!)
+const SEARCH_ENGINE_BOT_PATTERNS = [
+  /googlebot/i,
+  /google-inspectiontool/i,
+  /adsbot-google/i,
+  /storebot-google/i,
+  /googleother/i,
+  /google-read-aloud/i,
+  /bingbot|bingpreview|msnbot/i,
+  /yandexbot|yandex/i,
+  /duckduckbot/i,
+  /applebot/i,
+  /baiduspider/i,
+  /slurp/i,
+  /facebot|facebookexternalhit/i,
+  /twitterbot/i,
+  /telegrambot/i,
+  /whatsapp/i,
+  /linkedinbot/i,
+];
+
+export function isWhitelistedSearchEngineBot(userAgent: string): boolean {
+  if (!userAgent || typeof userAgent !== 'string') return false;
+  return SEARCH_ENGINE_BOT_PATTERNS.some((p) => p.test(userAgent));
+}
+
 // Bellek içi şüpheli tarama sayacı (Otomatik Savunma / Auto-Ban Kalkanı)
 const suspiciousScanCounts = new Map<string, { count: number; firstSeen: number }>();
+
+let lastPruneScanCounts = Date.now();
+function pruneExpiredScanCounts(): void {
+  const now = Date.now();
+  // Her 5 dakikada bir veya harita 300'ü aştığında temizle (Memory Leak Önleme)
+  if (now - lastPruneScanCounts < 5 * 60 * 1000 && suspiciousScanCounts.size <= 300) {
+    return;
+  }
+  lastPruneScanCounts = now;
+  const EXPIRY_MS = 30 * 60 * 1000;
+  for (const [k, v] of suspiciousScanCounts.entries()) {
+    if (now - v.firstSeen > EXPIRY_MS) {
+      suspiciousScanCounts.delete(k);
+    }
+  }
+}
 
 export function visitorTrackerMiddleware(req: Request, res: Response, next: NextFunction): void {
   const urlPath = req.originalUrl || req.url || '';
   const ip = clientIp(req);
+  const ua = (req.headers['user-agent'] as string) || '';
+  const isSearchBot = isWhitelistedSearchEngineBot(ua);
 
-  // 1. IP Engelleme Kontrolü (Hemen durdur)
-  if (isIpBlocked(ip)) {
+  // 1. IP Engelleme Kontrolü (Arama motoru botları ASLA engellenmez)
+  if (isIpBlocked(ip) && !isSearchBot) {
     res.status(403).json({ error: 'Erişiminiz sistem yöneticisi tarafından engellendi.' });
     return;
   }
@@ -264,9 +328,18 @@ export function visitorTrackerMiddleware(req: Request, res: Response, next: Next
     return;
   }
 
+  // Periyodik bellek temizliği (Memory Leak Koruması)
+  pruneExpiredScanCounts();
+
   // 3. Otomatik Tarama Tehdidi Kalkanı (Honeypot / Auto-Ban)
   const isSuspicious = SUSPICIOUS_PATHS.some((regex) => regex.test(urlPath));
   if (isSuspicious) {
+    // Meşru arama motoru botları asla banlanmaz, yalnızca 404 döner
+    if (isSearchBot) {
+      res.status(404).send('Not Found');
+      return;
+    }
+
     const now = Date.now();
     const entry = suspiciousScanCounts.get(ip) || { count: 0, firstSeen: now };
     if (now - entry.firstSeen > 30 * 60 * 1000) {
@@ -286,7 +359,6 @@ export function visitorTrackerMiddleware(req: Request, res: Response, next: Next
   }
 
   const startTime = Date.now();
-  const ua = (req.headers['user-agent'] as string) || '';
   const referer = (req.headers['referer'] as string) || (req.headers['referrer'] as string) || '';
 
   // Bot Tespiti

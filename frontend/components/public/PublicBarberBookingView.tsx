@@ -55,6 +55,7 @@ interface PublicBarberData {
     cityDistrict: string;
     slogan: string;
     slug: string;
+    logoUrl?: string;
   };
   staff: BarberStaff[];
   services: BarberService[];
@@ -972,8 +973,12 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       <header className="sticky top-0 z-40 bg-stone-900/90 backdrop-blur-md border-b border-stone-800/80 px-4 py-3.5 sm:px-6">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-md shadow-amber-500/20">
-              <Scissors className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-md shadow-amber-500/20 overflow-hidden shrink-0 border border-amber-500/30">
+              {data.shop.logoUrl ? (
+                <img src={data.shop.logoUrl} alt={data.shop.storeName} className="w-full h-full object-cover" />
+              ) : (
+                <Scissors className="w-5 h-5 text-white" />
+              )}
             </div>
             <div>
               <h1 className="text-base font-black tracking-tight text-white leading-tight">

@@ -34,6 +34,7 @@ interface SidebarProps {
   criticalStockCount: number;
   storeName: string;
   ownerName?: string;
+  logoUrl?: string;
   connected: boolean;
   isBarber: boolean;
   isLawyer: boolean;
@@ -72,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   criticalStockCount,
   storeName,
   ownerName,
+  logoUrl,
   connected,
   isBarber,
   isLawyer,
@@ -230,12 +232,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Desktop sol menü (Sayfa aşağı kaysa bile her zaman sabit ve ekran boyunda kalır) */}
       <aside className="hidden md:flex w-60 shrink-0 flex-col bg-stone-950 dark:bg-black border-r border-stone-800 sticky top-0 h-screen self-start overflow-y-auto z-30">
         <div className="p-4 pb-2.5 flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center p-1 shadow-md shadow-orange-500/20 shrink-0">
-            <img src="/brand/logo-icon.png" alt="Dükkanım Yanımda" className="w-full h-full object-contain" />
+          <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center p-1 shadow-md shadow-orange-500/20 shrink-0 overflow-hidden">
+            {logoUrl ? (
+              <img src={logoUrl} alt={storeName} className="w-full h-full object-cover rounded-xl" />
+            ) : (
+              <img src="/brand/logo-icon.png" alt="Dükkanım Yanımda" className="w-full h-full object-contain" />
+            )}
           </div>
           <span className="min-w-0">
-            <span className="block text-sm font-black text-white tracking-tight">
-              dükkanım <span className="text-orange-500">yanımda</span>
+            <span className="block text-sm font-black text-white tracking-tight truncate">
+              {storeName || 'dükkanım yanımda'}
             </span>
             <span className="block text-[10px] font-bold text-stone-400 truncate">Esnafın dijital defteri</span>
           </span>
@@ -271,8 +277,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="mt-auto p-3 border-t border-stone-800/80">
           <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-3 py-2.5">
-            <span className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center text-sm font-black shrink-0 relative">
-              {avatarChar}
+            <span className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center text-sm font-black shrink-0 relative overflow-hidden">
+              {logoUrl ? (
+                <img src={logoUrl} alt={storeName} className="w-full h-full object-cover" />
+              ) : (
+                avatarChar
+              )}
               {isVip && (
                 <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-400 rounded-full flex items-center justify-center text-[8px] text-stone-950 font-black shadow-xs">
                   ★

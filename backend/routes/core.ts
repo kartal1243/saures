@@ -6,6 +6,16 @@ import { DEMO_ACCOUNT_ID } from '../demoSeed';
 import { FREE_CUSTOMER_LIMIT, FREE_TABLE_LIMIT } from '../config';
 import { checkAndUpdateVipStatus } from './profile';
 
+// CSV Formula Injection / DDE Koruması: =, +, -, @, \t, \r ile başlayan alanların başına tek tırnak (') ekle
+export function sanitizeCsvField(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  let str = String(val).trim();
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  return str.replace(/"/g, '""');
+}
+
 export function registerCoreRoutes(app: Express): void {
   // 1. Health check
   app.get('/api/health', (_req, res) => {
@@ -105,12 +115,20 @@ export function registerCoreRoutes(app: Express): void {
     });
   });
 
-  // 8. Excel / CSV Export
+  // 8. Excel / CSV Export (CSV Formula Injection Korumalı)
   app.get('/api/export/csv', (_req, res) => {
     let csv = 'Müşteri Adı;Telefon;İşletme Kategorisi;Güncel Bakiye (TL);Abonelik/Periyot;Son Ödeme Tarihi;Notlar\r\n';
     for (const c of S().customers) {
       const sub = c.subscriptionPlan?.enabled ? `${c.subscriptionPlan.title} (${c.subscriptionPlan.interval})` : '-';
-      csv += `"${c.name}";"${c.phone}";"${c.businessCategory}";"${c.balance}";"${sub}";"${c.lastPaymentDate || '-'}";"${(c.notes || '').replace(/"/g, '""')}"\r\n`;
+      const name = sanitizeCsvField(c.name);
+      const phone = sanitizeCsvField(c.phone);
+      const cat = sanitizeCsvField(c.businessCategory);
+      const balance = sanitizeCsvField(c.balance);
+      const subStr = sanitizeCsvField(sub);
+      const lastPayment = sanitizeCsvField(c.lastPaymentDate || '-');
+      const notes = sanitizeCsvField(c.notes || '');
+
+      csv += `"${name}";"${phone}";"${cat}";"${balance}";"${subStr}";"${lastPayment}";"${notes}"\r\n`;
     }
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

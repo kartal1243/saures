@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { ShopProfile } from '../../../shared/types.ts';
 import { deriveSector } from '../../utils/sector';
+import { ShopLogoUploader } from './ShopLogoUploader';
 
 interface ShopProfileModalProps {
   isOpen: boolean;
@@ -61,6 +62,7 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
   const [cityDistrict, setCityDistrict] = useState(currentProfile?.cityDistrict || '');
   const [dailyTarget, setDailyTarget] = useState(currentProfile?.dailyTarget || 2500);
   const [slogan, setSlogan] = useState(currentProfile?.slogan || '');
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(currentProfile?.logoUrl);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +76,7 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
       setCityDistrict(currentProfile.cityDistrict || '');
       setDailyTarget(currentProfile.dailyTarget || 2500);
       setSlogan(currentProfile.slogan || '');
+      setLogoUrl(currentProfile.logoUrl);
     }
   }, [currentProfile, isOpen]);
 
@@ -99,6 +102,8 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
         cityDistrict: cityDistrict.trim(),
         dailyTarget: Number(dailyTarget) || 2500,
         slogan: slogan.trim() || 'Mahallenin Güvenilir Esnafı',
+        logoUrl: logoUrl !== undefined ? logoUrl : currentProfile?.logoUrl,
+        logoUpdatedAt: currentProfile?.logoUpdatedAt,
         isConfigured: true,
         isVip: currentProfile?.isVip ?? true,
       });
@@ -151,6 +156,13 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
               <span>{error}</span>
             </div>
           )}
+
+          {/* Dükkân Profil Fotoğrafı / Logo (PP) Yükleme Alanı */}
+          <ShopLogoUploader
+            currentLogoUrl={logoUrl}
+            storeName={storeName || currentProfile?.storeName}
+            onLogoUpdated={(newLogo) => setLogoUrl(newLogo)}
+          />
 
           {/* 1. KART: DÜKKAN & FAALİYET ALANI */}
           <div className="p-4 sm:p-5 rounded-2xl bg-stone-50/80 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700/60 space-y-3.5">

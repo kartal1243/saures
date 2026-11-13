@@ -222,6 +222,7 @@ export function registerPublicMenuRoutes(app: Express): void {
       success: true,
       shopName: shopState.shopProfile?.storeName || targetAcc?.shopName || 'Restoran & Kafe',
       slogan: shopState.shopProfile?.slogan || 'Afiyet Olsun',
+      logoUrl: shopState.shopProfile?.logoUrl,
       phone: shopState.shopProfile?.phone || targetAcc?.phone || '',
       cityDistrict: shopState.shopProfile?.cityDistrict || '',
       slug,

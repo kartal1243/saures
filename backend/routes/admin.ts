@@ -104,28 +104,117 @@ const LOG_FILES: Record<string, string> = {
   'app-error': '/root/.pm2/logs/dukkanim-error.log',
 };
 
+// Güvenli Log Okuyucu (OOM / DoS Korumalı): Dosyayı asla tamamen RAM'e almaz, yalnızca son 64 KB'ı okur
 function tailFile(file: string, lines: number): string[] {
   const n = Math.max(1, Math.min(500, Math.floor(lines) || 200));
-  const raw = fs.readFileSync(file, 'utf-8');
+  if (!fs.existsSync(file)) return [];
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(file);
+  } catch {
+    return [];
+  }
+  if (stat.size === 0) return [];
+
+  const CHUNK_SIZE = Math.min(stat.size, 64 * 1024); // Son 64 KB
+  const buffer = Buffer.alloc(CHUNK_SIZE);
+  let fd: number | null = null;
+  try {
+    fd = fs.openSync(file, 'r');
+    const position = stat.size - CHUNK_SIZE;
+    fs.readSync(fd, buffer, 0, CHUNK_SIZE, position);
+  } catch (err) {
+    console.error(`[Admin Logs] Log dosyası okuma hatası (${file}):`, err);
+    return [];
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {}
+    }
+  }
+
+  const raw = buffer.toString('utf-8');
   const parts = raw.split('\n');
   if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
   return parts.slice(-n);
 }
 
+// ---------------- Admin Brute-Force Koruması (5 hatalı denemede 15 dk kilit) ----------------
+const MAX_ADMIN_LOGIN_ATTEMPTS = 5;
+const ADMIN_LOGIN_LOCK_MS = 15 * 60 * 1000;
+const adminLoginAttempts = new Map<string, { count: number; lockedUntil: number }>();
+
+function isAdminLoginLocked(key: string): number {
+  const att = adminLoginAttempts.get(key);
+  if (!att) return 0;
+  if (att.lockedUntil > Date.now()) return att.lockedUntil - Date.now();
+  if (att.lockedUntil > 0) {
+    adminLoginAttempts.delete(key);
+  }
+  return 0;
+}
+
+function registerFailedAdminLogin(key: string): void {
+  const now = Date.now();
+  if (adminLoginAttempts.size > 500) {
+    for (const [k, v] of adminLoginAttempts.entries()) {
+      if (v.lockedUntil <= now && v.count === 0) adminLoginAttempts.delete(k);
+    }
+  }
+  const att = adminLoginAttempts.get(key) || { count: 0, lockedUntil: 0 };
+  att.count += 1;
+  if (att.count >= MAX_ADMIN_LOGIN_ATTEMPTS) {
+    att.lockedUntil = now + ADMIN_LOGIN_LOCK_MS;
+    att.count = 0;
+  }
+  adminLoginAttempts.set(key, att);
+}
+
+function clearAdminLoginAttempts(key: string): void {
+  adminLoginAttempts.delete(key);
+}
+
+function adminLoginAttemptsLeft(key: string): number {
+  const att = adminLoginAttempts.get(key);
+  return att ? Math.max(0, MAX_ADMIN_LOGIN_ATTEMPTS - att.count) : MAX_ADMIN_LOGIN_ATTEMPTS;
+}
+
 export function registerAdminRoutes(app: Express): void {
-  // Admin girisi (hiz limitli).
+  // Admin girisi (Hız Limitli + 5 Hatalı Denemede 15 Dk Kilit + Audit Log).
   app.post('/api/admin/login', rateLimit, (req: Request, res: Response) => {
+    const ip = clientIp(req);
+    const lockKey = `admin_${ip}`;
+
+    const lockedMs = isAdminLoginLocked(lockKey);
+    if (lockedMs > 0) {
+      logAuthEvent('locked', 'ADMIN', ip);
+      return res.status(429).json({
+        error: `Çok fazla hatalı admin şifresi denendi. Güvenliğiniz için erişim ${Math.ceil(lockedMs / 60000)} dakika kilitlendi.`,
+      });
+    }
+
     if (!ADMIN_PASSWORD) {
       return res.status(503).json({ error: 'Admin girisi henuz tanimlanmamis.' });
     }
     const password = String((req.body || {}).password || '');
     if (!passwordOk(password)) {
-      return res.status(401).json({ error: 'Sifre hatali.' });
+      registerFailedAdminLogin(lockKey);
+      logAuthEvent('login_fail', 'ADMIN', ip);
+      const left = adminLoginAttemptsLeft(lockKey);
+      return res.status(401).json({
+        error: 'Şifre hatalı.' + (left > 0 && left <= 3 ? ` (${left} deneme hakkınız kaldı)` : ''),
+      });
     }
+
+    // Başarılı giriş
+    clearAdminLoginAttempts(lockKey);
+    logAuthEvent('login_ok', 'ADMIN', ip);
+
     const session: AdminSession = {
       token: crypto.randomBytes(24).toString('hex'),
       expiresAt: new Date(Date.now() + ADMIN_SESSION_TTL_MS).toISOString(),
-      createdIp: clientIp(req),
+      createdIp: ip,
     };
     adminSessions.push(session);
     persistAdminSessions();

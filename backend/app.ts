@@ -20,7 +20,7 @@ import { registerCoreRoutes } from './routes/core';
 import { registerCustomerRoutes } from './routes/customers';
 import { registerTransactionRoutes } from './routes/transactions';
 import { registerReminderRoutes } from './routes/reminders';
-import { registerProfileRoutes } from './routes/profile';
+import { registerProfileRoutes, serveShopLogo } from './routes/profile';
 import { registerClosingRoutes } from './routes/closings';
 import { registerVipRoutes } from './routes/vip';
 import { registerProductRoutes } from './routes/products';
@@ -52,7 +52,21 @@ export async function startServer(): Promise<void> {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Permissions-Policy', 'camera=(), geolocation=()');
+    res.setHeader('Permissions-Policy', 'camera=(self), geolocation=(self), microphone=(self)');
+
+    // Uyumlu & Güçlü Content Security Policy (Harita, Font, Firebase, Analytics ve WebSockets uyumlu)
+    const cspPolicy = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseio.com https://unpkg.com https://cdnjs.cloudflare.com https://www.googletagmanager.com https://static.cloudflareinsights.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+      "font-src 'self' https://fonts.gstatic.com data:",
+      "img-src 'self' data: blob: https: *.openstreetmap.org images.unsplash.com https://www.google-analytics.com",
+      "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.identitytoolkit.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.telegram.org https://*.tile.openstreetmap.org https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://cloudflareinsights.com",
+      "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+    ].join('; ');
+    res.setHeader('Content-Security-Policy', cspPolicy);
 
     // CSRF Koruması: Çapraz kaynaklı (cross-origin) izinsiz POST/PUT/DELETE isteklerini engelle
     if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
@@ -185,6 +199,9 @@ export async function startServer(): Promise<void> {
 
   // ---------------- Herkese açık esnaf haritası (KVKK Uyumlu) ----------------
   registerPublicShopsMapRoutes(app);
+
+  // ---------------- Kamusal Medya Ucu: Dükkan Profil Fotoğrafları / Logoları ----------------
+  app.get('/media/shop-logo/:filename', serveShopLogo);
 
   // ---------------- Koruma: sonrası için giriş + rol zorunlu ----------------
   app.use('/api', apiGuard);

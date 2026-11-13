@@ -505,8 +505,16 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentShopProfile
                     {/* Üst Kart Bilgisi */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 flex items-center justify-center font-black text-sm shrink-0 border border-stone-200 dark:border-stone-700">
-                          <Store className="w-5 h-5 text-orange-500" />
+                        <div className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 flex items-center justify-center font-black text-sm shrink-0 border border-stone-200 dark:border-stone-700 overflow-hidden">
+                          {post.authorLogoUrl ? (
+                            <img
+                              src={post.authorLogoUrl}
+                              alt={post.authorShopName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Store className="w-5 h-5 text-orange-500" />
+                          )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
@@ -615,14 +623,27 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentShopProfile
                               className="p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-100 dark:border-stone-700/50 text-xs"
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-black text-stone-800 dark:text-stone-200">
-                                  {comm.authorShopName}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-md bg-stone-200 dark:bg-stone-700 overflow-hidden flex items-center justify-center shrink-0">
+                                    {comm.authorLogoUrl ? (
+                                      <img
+                                        src={comm.authorLogoUrl}
+                                        alt={comm.authorShopName}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <Store className="w-3 h-3 text-stone-500 dark:text-stone-300" />
+                                    )}
+                                  </div>
+                                  <span className="font-black text-stone-800 dark:text-stone-200">
+                                    {comm.authorShopName}
+                                  </span>
+                                </div>
                                 <span className="text-[10px] text-stone-400">
                                   {formatTimeAgo(comm.createdAt)}
                                 </span>
                               </div>
-                              <p className="mt-1 text-stone-700 dark:text-stone-300">
+                              <p className="mt-1 text-stone-700 dark:text-stone-300 pl-7">
                                 {comm.content}
                               </p>
                             </div>
@@ -702,24 +723,43 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentShopProfile
                           : 'hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200'
                       }`}
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`w-2 h-2 rounded-full shrink-0 ${
-                              shop.isOnline ? 'bg-emerald-400' : 'bg-stone-400'
-                            }`}
-                            title={shop.isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
-                          />
-                          <h4 className="text-xs font-black truncate">{shop.shopName}</h4>
-                        </div>
-                        <p
-                          className={`text-[10px] truncate ${
-                            isSelected ? 'text-white/80' : 'text-stone-400'
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : 'bg-stone-100 dark:bg-stone-800 text-stone-500 border border-stone-200 dark:border-stone-700'
                           }`}
                         >
-                          {shop.district ? `${shop.district}, ` : ''}
-                          {shop.city || 'Esnaf'}
-                        </p>
+                          {shop.logoUrl ? (
+                            <img
+                              src={shop.logoUrl}
+                              alt={shop.shopName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Store className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                shop.isOnline ? 'bg-emerald-400' : 'bg-stone-400'
+                              }`}
+                              title={shop.isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
+                            />
+                            <h4 className="text-xs font-black truncate">{shop.shopName}</h4>
+                          </div>
+                          <p
+                            className={`text-[10px] truncate ${
+                              isSelected ? 'text-white/80' : 'text-stone-400'
+                            }`}
+                          >
+                            {shop.district ? `${shop.district}, ` : ''}
+                            {shop.city || 'Esnaf'}
+                          </p>
+                        </div>
                       </div>
 
                       <span
@@ -745,8 +785,16 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentShopProfile
                 {/* Sohbet Başlığı */}
                 <div className="p-3.5 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between bg-stone-50/50 dark:bg-stone-800/40">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center font-black text-sm">
-                      <Store className="w-4 h-4" />
+                    <div className="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center font-black text-sm overflow-hidden shrink-0">
+                      {selectedShop.logoUrl ? (
+                        <img
+                          src={selectedShop.logoUrl}
+                          alt={selectedShop.shopName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Store className="w-4 h-4" />
+                      )}
                     </div>
                     <div>
                       <h3 className="text-xs sm:text-sm font-black text-stone-900 dark:text-white flex items-center gap-1.5">
@@ -779,23 +827,39 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentShopProfile
                   ) : (
                     messages.map((msg) => {
                       const isMe = msg.fromAccountId === currentAccountId;
+                      const partnerLogo = selectedShop.logoUrl || msg.fromLogoUrl;
                       return (
                         <div
                           key={msg.id}
-                          className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                          className={`flex gap-2 ${isMe ? 'flex-row-reverse items-end' : 'flex-row items-end'}`}
                         >
-                          <div
-                            className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm shadow-xs ${
-                              isMe
-                                ? 'bg-orange-600 text-white rounded-br-xs'
-                                : 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white rounded-bl-xs'
-                            }`}
-                          >
-                            <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>
+                          {!isMe && (
+                            <div className="w-7 h-7 rounded-lg bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 overflow-hidden flex items-center justify-center shrink-0 mb-4">
+                              {partnerLogo ? (
+                                <img
+                                  src={partnerLogo}
+                                  alt={msg.fromShopName}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Store className="w-3.5 h-3.5 text-orange-500" />
+                              )}
+                            </div>
+                          )}
+                          <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                            <div
+                              className={`max-w-[80vw] sm:max-w-md px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm shadow-xs ${
+                                isMe
+                                  ? 'bg-orange-600 text-white rounded-br-xs'
+                                  : 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white rounded-bl-xs'
+                              }`}
+                            >
+                              <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>
+                            </div>
+                            <span className="text-[9px] text-stone-400 mt-1 px-1">
+                              {formatTimeAgo(msg.createdAt)}
+                            </span>
                           </div>
-                          <span className="text-[9px] text-stone-400 mt-1 px-1">
-                            {formatTimeAgo(msg.createdAt)}
-                          </span>
                         </div>
                       );
                     })

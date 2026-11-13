@@ -1,10 +1,13 @@
 import type { Express, Request, Response } from 'express';
+import path from 'path';
+import fs from 'fs';
 import type { ShopProfile } from '../../shared/types';
 import { S, saveState, als } from '../context';
 import { broadcast } from '../realtime';
 import { DEMO_ACCOUNT_ID } from '../demoSeed';
-import { isValidTurkishPhone, normalizePhone } from '../accounts';
-import { slugify, isReservedSlug, isSlugTaken } from '../shopState';
+import { isValidTurkishPhone, normalizePhone, getAccounts } from '../accounts';
+import { slugify, isReservedSlug, isSlugTaken, loadShopState } from '../shopState';
+import { SHOP_LOGOS_DIR } from '../config';
 
 export type VipTier = 'cirak' | 'usta' | 'patron';
 
@@ -81,6 +84,139 @@ export function getTierLimits(profile?: ShopProfile): VipTierLimits {
   };
 }
 
+// ============================================================================
+// GÖRSEL GÜVENLİK KONTROLÜ: Magic Bytes Doğrulaması (SVG ve HTML Asla Geçemez!)
+// ============================================================================
+export function detectImageMimeAndExt(buffer: Buffer): { mime: string; ext: 'png' | 'jpg' | 'webp' } | null {
+  if (buffer.length < 12) return null;
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return { mime: 'image/png', ext: 'png' };
+  }
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { mime: 'image/jpeg', ext: 'jpg' };
+  }
+
+  // WEBP: RIFF (bytes 0-3: 52 49 46 46) ... WEBP (bytes 8-11: 57 45 42 50)
+  if (
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return { mime: 'image/webp', ext: 'webp' };
+  }
+
+  return null;
+}
+
+// ============================================================================
+// KAMUSAL MEDYA UCU: Dükkan Profil Fotoğrafı / Logo Sunumu
+// robots.txt ve apiGuard dışında /media/shop-logo/:filename olarak çalışır
+// ============================================================================
+export function serveShopLogo(req: Request, res: Response): void {
+  const rawParam = req.params.filename;
+  if (!rawParam || typeof rawParam !== 'string') {
+    res.status(400).send('Dosya adı geçersiz.');
+    return;
+  }
+
+  // Path traversal koruması (.. veya slashes engellenir)
+  const cleanFilename = path.basename(rawParam).split('?')[0].trim();
+  const lastDot = cleanFilename.lastIndexOf('.');
+  if (lastDot === -1) {
+    res.status(400).send('Geçersiz dosya adı.');
+    return;
+  }
+
+  const namePart = cleanFilename.substring(0, lastDot);
+  const extPart = cleanFilename.substring(lastDot + 1).toLowerCase();
+
+  if (!['png', 'jpg', 'jpeg', 'webp'].includes(extPart)) {
+    res.status(400).send('Desteklenmeyen dosya formatı.');
+    return;
+  }
+
+  // Path traversal ve injection koruması: Sadece alfanümerik, tire ve alt çizgi
+  if (!/^[a-zA-Z0-9_-]+$/.test(namePart)) {
+    res.status(400).send('Geçersiz dosya adı.');
+    return;
+  }
+
+  const validExts = extPart === 'jpeg' ? ['jpg', 'jpeg'] : [extPart];
+
+  // 1. Doğrudan dosya adıyla arama (<accountId>.<ext>)
+  let targetFilePath: string | null = null;
+  for (const ext of validExts) {
+    const directPath = path.join(SHOP_LOGOS_DIR, `${namePart}.${ext}`);
+    if (fs.existsSync(directPath)) {
+      targetFilePath = directPath;
+      break;
+    }
+  }
+
+  // 2. Slug ile arama (<slug>.<ext> veya <accountId>.<ext>)
+  if (!targetFilePath) {
+    const accounts = getAccounts();
+    for (const acc of accounts) {
+      const st = loadShopState(acc.id);
+      const accSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || acc.shopName);
+      if (accSlug === namePart || acc.id === namePart) {
+        // Bu hesaba ait mevcut logoyu bul
+        for (const candidateExt of ['webp', 'png', 'jpg', 'jpeg']) {
+          const accLogoPath = path.join(SHOP_LOGOS_DIR, `${acc.id}.${candidateExt}`);
+          if (fs.existsSync(accLogoPath)) {
+            targetFilePath = accLogoPath;
+            break;
+          }
+        }
+        if (targetFilePath) break;
+      }
+    }
+  }
+
+  if (!targetFilePath || !fs.existsSync(targetFilePath)) {
+    res.status(404).send('Logo bulunamadı.');
+    return;
+  }
+
+  // SHOP_LOGOS_DIR sınırları dışına çıkmayı kesinlikle engelle
+  const resolvedTarget = path.resolve(targetFilePath);
+  const resolvedDir = path.resolve(SHOP_LOGOS_DIR);
+  if (!resolvedTarget.startsWith(resolvedDir)) {
+    res.status(403).send('Erişim reddedildi.');
+    return;
+  }
+
+  // Gerçek dosya formatını ve mime tipini belirle
+  const actualExt = path.extname(targetFilePath).replace('.', '').toLowerCase();
+  const mimeType = actualExt === 'png' ? 'image/png' : actualExt === 'webp' ? 'image/webp' : 'image/jpeg';
+
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'");
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
+  res.sendFile(targetFilePath);
+}
+
 export function registerProfileRoutes(app: Express): void {
   // 9. Shop Profile Routes (Dükkan Kayıt & Profil Bilgileri)
   app.get('/api/shop-profile', (_req, res) => {
@@ -145,6 +281,8 @@ export function registerProfileRoutes(app: Express): void {
       cityDistrict: (data.cityDistrict !== undefined ? data.cityDistrict : (currentProfile?.cityDistrict || '')).trim(),
       dailyTarget: Number(data.dailyTarget) || currentProfile?.dailyTarget || 2500,
       slogan: (data.slogan !== undefined ? data.slogan : (currentProfile?.slogan || '')).trim(),
+      logoUrl: data.logoUrl !== undefined ? data.logoUrl : currentProfile?.logoUrl,
+      logoUpdatedAt: data.logoUpdatedAt !== undefined ? data.logoUpdatedAt : currentProfile?.logoUpdatedAt,
       slug: finalSlug,
       isConfigured: true,
       isVip: currentProfile?.isVip ?? true,
@@ -165,5 +303,125 @@ export function registerProfileRoutes(app: Express): void {
 
     broadcast({ type: 'SHOP_PROFILE_UPDATED', payload: updatedProfile });
     res.json({ success: true, profile: updatedProfile });
+  });
+
+  // ==========================================================================
+  // DÜKKAN PROFİL FOTOĞRAFI / LOGO (PP) YÜKLEME
+  // ==========================================================================
+  app.post('/api/shop-profile/logo', (req: Request, res: Response) => {
+    const ctx = als.getStore();
+    if (!ctx) return res.status(401).json({ error: 'Oturum gerekli.' });
+
+    if (ctx.accountId === DEMO_ACCOUNT_ID) {
+      return res.status(403).json({ error: 'Ortak demo dükkanının logosu değiştirilemez.' });
+    }
+
+    const { imageDataUrl } = req.body || {};
+    if (!imageDataUrl || typeof imageDataUrl !== 'string') {
+      return res.status(400).json({ error: 'Görsel verisi zorunludur.' });
+    }
+
+    // Base64 Data URL Ayrıştırma
+    const matches = imageDataUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+    if (!matches || !matches[2]) {
+      return res.status(400).json({ error: 'Geçersiz Data URL formatı.' });
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(matches[2], 'base64');
+    } catch {
+      return res.status(400).json({ error: 'Base64 çözümlenemedi.' });
+    }
+
+    // Maksimum boyut: 2 MB
+    if (buffer.length > 2 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Görsel boyutu 2 MB üzerinde olamaz. Lütfen görseli küçülterek tekrar deneyin.' });
+    }
+
+    // Magic Bytes Doğrulaması (SVG, HTML ve zararlı kodları KESİNLİKLE engeller)
+    const detected = detectImageMimeAndExt(buffer);
+    if (!detected) {
+      return res.status(400).json({
+        error: 'Güvenlik ihlali: Yalnızca geçerli PNG, JPEG ve WEBP formatları desteklenmektedir (SVG veya HTML kabul edilmez).'
+      });
+    }
+
+    // Eski logo dosyalarını temizle
+    try {
+      if (fs.existsSync(SHOP_LOGOS_DIR)) {
+        const files = fs.readdirSync(SHOP_LOGOS_DIR);
+        for (const f of files) {
+          if (f.startsWith(`${ctx.accountId}.`)) {
+            try {
+              fs.unlinkSync(path.join(SHOP_LOGOS_DIR, f));
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+
+    // Yeni dosyayı kaydet (<accountId>.<ext>)
+    const newFilename = `${ctx.accountId}.${detected.ext}`;
+    const targetFilePath = path.join(SHOP_LOGOS_DIR, newFilename);
+    fs.writeFileSync(targetFilePath, buffer);
+
+    const currentProfile = S().shopProfile || ({} as ShopProfile);
+    const slugOrId = currentProfile.slug || ctx.accountId;
+    const logoUrl = `/media/shop-logo/${slugOrId}.${detected.ext}?v=${Date.now()}`;
+
+    currentProfile.logoUrl = logoUrl;
+    currentProfile.logoUpdatedAt = new Date().toISOString();
+    S().shopProfile = currentProfile;
+    saveState();
+
+    broadcast({ type: 'SHOP_PROFILE_UPDATED', payload: currentProfile });
+
+    res.json({
+      success: true,
+      logoUrl,
+      profile: currentProfile,
+      message: 'Dükkan logosu başarıyla yüklendi ve güncellendi.',
+    });
+  });
+
+  // ==========================================================================
+  // DÜKKAN PROFİL FOTOĞRAFI / LOGO (PP) SİLME
+  // ==========================================================================
+  app.delete('/api/shop-profile/logo', (req: Request, res: Response) => {
+    const ctx = als.getStore();
+    if (!ctx) return res.status(401).json({ error: 'Oturum gerekli.' });
+
+    if (ctx.accountId === DEMO_ACCOUNT_ID) {
+      return res.status(403).json({ error: 'Ortak demo dükkanının logosu silinemez.' });
+    }
+
+    try {
+      if (fs.existsSync(SHOP_LOGOS_DIR)) {
+        const files = fs.readdirSync(SHOP_LOGOS_DIR);
+        for (const f of files) {
+          if (f.startsWith(`${ctx.accountId}.`)) {
+            try {
+              fs.unlinkSync(path.join(SHOP_LOGOS_DIR, f));
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+
+    const currentProfile = S().shopProfile;
+    if (currentProfile) {
+      currentProfile.logoUrl = undefined;
+      currentProfile.logoUpdatedAt = undefined;
+      S().shopProfile = currentProfile;
+      saveState();
+      broadcast({ type: 'SHOP_PROFILE_UPDATED', payload: currentProfile });
+    }
+
+    res.json({
+      success: true,
+      profile: currentProfile,
+      message: 'Dükkan logosu başarıyla kaldırıldı.',
+    });
   });
 }

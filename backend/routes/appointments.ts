@@ -297,6 +297,7 @@ export function registerPublicBarberRoutes(app: Express): void {
         cityDistrict: shopState.shopProfile?.cityDistrict || '',
         slogan: shopState.shopProfile?.slogan || 'Profesyonel Saç & Sakal Bakımı',
         slug,
+        logoUrl: shopState.shopProfile?.logoUrl,
         isVip,
         vipTier: limits.tier,
         brandingRequired: !isDemo && !limits.removeBranding,

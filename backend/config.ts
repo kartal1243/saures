@@ -12,6 +12,7 @@ export const AUTH_EVENTS_FILE = path.join(DATA_DIR, 'auth-events.json');
 export const FUNNEL_EVENTS_FILE = path.join(DATA_DIR, 'funnel-events.json');
 export const SHOPS_DIR = path.join(DATA_DIR, 'shops');
 export const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+export const SHOP_LOGOS_DIR = path.join(DATA_DIR, 'shop-logos');
 export const COMMUNITY_POSTS_FILE = path.join(DATA_DIR, 'community-posts.json');
 export const COMMUNITY_MESSAGES_FILE = path.join(DATA_DIR, 'community-messages.json');
 
@@ -46,4 +47,7 @@ if (!fs.existsSync(SHOPS_DIR)) {
 }
 if (!fs.existsSync(BACKUPS_DIR)) {
   fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+}
+if (!fs.existsSync(SHOP_LOGOS_DIR)) {
+  fs.mkdirSync(SHOP_LOGOS_DIR, { recursive: true });
 }

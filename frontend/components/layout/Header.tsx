@@ -47,8 +47,12 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         {/* Sol Taraf: Dükkan Başlığı & Canlı Gösterge */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-stone-800 border border-orange-200/80 dark:border-stone-700/80 flex items-center justify-center p-1 shadow-sm shrink-0">
-            <img src="/brand/logo-icon.png" alt="Dükkanım Yanımda" className="w-full h-full object-contain" />
+          <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-stone-800 border border-orange-200/80 dark:border-stone-700/80 flex items-center justify-center p-1 shadow-sm shrink-0 overflow-hidden">
+            {shopProfile?.logoUrl ? (
+              <img src={shopProfile.logoUrl} alt={displayName} className="w-full h-full object-cover rounded-xl" />
+            ) : (
+              <img src="/brand/logo-icon.png" alt="Dükkanım Yanımda" className="w-full h-full object-contain" />
+            )}
           </div>
 
           <div className="min-w-0 flex flex-col justify-center">
@@ -121,8 +125,12 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onOpenMenu}
               className="h-9 px-2 rounded-2xl bg-stone-100 dark:bg-stone-800 border border-stone-200/80 dark:border-stone-800 transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
             >
-              <span className="w-6 h-6 rounded-xl bg-orange-500 text-white flex items-center justify-center text-xs font-black">
-                {avatarChar}
+              <span className="w-6 h-6 rounded-xl bg-orange-500 text-white flex items-center justify-center text-xs font-black overflow-hidden">
+                {shopProfile?.logoUrl ? (
+                  <img src={shopProfile.logoUrl} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  avatarChar
+                )}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
             </button>

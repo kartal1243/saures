@@ -30,6 +30,7 @@ export interface MapMerchant {
   actionLabel: string;
   badge?: string;
   isOpen?: boolean;
+  logoUrl?: string;
 }
 
 const INITIAL_PILOT_MERCHANTS: MapMerchant[] = [
@@ -430,8 +431,12 @@ export default function MerchantNetworkMap() {
             {activeMerchant && (
               <div className="p-3.5 rounded-2xl bg-orange-50/70 dark:bg-stone-900/80 border border-orange-200/80 dark:border-orange-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black text-sm shrink-0">
-                    <Store className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black text-sm shrink-0 overflow-hidden border border-orange-200 dark:border-orange-800">
+                    {activeMerchant.logoUrl ? (
+                      <img src={activeMerchant.logoUrl} alt={activeMerchant.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Store className="w-5 h-5" />
+                    )}
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-stone-900 dark:text-white line-clamp-1">
@@ -495,12 +500,21 @@ export default function MerchantNetworkMap() {
                       </span>
                     </div>
 
-                    <h3 className="mt-2 text-sm font-black text-stone-900 dark:text-white">
-                      {merchant.name}
-                    </h3>
-                    <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">
-                      {merchant.sectorName}
-                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      {merchant.logoUrl && (
+                        <div className="w-8 h-8 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 shrink-0">
+                          <img src={merchant.logoUrl} alt={merchant.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-black text-stone-900 dark:text-white truncate">
+                          {merchant.name}
+                        </h3>
+                        <p className="text-xs text-stone-500 dark:text-stone-400 font-medium truncate">
+                          {merchant.sectorName}
+                        </p>
+                      </div>
+                    </div>
 
                     <div className="mt-3 flex items-center justify-between text-xs pt-2.5 border-t border-stone-100 dark:border-stone-700/60">
                       <span className="flex items-center gap-1 text-stone-500 dark:text-stone-400 font-medium">

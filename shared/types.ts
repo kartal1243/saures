@@ -217,6 +217,8 @@ export interface ShopProfile {
   cityDistrict: string;
   dailyTarget: number;
   slogan?: string;
+  logoUrl?: string;
+  logoUpdatedAt?: string;
   isConfigured: boolean;
   isVip?: boolean;
   vipTier?: 'cirak' | 'usta' | 'patron';
@@ -581,6 +583,7 @@ export interface CommunityReply {
   authorOwnerName?: string;
   authorCity?: string;
   authorSector?: string;
+  authorLogoUrl?: string;
   content: string;
   createdAt: string;
 }
@@ -595,6 +598,7 @@ export interface CommunityPost {
   authorCity?: string;
   authorDistrict?: string;
   authorSector?: string;
+  authorLogoUrl?: string;
   title: string;
   content: string;
   category: CommunityCategory;
@@ -613,8 +617,10 @@ export interface DirectMessage {
   id: string;
   fromAccountId: string;
   fromShopName: string;
+  fromLogoUrl?: string;
   toAccountId: string;
   toShopName: string;
+  toLogoUrl?: string;
   text: string;
   createdAt: string;
   read?: boolean;
@@ -627,6 +633,7 @@ export interface CommunityShopDirectory {
   sectorKey: string;
   city?: string;
   district?: string;
+  logoUrl?: string;
   phone?: string;
   isOnline?: boolean;
   lastActive?: string;
@@ -647,6 +654,7 @@ export interface PublicShopMapItem {
   servicesCount: number;
   hasBooking: boolean;
   hasMenu: boolean;
+  logoUrl?: string;
   phone?: string;
   slogan?: string;
   isVip?: boolean;

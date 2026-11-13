@@ -74,9 +74,10 @@ it('/m/:slug rotası için dükkan adıyla dinamik menü title ve og etiketleri 
 it('/berber ve /kuafor esnafa özel randevu ve yönetim SEO etiketleri üretir', () => {
   const metaBerber = getSeoMetadata('/berber');
   const metaKuafor = getSeoMetadata('/kuafor');
-  assert.ok(metaBerber.title.includes('Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi'));
-  assert.ok(metaKuafor.title.includes('Berber & Kuaför Randevu ve Dükkan Yönetim Sistemi'));
+  assert.ok(metaBerber.title.includes('Berber Randevu'));
+  assert.ok(metaKuafor.title.includes('Kuaför Randevu'));
   assert.ok(metaBerber.ogDescription.includes('Koltuk sırası, online randevu'));
+  assert.ok(metaKuafor.ogDescription.includes('Kuaför salonları'));
 });
 
 it('/kafe-restoran ve /kafe masalar & adisyon & QR menü SEO etiketleri üretir', () => {
@@ -168,6 +169,8 @@ it('getRobotsTxt arama motorları için doğru kuralları döner', () => {
   const robots = getRobotsTxt('dukkanimyanimda.com.tr');
   assert.ok(robots.includes('User-agent: *'));
   assert.ok(robots.includes('Allow: /'));
+  assert.ok(robots.includes('Allow: /api/public/'), 'Googlebot WRS için Allow: /api/public/ olmalı');
+  assert.ok(robots.includes('Allow: /media/'), 'Googlebot için Allow: /media/ olmalı');
   assert.ok(robots.includes('Disallow: /api/'));
   assert.ok(robots.includes('Disallow: /admin'));
   assert.ok(robots.includes('Sitemap: https://dukkanimyanimda.com.tr/sitemap.xml'));
@@ -243,6 +246,41 @@ it('Ana sayfa (/) Schema.org JSON-LD harita esnaf ağı ItemList ve GeoCoordinat
   assert.strictEqual(typeof firstShop.geo.latitude, 'number');
   assert.strictEqual(typeof firstShop.geo.longitude, 'number');
   assert.ok(firstShop.address && firstShop.address.addressCountry === 'TR', 'Türkiye adres formatı olmalı');
+});
+
+// 13. Semantik SSR HTML Gövdesi Testi (Boş root div olmamalı)
+it('renderSeoHtml <div id="root"> içine rotaya özel semantik SSR HTML (<header>, <main>, <h1>, <footer>) enjekte eder', () => {
+  const html = renderSeoHtml('/berber');
+  assert.ok(!html.includes('<div id="root"></div>'), 'Boş <div id="root"> kalmamalı');
+  assert.ok(html.includes('<main id="main-content"'), 'Semantik main etiketi bulunmalı');
+  assert.ok(html.includes('Berber Randevu'), 'SSR gövdesinde H1 veya başlık olmalı');
+  assert.ok(html.includes('Sıkça Sorulan Sorular'), 'SSR gövdesinde FAQ bölümü bulunmalı');
+  assert.ok(html.includes('<footer'), 'SSR gövdesinde footer bulunmalı');
+});
+
+// 14. SERP Thumbnail & Shop Logo / Menu Rich Snippet Testi
+it('/r/:slug ve /m/:slug dükkan logosu SERP thumbnail ve Restaurant Menu schema içerir', () => {
+  const metaMenu = getSeoMetadata('/m/demo');
+  assert.ok(metaMenu.ogImage, 'ogImage bulunmalı');
+  assert.ok(metaMenu.schemaJson.logo, 'Restaurant Schema logo içermeli');
+  assert.ok(metaMenu.schemaJson.hasMenu, 'hasMenu bulunmalı');
+  assert.strictEqual(metaMenu.schemaJson.hasMenu['@type'], 'Menu');
+  assert.ok(Array.isArray(metaMenu.schemaJson.hasMenu.hasMenuSection), 'hasMenuSection array olmalı');
+
+  const html = renderSeoHtml('/m/demo');
+  assert.ok(html.includes('name="thumbnail"'), 'SERP thumbnail meta etiketi bulunmalı');
+  assert.ok(html.includes('rel="image_src"'), 'image_src link etiketi bulunmalı');
+  assert.ok(html.includes('Menü ve Lezzetler'), 'SSR gövdesinde menü ürünleri listelenmeli');
+});
+
+// 15. Sitemap Sektör Filtresi Testi
+it('generateSitemapXml sektör eşleşmelerini ve menüsüz marketleri doğru filtreler', () => {
+  const xml = generateSitemapXml('dukkanimyanimda.com.tr');
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/berber</loc>'));
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/kuafor</loc>'));
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/randevu-sistemi</loc>'));
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/r/demo</loc>'));
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/m/demo</loc>'));
 });
 
 console.log(`\n========================================`);

@@ -13,6 +13,7 @@
     "test:appointments": "node tests/test_appointment_fixes.mjs",
     "test:auth": "python3 tests/test_auth.py",
     "test:features": "python3 tests/test_features.py",
+    "test:logo": "tsx tests/test_shop_logo.mjs",
     "test:routes": "node tests/test_public_routes.mjs",
     "test:seo": "node tests/test_seo.mjs",
     "test:ws": "node tests/test_ws.mjs",

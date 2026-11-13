@@ -22,6 +22,7 @@ interface PublicMenuData {
   phone: string;
   cityDistrict: string;
   slug: string;
+  logoUrl?: string;
   menuItems: MenuItem[];
   tables: Array<{ id: string; name: string }>;
 }
@@ -188,11 +189,22 @@ export const PublicQrMenuView: React.FC = () => {
             )}
           </div>
 
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">{data.shopName}</h1>
-            <p className="text-xs sm:text-sm text-stone-300 font-medium mt-1">
-              {data.slogan || 'Geleneksel ve taze lezzetler'}
-            </p>
+          <div className="flex items-center gap-3.5 pt-1">
+            {data.logoUrl ? (
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white p-1 border-2 border-amber-500/40 shadow-xl shrink-0">
+                <img src={data.logoUrl} alt={data.shopName} className="w-full h-full object-cover rounded-xl" />
+              </div>
+            ) : (
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black text-xl shrink-0 shadow-md">
+                <UtensilsCrossed className="w-7 h-7" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight truncate">{data.shopName}</h1>
+              <p className="text-xs sm:text-sm text-stone-300 font-medium mt-0.5 line-clamp-1">
+                {data.slogan || 'Geleneksel ve taze lezzetler'}
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-stone-400">

@@ -210,6 +210,7 @@ export function registerPublicShopsMapRoutes(app: Express): void {
         hasMenu,
         slogan: prof?.slogan ? prof.slogan.slice(0, 80) : undefined,
         isVip: Boolean(prof?.isVip),
+        logoUrl: prof?.logoUrl,
         // KVKK: phone alanı kasten boş bırakılır (esnaf şahsi cep telefonu gizlidir)
       };
 

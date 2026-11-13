@@ -1572,6 +1572,7 @@ export default function App() {
         criticalStockCount={criticalStockCount}
         storeName={shopProfile?.storeName || storeName}
         ownerName={shopProfile?.ownerName}
+        logoUrl={shopProfile?.logoUrl}
         connected={connected}
         isBarber={isBarber}
         isLawyer={isLawyer}
