@@ -3,7 +3,6 @@ import {
   Globe,
   Search,
   RefreshCw,
-  User,
   Smartphone,
   Monitor,
   Tablet,
@@ -12,11 +11,13 @@ import {
   Ban,
   Activity,
   Users,
-  Eye,
   ShieldX,
-  ExternalLink,
   ChevronDown,
   ChevronUp,
+  Bot,
+  Clock,
+  ArrowRight,
+  FileText,
 } from 'lucide-react';
 
 export interface VisitorRecord {
@@ -42,6 +43,30 @@ export interface VisitorRecord {
   timestamp: string;
 }
 
+export interface VisitorSession {
+  sessionId: string;
+  ip: string;
+  country: string;
+  countryName: string;
+  countryFlag: string;
+  isForeign: boolean;
+  deviceType: 'mobile' | 'desktop' | 'tablet';
+  browser: string;
+  os: string;
+  isBot: boolean;
+  botName?: string;
+  isSuspicious: boolean;
+  referer: string;
+  entryTime: string;
+  lastSeenAt: string;
+  isActive: boolean;
+  durationSeconds: number;
+  entryPath: string;
+  exitPath: string;
+  pagePaths: string[];
+  totalRequests: number;
+}
+
 export interface VisitorAnalyticsSummary {
   totalToday: number;
   foreignToday: number;
@@ -50,6 +75,9 @@ export interface VisitorAnalyticsSummary {
   suspiciousToday: number;
   uniqueIpsToday: number;
   liveLast15Min: number;
+  realHumanSessionsToday: number;
+  activeHumanSessionsNow: number;
+  foreignOrBotSessionsToday: number;
   topCountries: { code: string; name: string; flag: string; count: number; percentage: number }[];
   categoryBreakdown: { category: string; count: number }[];
   blockedIpsCount: number;
@@ -62,12 +90,14 @@ export interface BlockedIpEntry {
   country?: string;
 }
 
-type FilterMode = 'all' | 'human' | 'foreign' | 'bots' | 'blocked';
+type FilterMode = 'real_sessions' | 'bots_foreign' | 'raw_logs' | 'blocked';
+type BotForeignSubFilter = 'all' | 'bots' | 'foreign' | 'suspicious';
 
-function formatTarihSaat(iso: string): { saat: string; tarih: string; goreceli: string } {
+function formatTarihSaat(iso: string): { saat: string; saniyeliSaat: string; tarih: string; goreceli: string } {
   try {
     const d = new Date(iso);
     const saat = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const saniyeliSaat = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const tarih = d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
 
     const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
@@ -76,10 +106,24 @@ function formatTarihSaat(iso: string): { saat: string; tarih: string; goreceli: 
     else if (diffSec >= 3600 && diffSec < 86400) goreceli = `${Math.floor(diffSec / 3600)} sa önce`;
     else if (diffSec >= 86400) goreceli = `${Math.floor(diffSec / 86400)} gün önce`;
 
-    return { saat, tarih, goreceli };
+    return { saat, saniyeliSaat, tarih, goreceli };
   } catch {
-    return { saat: '', tarih: iso, goreceli: '' };
+    return { saat: '', saniyeliSaat: '', tarih: iso, goreceli: '' };
   }
+}
+
+function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds || 0));
+  if (s === 0) return 'Anlık';
+  if (s < 60) return `${s} sn`;
+  const mins = Math.floor(s / 60);
+  const remSec = s % 60;
+  if (mins < 60) {
+    return remSec > 0 ? `${mins} dk ${remSec} sn` : `${mins} dk`;
+  }
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hrs} sa ${remMins} dk` : `${hrs} sa`;
 }
 
 function formatSayfaAdi(path: string): { baslik: string; altYol: string } {
@@ -92,12 +136,16 @@ function formatSayfaAdi(path: string): { baslik: string; altYol: string } {
     const slug = path.replace('/m/', '').split(/[?#]/)[0];
     return { baslik: `🍽️ Menü (${slug})`, altYol: path };
   }
+  if (path.startsWith('/fiyat')) return { baslik: 'Fiyatlandırma', altYol: path };
+  if (path.startsWith('/demo')) return { baslik: 'Canlı Demo', altYol: path };
+  if (path.startsWith('/ozellikler')) return { baslik: 'Özellikler', altYol: path };
   if (path.startsWith('/giris') || path.startsWith('/login')) return { baslik: 'Giriş Sayfası', altYol: path };
   if (path.startsWith('/kayit') || path.startsWith('/register')) return { baslik: 'Kayıt Sayfası', altYol: path };
+  if (path.startsWith('/panel')) return { baslik: 'Esnaf Paneli', altYol: path };
   if (path.startsWith('/admin')) return { baslik: '🛡️ Yönetim Paneli', altYol: path };
   if (path.startsWith('/api/')) return { baslik: 'API Çağrısı', altYol: path };
 
-  return { baslik: path.length > 28 ? path.slice(0, 28) + '...' : path, altYol: path };
+  return { baslik: path.length > 32 ? path.slice(0, 32) + '...' : path, altYol: path };
 }
 
 function formatReferrer(ref: string): string {
@@ -115,12 +163,21 @@ function formatReferrer(ref: string): string {
   }
 }
 
+function DeviceIcon({ deviceType }: { deviceType: VisitorSession['deviceType'] }) {
+  if (deviceType === 'mobile') return <Smartphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+  if (deviceType === 'tablet') return <Tablet className="w-3.5 h-3.5 text-sky-400 shrink-0" />;
+  return <Monitor className="w-3.5 h-3.5 text-slate-400 shrink-0" />;
+}
+
 export function VisitorsTab() {
+  const [realSessions, setRealSessions] = useState<VisitorSession[]>([]);
+  const [botOrForeignSessions, setBotOrForeignSessions] = useState<VisitorSession[]>([]);
   const [records, setRecords] = useState<VisitorRecord[]>([]);
   const [summary, setSummary] = useState<VisitorAnalyticsSummary | null>(null);
   const [blockedIps, setBlockedIps] = useState<BlockedIpEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [filterMode, setFilterMode] = useState<FilterMode>('real_sessions');
+  const [botForeignSubFilter, setBotForeignSubFilter] = useState<BotForeignSubFilter>('all');
   const [search, setSearch] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -133,9 +190,9 @@ export function VisitorsTab() {
     if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filterMode === 'foreign') params.set('foreignOnly', '1');
-      if (filterMode === 'human') params.set('humanOnly', '1');
-      if (filterMode === 'bots') params.set('botsOnly', '1');
+      if (filterMode !== 'blocked') {
+        params.set('mode', filterMode);
+      }
       if (search.trim()) params.set('search', search.trim());
       params.set('limit', '200');
 
@@ -146,6 +203,13 @@ export function VisitorsTab() {
 
       if (resVisitors.ok) {
         const data = await resVisitors.json();
+        // Savunmacı ayrıştırma: gerçek sekmede asla bot/yabancı/şüpheli gösterme
+        const cleanReal: VisitorSession[] = (data.realSessions || []).filter(
+          (s: VisitorSession) => !s.isBot && !s.isForeign && !s.isSuspicious
+        );
+        const botForeign: VisitorSession[] = data.botOrForeignSessions || [];
+        setRealSessions(cleanReal);
+        setBotOrForeignSessions(botForeign);
         setRecords(data.records || []);
         setSummary(data.summary || null);
       }
@@ -242,56 +306,63 @@ export function VisitorsTab() {
 
   const isBlocked = (ip: string) => blockedIps.some((b) => b.ip === ip);
 
+  const filteredBotOrForeignSessions = useMemo(() => {
+    if (botForeignSubFilter === 'bots') return botOrForeignSessions.filter((s) => s.isBot);
+    if (botForeignSubFilter === 'foreign') return botOrForeignSessions.filter((s) => s.isForeign);
+    if (botForeignSubFilter === 'suspicious') return botOrForeignSessions.filter((s) => s.isSuspicious);
+    return botOrForeignSessions;
+  }, [botOrForeignSessions, botForeignSubFilter]);
+
   return (
     <div className="space-y-4 font-sans text-slate-200">
-      {/* 1. ÜST İSTATİSTİK KARTLARI (Seyir Terası Sade Kart Stili) */}
+      {/* 1. ÜST İSTATİSTİK KARTLARI (Gerçek Oturum Odaklı) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Bugünkü Ziyaret */}
-        <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
-          <div className="w-11 h-11 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center shrink-0">
-            <Eye className="w-5 h-5" />
-          </div>
-          <div>
-            <b className="text-2xl font-black text-white block leading-none">
-              {summary?.totalToday ?? 0}
-            </b>
-            <span className="text-xs font-semibold text-slate-400">Bugünkü Ziyaret</span>
-          </div>
-        </div>
-
-        {/* Tekil Ziyaretçi */}
+        {/* Gerçek Ziyaretçi Oturumu */}
         <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
           <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
             <Users className="w-5 h-5" />
           </div>
           <div>
             <b className="text-2xl font-black text-white block leading-none">
-              {summary?.uniqueIpsToday ?? 0}
+              {summary?.realHumanSessionsToday ?? realSessions.length}
             </b>
-            <span className="text-xs font-semibold text-slate-400">Tekil Kişi / IP</span>
+            <span className="text-xs font-semibold text-slate-400">Gerçek Ziyaretçi Oturumu</span>
           </div>
         </div>
 
-        {/* Canlı & Gerçek İnsan */}
+        {/* Şu An Sitede (Aktif) */}
         <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
-          <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center shrink-0">
             <Activity className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <b className="text-2xl font-black text-white block leading-none">
-                {summary?.humanToday ?? 0}
+                {summary?.activeHumanSessionsNow ?? 0}
               </b>
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                {summary?.liveLast15Min ?? 0} aktif
+                Canlı
               </span>
             </div>
-            <span className="text-xs font-semibold text-slate-400">Gerçek Müşteri / Esnaf</span>
+            <span className="text-xs font-semibold text-slate-400">Şu An Sitede (Aktif)</span>
           </div>
         </div>
 
-        {/* Engellenen IP'ler */}
+        {/* Bot & Yabancı (Ayrıştırıldı) */}
+        <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
+          <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+            <Bot className="w-5 h-5" />
+          </div>
+          <div>
+            <b className="text-2xl font-black text-white block leading-none">
+              {summary?.foreignOrBotSessionsToday ?? botOrForeignSessions.length}
+            </b>
+            <span className="text-xs font-semibold text-slate-400">Bot & Yabancı (Ayrıştırıldı)</span>
+          </div>
+        </div>
+
+        {/* Engelli Zararlı IP */}
         <div className="bg-[#12172b] border border-white/5 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
           <div className="w-11 h-11 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
             <ShieldX className="w-5 h-5" />
@@ -305,49 +376,60 @@ export function VisitorsTab() {
         </div>
       </div>
 
-      {/* 2. SADE KONTROL VE FİLTRE ÇUBUĞU */}
-      <div className="bg-[#12172b] border border-white/5 rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        {/* Sekme Butonları */}
+      {/* 2. SEKME VE ARAMA KONTROL ÇUBUĞU */}
+      <div className="bg-[#12172b] border border-white/5 rounded-2xl p-3 sm:p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setFilterMode('all')}
+            onClick={() => {
+              setExpandedRowId(null);
+              setFilterMode('real_sessions');
+            }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              filterMode === 'all'
-                ? 'bg-amber-500 text-white shadow-sm'
+              filterMode === 'real_sessions'
+                ? 'bg-emerald-500 text-white shadow-sm'
                 : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
             }`}
           >
-            Tüm Ziyaretler ({summary?.totalToday ?? 0})
+            🇹🇷 Gerçek Ziyaretçiler — Giriş & Çıkış ({realSessions.length})
           </button>
 
           <button
             type="button"
-            onClick={() => setFilterMode('human')}
+            onClick={() => {
+              setExpandedRowId(null);
+              setFilterMode('bots_foreign');
+            }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              filterMode === 'human'
+              filterMode === 'bots_foreign'
                 ? 'bg-amber-500 text-white shadow-sm'
                 : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
             }`}
           >
-            👤 Gerçek Kişiler ({summary?.humanToday ?? 0})
+            🤖 Botlar & Yabancı Trafik ({botOrForeignSessions.length})
           </button>
 
           <button
             type="button"
-            onClick={() => setFilterMode('foreign')}
+            onClick={() => {
+              setExpandedRowId(null);
+              setFilterMode('raw_logs');
+            }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              filterMode === 'foreign'
-                ? 'bg-amber-500 text-white shadow-sm'
+              filterMode === 'raw_logs'
+                ? 'bg-sky-500 text-white shadow-sm'
                 : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
             }`}
           >
-            🌍 Yabancı IP ({summary?.foreignToday ?? 0})
+            📋 Ham İstek Günlüğü ({summary?.totalToday ?? records.length})
           </button>
 
           <button
             type="button"
-            onClick={() => setFilterMode('blocked')}
+            onClick={() => {
+              setExpandedRowId(null);
+              setFilterMode('blocked');
+            }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               filterMode === 'blocked'
                 ? 'bg-rose-500 text-white shadow-sm'
@@ -366,8 +448,10 @@ export function VisitorsTab() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') loadData(); }}
-              placeholder="IP, ülke veya sayfa ara..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') loadData();
+              }}
+              placeholder="IP, ülke, tarayıcı veya sayfa ara..."
               className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
@@ -413,7 +497,6 @@ export function VisitorsTab() {
             </div>
           </div>
 
-          {/* Manuel IP Engelleme Formu */}
           <form onSubmit={handleManualBlock} className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
@@ -438,7 +521,6 @@ export function VisitorsTab() {
             </button>
           </form>
 
-          {/* Engelli IP Tablosu */}
           <div className="overflow-x-auto border border-white/5 rounded-xl">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
@@ -463,7 +545,9 @@ export function VisitorsTab() {
                       <td className="py-2.5 px-3 font-mono font-bold text-rose-300">{b.ip}</td>
                       <td className="py-2.5 px-3">{b.country || '-'}</td>
                       <td className="py-2.5 px-3 text-slate-300">{b.reason}</td>
-                      <td className="py-2.5 px-3 text-slate-400">{formatTarihSaat(b.blockedAt).tarih} {formatTarihSaat(b.blockedAt).saat}</td>
+                      <td className="py-2.5 px-3 text-slate-400">
+                        {formatTarihSaat(b.blockedAt).tarih} {formatTarihSaat(b.blockedAt).saat}
+                      </td>
                       <td className="py-2.5 px-3 text-right">
                         <button
                           type="button"
@@ -481,16 +565,447 @@ export function VisitorsTab() {
             </table>
           </div>
         </div>
+      ) : filterMode === 'real_sessions' ? (
+        /* 4. VARSAYILAN SEKME: TÜRKİYE GERÇEK ZİYARETÇİ OTURUMLARI (GİRİŞ -> ÇIKIŞ) */
+        <div className="bg-[#12172b] border border-white/5 rounded-2xl overflow-hidden shadow-sm">
+          <div className="p-3.5 sm:px-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 bg-white/[0.01]">
+            <h3 className="text-xs font-bold text-emerald-300 flex items-center gap-2">
+              <Users className="w-3.5 h-3.5 text-emerald-400" />
+              <span>🇹🇷 Gerçek İnsan Ziyaretçileri — Tek Oturum Özeti ({realSessions.length} oturum)</span>
+            </h3>
+            <span className="text-[11px] text-slate-400">
+              Botlar ve yabancı ülke trafiği hariç • 50+ istek tek satırda birleştirildi
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse min-w-[820px]">
+              <thead>
+                <tr className="bg-white/[0.02] text-slate-400 text-[11px] font-bold border-b border-white/5">
+                  <th className="py-2.5 px-3.5 w-32">Durum</th>
+                  <th className="py-2.5 px-3.5 w-48">Giriş → Çıkış / Süre</th>
+                  <th className="py-2.5 px-3.5 w-56">Ziyaretçi (IP & Cihaz)</th>
+                  <th className="py-2.5 px-3.5">Gezdiği Sayfalar</th>
+                  <th className="py-2.5 px-3.5 w-36">Kaynak</th>
+                  <th className="py-2.5 px-3.5 w-28 text-right">İşlem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {realSessions.length === 0 && !loading ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-slate-500">
+                      Henüz Türkiye'den gerçek ziyaretçi oturumu kaydedilmedi.
+                    </td>
+                  </tr>
+                ) : (
+                  realSessions.map((s) => {
+                    const blocked = isBlocked(s.ip);
+                    const isExpanded = expandedRowId === s.sessionId;
+                    const entryFmt = formatTarihSaat(s.entryTime);
+                    const exitFmt = formatTarihSaat(s.lastSeenAt);
+                    const entryPage = formatSayfaAdi(s.entryPath);
+                    const exitPage = formatSayfaAdi(s.exitPath);
+                    const refererLabel = formatReferrer(s.referer);
+                    const visitedCount = s.pagePaths.length || 1;
+
+                    return (
+                      <React.Fragment key={s.sessionId}>
+                        <tr
+                          onClick={() => setExpandedRowId(isExpanded ? null : s.sessionId)}
+                          className={`hover:bg-white/[0.03] transition-colors cursor-pointer ${
+                            s.isActive ? 'bg-emerald-500/[0.03]' : ''
+                          }`}
+                        >
+                          {/* 1. Durum */}
+                          <td className="py-3 px-3.5 align-middle whitespace-nowrap">
+                            {s.isActive ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                🟢 Sitede
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[11px] font-semibold">
+                                ⚪ Çıkış Yaptı
+                              </span>
+                            )}
+                          </td>
+
+                          {/* 2. Giriş -> Çıkış / Son Görülme & Süre */}
+                          <td className="py-3 px-3.5 align-middle whitespace-nowrap">
+                            <div className="flex items-center gap-1.5 font-bold text-white">
+                              <span>{entryFmt.saat}</span>
+                              <ArrowRight className="w-3 h-3 text-slate-500" />
+                              <span className={s.isActive ? 'text-emerald-300' : 'text-slate-300'}>
+                                {exitFmt.saat}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                              <Clock className="w-3 h-3 text-amber-400/80" />
+                              <span className="font-semibold text-amber-300/90">
+                                {formatDuration(s.durationSeconds)}
+                              </span>
+                              <span>•</span>
+                              <span>{s.isActive ? 'Şimdi aktif' : `${exitFmt.tarih} (${exitFmt.goreceli})`}</span>
+                            </div>
+                          </td>
+
+                          {/* 3. Ziyaretçi (IP, TR Bayrağı, Cihaz/Tarayıcı/OS) */}
+                          <td className="py-3 px-3.5 align-middle">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base leading-none" title={s.countryName}>
+                                {s.countryFlag || '🇹🇷'}
+                              </span>
+                              <div className="min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    copyToClipboard(s.ip);
+                                  }}
+                                  title="IP'yi kopyala"
+                                  className="font-mono font-bold text-white hover:text-amber-400 transition-colors inline-flex items-center gap-1"
+                                >
+                                  <span>{s.ip}</span>
+                                  {copiedIp === s.ip ? (
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="w-2.5 h-2.5 text-slate-500 opacity-60" />
+                                  )}
+                                </button>
+                                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 truncate mt-0.5">
+                                  <DeviceIcon deviceType={s.deviceType} />
+                                  <span>
+                                    {s.browser} • {s.os}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 4. Gezdiği Sayfalar */}
+                          <td className="py-3 px-3.5 align-middle">
+                            <div className="max-w-md space-y-1">
+                              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                <span className="text-slate-400 text-[11px]">Giriş:</span>
+                                <span className="font-bold text-amber-300 truncate max-w-[170px]" title={s.entryPath}>
+                                  {entryPage.baslik}
+                                </span>
+                                <ArrowRight className="w-3 h-3 text-slate-500 shrink-0" />
+                                <span className="text-slate-400 text-[11px]">Son:</span>
+                                <span className="font-bold text-emerald-300 truncate max-w-[170px]" title={s.exitPath}>
+                                  {exitPage.baslik}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                <span className="px-1.5 py-0.5 rounded bg-white/5 text-slate-300 font-semibold">
+                                  {visitedCount} sayfa gezdi
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 font-semibold">
+                                  {s.totalRequests} istek birleştirildi
+                                </span>
+                                <span className="text-slate-500 hidden sm:inline">
+                                  (Detay için tıklayın)
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 5. Kaynak (Referrer) */}
+                          <td className="py-3 px-3.5 align-middle whitespace-nowrap">
+                            <span className="text-slate-300 font-medium block truncate max-w-[130px]" title={s.referer}>
+                              {refererLabel}
+                            </span>
+                          </td>
+
+                          {/* 6. İşlem */}
+                          <td className="py-3 px-3.5 align-middle text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              {blocked ? (
+                                <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">
+                                  Engelli
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleBlockIp(s.ip, s.country, `Admin engeli: ${s.entryPath}`)}
+                                  disabled={blockBusy}
+                                  className="px-2 py-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-[10px] font-bold transition-colors cursor-pointer"
+                                  title="Bu IP'yi engelle"
+                                >
+                                  Engelle
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => setExpandedRowId(isExpanded ? null : s.sessionId)}
+                                className="p-1 rounded text-slate-500 hover:text-white transition-colors"
+                                title="Gezdiği sayfaları göster"
+                              >
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Açılır Kronolojik Sayfa Akışı */}
+                        {isExpanded && (
+                          <tr className="bg-black/30 border-b border-white/5">
+                            <td colSpan={6} className="py-3 px-4 text-[11px] text-slate-300">
+                              <div className="space-y-2.5">
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+                                  <span className="font-bold text-white">
+                                    Kronolojik Sayfa Akışı ({s.pagePaths.length > 0 ? s.pagePaths.length : 1} sayfa • {s.totalRequests} HTTP/API isteği)
+                                  </span>
+                                  <span className="font-mono text-[10px] text-slate-400">
+                                    İlk Giriş: {entryFmt.saniyeliSaat} — Son Görülme: {exitFmt.saniyeliSaat} ({formatDuration(s.durationSeconds)})
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {(s.pagePaths.length > 0 ? s.pagePaths : [s.entryPath]).map((p, idx, arr) => {
+                                    const info = formatSayfaAdi(p);
+                                    return (
+                                      <React.Fragment key={`${s.sessionId}-path-${idx}`}>
+                                        <span
+                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-200 font-mono text-[11px]"
+                                          title={p}
+                                        >
+                                          <span className="text-amber-400 font-bold">{idx + 1}.</span>
+                                          <span>{info.baslik}</span>
+                                          <span className="text-slate-500 text-[10px]">({p})</span>
+                                        </span>
+                                        {idx < arr.length - 1 && (
+                                          <ArrowRight className="w-3 h-3 text-slate-500 shrink-0" />
+                                        )}
+                                      </React.Fragment>
+                                    );
+                                  })}
+                                </div>
+
+                                <div className="flex flex-wrap gap-x-6 gap-y-1 text-[10px] text-slate-400 pt-1">
+                                  <div>
+                                    <b className="text-slate-500">Cihaz / Tarayıcı / OS:</b> {s.deviceType} • {s.browser} • {s.os}
+                                  </div>
+                                  {s.referer && (
+                                    <div>
+                                      <b className="text-slate-500">Tam Referer:</b> <span className="font-mono">{s.referer}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : filterMode === 'bots_foreign' ? (
+        /* 5. BOTLAR & YABANCI ÜLKE TRAFİĞİ SEKMESİ */
+        <div className="bg-[#12172b] border border-white/5 rounded-2xl overflow-hidden shadow-sm">
+          <div className="p-3.5 sm:px-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white/[0.01]">
+            <div>
+              <h3 className="text-xs font-bold text-amber-300 flex items-center gap-2">
+                <Globe className="w-3.5 h-3.5 text-amber-400" />
+                <span>🤖 Botlar & Yabancı Ülke Trafiği ({filteredBotOrForeignSessions.length} oturum)</span>
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Gerçek ziyaretçi akışından tamamen ayrıştırılmış arama motoru botları, scriptler, tarayıcılar ve yurt dışı IP'ler.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1">
+              {(
+                [
+                  { id: 'all', label: 'Tümü' },
+                  { id: 'bots', label: '🤖 Botlar' },
+                  { id: 'foreign', label: '🌍 Yabancı IP' },
+                  { id: 'suspicious', label: '⚠️ Şüpheli Tarama' },
+                ] as { id: BotForeignSubFilter; label: string }[]
+              ).map((sf) => (
+                <button
+                  key={sf.id}
+                  type="button"
+                  onClick={() => setBotForeignSubFilter(sf.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                    botForeignSubFilter === sf.id
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'bg-white/5 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {sf.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse min-w-[780px]">
+              <thead>
+                <tr className="bg-white/[0.02] text-slate-400 text-[11px] font-bold border-b border-white/5">
+                  <th className="py-2.5 px-3.5 w-40">İlk / Son Görülme</th>
+                  <th className="py-2.5 px-3.5 w-56">IP & Ülke</th>
+                  <th className="py-2.5 px-3.5 w-44">Sınıflandırma / Bot</th>
+                  <th className="py-2.5 px-3.5">Hedef Sayfalar & İstek</th>
+                  <th className="py-2.5 px-3.5 w-28 text-right">İşlem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filteredBotOrForeignSessions.length === 0 && !loading ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-slate-500">
+                      Bu filtreye uygun bot veya yabancı trafik oturumu yok.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBotOrForeignSessions.map((s) => {
+                    const blocked = isBlocked(s.ip);
+                    const isExpanded = expandedRowId === s.sessionId;
+                    const entryFmt = formatTarihSaat(s.entryTime);
+                    const exitFmt = formatTarihSaat(s.lastSeenAt);
+
+                    return (
+                      <React.Fragment key={s.sessionId}>
+                        <tr
+                          onClick={() => setExpandedRowId(isExpanded ? null : s.sessionId)}
+                          className={`hover:bg-white/[0.03] transition-colors cursor-pointer ${
+                            s.isSuspicious ? 'bg-rose-500/[0.04]' : 'bg-amber-500/[0.015]'
+                          }`}
+                        >
+                          <td className="py-2.5 px-3.5 align-middle whitespace-nowrap">
+                            <span className="font-bold text-white block leading-tight">
+                              {entryFmt.saat} → {exitFmt.saat}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              {exitFmt.tarih} ({exitFmt.goreceli})
+                            </span>
+                          </td>
+
+                          <td className="py-2.5 px-3.5 align-middle">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base leading-none" title={s.countryName}>
+                                {s.countryFlag}
+                              </span>
+                              <div className="min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    copyToClipboard(s.ip);
+                                  }}
+                                  className="font-mono font-bold text-white hover:text-amber-400 transition-colors inline-flex items-center gap-1"
+                                >
+                                  <span>{s.ip}</span>
+                                  {copiedIp === s.ip ? (
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="w-2.5 h-2.5 text-slate-500 opacity-60" />
+                                  )}
+                                </button>
+                                <span className="text-[11px] text-slate-400 block truncate">
+                                  {s.countryName || s.country}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-2.5 px-3.5 align-middle">
+                            <div className="flex flex-wrap gap-1">
+                              {s.isBot && (
+                                <span className="px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 text-[10px] font-bold">
+                                  🤖 {s.botName || 'Bot'}
+                                </span>
+                              )}
+                              {s.isForeign && (
+                                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+                                  🌍 Yabancı ({s.country})
+                                </span>
+                              )}
+                              {s.isSuspicious && (
+                                <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">
+                                  ⚠️ Tarama
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="py-2.5 px-3.5 align-middle">
+                            <div className="max-w-md">
+                              <span className="font-mono text-slate-200 text-[11px] block truncate">
+                                {s.entryPath}
+                                {s.exitPath && s.exitPath !== s.entryPath ? ` → ${s.exitPath}` : ''}
+                              </span>
+                              <span className="text-[10px] text-slate-500">
+                                {s.totalRequests} istek birleştirildi • {formatDuration(s.durationSeconds)}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="py-2.5 px-3.5 align-middle text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              {blocked ? (
+                                <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">
+                                  Engelli
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleBlockIp(s.ip, s.country, `Bot/Yabancı IP engeli: ${s.botName || s.country}`)}
+                                  disabled={blockBusy}
+                                  className="px-2 py-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-[10px] font-bold transition-colors cursor-pointer"
+                                >
+                                  Engelle
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => setExpandedRowId(isExpanded ? null : s.sessionId)}
+                                className="p-1 rounded text-slate-500 hover:text-white transition-colors"
+                              >
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {isExpanded && (
+                          <tr className="bg-black/30 border-b border-white/5">
+                            <td colSpan={5} className="py-2.5 px-4 text-[11px] font-mono text-slate-400">
+                              <div className="flex flex-wrap gap-2">
+                                <span className="text-slate-500 font-bold">Gezilen Yollar:</span>
+                                {(s.pagePaths.length > 0 ? s.pagePaths : [s.entryPath]).map((p, i) => (
+                                  <span key={i} className="px-1.5 py-0.5 rounded bg-white/5 text-slate-200">
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
-        /* 4. SEYİR TERASI STİLİ SADE ZİYARETÇİ TABLOSU */
+        /* 6. HAM İSTEK GÜNLÜĞÜ SEKMESİ (RAW LOGS) */
         <div className="bg-[#12172b] border border-white/5 rounded-2xl overflow-hidden shadow-sm">
           <div className="p-3.5 sm:px-4 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
             <h3 className="text-xs font-bold text-slate-300 flex items-center gap-2">
-              <Activity className="w-3.5 h-3.5 text-amber-400" />
-              <span>Son Ziyaretler ({records.length} kayıt)</span>
+              <FileText className="w-3.5 h-3.5 text-sky-400" />
+              <span>Ham HTTP İstek Günlüğü ({records.length} istek)</span>
             </h3>
             <span className="text-[11px] text-slate-500">
-              Kim, nereden, hangi sayfayı ziyaret etti
+              Teknik inceleme için tekil istek kayıtları
             </span>
           </div>
 
@@ -500,9 +1015,9 @@ export function VisitorsTab() {
                 <tr className="bg-white/[0.02] text-slate-400 text-[11px] font-bold border-b border-white/5">
                   <th className="py-2.5 px-3.5 w-32">Tarih / Saat</th>
                   <th className="py-2.5 px-3.5 w-56">Kim / Nereden (IP & Ülke)</th>
-                  <th className="py-2.5 px-3.5">Ziyaret Edilen Sayfa</th>
+                  <th className="py-2.5 px-3.5">İstek Yolu</th>
                   <th className="py-2.5 px-3.5 w-40">Nereden Geldi</th>
-                  <th className="py-2.5 px-3.5 w-36">Cihaz / Tarayıcı</th>
+                  <th className="py-2.5 px-3.5 w-36">Cihaz / Bot</th>
                   <th className="py-2.5 px-3.5 w-28 text-right">İşlem</th>
                 </tr>
               </thead>
@@ -510,7 +1025,7 @@ export function VisitorsTab() {
                 {records.length === 0 && !loading ? (
                   <tr>
                     <td colSpan={6} className="py-10 text-center text-slate-500">
-                      Bu filtreye uygun ziyaret kaydı bulunamadı.
+                      Bu filtreye uygun ham istek kaydı bulunamadı.
                     </td>
                   </tr>
                 ) : (
@@ -533,17 +1048,15 @@ export function VisitorsTab() {
                               : ''
                           }`}
                         >
-                          {/* 1. Tarih / Saat */}
                           <td className="py-2.5 px-3.5 align-middle whitespace-nowrap">
                             <span className="font-bold text-white block leading-tight">
-                              {zaman.saat}
+                              {zaman.saniyeliSaat}
                             </span>
                             <span className="text-[10px] text-slate-500">
                               {zaman.tarih} ({zaman.goreceli})
                             </span>
                           </td>
 
-                          {/* 2. Kim / Nereden (IP & Ülke) */}
                           <td className="py-2.5 px-3.5 align-middle">
                             <div className="flex items-center gap-2">
                               <span className="text-base leading-none" title={r.countryName}>
@@ -557,7 +1070,6 @@ export function VisitorsTab() {
                                       e.stopPropagation();
                                       copyToClipboard(r.ip);
                                     }}
-                                    title="IP'yi kopyala"
                                     className="font-mono font-bold text-white hover:text-amber-400 transition-colors inline-flex items-center gap-1"
                                   >
                                     <span>{r.ip}</span>
@@ -585,7 +1097,6 @@ export function VisitorsTab() {
                             </div>
                           </td>
 
-                          {/* 3. Ziyaret Edilen Sayfa */}
                           <td className="py-2.5 px-3.5 align-middle">
                             <div className="max-w-md">
                               <span className="font-bold text-amber-300/90 block truncate leading-tight">
@@ -597,14 +1108,12 @@ export function VisitorsTab() {
                             </div>
                           </td>
 
-                          {/* 4. Nereden Geldi (Kaynak / Referrer) */}
                           <td className="py-2.5 px-3.5 align-middle whitespace-nowrap">
                             <span className="text-slate-300 block truncate font-medium">
                               {nereden}
                             </span>
                           </td>
 
-                          {/* 5. Cihaz / Tarayıcı */}
                           <td className="py-2.5 px-3.5 align-middle whitespace-nowrap">
                             <div className="flex items-center gap-1.5 text-slate-300">
                               {r.isBot ? (
@@ -613,13 +1122,7 @@ export function VisitorsTab() {
                                 </span>
                               ) : (
                                 <>
-                                  {r.deviceType === 'mobile' ? (
-                                    <Smartphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                  ) : r.deviceType === 'tablet' ? (
-                                    <Tablet className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                                  ) : (
-                                    <Monitor className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                  )}
+                                  <DeviceIcon deviceType={r.deviceType} />
                                   <span className="text-[11px]">
                                     {r.browser || 'Web'}
                                   </span>
@@ -628,7 +1131,6 @@ export function VisitorsTab() {
                             </div>
                           </td>
 
-                          {/* 6. İşlem & Durum */}
                           <td className="py-2.5 px-3.5 align-middle text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                               <span
@@ -653,7 +1155,6 @@ export function VisitorsTab() {
                                   onClick={() => handleBlockIp(r.ip, r.country, `Admin engeli: ${r.path}`)}
                                   disabled={blockBusy}
                                   className="px-2 py-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-[10px] font-bold transition-colors cursor-pointer"
-                                  title="Bu IP'yi engelle"
                                 >
                                   Engelle
                                 </button>
@@ -663,7 +1164,6 @@ export function VisitorsTab() {
                                 type="button"
                                 onClick={() => setExpandedRowId(isExpanded ? null : r.id)}
                                 className="p-1 rounded text-slate-500 hover:text-white transition-colors"
-                                title="Detayları Göster"
                               >
                                 {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                               </button>
@@ -671,7 +1171,6 @@ export function VisitorsTab() {
                           </td>
                         </tr>
 
-                        {/* Açılır Ayrıntı Satırı */}
                         {isExpanded && (
                           <tr className="bg-black/30 border-b border-white/5">
                             <td colSpan={6} className="py-2.5 px-4 text-[11px] font-mono text-slate-400">

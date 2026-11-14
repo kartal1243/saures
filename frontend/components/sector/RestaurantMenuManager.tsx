@@ -30,6 +30,8 @@ import { TableQrMenuModal } from './TableQrMenuModal';
 interface RestaurantMenuManagerProps {
   tables?: RestaurantTable[];
   shopName?: string;
+  shopSlug?: string;
+  shopLogoUrl?: string;
   slogan?: string;
   isVip?: boolean;
   onOpenVip?: () => void;
@@ -62,7 +64,9 @@ const SAMPLE_IMAGE_PRESETS = [
 
 export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
   tables = [],
-  shopName = 'Dükkânım Kafe & Restoran',
+  shopName = 'Dükkanım Kafe & Restoran',
+  shopSlug,
+  shopLogoUrl,
   slogan = 'Afiyet olsun',
   isVip = false,
   onOpenVip,
@@ -70,6 +74,8 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
 }) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [slug, setSlug] = useState('');
+  const [fallbackLogoUrl, setFallbackLogoUrl] = useState('');
+  const [fallbackStoreName, setFallbackStoreName] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Tümü');
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,6 +124,20 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
 
   useEffect(() => {
     fetchMenu();
+    let active = true;
+    fetch('/api/shop-profile')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (active && data?.shopProfile) {
+          if (data.shopProfile.logoUrl) setFallbackLogoUrl(data.shopProfile.logoUrl);
+          if (data.shopProfile.slug) setSlug((prev) => prev || data.shopProfile.slug);
+          if (data.shopProfile.storeName) setFallbackStoreName(data.shopProfile.storeName);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   const openAddForm = () => {
@@ -340,10 +360,14 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
     return matchesCat && matchesSearch;
   });
 
+  const effectiveSlug = shopSlug || slug || 'restoran';
+  const effectiveLogoUrl = shopLogoUrl || fallbackLogoUrl || '';
+  const effectiveShopName = shopName || fallbackStoreName || 'Dükkanım Kafe & Restoran';
+
   const publicUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/m/${slug || 'restoran'}`
-      : `/m/${slug || 'restoran'}`;
+      ? `${window.location.origin}/m/${encodeURIComponent(effectiveSlug)}`
+      : `/m/${encodeURIComponent(effectiveSlug)}`;
 
   return (
     <div className="space-y-6">
@@ -966,7 +990,10 @@ export const RestaurantMenuManager: React.FC<RestaurantMenuManagerProps> = ({
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
         tables={tables}
-        restaurantName={shopName}
+        restaurantName={effectiveShopName}
+        shopSlug={effectiveSlug}
+        shopLogoUrl={effectiveLogoUrl}
+        menuItems={menuItems}
       />
     </div>
   );

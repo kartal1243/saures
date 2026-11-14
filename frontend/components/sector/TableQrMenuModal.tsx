@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   QrCode,
   Printer,
@@ -12,7 +12,7 @@ import {
   Copy,
   BellRing,
 } from 'lucide-react';
-import { RestaurantTable } from '../../../shared/types.ts';
+import { MenuItem, RestaurantTable } from '../../../shared/types.ts';
 
 interface TableQrMenuModalProps {
   isOpen: boolean;
@@ -20,18 +20,54 @@ interface TableQrMenuModalProps {
   tables: RestaurantTable[];
   selectedTable?: RestaurantTable | null;
   restaurantName?: string;
+  shopSlug?: string;
+  shopLogoUrl?: string;
+  menuItems?: MenuItem[];
 }
 
-const DEFAULT_MENU_ITEMS = [
-  { name: 'Çaykur Rize Çay', price: 15, category: 'İçecekler', desc: 'Taze demlenmiş geleneksel lezzet' },
-  { name: 'Közde Türk Kahvesi', price: 45, category: 'İçecekler', desc: 'Lokum ve su ikramı ile' },
-  { name: 'Köy Yayık Ayranı', price: 30, category: 'İçecekler', desc: 'Bol köpüklü soğuk servis' },
-  { name: 'Kaşarlı Karışık Tost', price: 75, category: 'Aperatif & Tost', desc: 'Karaköy simit ekmeğinde bol kaşar ve sucuk' },
-  { name: 'Gözleme Porsiyon', price: 85, category: 'Aperatif & Tost', desc: 'Patatesli, peynirli veya kıymalı el açması' },
-  { name: 'Izgara Köfte Porsiyon', price: 190, category: 'Ana Yemekler', desc: 'Garnitür, lavaş ve közlenmiş biber ile' },
-  { name: 'Et Döner Dürüm Menü', price: 175, category: 'Ana Yemekler', desc: 'Patates kızartması ve içecek ile' },
-  { name: 'Günün Çorbası (Mercimek / Kelle Paça)', price: 65, category: 'Çorbalar', desc: 'Kıtır ekmek ve taze limonla' },
-  { name: 'Fırın Sütlaç', price: 75, category: 'Tatlılar', desc: 'Fındık parçacıklı geleneksel lezzet' },
+function escapeHtml(value: string): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getShopInitials(name: string): string {
+  const parts = String(name || 'DY')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return 'DY';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
+
+function resolveSafeMediaUrl(rawUrl?: string, makeAbsolute = false): string {
+  const trimmed = String(rawUrl || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('data:image/')) return trimmed;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  if (trimmed.startsWith('/')) {
+    if (makeAbsolute && typeof window !== 'undefined') {
+      return `${window.location.origin}${trimmed}`;
+    }
+    return trimmed;
+  }
+  return '';
+}
+
+const DEFAULT_MENU_ITEMS: Array<MenuItem & { desc?: string }> = [
+  { id: 'def_1', name: 'Çaykur Rize Çay', price: 15, category: 'İçecekler', description: 'Taze demlenmiş geleneksel lezzet', isAvailable: true },
+  { id: 'def_2', name: 'Közde Türk Kahvesi', price: 45, category: 'İçecekler', description: 'Lokum ve su ikramı ile', isAvailable: true },
+  { id: 'def_3', name: 'Köy Yayık Ayranı', price: 30, category: 'İçecekler', description: 'Bol köpüklü soğuk servis', isAvailable: true },
+  { id: 'def_4', name: 'Kaşarlı Karışık Tost', price: 75, category: 'Aperatif & Tost', description: 'Karaköy simit ekmeğinde bol kaşar ve sucuk', isAvailable: true },
+  { id: 'def_5', name: 'Gözleme Porsiyon', price: 85, category: 'Aperatif & Tost', description: 'Patatesli, peynirli veya kıymalı el açması', isAvailable: true },
+  { id: 'def_6', name: 'Izgara Köfte Porsiyon', price: 190, category: 'Ana Yemekler', description: 'Garnitür, lavaş ve közlenmiş biber ile', isAvailable: true },
+  { id: 'def_7', name: 'Et Döner Dürüm Menü', price: 175, category: 'Ana Yemekler', description: 'Patates kızartması ve içecek ile', isAvailable: true },
+  { id: 'def_8', name: 'Günün Çorbası (Mercimek / Kelle Paça)', price: 65, category: 'Çorbalar', description: 'Kıtır ekmek ve taze limonla', isAvailable: true },
+  { id: 'def_9', name: 'Fırın Sütlaç', price: 75, category: 'Tatlılar', description: 'Fındık parçacıklı geleneksel lezzet', isAvailable: true },
 ];
 
 export const TableQrMenuModal: React.FC<TableQrMenuModalProps> = ({
@@ -39,7 +75,10 @@ export const TableQrMenuModal: React.FC<TableQrMenuModalProps> = ({
   onClose,
   tables,
   selectedTable,
-  restaurantName = 'Dükkânım Kafe & Restoran',
+  restaurantName = 'Dükkanım Kafe & Restoran',
+  shopSlug,
+  shopLogoUrl,
+  menuItems,
 }) => {
   const [activeTableId, setActiveTableId] = useState<string>(
     selectedTable ? selectedTable.id : tables[0]?.id || 'genel'
@@ -50,17 +89,25 @@ export const TableQrMenuModal: React.FC<TableQrMenuModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [waiterCalled, setWaiterCalled] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTableId(selectedTable ? selectedTable.id : tables[0]?.id || 'genel');
+    }
+  }, [isOpen, selectedTable, tables]);
+
   if (!isOpen) return null;
 
   const currentTable = tables.find((t) => t.id === activeTableId);
   const tableName = currentTable ? currentTable.name : 'Tüm Salon & Paket';
+  const effectiveLogoUrl = resolveSafeMediaUrl(shopLogoUrl);
+  const initials = getShopInitials(restaurantName);
 
   const menuUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/menu?masa=${encodeURIComponent(tableName)}`
-      : `/menu?masa=${encodeURIComponent(tableName)}`;
+      ? `${window.location.origin}/m/${encodeURIComponent(shopSlug || 'demo')}?masa=${encodeURIComponent(tableName)}`
+      : `/m/${encodeURIComponent(shopSlug || 'demo')}?masa=${encodeURIComponent(tableName)}`;
 
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=H&margin=8&data=${encodeURIComponent(
     menuUrl
   )}`;
 
@@ -71,10 +118,358 @@ export const TableQrMenuModal: React.FC<TableQrMenuModalProps> = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    const safeRestaurantName = escapeHtml(restaurantName || 'Dükkanım Kafe & Restoran');
+    const safeTableName = escapeHtml(tableName);
+    const safeMenuUrl = escapeHtml(menuUrl);
+    const safeQrUrl = escapeHtml(qrImageUrl);
+    const safeWifiName = escapeHtml(wifiName.trim());
+    const safeWifiPassword = escapeHtml(wifiPassword.trim());
+    const absoluteLogoUrl = resolveSafeMediaUrl(effectiveLogoUrl, true);
+    const safeLogoUrl = absoluteLogoUrl ? escapeHtml(absoluteLogoUrl) : '';
+    const safeInitials = escapeHtml(initials);
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    const topLogoHtml = safeLogoUrl
+      ? `<div class="logo-wrap"><img id="qr-menu-logo-top" src="${safeLogoUrl}" alt="${safeRestaurantName}" /></div>`
+      : `<div class="logo-fallback">${safeInitials}</div>`;
+
+    const centerLogoHtml = safeLogoUrl
+      ? `<div class="qr-center-badge"><img id="qr-menu-logo-center" src="${safeLogoUrl}" alt="${safeRestaurantName}" /></div>`
+      : `<div class="qr-center-badge qr-center-initials">${safeInitials}</div>`;
+
+    const wifiBlockHtml =
+      safeWifiName || safeWifiPassword
+        ? `
+          <div class="wifi-box">
+            ${safeWifiName ? `<span><strong>📶 Wi-Fi:</strong> ${safeWifiName}</span>` : ''}
+            ${safeWifiPassword ? `<span><strong>🔑 Şifre:</strong> ${safeWifiPassword}</span>` : ''}
+          </div>
+        `
+        : '';
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="tr">
+        <head>
+          <meta charset="utf-8" />
+          <title>${safeRestaurantName} - ${safeTableName} QR Menü Standı</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 12mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            body {
+              background: #ffffff;
+              color: #1c1917;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 95vh;
+              padding: 12px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .cut-sheet {
+              padding: 16px;
+              border: 2px dashed #cbd5e1;
+              border-radius: 36px;
+              max-width: 560px;
+              width: 100%;
+              position: relative;
+            }
+            .cut-label {
+              text-align: center;
+              font-size: 10px;
+              font-weight: 700;
+              color: #94a3b8;
+              letter-spacing: 0.8px;
+              text-transform: uppercase;
+              margin-bottom: 10px;
+            }
+            .stand-card {
+              background: linear-gradient(180deg, #1c1917 0%, #292524 65%, #451a03 100%);
+              color: #ffffff;
+              border: 3px solid #f59e0b;
+              border-radius: 28px;
+              padding: 32px 28px 26px 28px;
+              text-align: center;
+            }
+            .logo-wrap {
+              width: 82px;
+              height: 82px;
+              margin: 0 auto 14px auto;
+              border-radius: 22px;
+              overflow: hidden;
+              border: 3px solid #f59e0b;
+              background: #ffffff;
+              box-shadow: 0 8px 22px rgba(0,0,0,0.32);
+            }
+            .logo-wrap img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              display: block;
+            }
+            .logo-fallback {
+              width: 78px;
+              height: 78px;
+              margin: 0 auto 14px auto;
+              border-radius: 22px;
+              background: linear-gradient(135deg, #f59e0b, #ea580c);
+              color: #ffffff;
+              font-size: 28px;
+              font-weight: 900;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              border: 2px solid rgba(255,255,255,0.28);
+            }
+            .badge {
+              display: inline-block;
+              padding: 6px 18px;
+              border-radius: 9999px;
+              background: rgba(245, 158, 11, 0.22);
+              border: 1px solid rgba(245, 158, 11, 0.45);
+              color: #fcd34d;
+              font-size: 11px;
+              font-weight: 900;
+              letter-spacing: 1.6px;
+              text-transform: uppercase;
+              margin-bottom: 12px;
+            }
+            .title {
+              font-size: 28px;
+              font-weight: 900;
+              color: #ffffff;
+              line-height: 1.2;
+              margin-bottom: 10px;
+            }
+            .table-pill {
+              display: inline-block;
+              background: #ffffff;
+              color: #0c0a09;
+              font-size: 14px;
+              font-weight: 900;
+              padding: 7px 20px;
+              border-radius: 14px;
+              margin-bottom: 20px;
+              letter-spacing: 0.6px;
+            }
+            .qr-frame {
+              position: relative;
+              width: 248px;
+              height: 248px;
+              margin: 0 auto 18px auto;
+              padding: 14px;
+              background: #ffffff;
+              border-radius: 24px;
+              border: 3px solid #f59e0b;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-frame > img {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+              display: block;
+            }
+            .qr-center-badge {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              width: 50px;
+              height: 50px;
+              border-radius: 14px;
+              background: #ffffff;
+              border: 3px solid #ffffff;
+              box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+              overflow: hidden;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-center-badge img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              display: block;
+              border-radius: 10px;
+            }
+            .qr-center-initials {
+              background: #1c1917;
+              color: #f59e0b;
+              font-size: 15px;
+              font-weight: 900;
+            }
+            .scan-hint {
+              font-size: 15px;
+              font-weight: 800;
+              color: #fde68a;
+              margin-bottom: 4px;
+            }
+            .scan-sub {
+              font-size: 12px;
+              color: #d6d3d1;
+              margin-bottom: 16px;
+            }
+            .wifi-box {
+              display: flex;
+              justify-content: center;
+              gap: 18px;
+              flex-wrap: wrap;
+              background: rgba(255,255,255,0.08);
+              border: 1px solid rgba(255,255,255,0.16);
+              border-radius: 14px;
+              padding: 10px 14px;
+              font-size: 12px;
+              color: #fcd34d;
+              margin-bottom: 14px;
+            }
+            .link-box {
+              background: rgba(0,0,0,0.28);
+              border: 1px dashed rgba(255,255,255,0.24);
+              border-radius: 12px;
+              padding: 10px 12px;
+              margin-bottom: 14px;
+            }
+            .link-label {
+              font-size: 9px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              color: #a8a29e;
+              margin-bottom: 2px;
+            }
+            .link-url {
+              font-size: 11px;
+              font-weight: 700;
+              color: #fde68a;
+              word-break: break-all;
+            }
+            .brand-footer {
+              font-size: 11px;
+              font-weight: 700;
+              color: #a8a29e;
+              padding-top: 10px;
+              border-top: 1px solid rgba(255,255,255,0.12);
+            }
+            .cut-bottom {
+              margin-top: 10px;
+              text-align: center;
+              font-size: 10px;
+              color: #64748b;
+              font-weight: 600;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="cut-sheet">
+            <div class="cut-label">✂️ Kesim Çizgisi · A4 / Masaüstü Akrilik Stand Çıktısı</div>
+            <div class="stand-card">
+              ${topLogoHtml}
+              <div class="badge">✨ TEMASSIZ DİJİTAL MENÜ</div>
+              <h1 class="title">${safeRestaurantName}</h1>
+              <div class="table-pill">${safeTableName.toUpperCase()}</div>
+
+              <div class="qr-frame">
+                <img id="qr-menu-stand-image" src="${safeQrUrl}" alt="${safeTableName} QR Menü" />
+                ${centerLogoHtml}
+              </div>
+
+              <p class="scan-hint">📷 Telefonunuzun kamerasını QR koda tutun</p>
+              <p class="scan-sub">Fiyatları, tatlıları ve içecekleri menümüzden hemen inceleyin</p>
+
+              ${wifiBlockHtml}
+
+              <div class="link-box">
+                <div class="link-label">Doğrudan Menü Bağlantısı</div>
+                <div class="link-url">${safeMenuUrl}</div>
+              </div>
+
+              <div class="brand-footer">
+                Dükkanım Yanımda · Akıllı Esnaf İşletim Sistemi
+              </div>
+            </div>
+            <div class="cut-bottom">
+              ✂️ Kesikli çizgiden kesip masa üstü akrilik standa yerleştirebilirsiniz.
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    let printed = false;
+    const triggerPrint = () => {
+      if (printed) return;
+      printed = true;
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (err) {
+          console.error('QR Menü yazdırma hatası:', err);
+        } finally {
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+          }, 3000);
+        }
+      }, 250);
+    };
+
+    const images = Array.from(doc.querySelectorAll('img')) as HTMLImageElement[];
+    const pendingImages = images.filter((img) => !img.complete);
+    if (pendingImages.length === 0) {
+      triggerPrint();
+      return;
+    }
+
+    let remaining = pendingImages.length;
+    const onImageDone = () => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        triggerPrint();
+      }
+    };
+    pendingImages.forEach((img) => {
+      img.onload = onImageDone;
+      img.onerror = onImageDone;
+    });
+    setTimeout(triggerPrint, 4500);
   };
 
-  const categories = Array.from(new Set(DEFAULT_MENU_ITEMS.map((item) => item.category)));
+  const previewItems: Array<MenuItem & { desc?: string }> =
+    menuItems && menuItems.length > 0 ? menuItems : DEFAULT_MENU_ITEMS;
+  const categories = Array.from(new Set(previewItems.map((item) => item.category || 'Genel')));
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
@@ -194,8 +589,24 @@ export const TableQrMenuModal: React.FC<TableQrMenuModalProps> = ({
                   {/* Dekoratif Işık */}
                   <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/20 rounded-full blur-2xl pointer-events-none" />
 
-                  {/* Restoran Başlığı */}
-                  <div className="space-y-1">
+                  {/* Restoran Logosu & Başlığı */}
+                  <div className="space-y-2">
+                    <div className="flex justify-center">
+                      {effectiveLogoUrl ? (
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-amber-400/70 bg-white shadow-lg">
+                          <img
+                            src={effectiveLogoUrl}
+                            alt={restaurantName}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-amber-500 to-orange-600 text-white font-black text-lg flex items-center justify-center shadow-lg border border-amber-300/40">
+                          {initials}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase tracking-widest border border-amber-500/30">
                       <Sparkles className="w-3 h-3" /> TEMASSIZ DİJİTAL MENÜ
                     </div>
@@ -205,13 +616,26 @@ export const TableQrMenuModal: React.FC<TableQrMenuModalProps> = ({
                     </div>
                   </div>
 
-                  {/* QR Kod Çerçevesi */}
-                  <div className="p-3 bg-white rounded-2xl shadow-xl inline-block mx-auto">
+                  {/* QR Kod Çerçevesi (Merkez Logolu &ecc=H) */}
+                  <div className="relative p-3 bg-white rounded-2xl shadow-xl inline-block mx-auto">
                     <img
                       src={qrImageUrl}
                       alt={`${tableName} QR Menü`}
                       className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-lg"
                     />
+                    {effectiveLogoUrl ? (
+                      <div className="absolute inset-0 m-auto w-11 h-11 rounded-xl bg-white p-0.5 shadow-lg border-2 border-white overflow-hidden">
+                        <img
+                          src={effectiveLogoUrl}
+                          alt={restaurantName}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 m-auto w-10 h-10 rounded-xl bg-stone-900 text-amber-400 font-black text-xs flex items-center justify-center shadow-lg border-2 border-white">
+                        {initials}
+                      </div>
+                    )}
                   </div>
 
                   {/* Açıklama */}
@@ -233,7 +657,7 @@ export const TableQrMenuModal: React.FC<TableQrMenuModalProps> = ({
                   )}
 
                   <div className="text-[9px] text-stone-400 font-medium">
-                    dükkanımyanımda.com.tr · Akıllı Esnaf İşletim Sistemi
+                    Dükkanım Yanımda · Akıllı Esnaf İşletim Sistemi
                   </div>
                 </div>
               </div>
@@ -305,24 +729,33 @@ export const TableQrMenuModal: React.FC<TableQrMenuModalProps> = ({
                       {cat}
                     </h4>
                     <div className="grid sm:grid-cols-2 gap-2.5">
-                      {DEFAULT_MENU_ITEMS.filter((i) => i.category === cat).map((item) => (
-                        <div
-                          key={item.name}
-                          className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200/80 dark:border-stone-700/60 flex items-center justify-between"
-                        >
-                          <div>
-                            <p className="text-xs font-black text-stone-900 dark:text-white">
-                              {item.name}
-                            </p>
-                            <p className="text-[10px] text-stone-400 mt-0.5 line-clamp-1">
-                              {item.desc}
-                            </p>
+                      {previewItems
+                        .filter((i) => (i.category || 'Genel') === cat)
+                        .map((item) => (
+                          <div
+                            key={item.id || item.name}
+                            className={`p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200/80 dark:border-stone-700/60 flex items-center justify-between ${
+                              item.isAvailable === false ? 'opacity-60' : ''
+                            }`}
+                          >
+                            <div>
+                              <p className="text-xs font-black text-stone-900 dark:text-white flex items-center gap-1.5">
+                                <span>{item.name}</span>
+                                {item.isAvailable === false && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300">
+                                    Tükendi
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-[10px] text-stone-400 mt-0.5 line-clamp-1">
+                                {item.description || item.desc || 'Taze ve günlük lezzet'}
+                              </p>
+                            </div>
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 ml-2 shrink-0">
+                              ₺{item.price}
+                            </span>
                           </div>
-                          <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 ml-2 shrink-0">
-                            ₺{item.price}
-                          </span>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   </div>
                 ))}

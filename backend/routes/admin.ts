@@ -841,6 +841,17 @@ export function registerAdminRoutes(app: Express): void {
   // ---------------- Ziyaretçi & Yabancı IP Takibi API Uçları ----------------
   app.get('/api/admin/visitors', (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
+    const rawMode = typeof req.query.mode === 'string' ? req.query.mode.trim() : undefined;
+    const allowedModes = new Set([
+      'real_sessions',
+      'bots_foreign',
+      'raw_logs',
+      'all',
+      'human',
+      'foreign',
+      'bots',
+    ]);
+    const mode = rawMode && allowedModes.has(rawMode) ? (rawMode as any) : undefined;
     const foreignOnly = req.query.foreignOnly === '1' || req.query.foreignOnly === 'true';
     const botsOnly = req.query.botsOnly === '1' || req.query.botsOnly === 'true';
     const humanOnly = req.query.humanOnly === '1' || req.query.humanOnly === 'true';
@@ -850,6 +861,7 @@ export function registerAdminRoutes(app: Express): void {
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 150;
 
     const data = getVisitorRecords({
+      mode,
       foreignOnly,
       botsOnly,
       humanOnly,

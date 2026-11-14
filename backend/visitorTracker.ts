@@ -38,6 +38,30 @@ export interface VisitorRecord {
   timestamp: string;
 }
 
+export interface VisitorSession {
+  sessionId: string;
+  ip: string;
+  country: string;
+  countryName: string;
+  countryFlag: string;
+  isForeign: boolean;
+  deviceType: 'mobile' | 'desktop' | 'tablet';
+  browser: string;
+  os: string;
+  isBot: boolean;
+  botName?: string;
+  isSuspicious: boolean;
+  referer: string;
+  entryTime: string;
+  lastSeenAt: string;
+  isActive: boolean;
+  durationSeconds: number;
+  entryPath: string;
+  exitPath: string;
+  pagePaths: string[];
+  totalRequests: number;
+}
+
 const COUNTRY_NAMES: Record<string, string> = {
   TR: 'Türkiye',
   DE: 'Almanya',
@@ -167,16 +191,19 @@ function maybePersistVisitors(): void {
 
 // Bot ve Tarayıcı Tespiti
 const BOT_PATTERNS: { pattern: RegExp; name: string }[] = [
-  { pattern: /googlebot/i, name: 'Googlebot' },
-  { pattern: /bingbot|bingpreview|msnbot/i, name: 'Bingbot' },
+  { pattern: /headlesschrome|puppeteer|playwright|selenium|phantomjs/i, name: 'Headless / Otomasyon' },
+  { pattern: /googlebot|google-inspectiontool|adsbot-google|storebot-google|googleother|google-read-aloud/i, name: 'Googlebot' },
+  { pattern: /bingbot|bingpreview|msnbot|\bbing\b/i, name: 'Bingbot' },
   { pattern: /yandexbot|yandex/i, name: 'Yandex' },
-  { pattern: /ahrefsbot/i, name: 'Ahrefs' },
-  { pattern: /semrushbot/i, name: 'Semrush' },
+  { pattern: /ahrefs/i, name: 'Ahrefs' },
+  { pattern: /semrush/i, name: 'Semrush' },
+  { pattern: /mj12/i, name: 'MJ12bot' },
+  { pattern: /dotbot/i, name: 'DotBot' },
   { pattern: /petalbot/i, name: 'PetalBot' },
   { pattern: /applebot/i, name: 'Applebot' },
   { pattern: /baiduspider/i, name: 'Baidu' },
   { pattern: /duckduckbot/i, name: 'DuckDuckGo' },
-  { pattern: /facebookexternalhit/i, name: 'Facebook' },
+  { pattern: /facebookexternalhit|facebot/i, name: 'Facebook' },
   { pattern: /twitterbot/i, name: 'Twitter' },
   { pattern: /telegrambot/i, name: 'Telegram' },
   { pattern: /whatsapp/i, name: 'WhatsApp' },
@@ -184,15 +211,30 @@ const BOT_PATTERNS: { pattern: RegExp; name: string }[] = [
   { pattern: /slackbot/i, name: 'Slack' },
   { pattern: /discordbot/i, name: 'Discord' },
   { pattern: /bytespider/i, name: 'ByteDance' },
-  { pattern: /gptbot|chatgpt-user/i, name: 'OpenAI GPT' },
-  { pattern: /claude-web|anthropic/i, name: 'Anthropic' },
+  { pattern: /gptbot|chatgpt-user|oai-searchbot/i, name: 'OpenAI GPT' },
+  { pattern: /claudebot|claude-web|anthropic/i, name: 'ClaudeBot' },
+  { pattern: /axios|node-fetch|undici|httpclient|http-client|okhttp|apache-httpclient/i, name: 'HTTP İstemci / Script' },
   { pattern: /curl/i, name: 'cURL' },
-  { pattern: /python-requests|urllib/i, name: 'Python' },
-  { pattern: /postman/i, name: 'Postman' },
+  { pattern: /python|urllib|scrapy/i, name: 'Python' },
   { pattern: /wget/i, name: 'Wget' },
-  { pattern: /go-http-client/i, name: 'Go HTTP' },
-  { pattern: /zgrab|censys|shodan|masscan|nmap/i, name: 'Güvenlik Tarayıcısı' },
+  { pattern: /postman/i, name: 'Postman' },
+  { pattern: /go-http/i, name: 'Go HTTP' },
+  { pattern: /zgrab|censys|shodan|masscan|nmap|sqlmap|nikto/i, name: 'Güvenlik Tarayıcısı' },
+  { pattern: /\b(bot|crawler|spider|scraper)\b/i, name: 'Web Bot' },
 ];
+
+export function detectBotFromUserAgent(ua: string): { isBot: boolean; botName?: string } {
+  const trimmed = (ua || '').trim();
+  if (!trimmed || trimmed.length < 10) {
+    return { isBot: true, botName: 'Boş / Kısa UA Bot' };
+  }
+  for (const bot of BOT_PATTERNS) {
+    if (bot.pattern.test(trimmed)) {
+      return { isBot: true, botName: bot.name };
+    }
+  }
+  return { isBot: false };
+}
 
 const SUSPICIOUS_PATHS = [
   /wp-admin/i,
@@ -361,16 +403,8 @@ export function visitorTrackerMiddleware(req: Request, res: Response, next: Next
   const startTime = Date.now();
   const referer = (req.headers['referer'] as string) || (req.headers['referrer'] as string) || '';
 
-  // Bot Tespiti
-  let isBot = false;
-  let botName: string | undefined = undefined;
-  for (const bot of BOT_PATTERNS) {
-    if (bot.pattern.test(ua)) {
-      isBot = true;
-      botName = bot.name;
-      break;
-    }
-  }
+  // Bot Tespiti (güçlendirilmiş)
+  const { isBot, botName } = detectBotFromUserAgent(ua);
 
   // Cihaz ve İşletim Sistemi Tespiti
   const uaLower = ua.toLowerCase();
@@ -405,6 +439,11 @@ export function visitorTrackerMiddleware(req: Request, res: Response, next: Next
   // Yanıt tamamlandığında kaydı oluştur
   res.on('finish', () => {
     try {
+      // Başarılı admin paneli GET polling isteklerini ham belleği doldurmaması için atla
+      if (urlPath.startsWith('/api/admin/') && req.method === 'GET' && res.statusCode < 400) {
+        return;
+      }
+
       const durationMs = Date.now() - startTime;
       const record: VisitorRecord = {
         id: crypto.randomUUID(),
@@ -450,12 +489,18 @@ export interface VisitorAnalyticsSummary {
   suspiciousToday: number;
   uniqueIpsToday: number;
   liveLast15Min: number;
+  realHumanSessionsToday: number;
+  activeHumanSessionsNow: number;
+  foreignOrBotSessionsToday: number;
   topCountries: { code: string; name: string; flag: string; count: number; percentage: number }[];
   categoryBreakdown: { category: string; count: number }[];
   blockedIpsCount: number;
 }
 
-export function getVisitorRecords(filters?: {
+export type VisitorFilterMode = 'real_sessions' | 'bots_foreign' | 'raw_logs' | 'all' | 'human' | 'foreign' | 'bots';
+
+export interface VisitorFilterOptions {
+  mode?: VisitorFilterMode;
   foreignOnly?: boolean;
   botsOnly?: boolean;
   humanOnly?: boolean;
@@ -463,13 +508,261 @@ export function getVisitorRecords(filters?: {
   customerOnly?: boolean;
   search?: string;
   limit?: number;
-}): { records: VisitorRecord[]; summary: VisitorAnalyticsSummary } {
+  includeAdmin?: boolean;
+}
+
+const SESSION_INACTIVITY_WINDOW_MS = 30 * 60 * 1000;
+const SESSION_ACTIVE_THRESHOLD_MS = 5 * 60 * 1000;
+
+function isApiRequestPath(p: string): boolean {
+  return typeof p === 'string' && p.startsWith('/api/');
+}
+
+function makeStableSessionId(key: string, entryTime: string): string {
+  return crypto.createHash('sha1').update(`${key}|${entryTime}`).digest('hex').slice(0, 16);
+}
+
+export function buildVisitorSessions(
+  records: VisitorRecord[],
+  options?: { includeAdmin?: boolean; nowMs?: number }
+): VisitorSession[] {
+  const nowMs = options?.nowMs ?? Date.now();
+  const includeAdmin = Boolean(options?.includeAdmin);
+
+  // Admin panel isteklerini oturum akışından ayır
+  const eligible = records.filter((r) => {
+    if (!includeAdmin && (r.category === 'admin' || r.path.startsWith('/api/admin') || r.path === '/admin')) {
+      return false;
+    }
+    return true;
+  });
+
+  // Kronolojik sırayla (eskiden yeniye) sırala ki entry -> exit doğru takip edilsin
+  const chronological = eligible
+    .slice()
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  interface MutableSession {
+    key: string;
+    ip: string;
+    country: string;
+    countryName: string;
+    countryFlag: string;
+    isForeign: boolean;
+    deviceType: 'mobile' | 'desktop' | 'tablet';
+    browser: string;
+    os: string;
+    isBot: boolean;
+    botName?: string;
+    isSuspicious: boolean;
+    referer: string;
+    entryTime: string;
+    entryMs: number;
+    lastSeenAt: string;
+    lastSeenMs: number;
+    firstRequestPath: string;
+    lastRequestPath: string;
+    pagePaths: string[];
+    totalRequests: number;
+  }
+
+  const activeByKey = new Map<string, MutableSession>();
+  const completed: MutableSession[] = [];
+
+  for (const r of chronological) {
+    const reqMs = new Date(r.timestamp).getTime();
+    if (!Number.isFinite(reqMs)) continue;
+
+    const key = `${r.ip}::${r.deviceType}::${r.browser}::${r.os}`;
+    const detectedBot = detectBotFromUserAgent(r.userAgent);
+    const recordIsBot = Boolean(r.isBot || detectedBot.isBot);
+    const recordBotName = r.botName || detectedBot.botName;
+    const recordIsSuspicious = Boolean(r.isSuspicious || r.category === 'security_scan');
+    const cleanPath = r.path || '/';
+    const isPage = !isApiRequestPath(cleanPath);
+
+    let current = activeByKey.get(key);
+    if (current && reqMs - current.lastSeenMs > SESSION_INACTIVITY_WINDOW_MS) {
+      completed.push(current);
+      current = undefined;
+    }
+
+    if (!current) {
+      current = {
+        key,
+        ip: r.ip,
+        country: r.country,
+        countryName: r.countryName || getCountryName(r.country),
+        countryFlag: r.countryFlag || getCountryFlag(r.country),
+        isForeign: Boolean(r.isForeign),
+        deviceType: r.deviceType,
+        browser: r.browser,
+        os: r.os,
+        isBot: recordIsBot,
+        botName: recordBotName,
+        isSuspicious: recordIsSuspicious,
+        referer: r.referer || '',
+        entryTime: r.timestamp,
+        entryMs: reqMs,
+        lastSeenAt: r.timestamp,
+        lastSeenMs: reqMs,
+        firstRequestPath: cleanPath,
+        lastRequestPath: cleanPath,
+        pagePaths: isPage ? [cleanPath] : [],
+        totalRequests: 1,
+      };
+      activeByKey.set(key, current);
+      continue;
+    }
+
+    // Mevcut oturuma ekle
+    current.lastSeenAt = r.timestamp;
+    current.lastSeenMs = reqMs;
+    current.lastRequestPath = cleanPath;
+    current.totalRequests += 1;
+    current.isForeign = current.isForeign || Boolean(r.isForeign);
+    current.isBot = current.isBot || recordIsBot;
+    if (!current.botName && recordBotName) current.botName = recordBotName;
+    current.isSuspicious = current.isSuspicious || recordIsSuspicious;
+    if (!current.referer && isPage && r.referer) {
+      current.referer = r.referer;
+    }
+
+    if (isPage) {
+      if (current.pagePaths.length === 0 || current.pagePaths[current.pagePaths.length - 1] !== cleanPath) {
+        current.pagePaths.push(cleanPath);
+      }
+    }
+  }
+
+  for (const s of activeByKey.values()) {
+    completed.push(s);
+  }
+
+  const sessions: VisitorSession[] = completed.map((s) => {
+    const entryPath = s.pagePaths.length > 0 ? s.pagePaths[0] : s.firstRequestPath;
+    const exitPath = s.pagePaths.length > 0 ? s.pagePaths[s.pagePaths.length - 1] : s.lastRequestPath;
+    const durationSeconds = Math.max(0, Math.round((s.lastSeenMs - s.entryMs) / 1000));
+    const isActive = nowMs - s.lastSeenMs <= SESSION_ACTIVE_THRESHOLD_MS;
+
+    return {
+      sessionId: makeStableSessionId(s.key, s.entryTime),
+      ip: s.ip,
+      country: s.country,
+      countryName: s.countryName,
+      countryFlag: s.countryFlag,
+      isForeign: s.isForeign,
+      deviceType: s.deviceType,
+      browser: s.browser,
+      os: s.os,
+      isBot: s.isBot,
+      botName: s.botName,
+      isSuspicious: s.isSuspicious,
+      referer: s.referer,
+      entryTime: s.entryTime,
+      lastSeenAt: s.lastSeenAt,
+      isActive,
+      durationSeconds,
+      entryPath,
+      exitPath,
+      pagePaths: s.pagePaths,
+      totalRequests: s.totalRequests,
+    };
+  });
+
+  // En son görülen oturumlar en üstte
+  sessions.sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
+  return sessions;
+}
+
+function matchesSessionSearch(s: VisitorSession, q: string): boolean {
+  return (
+    s.ip.toLowerCase().includes(q) ||
+    s.country.toLowerCase().includes(q) ||
+    s.countryName.toLowerCase().includes(q) ||
+    s.entryPath.toLowerCase().includes(q) ||
+    s.exitPath.toLowerCase().includes(q) ||
+    s.pagePaths.some((p) => p.toLowerCase().includes(q)) ||
+    (s.botName ? s.botName.toLowerCase().includes(q) : false) ||
+    s.browser.toLowerCase().includes(q) ||
+    s.os.toLowerCase().includes(q) ||
+    s.referer.toLowerCase().includes(q)
+  );
+}
+
+export function getVisitorSessions(
+  filters?: VisitorFilterOptions,
+  sourceRecords: VisitorRecord[] = visitorRecords
+): {
+  sessions: VisitorSession[];
+  realSessions: VisitorSession[];
+  botOrForeignSessions: VisitorSession[];
+} {
+  const limit = Math.min(filters?.limit || 150, 500);
+  const allSessions = buildVisitorSessions(sourceRecords, { includeAdmin: filters?.includeAdmin });
+
+  const q = filters?.search ? filters.search.toLowerCase().trim() : '';
+  const searched = q ? allSessions.filter((s) => matchesSessionSearch(s, q)) : allSessions;
+
+  const realSessions = searched.filter((s) => !s.isBot && !s.isForeign && !s.isSuspicious);
+  const botOrForeignSessions = searched.filter((s) => s.isBot || s.isForeign || s.isSuspicious);
+
+  let sessions = realSessions;
+  if (filters?.mode === 'bots_foreign') {
+    sessions = botOrForeignSessions;
+  } else if (filters?.mode === 'all') {
+    sessions = searched;
+  } else if (filters?.foreignOnly) {
+    sessions = searched.filter((s) => s.isForeign);
+  } else if (filters?.botsOnly) {
+    sessions = searched.filter((s) => s.isBot);
+  } else if (filters?.suspiciousOnly) {
+    sessions = searched.filter((s) => s.isSuspicious);
+  } else if (filters?.customerOnly) {
+    sessions = realSessions.filter(
+      (s) =>
+        s.entryPath.startsWith('/r/') ||
+        s.entryPath.startsWith('/m/') ||
+        s.pagePaths.some((p) => p.startsWith('/r/') || p.startsWith('/m/'))
+    );
+  }
+
+  return {
+    sessions: sessions.slice(0, limit),
+    realSessions: realSessions.slice(0, limit),
+    botOrForeignSessions: botOrForeignSessions.slice(0, limit),
+  };
+}
+
+export function getVisitorRecords(filters?: VisitorFilterOptions): {
+  sessions: VisitorSession[];
+  realSessions: VisitorSession[];
+  botOrForeignSessions: VisitorSession[];
+  records: VisitorRecord[];
+  summary: VisitorAnalyticsSummary;
+} {
   const limit = Math.min(filters?.limit || 150, 500);
   const now = Date.now();
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
   const startOfDayMs = startOfDay.getTime();
   const fifteenMinAgoMs = now - 15 * 60 * 1000;
+
+  // Oturumları oluştur (admin panel istekleri hariç)
+  const allSessionsUnfiltered = buildVisitorSessions(visitorRecords, {
+    includeAdmin: filters?.includeAdmin,
+    nowMs: now,
+  });
+  const allRealSessions = allSessionsUnfiltered.filter((s) => !s.isBot && !s.isForeign && !s.isSuspicious);
+  const allBotOrForeignSessions = allSessionsUnfiltered.filter((s) => s.isBot || s.isForeign || s.isSuspicious);
+
+  const realHumanSessionsToday = allRealSessions.filter(
+    (s) => new Date(s.lastSeenAt).getTime() >= startOfDayMs
+  ).length;
+  const activeHumanSessionsNow = allRealSessions.filter((s) => s.isActive).length;
+  const foreignOrBotSessionsToday = allBotOrForeignSessions.filter(
+    (s) => new Date(s.lastSeenAt).getTime() >= startOfDayMs
+  ).length;
 
   // Analitik Sayaçları
   let totalToday = 0;
@@ -483,11 +776,14 @@ export function getVisitorRecords(filters?: {
   const categoryCounts: Record<string, number> = {};
 
   for (const r of visitorRecords) {
+    if (r.category === 'admin') continue;
     const t = new Date(r.timestamp).getTime();
+    const detected = detectBotFromUserAgent(r.userAgent);
+    const effectiveBot = r.isBot || detected.isBot;
     if (t >= startOfDayMs) {
       totalToday++;
       if (r.isForeign) foreignToday++;
-      if (r.isBot) botToday++;
+      if (effectiveBot) botToday++;
       else humanToday++;
       if (r.isSuspicious) suspiciousToday++;
       uniqueIpsTodaySet.add(r.ip);
@@ -500,17 +796,29 @@ export function getVisitorRecords(filters?: {
     }
   }
 
-  // Filtreleme
+  // Ham kayıt filtreleme
   let filtered = visitorRecords;
+
+  if (filters?.mode === 'real_sessions') {
+    filtered = filtered.filter((r) => {
+      const effectiveBot = r.isBot || detectBotFromUserAgent(r.userAgent).isBot;
+      return !effectiveBot && !r.isForeign && !r.isSuspicious && r.category !== 'admin';
+    });
+  } else if (filters?.mode === 'bots_foreign') {
+    filtered = filtered.filter((r) => {
+      const effectiveBot = r.isBot || detectBotFromUserAgent(r.userAgent).isBot;
+      return effectiveBot || r.isForeign || r.isSuspicious;
+    });
+  }
 
   if (filters?.foreignOnly) {
     filtered = filtered.filter((r) => r.isForeign);
   }
   if (filters?.botsOnly) {
-    filtered = filtered.filter((r) => r.isBot);
+    filtered = filtered.filter((r) => r.isBot || detectBotFromUserAgent(r.userAgent).isBot);
   }
   if (filters?.humanOnly) {
-    filtered = filtered.filter((r) => !r.isBot);
+    filtered = filtered.filter((r) => !r.isBot && !detectBotFromUserAgent(r.userAgent).isBot && r.category !== 'admin');
   }
   if (filters?.suspiciousOnly) {
     filtered = filtered.filter((r) => r.isSuspicious);
@@ -555,12 +863,20 @@ export function getVisitorRecords(filters?: {
     suspiciousToday,
     uniqueIpsToday: uniqueIpsTodaySet.size,
     liveLast15Min: liveLast15MinIps.size,
+    realHumanSessionsToday,
+    activeHumanSessionsNow,
+    foreignOrBotSessionsToday,
     topCountries,
     categoryBreakdown,
     blockedIpsCount: blockedIps.length,
   };
 
+  const sessionResult = getVisitorSessions(filters, visitorRecords);
+
   return {
+    sessions: sessionResult.sessions,
+    realSessions: sessionResult.realSessions,
+    botOrForeignSessions: sessionResult.botOrForeignSessions,
     records: filtered.slice(0, limit),
     summary,
   };

@@ -69,6 +69,7 @@ interface BarberAppointmentsViewProps {
   services?: ServiceItem[];
   shopSlug?: string;
   storeName?: string;
+  shopLogoUrl?: string;
   isVip?: boolean;
   onOpenVip?: () => void;
   initialTab?: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr';
@@ -78,6 +79,39 @@ interface BarberAppointmentsViewProps {
   onDeleteAppointment: (id: string) => Promise<void>;
   onFastWalkinCash?: (serviceName: string, price: number, staffName: string) => Promise<void>;
   onImportCustomers?: (customers: { name: string; phone: string; notes?: string }[]) => Promise<void>;
+}
+
+function escapeHtml(value: string): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getShopInitials(name: string): string {
+  const parts = String(name || 'DY')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return 'DY';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
+
+function resolveSafeMediaUrl(rawUrl?: string, makeAbsolute = false): string {
+  const trimmed = String(rawUrl || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('data:image/')) return trimmed;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  if (trimmed.startsWith('/')) {
+    if (makeAbsolute && typeof window !== 'undefined') {
+      return `${window.location.origin}${trimmed}`;
+    }
+    return trimmed;
+  }
+  return '';
 }
 
 const HOURS = [
@@ -106,6 +140,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   customers = [],
   shopSlug = 'demo',
   storeName = 'Berber & Kuaför Salonu',
+  shopLogoUrl = '',
   isVip = false,
   onOpenVip,
   onAddAppointment,
@@ -117,12 +152,36 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 }) => {
   // Aktif Sekme: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'
   const [activeTab, setActiveTab] = useState<'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'>(initialTab || 'timeline');
+  const [fallbackLogoUrl, setFallbackLogoUrl] = useState<string>(shopLogoUrl || '');
 
   useEffect(() => {
     if (initialTab) {
       setActiveTab(initialTab);
     }
   }, [initialTab]);
+
+  useEffect(() => {
+    if (shopLogoUrl !== undefined) {
+      setFallbackLogoUrl(shopLogoUrl);
+    }
+  }, [shopLogoUrl]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/shop-profile')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (active && data?.shopProfile?.logoUrl && !shopLogoUrl) {
+          setFallbackLogoUrl(data.shopProfile.logoUrl);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [shopLogoUrl]);
+
+  const effectiveLogoUrl = resolveSafeMediaUrl(shopLogoUrl || fallbackLogoUrl);
 
   // Backend'den çekilen berber verileri
   const [staffList, setStaffList] = useState<BarberStaff[]>([]);
@@ -853,10 +912,15 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
   // QR Stand Kartı Yazdırma (A4 Formatında Tezgâh / Ayna Standı)
   const handlePrintStand = () => {
-    const bookingUrl = `${window.location.origin}/r/${shopSlug}`;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
+    const bookingUrl = `${window.location.origin}/r/${encodeURIComponent(shopSlug || 'demo')}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=H&data=${encodeURIComponent(
       bookingUrl
     )}`;
+    const safeStoreName = escapeHtml(storeName || 'Berber & Kuaför Salonu');
+    const safeBookingUrl = escapeHtml(bookingUrl);
+    const absoluteLogoUrl = resolveSafeMediaUrl(effectiveLogoUrl, true);
+    const safeLogoUrl = absoluteLogoUrl ? escapeHtml(absoluteLogoUrl) : '';
+    const safeInitials = escapeHtml(getShopInitials(storeName));
 
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
@@ -874,12 +938,20 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
       return;
     }
 
+    const topLogoHtml = safeLogoUrl
+      ? `<div class="stand-logo-wrap"><img id="qr-stand-logo-top" src="${safeLogoUrl}" alt="${safeStoreName}" class="stand-logo-img" /></div>`
+      : `<div class="stand-logo-fallback">${safeInitials}</div>`;
+
+    const centerBadgeHtml = safeLogoUrl
+      ? `<div class="qr-center-badge"><img id="qr-stand-logo-center" src="${safeLogoUrl}" alt="${safeStoreName}" /></div>`
+      : `<div class="qr-center-badge qr-center-initials">${safeInitials}</div>`;
+
     const html = `
       <!DOCTYPE html>
       <html lang="tr">
         <head>
           <meta charset="utf-8">
-          <title>${storeName} - Randevu Stand Kartı</title>
+          <title>${safeStoreName} - Randevu Stand Kartı</title>
           <style>
             @page {
               size: A4 portrait;
@@ -908,10 +980,41 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               max-width: 620px;
               border: 3px solid #1c1917;
               border-radius: 28px;
-              padding: 40px 32px 32px 32px;
+              padding: 36px 32px 30px 32px;
               text-align: center;
               background: #ffffff;
               position: relative;
+            }
+            .stand-logo-wrap {
+              width: 82px;
+              height: 82px;
+              margin: 0 auto 14px auto;
+              border-radius: 22px;
+              overflow: hidden;
+              border: 3px solid #f59e0b;
+              background: #ffffff;
+              box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            }
+            .stand-logo-img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              display: block;
+            }
+            .stand-logo-fallback {
+              width: 78px;
+              height: 78px;
+              margin: 0 auto 14px auto;
+              border-radius: 22px;
+              background: linear-gradient(135deg, #f59e0b, #ea580c);
+              color: #ffffff;
+              font-size: 28px;
+              font-weight: 900;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              letter-spacing: 1px;
+              box-shadow: 0 8px 20px rgba(234,88,12,0.22);
             }
             .stand-badge {
               display: inline-block;
@@ -923,11 +1026,11 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               letter-spacing: 2px;
               padding: 8px 24px;
               border-radius: 9999px;
-              margin-bottom: 20px;
+              margin-bottom: 14px;
               border: 1px solid #d97706;
             }
             .stand-title {
-              font-size: 34px;
+              font-size: 32px;
               font-weight: 900;
               color: #0c0a09;
               letter-spacing: -0.5px;
@@ -935,15 +1038,16 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               line-height: 1.2;
             }
             .stand-subtitle {
-              font-size: 16px;
+              font-size: 15px;
               color: #57534e;
               font-weight: 600;
-              margin-bottom: 24px;
+              margin-bottom: 22px;
             }
             .qr-box {
-              width: 250px;
-              height: 250px;
-              margin: 0 auto 24px auto;
+              position: relative;
+              width: 254px;
+              height: 254px;
+              margin: 0 auto 22px auto;
               padding: 14px;
               border: 3px solid #f59e0b;
               border-radius: 24px;
@@ -952,11 +1056,40 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               align-items: center;
               justify-content: center;
             }
-            .qr-box img {
+            .qr-box > img {
               width: 100%;
               height: 100%;
               object-fit: contain;
               display: block;
+            }
+            .qr-center-badge {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              width: 52px;
+              height: 52px;
+              border-radius: 14px;
+              background: #ffffff;
+              border: 3px solid #ffffff;
+              box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+              overflow: hidden;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-center-badge img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              display: block;
+              border-radius: 10px;
+            }
+            .qr-center-initials {
+              background: #1c1917;
+              color: #f59e0b;
+              font-size: 16px;
+              font-weight: 900;
             }
             .cta-title {
               font-size: 19px;
@@ -1045,12 +1178,14 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
         </head>
         <body>
           <div class="stand-container">
+            ${topLogoHtml}
             <div class="stand-badge">💈 Hızlı Randevu Standı</div>
-            <h1 class="stand-title">${storeName}</h1>
+            <h1 class="stand-title">${safeStoreName}</h1>
             <p class="stand-subtitle">Sıra beklemeden, telefonunuzdan saniyeler içinde randevu alın!</p>
 
             <div class="qr-box">
-              <img id="qr-stand-image" src="${qrUrl}" alt="${storeName} Randevu QR Kodu" />
+              <img id="qr-stand-image" src="${escapeHtml(qrUrl)}" alt="${safeStoreName} Randevu QR Kodu" />
+              ${centerBadgeHtml}
             </div>
 
             <div class="cta-title">📱 Telefonunuzun Kamerasını QR Koda Tutun</div>
@@ -1075,12 +1210,12 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
             <div class="link-box">
               <div class="link-label">Doğrudan Randevu Linki</div>
-              <div class="link-url">${bookingUrl}</div>
+              <div class="link-url">${safeBookingUrl}</div>
             </div>
 
             <div class="stand-footer">
               <span>✂️ Tezgâh, Ayna ve Kapı Giriş Standı</span>
-              <span>Dükkânım Yanımda © Akıllı Randevu</span>
+              <span>Dükkanım Yanımda © Akıllı Randevu</span>
             </div>
           </div>
           <div class="cut-guide">
@@ -1094,8 +1229,10 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     doc.write(html);
     doc.close();
 
-    const img = doc.getElementById('qr-stand-image') as HTMLImageElement;
+    let printed = false;
     const triggerPrint = () => {
+      if (printed) return;
+      printed = true;
       setTimeout(() => {
         try {
           iframe.contentWindow?.focus();
@@ -1109,15 +1246,28 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             }
           }, 3000);
         }
-      }, 300);
+      }, 250);
     };
 
-    if (img && !img.complete) {
-      img.onload = triggerPrint;
-      img.onerror = triggerPrint;
-    } else {
+    const images = Array.from(doc.querySelectorAll('img')) as HTMLImageElement[];
+    const pendingImages = images.filter((img) => !img.complete);
+    if (pendingImages.length === 0) {
       triggerPrint();
+      return;
     }
+
+    let remaining = pendingImages.length;
+    const onImageDone = () => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        triggerPrint();
+      }
+    };
+    pendingImages.forEach((img) => {
+      img.onload = onImageDone;
+      img.onerror = onImageDone;
+    });
+    setTimeout(triggerPrint, 4500);
   };
 
   // Günlük Randevu Listesini Yazdırma
@@ -2156,8 +2306,24 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
           {/* Tezgah / Ayna QR Standı Önizleme Kartı (Yazdırılabilir) */}
           <div className="bg-linear-to-b from-stone-900 to-stone-950 text-white border border-stone-800 rounded-3xl p-8 text-center space-y-5 shadow-2xl">
-            <div className="inline-block p-2 rounded-2xl bg-amber-500 text-stone-950 font-black text-xs uppercase tracking-widest">
-              Tezgâh / Ayna QR Standı
+            <div className="flex flex-col items-center gap-3">
+              {effectiveLogoUrl ? (
+                <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-amber-400/60 bg-white shadow-lg">
+                  <img
+                    src={effectiveLogoUrl}
+                    alt={storeName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-amber-500 to-orange-600 text-white font-black text-xl flex items-center justify-center shadow-lg border border-amber-300/40">
+                  {getShopInitials(storeName)}
+                </div>
+              )}
+
+              <div className="inline-block px-3 py-1.5 rounded-2xl bg-amber-500 text-stone-950 font-black text-xs uppercase tracking-widest">
+                Tezgâh / Ayna QR Standı
+              </div>
             </div>
 
             <div>
@@ -2165,14 +2331,27 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               <p className="text-xs text-stone-400 mt-1">Sıra beklemeden randevunuzu cebinizden saniyeler içinde alın!</p>
             </div>
 
-            <div className="w-44 h-44 bg-white p-3 rounded-3xl mx-auto shadow-xl flex items-center justify-center">
+            <div className="relative w-48 h-48 bg-white p-3 rounded-3xl mx-auto shadow-xl flex items-center justify-center">
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-                  `${window.location.origin}/r/${shopSlug}`
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=H&data=${encodeURIComponent(
+                  `${typeof window !== 'undefined' ? window.location.origin : ''}/r/${encodeURIComponent(shopSlug || 'demo')}`
                 )}`}
                 alt="Randevu QR Kodu"
                 className="w-full h-full object-contain"
               />
+              {effectiveLogoUrl ? (
+                <div className="absolute inset-0 m-auto w-11 h-11 rounded-xl bg-white p-0.5 shadow-lg border-2 border-white overflow-hidden">
+                  <img
+                    src={effectiveLogoUrl}
+                    alt={storeName}
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+              ) : (
+                <div className="absolute inset-0 m-auto w-10 h-10 rounded-xl bg-stone-900 text-amber-400 font-black text-xs flex items-center justify-center shadow-lg border-2 border-white">
+                  {getShopInitials(storeName)}
+                </div>
+              )}
             </div>
 
             <p className="text-xs text-stone-300 font-semibold">

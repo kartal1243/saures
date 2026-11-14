@@ -28,6 +28,7 @@ interface SectorModuleSwitchProps {
   activeTab: ActiveTab;
   shopSlug?: string;
   storeName?: string;
+  shopLogoUrl?: string;
   receiptFooter?: string;
   isVip?: boolean;
   vipTier?: 'cirak' | 'usta' | 'patron';
@@ -92,6 +93,7 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
         services={props.services}
         shopSlug={props.shopSlug}
         storeName={props.storeName}
+        shopLogoUrl={props.shopLogoUrl}
         isVip={props.isVip}
         onOpenVip={props.onOpenVip}
         initialTab={props.barberSubTab}
@@ -107,6 +109,9 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
     return (
       <RestaurantTablesView
         tables={props.tables}
+        storeName={props.storeName}
+        shopSlug={props.shopSlug}
+        shopLogoUrl={props.shopLogoUrl}
         isVip={props.isVip}
         vipTier={props.vipTier}
         onOpenVip={props.onOpenVip}

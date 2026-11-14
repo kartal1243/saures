@@ -37,6 +37,9 @@ import { TableQrMenuModal } from './TableQrMenuModal';
 
 interface RestaurantTablesViewProps {
   tables: RestaurantTable[];
+  storeName?: string;
+  shopSlug?: string;
+  shopLogoUrl?: string;
   isVip?: boolean;
   vipTier?: 'cirak' | 'usta' | 'patron';
   onOpenVip?: () => void;
@@ -65,6 +68,9 @@ const DEFAULT_MENU_FALLBACK: MenuItem[] = [
 
 export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
   tables,
+  storeName,
+  shopSlug,
+  shopLogoUrl,
   isVip = false,
   vipTier,
   onOpenVip,
@@ -78,6 +84,11 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
   const [tier, setTier] = useState<'cirak' | 'usta' | 'patron'>(
     vipTier || (isVip ? 'patron' : 'cirak')
   );
+  const [profileFallback, setProfileFallback] = useState<{
+    storeName?: string;
+    slug?: string;
+    logoUrl?: string;
+  }>({});
 
   useEffect(() => {
     if (vipTier) {
@@ -95,6 +106,11 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
         if (active && data?.shopProfile) {
           const profileTier = data.shopProfile.vipTier || (data.shopProfile.isVip ? 'patron' : 'cirak');
           setTier(profileTier);
+          setProfileFallback({
+            storeName: data.shopProfile.storeName,
+            slug: data.shopProfile.slug,
+            logoUrl: data.shopProfile.logoUrl,
+          });
         }
       })
       .catch(() => {});
@@ -102,6 +118,10 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
       active = false;
     };
   }, []);
+
+  const effectiveStoreName = storeName || profileFallback.storeName || 'Dükkanım Kafe & Restoran';
+  const effectiveShopSlug = shopSlug || profileFallback.slug || 'demo';
+  const effectiveShopLogoUrl = shopLogoUrl || profileFallback.logoUrl || '';
 
   const maxTables = tier === 'patron' ? Infinity : tier === 'usta' ? 10 : 3;
 
@@ -467,6 +487,9 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
       {mainTab === 'qr_menu' ? (
         <RestaurantMenuManager
           tables={tables}
+          shopName={effectiveStoreName}
+          shopSlug={effectiveShopSlug}
+          shopLogoUrl={effectiveShopLogoUrl}
           isVip={isVip}
           onOpenVip={onOpenVip}
           onMenuUpdated={(items) => setMenuItems(items)}
@@ -1749,6 +1772,10 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
             onClose={() => setIsQrModalOpen(false)}
             tables={tables}
             selectedTable={qrTargetTable}
+            restaurantName={effectiveStoreName}
+            shopSlug={effectiveShopSlug}
+            shopLogoUrl={effectiveShopLogoUrl}
+            menuItems={menuItems}
           />
         </>
       )}
