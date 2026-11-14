@@ -3,6 +3,44 @@ import type { Product, StockMovement } from '../../shared/types';
 import { S, saveState } from '../context';
 import { broadcast } from '../realtime';
 import { localDay } from '../day';
+import { getAccounts } from '../accounts';
+import { loadShopState } from '../shopState';
+
+interface BarcodeCatalogEntry {
+  name: string;
+  category: string;
+  unit: string;
+  suggestedSalePrice?: number;
+}
+
+// Yaygın Türkiye Bakkal & Market EAN-13 Barkod Sözlüğü
+const TR_BARCODE_CATALOG: Record<string, BarcodeCatalogEntry> = {
+  '5449000000996': { name: 'Coca-Cola 330 ml Kutu', category: 'İçecekler', unit: 'Adet', suggestedSalePrice: 35 },
+  '5449000054227': { name: 'Coca-Cola 1 Litre Pet', category: 'İçecekler', unit: 'Adet', suggestedSalePrice: 55 },
+  '5449000131805': { name: 'Coca-Cola Zero 330 ml', category: 'İçecekler', unit: 'Adet', suggestedSalePrice: 35 },
+  '8690504016212': { name: 'Ülker Çikolatalı Gofret 36 gr', category: 'Atıştırmalık', unit: 'Adet', suggestedSalePrice: 12 },
+  '8690504012054': { name: 'Ülker Pötibör Bisküvi 175 gr', category: 'Atıştırmalık', unit: 'Paket', suggestedSalePrice: 25 },
+  '8690526014418': { name: 'Eti Cin Çilekli 114 gr', category: 'Atıştırmalık', unit: 'Paket', suggestedSalePrice: 22 },
+  '8690526029214': { name: 'Eti Browni Intense 50 gr', category: 'Atıştırmalık', unit: 'Adet', suggestedSalePrice: 18 },
+  '8690105000015': { name: 'Çaykur Rize Turist Çayı 1000 gr', category: 'Çay & Kahve', unit: 'Paket', suggestedSalePrice: 215 },
+  '8690105000121': { name: 'Çaykur Tiryaki Çayı 1000 gr', category: 'Çay & Kahve', unit: 'Paket', suggestedSalePrice: 225 },
+  '8690565000014': { name: 'Sütaş Tam Yağlı Süt 1 L', category: 'Süt & Kahvaltılık', unit: 'Litre', suggestedSalePrice: 42 },
+  '8690565001202': { name: 'Sütaş Yayık Ayran 1 L', category: 'İçecekler', unit: 'Litre', suggestedSalePrice: 38 },
+  '8690624000012': { name: 'Pınar Süt 1 L', category: 'Süt & Kahvaltılık', unit: 'Litre', suggestedSalePrice: 44 },
+  '8690624010103': { name: 'Pınar Labne 180 gr', category: 'Süt & Kahvaltılık', unit: 'Adet', suggestedSalePrice: 52 },
+  '8690767210105': { name: 'Erikli Doğal Kaynak Suyu 500 ml', category: 'İçecekler', unit: 'Adet', suggestedSalePrice: 10 },
+  '8690767210150': { name: 'Erikli Doğal Kaynak Suyu 1.5 L', category: 'İçecekler', unit: 'Adet', suggestedSalePrice: 18 },
+  '8690530001015': { name: 'Hayat Su 500 ml', category: 'İçecekler', unit: 'Adet', suggestedSalePrice: 10 },
+  '8690632000127': { name: 'Nescafe 3ü1 Arada Tek İçimlik', category: 'Çay & Kahve', unit: 'Paket', suggestedSalePrice: 10 },
+  '8690637000115': { name: 'Fairy Bulaşık Deterjanı 650 ml', category: 'Temizlik', unit: 'Adet', suggestedSalePrice: 75 },
+  '8690637800104': { name: 'Domestos Çamaşır Suyu 750 ml', category: 'Temizlik', unit: 'Adet', suggestedSalePrice: 68 },
+  '8690506478100': { name: 'Lay\'s Klasik Patates Cipsi Süper Boy', category: 'Atıştırmalık', unit: 'Paket', suggestedSalePrice: 45 },
+  '8690506478209': { name: 'Doritos Taco Süper Boy', category: 'Atıştırmalık', unit: 'Paket', suggestedSalePrice: 45 },
+  '8690710001019': { name: 'Torku Tam Yağlı Süt 1 L', category: 'Süt & Kahvaltılık', unit: 'Litre', suggestedSalePrice: 39 },
+  '8690572000113': { name: 'İçim Kaşar Peyniri 400 gr', category: 'Süt & Kahvaltılık', unit: 'Paket', suggestedSalePrice: 135 },
+  '8690500001014': { name: 'Komili Riviera Zeytinyağı 1 L', category: 'Temel Gıda', unit: 'Litre', suggestedSalePrice: 320 },
+  '8690685001010': { name: 'Tadım Kavrulmuş Ayçekirdeği 180 gr', category: 'Kuruyemiş', unit: 'Paket', suggestedSalePrice: 48 },
+};
 
 export function registerProductRoutes(app: Express): void {
   // 12. Products & Stock Management Endpoints
@@ -10,6 +48,96 @@ export function registerProductRoutes(app: Express): void {
     const products = S().products || [];
     const criticalCount = products.filter((p) => p.currentStock <= p.criticalThreshold).length;
     res.json({ products, criticalCount });
+  });
+
+  // Barkod Katalog Arama (Mevcut mağaza + TR EAN-13 sözlük + anonim ağ eşleştirmesi)
+  app.get('/api/products/barcode-catalog/:barcode', (req: Request, res: Response) => {
+    const rawBarcode = String(req.params.barcode || '').trim();
+    const digitsOnly = rawBarcode.replace(/\D/g, '');
+    const code = digitsOnly || rawBarcode;
+
+    if (!code || code.length < 4) {
+      return res.status(400).json({ error: 'Geçerli bir barkod numarası giriniz.' });
+    }
+
+    // 1. Önce mevcut işletmenin kendi ürünlerinde ara
+    const ownProducts = S().products || [];
+    const ownMatch = ownProducts.find((p) => p.barcode && p.barcode.trim() === code);
+    if (ownMatch) {
+      return res.json({
+        found: true,
+        source: 'own_store',
+        barcode: code,
+        item: {
+          name: ownMatch.name,
+          category: ownMatch.category || 'Genel',
+          unit: ownMatch.unit || 'Adet',
+          suggestedSalePrice: ownMatch.salePrice ?? ownMatch.sellPrice,
+        },
+      });
+    }
+
+    // 2. Türk Terazi / Manav Barkodu (13 hane, 27 / 28 / 29 öneki)
+    if (code.length === 13 && (code.startsWith('27') || code.startsWith('28') || code.startsWith('29'))) {
+      const plu = code.slice(2, 7);
+      const grams = parseInt(code.slice(7, 12), 10) || 0;
+      const scaleMatch = ownProducts.find((p) => p.barcode && p.barcode.startsWith(code.slice(0, 7)));
+      return res.json({
+        found: true,
+        source: 'scale_barcode',
+        barcode: code,
+        plu,
+        weightKg: grams > 0 ? Number((grams / 1000).toFixed(3)) : undefined,
+        item: {
+          name: scaleMatch?.name || `Tartılı Ürün (PLU ${plu})`,
+          category: scaleMatch?.category || 'Manav & Şarküteri',
+          unit: 'Kg',
+          suggestedSalePrice: scaleMatch?.salePrice ?? scaleMatch?.sellPrice,
+        },
+      });
+    }
+
+    // 3. Yerleşik TR Bakkal / Market EAN-13 Kataloğu
+    const trEntry = TR_BARCODE_CATALOG[code];
+    if (trEntry) {
+      return res.json({
+        found: true,
+        source: 'tr_catalog',
+        barcode: code,
+        item: trEntry,
+      });
+    }
+
+    // 4. Diğer mağazaların ürünlerindeki anonim eşleştirme (yalnızca ürün adı, kategori ve birim döner)
+    try {
+      const accounts = getAccounts();
+      for (const acc of accounts) {
+        const st = loadShopState(acc.id);
+        const match = (st.products || []).find((p) => p.barcode && p.barcode.trim() === code);
+        if (match) {
+          return res.json({
+            found: true,
+            source: 'community_catalog',
+            barcode: code,
+            item: {
+              name: match.name,
+              category: match.category || 'Genel',
+              unit: match.unit || 'Adet',
+              suggestedSalePrice: match.salePrice ?? match.sellPrice,
+            },
+          });
+        }
+      }
+    } catch {
+      // ignore cross-shop scan error
+    }
+
+    return res.json({
+      found: false,
+      source: 'none',
+      barcode: code,
+      item: null,
+    });
   });
 
   app.post('/api/products', (req: Request, res: Response) => {

@@ -13,6 +13,12 @@ import {
   Loader2,
   ChevronRight,
   Share2,
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  X,
+  Send,
 } from 'lucide-react';
 import { MenuItem } from '../../../shared/types.ts';
 
@@ -36,7 +42,72 @@ export const PublicQrMenuView: React.FC = () => {
   const [notification, setNotification] = useState<string | null>(null);
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'waiter' | 'bill' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'waiter' | 'bill' | 'order' | null>(null);
+  const [cart, setCart] = useState<Array<{ item: MenuItem; quantity: number }>>([]);
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
+  const [customerNote, setCustomerNote] = useState('');
+  const [isSendingOrder, setIsSendingOrder] = useState(false);
+
+  const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
+  const cartTotal = cart.reduce((sum, c) => sum + (Number(c.item.price) || 0) * c.quantity, 0);
+
+  const addToCart = (item: MenuItem) => {
+    setCart((prev) => {
+      const idx = prev.findIndex((c) => c.item.id === item.id);
+      if (idx >= 0) {
+        return prev.map((c, i) => (i === idx ? { ...c, quantity: c.quantity + 1 } : c));
+      }
+      return [...prev, { item, quantity: 1 }];
+    });
+    showToast(`${item.name} sepete eklendi`);
+  };
+
+  const updateCartQty = (itemId: string, delta: number) => {
+    setCart((prev) =>
+      prev
+        .map((c) => (c.item.id === itemId ? { ...c, quantity: c.quantity + delta } : c))
+        .filter((c) => c.quantity > 0)
+    );
+  };
+
+  const handleSubmitOrder = async (tableOverride?: string) => {
+    const activeTable = tableOverride || selectedTable;
+    if (!activeTable) {
+      setPendingAction('order');
+      setIsTableModalOpen(true);
+      return;
+    }
+    if (cart.length === 0) return;
+
+    setIsSendingOrder(true);
+    try {
+      const res = await fetch(`/api/public/menu/${encodeURIComponent(data?.slug || getIdentifier())}/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tableNo: activeTable,
+          customerNote: customerNote.trim() || undefined,
+          items: cart.map((c) => ({
+            menuItemId: c.item.id,
+            name: c.item.name,
+            quantity: c.quantity,
+          })),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Sipariş gönderilemedi.');
+      }
+      setCart([]);
+      setCustomerNote('');
+      setIsCartDrawerOpen(false);
+      showToast(json.message || `${activeTable} siparişiniz mutfağa iletildi!`);
+    } catch (err: any) {
+      showToast(err.message || 'Sipariş gönderilirken hata oluştu.');
+    } finally {
+      setIsSendingOrder(false);
+    }
+  };
 
   // Parse identifier from URL: e.g. /m/bereket-pide or /menu?slug=bereket-pide
   const getIdentifier = (): string => {
@@ -319,6 +390,47 @@ export const PublicQrMenuView: React.FC = () => {
                     <p className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-2 leading-relaxed">
                       {item.description || 'Geleneksel sunum ve taze lezzet.'}
                     </p>
+
+                    {isAvailable && (
+                      <div className="pt-1.5 flex items-center justify-end">
+                        {(() => {
+                          const inCart = cart.find((c) => c.item.id === item.id);
+                          if (inCart) {
+                            return (
+                              <div className="inline-flex items-center gap-2 rounded-xl bg-amber-500/15 border border-amber-500/40 px-2 py-1">
+                                <button
+                                  type="button"
+                                  onClick={() => updateCartQty(item.id, -1)}
+                                  className="w-6 h-6 rounded-lg bg-white dark:bg-stone-800 text-stone-800 dark:text-white flex items-center justify-center cursor-pointer shadow-2xs"
+                                >
+                                  <Minus className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="text-xs font-black text-amber-700 dark:text-amber-300 min-w-[16px] text-center">
+                                  {inCart.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateCartQty(item.id, 1)}
+                                  className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center cursor-pointer shadow-2xs"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => addToCart(item)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black shadow-xs transition-all cursor-pointer active:scale-95"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Sepete Ekle</span>
+                            </button>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -328,9 +440,9 @@ export const PublicQrMenuView: React.FC = () => {
 
         {/* Viral Branding Footer */}
         {(data as any).brandingRequired !== false && (
-          <div className="py-6 pb-20 text-center">
+          <div className="py-6 pb-24 text-center">
             <a
-              href="https://dukkanimyanimda.com.tr"
+              href="https://dukkanimyanimda.com.tr/?utm_source=qr_menu&utm_medium=viral_footer"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-xs font-bold border border-stone-200 dark:border-stone-700 transition-colors shadow-2xs"
@@ -341,28 +453,146 @@ export const PublicQrMenuView: React.FC = () => {
         )}
       </div>
 
-      {/* Sabit Alt Çubuk: Garson Çağır & Hesap İste (Canlı Kasaya İletilir) */}
+      {/* Sabit Alt Çubuk: Canlı Sepet + Garson Çağır & Hesap İste */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 p-3 sm:p-4 shadow-2xl">
-        <div className="max-w-xl mx-auto flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => handleTableAction('waiter')}
-            className="flex-1 py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
-          >
-            <BellRing className="w-4 h-4 animate-bounce" />
-            <span>Garson Çağır</span>
-          </button>
+        <div className="max-w-xl mx-auto space-y-2">
+          {cartCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsCartDrawerOpen(true)}
+              className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm flex items-center justify-between shadow-lg shadow-emerald-600/25 transition-all cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4" />
+                <span>Canlı Sepet ({cartCount} Ürün) • Sipariş Gönder</span>
+              </span>
+              <span className="px-2.5 py-0.5 rounded-xl bg-white/20 text-white font-black">
+                ₺{cartTotal.toLocaleString('tr-TR')}
+              </span>
+            </button>
+          )}
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => handleTableAction('waiter')}
+              className="flex-1 py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
+            >
+              <BellRing className="w-4 h-4 animate-bounce" />
+              <span>Garson Çağır</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleTableAction('bill')}
-            className="flex-1 py-3 px-4 rounded-2xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
-          >
-            <Receipt className="w-4 h-4" />
-            <span>Hesap İste</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => handleTableAction('bill')}
+              className="flex-1 py-3 px-4 rounded-2xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
+            >
+              <Receipt className="w-4 h-4" />
+              <span>Hesap İste</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Canlı Sepet & Sipariş Gönder Çekmecesi */}
+      {isCartDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 backdrop-blur-xs">
+          <div className="bg-white dark:bg-stone-900 rounded-t-3xl sm:rounded-3xl p-5 w-full max-w-md border border-stone-200 dark:border-stone-800 shadow-2xl space-y-4 max-h-[88vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <h3 className="text-base font-black text-stone-900 dark:text-white">Masa Sipariş Sepeti</h3>
+                  <p className="text-[11px] text-stone-500">
+                    {selectedTable ? `Seçili Masa: ${selectedTable}` : 'Göndermeden önce masa seçiniz'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCartDrawerOpen(false)}
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+              {cart.map(({ item, quantity }) => (
+                <div key={item.id} className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700">
+                  <div className="min-w-0">
+                    <div className="text-xs font-black text-stone-900 dark:text-white truncate">{item.name}</div>
+                    <div className="text-[11px] text-emerald-600 font-bold">
+                      ₺{item.price} x {quantity} = ₺{(Number(item.price) * quantity).toLocaleString('tr-TR')}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => updateCartQty(item.id, -1)}
+                      className="w-7 h-7 rounded-lg bg-white dark:bg-stone-700 border border-stone-200 dark:border-stone-600 flex items-center justify-center cursor-pointer"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-xs font-black w-5 text-center">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateCartQty(item.id, 1)}
+                      className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateCartQty(item.id, -quantity)}
+                      className="p-1.5 text-stone-400 hover:text-rose-500 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3 pt-2 border-t border-stone-200 dark:border-stone-800">
+              {!selectedTable && (data?.tables || []).length > 0 && (
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 mb-1">Masa Seçin *</label>
+                  <select
+                    value={selectedTable}
+                    onChange={(e) => setSelectedTable(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold"
+                  >
+                    <option value="">Masa seçiniz...</option>
+                    {(data?.tables || []).map((t) => (
+                      <option key={t.id} value={t.name}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <input
+                type="text"
+                value={customerNote}
+                onChange={(e) => setCustomerNote(e.target.value)}
+                placeholder="Mutfak notu (Örn: Acısız, soğansız, az şekerli)..."
+                className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs"
+              />
+              <div className="flex items-center justify-between text-sm font-black">
+                <span>Toplam Tutar:</span>
+                <span className="text-emerald-600">₺{cartTotal.toLocaleString('tr-TR')}</span>
+              </div>
+              <button
+                type="button"
+                disabled={isSendingOrder || cart.length === 0}
+                onClick={() => handleSubmitOrder()}
+                className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:opacity-50"
+              >
+                {isSendingOrder ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <span>{isSendingOrder ? 'Gönderiliyor...' : 'Siparişi Mutfağa Gönder'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Masa Seçim Modalı */}
       {isTableModalOpen && (
@@ -383,7 +613,10 @@ export const PublicQrMenuView: React.FC = () => {
                   onClick={() => {
                     setSelectedTable(t.name);
                     setIsTableModalOpen(false);
-                    if (pendingAction) {
+                    if (pendingAction === 'order') {
+                      handleSubmitOrder(t.name);
+                      setPendingAction(null);
+                    } else if (pendingAction) {
                       handleTableAction(pendingAction, t.name);
                       setPendingAction(null);
                     }

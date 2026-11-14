@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CashRegister, DailyClosing, ShopProfile } from '../../../shared/types.ts';
 import { formatCurrency } from '../../utils/formatters';
+import { printHtmlDocument, escapeHtml } from '../../utils/printTemplate';
 import {
   Moon,
   Banknote,
@@ -78,7 +79,40 @@ export const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     }
   };
 
-  const handlePrint = () => { window.print(); };
+  const handlePrint = () => {
+    const netProfit = cash.todayTotalIncome - cash.todayExpense;
+    const diffLabel =
+      diff === 0
+        ? 'KASA TAM DENK'
+        : diff > 0
+        ? `KASA FAZLASI: +${formatCurrency(diff)}`
+        : `KASA AÇIĞI: -${formatCurrency(Math.abs(diff))}`;
+    printHtmlDocument({
+      title: `${shopProfile?.storeName || 'Dükkan'} — Gün Sonu Z Raporu`,
+      paperWidth: '80mm',
+      bodyHtml: `
+        <div style="text-align:center;border-bottom:1px dashed #111;padding-bottom:8px;margin-bottom:8px;">
+          <div style="font-size:14px;font-weight:900;text-transform:uppercase;">${escapeHtml(shopProfile?.storeName || 'DÜKKÂNIM YANIMDA')}</div>
+          <div style="font-size:11px;font-weight:700;">GÜN SONU KASA Z-RAPORU</div>
+          <div style="font-size:10px;color:#555;">${escapeHtml(todayFormatted)}</div>
+        </div>
+        <div style="font-size:11px;line-height:1.7;">
+          <div style="display:flex;justify-content:space-between;"><span>Nakit Tahsilat:</span><strong>${escapeHtml(formatCurrency(cash.todayCash))}</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>POS / Kredi Kartı:</span><strong>${escapeHtml(formatCurrency(cash.todayCard))}</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>Banka / Havale:</span><strong>${escapeHtml(formatCurrency(cash.todayBank))}</strong></div>
+          <div style="display:flex;justify-content:space-between;border-top:1px dotted #999;margin-top:4px;padding-top:4px;"><span>Toplam Ciro:</span><strong>${escapeHtml(formatCurrency(cash.todayTotalIncome))}</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>Toplam Gider:</span><strong>-${escapeHtml(formatCurrency(cash.todayExpense))}</strong></div>
+          <div style="display:flex;justify-content:space-between;font-weight:900;"><span>Net Kasa Kârı:</span><span>${escapeHtml(formatCurrency(netProfit))}</span></div>
+        </div>
+        <div style="border-top:1px dashed #111;margin-top:8px;padding-top:8px;font-size:11px;line-height:1.6;">
+          <div style="display:flex;justify-content:space-between;"><span>Bildirilen Toplam Ciro:</span><strong>${escapeHtml(formatCurrency(actualTotal))}</strong></div>
+          <div style="text-align:center;font-weight:900;margin-top:6px;padding:4px;border:1px solid #111;">${escapeHtml(diffLabel)}</div>
+          ${note ? `<div style="margin-top:6px;font-size:10px;"><strong>Not:</strong> ${escapeHtml(note)}</div>` : ''}
+        </div>
+        <div style="text-align:center;font-size:9px;color:#666;margin-top:10px;">Kapatan: ${escapeHtml(shopProfile?.ownerName || 'Dükkan Sahibi')} • Dükkânım Yanımda</div>
+      `,
+    });
+  };
 
   const handleShareSummary = () => {
     const text = `🏪 ${shopProfile?.storeName || 'Dükkan'} Gün Sonu Kasa Raporu

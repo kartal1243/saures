@@ -135,8 +135,18 @@ export function registerShopierWebhook(app: Express): void {
       });
 
       // 5. VIP Süresi ve Paket Seviyesi Belirleme (Usta vs Patron VIP)
-      const isYearly = (price >= 2000) || productId === '52387553';
+      const ustaMonthlyProductId = (process.env.SHOPIER_USTA_MONTHLY_PRODUCT_ID || '').trim();
+      const ustaYearlyProductId = (process.env.SHOPIER_USTA_YEARLY_PRODUCT_ID || '').trim();
+      const patronYearlyProductId = (process.env.SHOPIER_PATRON_YEARLY_PRODUCT_ID || '52387553').trim();
+
+      const isYearly =
+        (price >= 2000) ||
+        productId === patronYearlyProductId ||
+        (Boolean(ustaYearlyProductId) && productId === ustaYearlyProductId);
+
       const isUsta =
+        (Boolean(ustaMonthlyProductId) && productId === ustaMonthlyProductId) ||
+        (Boolean(ustaYearlyProductId) && productId === ustaYearlyProductId) ||
         orderNoteText.includes('usta') ||
         (price >= 150 && price <= 350) ||
         (price >= 1800 && price <= 3000);

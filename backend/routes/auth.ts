@@ -139,7 +139,14 @@ export function registerAuthRoutes(app: Express): void {
 
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
-    res.json({ success: true, account: publicAccount(acc) });
+    const returnToken =
+      req.headers['x-client-platform'] === 'android-native' ||
+      body?.returnToken === true;
+    res.json({
+      success: true,
+      account: publicAccount(acc),
+      ...(returnToken ? { sessionToken: session.token } : {}),
+    });
   });
 
   // Demo modu kaldırıldı: Ziyaretçiler 14 günlük ücretsiz canlı hesap açmaya yönlendirilir
@@ -208,7 +215,14 @@ export function registerAuthRoutes(app: Express): void {
     logAuthEvent('login_ok', lookupKey, clientIp(req));
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
-    res.json({ success: true, account: publicAccount(acc) });
+    const returnToken =
+      req.headers['x-client-platform'] === 'android-native' ||
+      body?.returnToken === true;
+    res.json({
+      success: true,
+      account: publicAccount(acc),
+      ...(returnToken ? { sessionToken: session.token } : {}),
+    });
   });
 
   app.post('/api/auth/logout', (req: Request, res: Response) => {

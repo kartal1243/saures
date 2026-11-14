@@ -29,6 +29,9 @@ import {
   MessageSquare,
   ThumbsUp,
   Tag,
+  Copy,
+  Award,
+  Landmark,
 } from 'lucide-react';
 import type { BarberStaff, BarberService, BarberSalonSettings, BarberReview, BarberDiscountSlot } from '../../../shared/types';
 
@@ -56,6 +59,8 @@ interface PublicBarberData {
     slogan: string;
     slug: string;
     logoUrl?: string;
+    iban?: string;
+    brandingRequired?: boolean;
   };
   staff: BarberStaff[];
   services: BarberService[];
@@ -132,6 +137,16 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
   const [otpDemoHint, setOtpDemoHint] = useState<string | null>(null);
   const [otpWhatsappLink, setOtpWhatsappLink] = useState<string | null>(null);
 
+  // Dijital Sadakat Kartı & IBAN Kopyalama
+  const [loyaltyInfo, setLoyaltyInfo] = useState<{
+    completedCount: number;
+    currentProgress: number;
+    target: number;
+    rewardReady: boolean;
+    remainingToReward: number;
+  } | null>(null);
+  const [ibanCopied, setIbanCopied] = useState(false);
+
   // Başarılı Randevu Ekranı
   const [bookingSuccess, setBookingSuccess] = useState<any | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -173,6 +188,37 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       }
     } catch {}
   }, []);
+
+  // Telefon girilince Dijital Sadakat Kartı durumunu çek
+  useEffect(() => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) {
+      setLoyaltyInfo(null);
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/public/barber/${encodeURIComponent(identifier)}/loyalty?phone=${encodeURIComponent(digits)}`
+        );
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.success) {
+            setLoyaltyInfo({
+              completedCount: Number(json.completedCount) || 0,
+              currentProgress: Number(json.currentProgress) || 0,
+              target: Number(json.target) || 10,
+              rewardReady: Boolean(json.rewardReady),
+              remainingToReward: Number(json.remainingToReward) || 0,
+            });
+          }
+        }
+      } catch {
+        // ignore loyalty check error
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [phone, identifier]);
 
   // Veri Çekme
   useEffect(() => {
@@ -1398,6 +1444,37 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                     className="w-full pl-10 pr-3.5 py-3 rounded-xl border border-stone-700 bg-stone-950 text-white text-sm font-semibold focus:outline-hidden focus:border-amber-500"
                   />
                 </div>
+                {loyaltyInfo && (
+                  <div className="mt-3 p-3.5 rounded-2xl bg-linear-to-r from-amber-500/15 to-orange-500/10 border border-amber-500/30 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-black text-amber-300 flex items-center gap-1.5">
+                        <Award className="w-4 h-4 text-amber-400" />
+                        Dijital Sadakat Kartı
+                      </span>
+                      <span className="font-black text-white px-2 py-0.5 rounded-full bg-amber-500/25 border border-amber-400/40">
+                        {loyaltyInfo.currentProgress} / {loyaltyInfo.target} Randevu
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-10 gap-1">
+                      {Array.from({ length: loyaltyInfo.target }).map((_, i) => {
+                        const filled = i < loyaltyInfo.currentProgress;
+                        return (
+                          <div
+                            key={i}
+                            className={`h-2 rounded-full transition-all ${
+                              filled ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]' : 'bg-stone-800'
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-stone-300">
+                      {loyaltyInfo.rewardReady
+                        ? '🎉 Tebrikler! Sadakat ödülünüz bu randevuda kullanıma hazır!'
+                        : `Toplam ${loyaltyInfo.completedCount} tamamlanan randevu • Ödüle ${loyaltyInfo.remainingToReward} randevu kaldı.`}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1592,6 +1669,44 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                 </div>
               </div>
 
+              {/* FAST / IBAN Kapora Kutusu */}
+              {data.shop.iban && (
+                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                      <Landmark className="w-4 h-4 text-emerald-400" />
+                      FAST / Havale ile Kapora &amp; Ön Ödeme
+                    </span>
+                    {data.settings?.requireDeposit && Number(data.settings?.depositAmount) > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-stone-950 font-black text-[10px]">
+                        Kapora: ₺{data.settings.depositAmount}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 bg-stone-950/70 border border-stone-800 rounded-xl px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="text-[10px] text-stone-400 font-bold">Salon IBAN ({data.shop.storeName})</div>
+                      <div className="text-xs font-mono font-black text-white truncate">{data.shop.iban}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(data.shop.iban || '');
+                        setIbanCopied(true);
+                        setTimeout(() => setIbanCopied(false), 2000);
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black flex items-center gap-1 shrink-0 cursor-pointer"
+                    >
+                      {ibanCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{ibanCopied ? 'Kopyalandı' : 'IBAN Kopyala'}</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-emerald-200/80">
+                    Açıklama kısmına <strong>{customerName || 'Ad Soyad'} - {selectedDate} {selectedTimeSlot}</strong> yazabilirsiniz.
+                  </p>
+                </div>
+              )}
+
               {/* Bilgilendirme */}
               <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2.5">
                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
@@ -1722,7 +1837,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
         {(data.shop as any)?.brandingRequired !== false && (
           <div className="py-6 text-center">
             <a
-              href="https://dukkanimyanimda.com.tr"
+              href="https://dukkanimyanimda.com.tr/?utm_source=barber_booking&utm_medium=viral_footer"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-amber-400 text-[11px] font-bold border border-white/10 transition-colors"

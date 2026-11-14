@@ -64,6 +64,10 @@ const cases = [
   ['/iletisim', 'iletisim'],
   ['/gizlilik', 'gizlilik'],
   ['/gizlilik-politikasi', 'gizlilik'],
+  ['/rehber', 'rehber'],
+  ['/rehber/', 'rehber'],
+  ['/rehber/berber-no-show-onleme', 'rehber'],
+  ['/rehber/istanbul-berber-kuafor', 'rehber'],
   ['/admin', null],
   ['/ufo', null],
 ];
@@ -77,6 +81,13 @@ for (const [input, want] of cases) {
     fail++;
     console.log(`  FAIL  ${input} -> ${got} (beklenen: ${want})`);
   }
+}
+
+if (!src.includes("href: '/rehber'") || !src.includes('RehberPage') || !src.includes('Prim Hesaplayıcı') || !src.includes('Karekod Oluşturucu')) {
+  fail++;
+  console.log('  FAIL  PublicPages.tsx rehber/araç bileşenleri eksik');
+} else {
+  console.log('  PASS  PublicPages.tsx Esnaf Rehberi + Mikro-Araçlar doğrulandı');
 }
 console.log(fail === 0
   ? `\n===== ROUTES SONUC: ${cases.length} PASS / 0 FAIL =====`

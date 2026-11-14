@@ -37,8 +37,68 @@ import { registerPublicMenuRoutes, registerProtectedMenuRoutes } from './routes/
 import { registerShopierWebhook } from './routes/shopierWebhook';
 import { registerPublicShopsMapRoutes } from './routes/publicShopsMap';
 import { registerCommunityRoutes } from './routes/community';
+import { registerDeviceRoutes } from './routes/devices';
+import * as seoModule from './seo';
 import { renderSeoHtml, generateSitemapXml, getRobotsTxt, getBaseHtmlTemplate, findShopForSeo } from './seo';
 import { visitorTrackerMiddleware } from './visitorTracker';
+
+export const TRUSTED_MOBILE_ORIGINS = new Set([
+  'capacitor://localhost',
+  'http://localhost',
+  'https://localhost',
+  'https://app.dukkanimyanimda.local',
+]);
+
+const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+const IDEMPOTENCY_PATH_REGEX = /^\/api\/(quick-pos-sale|transactions|tables\/[^/]+\/orders)\/?$/;
+
+export function createIdempotencyMiddleware() {
+  const cache = new Map<string, { statusCode: number; body: any; expiresAt: number }>();
+
+  return function idempotencyMiddleware(
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ): void {
+    if (req.method !== 'POST') return next();
+    const cleanPath = (req.originalUrl || req.url || req.path || '').split('?')[0];
+    if (!IDEMPOTENCY_PATH_REGEX.test(cleanPath)) return next();
+
+    const rawKey = req.headers['x-idempotency-key'];
+    const key = Array.isArray(rawKey) ? rawKey[0]?.trim() : String(rawKey || '').trim();
+    if (!key) return next();
+
+    const now = Date.now();
+    if (cache.size > 1000) {
+      for (const [k, v] of cache.entries()) {
+        if (v.expiresAt <= now) cache.delete(k);
+      }
+    }
+
+    const accountId = als.getStore()?.accountId || accountFromRequest(req)?.id || 'anon';
+    const cacheKey = `${accountId}:${cleanPath}:${key}`;
+    const hit = cache.get(cacheKey);
+    if (hit && hit.expiresAt > now) {
+      res.setHeader('X-Idempotency-Replayed', 'true');
+      res.status(hit.statusCode).json(hit.body);
+      return;
+    }
+
+    const origJson = res.json.bind(res);
+    res.json = ((body: any) => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        cache.set(cacheKey, {
+          statusCode: res.statusCode,
+          body,
+          expiresAt: Date.now() + IDEMPOTENCY_TTL_MS,
+        });
+      }
+      return origJson(body);
+    }) as typeof res.json;
+
+    next();
+  };
+}
 
 export async function startServer(): Promise<void> {
   const app = express();
@@ -68,11 +128,27 @@ export async function startServer(): Promise<void> {
     ].join('; ');
     res.setHeader('Content-Security-Policy', cspPolicy);
 
+    // Güvenilir Mobil Uygulama Origin CORS İzinleri (Capacitor / TWA / Native)
+    const reqOrigin = String(req.headers.origin || '').trim();
+    const isTrustedMobileOrigin = Boolean(reqOrigin && TRUSTED_MOBILE_ORIGINS.has(reqOrigin.toLowerCase()));
+    if (isTrustedMobileOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization, X-Client-Platform, X-Idempotency-Key'
+      );
+      if (req.method === 'OPTIONS') {
+        return res.status(204).end();
+      }
+    }
+
     // CSRF Koruması: Çapraz kaynaklı (cross-origin) izinsiz POST/PUT/DELETE isteklerini engelle
     if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
       const origin = req.headers.origin;
       const host = req.headers.host;
-      if (origin && host && !req.path.startsWith('/api/webhook/')) {
+      if (origin && host && !req.path.startsWith('/api/webhook/') && !isTrustedMobileOrigin) {
         const originHost = origin.replace(/^https?:\/\//, '').split('/')[0];
         if (originHost !== host && !originHost.startsWith('localhost') && !originHost.startsWith('127.0.0.1')) {
           return res.status(403).json({ error: 'CSRF engellendi: Geçersiz kaynak isteği.' });
@@ -127,9 +203,11 @@ export async function startServer(): Promise<void> {
     const origin = req.headers.origin;
     const host = req.headers.host;
     if (origin) {
-      const originHost = origin.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+      const originLower = origin.trim().toLowerCase();
+      const originHost = originLower.replace(/^https?:\/\//, '').split('/')[0];
       const cleanHost = (host || '').split('/')[0].toLowerCase();
       const isAllowed =
+        TRUSTED_MOBILE_ORIGINS.has(originLower) ||
         originHost === cleanHost ||
         originHost === 'dukkanimyanimda.com.tr' ||
         originHost === 'www.dukkanimyanimda.com.tr' ||
@@ -155,8 +233,25 @@ export async function startServer(): Promise<void> {
       return;
     }
 
-    // Dükkan bağlantısı kontrolü
-    const acc = accountFromRequest(req);
+    // Dükkan bağlantısı kontrolü (Cookie, Bearer Header veya ?token= query desteği)
+    let wsQueryToken: string | null = null;
+    try {
+      const parsedUrl = new URL(req.url || '/', 'http://localhost');
+      const qTok = parsedUrl.searchParams.get('token');
+      if (qTok && /^[a-f0-9]{32,64}$/i.test(qTok.trim())) {
+        wsQueryToken = qTok.trim();
+      }
+    } catch {
+      // ignore invalid URL
+    }
+
+    const acc = accountFromRequest({
+      headers: {
+        cookie: req.headers.cookie,
+        authorization:
+          req.headers.authorization || (wsQueryToken ? `Bearer ${wsQueryToken}` : undefined),
+      },
+    });
     if (!acc) {
       ws.close(4001, 'unauthorized');
       return;
@@ -205,6 +300,7 @@ export async function startServer(): Promise<void> {
 
   // ---------------- Koruma: sonrası için giriş + rol zorunlu ----------------
   app.use('/api', apiGuard);
+  app.use(createIdempotencyMiddleware());
 
   registerCoreRoutes(app);
   registerCustomerRoutes(app);
@@ -224,6 +320,7 @@ export async function startServer(): Promise<void> {
   registerCustodyRoutes(app);
   registerProtectedMenuRoutes(app);
   registerCommunityRoutes(app);
+  registerDeviceRoutes(app);
 
   // ---------------- Google Play TWA Doğrulaması (Digital Asset Links) ----------------
   app.get('/.well-known/assetlinks.json', (_req, res) => {
@@ -267,7 +364,7 @@ export async function startServer(): Promise<void> {
 
   app.get('/robots.txt', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, must-revalidate');
     res.send(getRobotsTxt(req.get('host')));
   });
 
@@ -307,11 +404,32 @@ export async function startServer(): Promise<void> {
     '/iletisim',
     '/gizlilik',
     '/gizlilik-politikasi',
+    '/rehber',
+  ]);
+
+  const GUIDE_FALLBACK_ROUTES = new Set([
+    '/rehber',
+    '/rehber/berber-no-show-onleme',
+    '/rehber/kuafor-prim-hesaplama',
+    '/rehber/ucretsiz-qr-menu-olusturma',
+    '/rehber/dijital-veresiye-defteri-gecis',
+    '/rehber/komisyonsuz-randevu-programi',
+    '/rehber/istanbul-berber-kuafor',
+    '/rehber/ankara-berber-kuafor',
+    '/rehber/izmir-kafe-restoran',
   ]);
 
   function isPublicRouteValid(pathname: string): boolean {
     const clean = (pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
     if (VALID_PUBLIC_ROUTES.has(clean)) return true;
+    if (clean === '/rehber' || clean.startsWith('/rehber/')) {
+      const seoGuideValidator = (seoModule as { isValidGuideRoute?: (p: string) => boolean }).isValidGuideRoute;
+      return typeof seoGuideValidator === 'function' ? seoGuideValidator(clean) : GUIDE_FALLBACK_ROUTES.has(clean);
+    }
+    if (clean.startsWith('/t/')) {
+      const code = clean.slice(3).split('/')[0];
+      return Boolean(code);
+    }
     const isShop = clean.startsWith('/r/') || clean.startsWith('/randevu/') || clean.startsWith('/m/') || clean.startsWith('/menu/');
     if (isShop) {
       const slug = clean.replace(/^\/(r|randevu|m|menu)\/?/, '').split('/')[0];

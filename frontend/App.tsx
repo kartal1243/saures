@@ -34,6 +34,7 @@ import { LandingPage } from './components/auth/LandingPage';
 import { matchPublicRoute, PublicPage } from './components/public/PublicPages';
 import { PublicQrMenuView } from './components/public/PublicQrMenuView';
 import { PublicBarberBookingView } from './components/public/PublicBarberBookingView';
+import { PublicTicketTrackerView } from './components/public/PublicTicketTrackerView';
 import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
@@ -1513,6 +1514,12 @@ export default function App() {
   if (pathname.startsWith('/r/') || pathname.startsWith('/randevu/') || pathname === '/randevu' || pathname === '/r') {
     const rawSlug = pathname.replace(/^\/(r|randevu)\/?/, '') || 'demo';
     return <PublicBarberBookingView identifier={rawSlug} />;
+  }
+
+  // ---- Herkese açık servis & emanet fişi takip ekranı (/t/:code) ----
+  if (pathname.startsWith('/t/') || pathname === '/t') {
+    const ticketCode = decodeURIComponent(pathname.replace(/^\/t\/?/, '') || 'demo');
+    return <PublicTicketTrackerView initialCode={ticketCode} />;
   }
   if (authStatus === 'checking') {
     return (

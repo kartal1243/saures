@@ -16,6 +16,11 @@ import {
   Zap,
   CheckCircle2,
   XCircle,
+  Calculator,
+  QrCode,
+  Copy,
+  BookOpen,
+  MapPin,
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 
@@ -34,12 +39,16 @@ export type PublicRouteKey =
   | 'bakkal-market'
   | 'teknik-servis'
   | 'hukuk'
-  | 'terzi';
+  | 'terzi'
+  | 'rehber';
 
 /** URL yolunu herkese açık sayfa anahtarına çevirir. Eşleşmezse null. */
 export function matchPublicRoute(pathname: string): PublicRouteKey | null {
   const clean = pathname.toLowerCase().replace(/\/+$/, '') || '/';
   const key = clean.startsWith('/') ? clean.slice(1) : clean;
+  if (key === 'rehber' || key.startsWith('rehber/')) {
+    return 'rehber';
+  }
   switch (key) {
     case 'gizlilik':
     case 'gizlilik-politikasi':
@@ -108,6 +117,7 @@ const NAV_LINKS: { href: string; label: string }[] = [
   { href: '/berber', label: 'Berber' },
   { href: '/kafe-restoran', label: 'Kafe & Restoran' },
   { href: '/bakkal-market', label: 'Bakkal & Market' },
+  { href: '/rehber', label: 'Esnaf Rehberi' },
   { href: '/teknik-servis', label: 'Teknik Servis' },
   { href: '/hukuk', label: 'Hukuk' },
   { href: '/terzi', label: 'Terzi' },
@@ -140,7 +150,7 @@ function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText
             />
           </a>
           <nav className="hidden lg:flex items-center gap-5 text-sm font-bold text-stone-500">
-            {NAV_LINKS.slice(1, 6).map((l) => (
+            {NAV_LINKS.slice(1, 7).map((l) => (
               <a key={l.href} href={l.href} className={linkCls}>{l.label}</a>
             ))}
           </nav>
@@ -815,6 +825,504 @@ function SectorPage({ route, ...props }: PageProps & { route: 'berber' | 'guzell
   );
 }
 
+interface RehberArticleItem {
+  slug: string;
+  category: string;
+  readTime: string;
+  title: string;
+  summary: string;
+  steps: string[];
+  ctaHref: string;
+  ctaLabel: string;
+}
+
+const REHBER_ARTICLES: RehberArticleItem[] = [
+  {
+    slug: 'berber-no-show-onleme',
+    category: 'Berber & Kuaför',
+    readTime: '4 dk',
+    title: 'Berberlerde Gelmeyen Müşteri (No-Show) Nasıl Önlenir?',
+    summary: 'Boş kalan koltukları doldurmanın 5 pratik yolu: 2 saat kala otomatik hatırlatma, FAST/IBAN kapora ve ölü saat duyuruları.',
+    steps: [
+      'Randevudan 2 saat önce otomatik WhatsApp/SMS hatırlatma gönderin.',
+      'Uzun süren VIP veya gelin başı işlemlerinde FAST/IBAN kapora isteyin.',
+      'Boş kalan ölü saatleri tek tıkla müdavimlere flaş indirim olarak duyurun.',
+    ],
+    ctaHref: '/berber',
+    ctaLabel: 'Berber Randevu Panelini İncele',
+  },
+  {
+    slug: 'kuafor-prim-hesaplama',
+    category: 'Berber & Kuaför',
+    readTime: '5 dk',
+    title: 'Berber & Kuaför Usta / Kalfa Prim Hesaplama Rehberi',
+    summary: 'Koltuk cirosu, yüzdelik hakediş ve malzeme düşümüyle şeffaf ve hatasız akşam prim hesaplama yöntemleri.',
+    steps: [
+      'Saf yüzdelik (%40-%50) veya hedef baremli prim oranını personel kartına tanımlayın.',
+      'Boya/bakım ürünlerinde malzeme maliyetini düşerek net tutar üzerinden pay hesaplayın.',
+      'Ödenen primleri kasa gideri olarak işleyip akşam kapanışı 30 saniyede yapın.',
+    ],
+    ctaHref: '/kuafor',
+    ctaLabel: 'Kuaför Salon Sistemini Gör',
+  },
+  {
+    slug: 'ucretsiz-qr-menu-olusturma',
+    category: 'Kafe & Restoran',
+    readTime: '4 dk',
+    title: 'Kafe & Restoranlar İçin Ücretsiz QR Menü Nasıl Yapılır?',
+    summary: 'Baskı maliyeti olmadan 2 dakikada masaya özel karekod menü oluşturun ve telefonla doğrudan masadan sipariş alın.',
+    steps: [
+      'Ürünlerinizi kategori, açıklama ve güncel fiyatlarıyla tek ekrandan girin.',
+      'Aşağıdaki ücretsiz QR oluşturucu veya panel içinden masa karekodlarını yazdırın.',
+      'Fiyat değiştiğinde karekodu değiştirmeden menüyü saniyeler içinde güncelleyin.',
+    ],
+    ctaHref: '/kafe-restoran',
+    ctaLabel: 'Kafe & QR Menü Modülünü İncele',
+  },
+  {
+    slug: 'dijital-veresiye-defteri-gecis',
+    category: 'Bakkal & Market',
+    readTime: '4 dk',
+    title: 'Kağıt Veresiye Defterinden Dijitale Geçiş Rehberi',
+    summary: 'Kayıp alacakları önlemek için müşterileri açılış bakiyesiyle aktarın ve tek tıkla WhatsApp borç ekstresi gönderin.',
+    steps: [
+      'Mevcut defterdeki toplam bakiyeleri müşteri kartına açılış borcu olarak girin.',
+      'Her veresiye ve tahsilatta güncel borcu bulutta otomatik hesaplatın.',
+      'Nazik WhatsApp hatırlatma şablonlarıyla alacak tahsilatını hızlandırın.',
+    ],
+    ctaHref: '/bakkal-market',
+    ctaLabel: 'Veresiye & POS Modülünü Gör',
+  },
+  {
+    slug: 'komisyonsuz-randevu-programi',
+    category: 'Karşılaştırma',
+    readTime: '5 dk',
+    title: '%0 Komisyonlu Online Randevu Programı Neden Önemli?',
+    summary: 'İlk randevudan %20 komisyon kesen pazaryeri uygulamaları yerine dükkanınıza özel web linkiyle tüm kazancı kasanızda tutun.',
+    steps: [
+      'Müşterilerinizi rakip salonların da listelendiği pazaryerleri yerine /r/dukkaniniz linkine çekin.',
+      'Instagram bio ve Google Haritalar profilinize doğrudan randevu linki ekleyin.',
+      'Komisyon ve mesaj kontörü ödemeden dijital sadakat kartıyla müdavim kitlesi kurun.',
+    ],
+    ctaHref: '/fiyat',
+    ctaLabel: 'Paketleri İncele',
+  },
+  {
+    slug: 'istanbul-berber-kuafor',
+    category: 'Yerel Dizin',
+    readTime: '3 dk',
+    title: 'İstanbul Berber & Kuaför Randevu ve Salon Yönetimi',
+    summary: 'Kadıköy, Beşiktaş, Şişli ve Üsküdar salonları için 7/24 online randevu, koltuk sırası ve usta primi yönetimi.',
+    steps: [
+      'Yoğun saatlerde telefon trafiğini azaltmak için WhatsApp ve Instagram randevu linki paylaşın.',
+      'Çoklu koltuk ve personel takvimini tek ekranda çakışmasız yönetin.',
+    ],
+    ctaHref: '/r/demo',
+    ctaLabel: 'Canlı Berber Demosunu Gör',
+  },
+  {
+    slug: 'ankara-berber-kuafor',
+    category: 'Yerel Dizin',
+    readTime: '3 dk',
+    title: 'Ankara Berber & Kuaför Randevu ve Koltuk Sistemi',
+    summary: 'Çankaya, Kızılay, Yenimahalle ve Keçiören berber/kuaförleri için akıllı slot planlama ve 10’lu sadakat kartı.',
+    steps: [
+      'İşlem süresine göre otomatik randevu aralıkları oluşturun.',
+      'Akşam yoğunluğu dışındaki saatler için ölü saat kampanyası başlatın.',
+    ],
+    ctaHref: '/berber',
+    ctaLabel: 'Berber Sistemini İncele',
+  },
+  {
+    slug: 'izmir-kafe-restoran',
+    category: 'Yerel Dizin',
+    readTime: '3 dk',
+    title: 'İzmir Kafe & Restoran QR Menü ve Adisyon Sistemi',
+    summary: 'Alsancak, Bostanlı ve Bornova kafeleri için bahçe/teras masa yerleşimi, canlı QR sipariş ve garson çağırma.',
+    steps: [
+      'Masa QR standlarını dükkan logonuzla yazdırıp masalara yerleştirin.',
+      'Müşteri siparişleri ve garson çağrılarını kasa/mutfak ekranında anında görün.',
+    ],
+    ctaHref: '/m/demo',
+    ctaLabel: 'Canlı QR Menü Demosunu Gör',
+  },
+];
+
+const WHATSAPP_TEMPLATES: { id: string; title: string; badge: string; text: string }[] = [
+  {
+    id: 'veresiye',
+    title: 'Nazik Veresiye Borç Hatırlatma',
+    badge: 'Bakkal / Genel Esnaf',
+    text: 'Merhaba {MusteriAdi}, {DukkanAdi} olarak hayırlı günler dileriz. Hesabınızda güncel {Tutar} TL açık bakiye bulunmaktadır. Müsait olduğunuzda uğrayabilir veya havale/FAST ile kapatabilirsiniz. Teşekkür ederiz.',
+  },
+  {
+    id: 'randevu',
+    title: 'Randevu 2 Saat Kala Teyit Mesajı',
+    badge: 'Berber / Kuaför / Güzellik',
+    text: 'Merhaba {MusteriAdi}, bugün saat {Saat} için {DukkanAdi} randevunuzu hatırlatmak isteriz. Planınızda bir değişiklik olursa lütfen önceden bilgi veriniz. Sizi bekliyoruz!',
+  },
+  {
+    id: 'olusaat',
+    title: 'Ölü Saat Flaş İndirim Duyurusu',
+    badge: 'Koltuk Doldurma',
+    text: 'Merhaba! {DukkanAdi} olarak bugün 13:00–16:00 saatleri arasındaki boş randevulara özel %20 indirim tanımladık. Yer ayırtmak için hemen online randevu linkimizden saatinizi seçebilirsiniz.',
+  },
+  {
+    id: 'hazir',
+    title: 'Cihaz / Emanet Teslime Hazır',
+    badge: 'Teknik Servis / Terzi',
+    text: 'Merhaba {MusteriAdi}, {FisKodu} numaralı işleminiz tamamlandı ve teslimata hazırdır. Çalışma saatlerimiz içinde {DukkanAdi} şubemizden teslim alabilirsiniz.',
+  },
+];
+
+function slugifyTurkishText(val: string): string {
+  return (val || '')
+    .toLowerCase()
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'demo';
+}
+
+function RehberPage(props: PageProps) {
+  const initialSlug = typeof window !== 'undefined'
+    ? window.location.pathname.toLowerCase().replace(/^\/rehber\/?/, '').replace(/\/+$/, '')
+    : '';
+  const [activeSlug, setActiveSlug] = useState<string>(
+    REHBER_ARTICLES.some((a) => a.slug === initialSlug) ? initialSlug : REHBER_ARTICLES[0].slug
+  );
+
+  // Prim hesaplayıcı state
+  const [dailyTurnover, setDailyTurnover] = useState<string>('4500');
+  const [commissionPct, setCommissionPct] = useState<string>('45');
+  const [workDays, setWorkDays] = useState<string>('26');
+  const [staffCount, setStaffCount] = useState<string>('2');
+
+  // QR kod oluşturucu state
+  const [qrMode, setQrMode] = useState<'m' | 'r'>('m');
+  const [qrShopName, setQrShopName] = useState<string>('Karaköy Kahvecisi');
+  const [qrCopied, setQrCopied] = useState(false);
+
+  // Şablon kopyalama state
+  const [copiedTplId, setCopiedTplId] = useState<string | null>(null);
+
+  const activeArticle = REHBER_ARTICLES.find((a) => a.slug === activeSlug) || REHBER_ARTICLES[0];
+  const turnoverNum = Math.max(0, Number(dailyTurnover) || 0);
+  const pctNum = Math.min(100, Math.max(0, Number(commissionPct) || 0));
+  const daysNum = Math.min(31, Math.max(1, Number(workDays) || 1));
+  const staffNum = Math.max(1, Number(staffCount) || 1);
+
+  const dailyStaffPool = Math.round((turnoverNum * pctNum) / 100);
+  const dailyShopShare = Math.max(0, turnoverNum - dailyStaffPool);
+  const monthlyPerStaff = Math.round((dailyStaffPool * daysNum) / staffNum);
+
+  const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://dukkanimyanimda.com.tr';
+  const generatedSlug = slugifyTurkishText(qrShopName);
+  const generatedQrTargetUrl = `${originUrl}/${qrMode}/${generatedSlug}`;
+  const generatedQrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&data=${encodeURIComponent(generatedQrTargetUrl)}`;
+
+  const handleCopy = (text: string, onDone: () => void) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(onDone).catch(onDone);
+    } else {
+      onDone();
+    }
+  };
+
+  return (
+    <Shell
+      title="Esnaf Rehberi & Ücretsiz İşletme Araçları"
+      ctaTitle="Rehberde okuduklarını 2 dakikada dükkanına uygula."
+      ctaText="Komisyon %0, kurulum yok. Online randevu, QR menü ve veresiye defterini hemen başlat."
+      ctaButton="Ücretsiz Dükkanını Kur"
+      {...props}
+    >
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-black">
+        <BookOpen className="w-3.5 h-3.5" />
+        Esnaf Bilgi Merkezi · Ücretsiz Araçlar &amp; Şablonlar
+      </div>
+      <H1>Esnaf Rehberi, Prim Hesaplayıcı ve Ücretsiz QR Araçları</H1>
+      <Lead>
+        Berber, kuaför, kafe ve mahalle esnafı için hazırlanmış pratik büyüme rehberleri, şehir bazlı yerel dizinler ve üye olmadan hemen kullanabileceğiniz ücretsiz işletme araçları.
+      </Lead>
+
+      {/* Aktif Rehber Makalesi & Makale Seçici */}
+      <section className="mt-8 grid gap-6 lg:grid-cols-12">
+        <div className="lg:col-span-5 space-y-2.5">
+          <h2 className="text-sm font-black uppercase tracking-wider text-stone-500">Rehber &amp; Yerel SEO Yazıları</h2>
+          {REHBER_ARTICLES.map((art) => {
+            const isActive = art.slug === activeArticle.slug;
+            return (
+              <a
+                key={art.slug}
+                href={`/rehber/${art.slug}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveSlug(art.slug);
+                  if (typeof window !== 'undefined' && window.history?.replaceState) {
+                    window.history.replaceState(null, '', `/rehber/${art.slug}`);
+                  }
+                }}
+                className={`block rounded-2xl border p-4 transition-all ${
+                  isActive
+                    ? 'bg-orange-50 border-orange-400 shadow-xs'
+                    : 'bg-white border-stone-200 hover:border-amber-300'
+                }`}
+              >
+                <div className="flex items-center justify-between text-[11px] font-black text-amber-700 uppercase">
+                  <span>{art.category}</span>
+                  <span>{art.readTime}</span>
+                </div>
+                <p className="mt-1 text-sm font-black text-stone-900">{art.title}</p>
+              </a>
+            );
+          })}
+        </div>
+
+        <article className="lg:col-span-7 rounded-3xl bg-white border border-stone-200 p-6 sm:p-8 shadow-xs flex flex-col justify-between">
+          <div>
+            <span className="inline-block px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-black">
+              {activeArticle.category} · {activeArticle.readTime} okuma
+            </span>
+            <h2 className="mt-3 text-2xl font-black text-stone-900 leading-snug">{activeArticle.title}</h2>
+            <p className="mt-3 text-sm text-stone-600 font-medium leading-relaxed">{activeArticle.summary}</p>
+            <h3 className="mt-6 text-sm font-black text-stone-900 uppercase tracking-wide">Uygulama Adımları</h3>
+            <Bullets items={activeArticle.steps} />
+          </div>
+          <div className="mt-8 pt-5 border-t border-stone-100 flex flex-wrap items-center justify-between gap-3">
+            <a
+              href={activeArticle.ctaHref}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-black hover:bg-orange-600 transition-colors"
+            >
+              {activeArticle.ctaLabel}
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <span className="text-xs font-bold text-stone-400">Komisyon %0 · Kredi Kartı Gerekmez</span>
+          </div>
+        </article>
+      </section>
+
+      {/* Şehir × Sektör Yerel Dizin Özeti */}
+      <section className="mt-12 rounded-3xl bg-white border border-stone-200 p-6 sm:p-8">
+        <div className="flex items-center gap-2 text-amber-700 text-xs font-black uppercase">
+          <MapPin className="w-4 h-4" />
+          Şehir × Sektör Yerel Esnaf Dizinleri
+        </div>
+        <h2 className="mt-2 text-xl font-black text-stone-900">Bölgenizdeki Dijital Esnaf Ağı</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <a href="/rehber/istanbul-berber-kuafor" className="rounded-2xl border border-stone-200 p-4 hover:border-orange-400 transition-colors">
+            <p className="text-sm font-black text-stone-900">İstanbul Berber &amp; Kuaför</p>
+            <p className="mt-1 text-xs text-stone-600 font-medium">Kadıköy, Şişli, Beşiktaş online koltuk ve randevu rehberi.</p>
+          </a>
+          <a href="/rehber/ankara-berber-kuafor" className="rounded-2xl border border-stone-200 p-4 hover:border-orange-400 transition-colors">
+            <p className="text-sm font-black text-stone-900">Ankara Berber &amp; Kuaför</p>
+            <p className="mt-1 text-xs text-stone-600 font-medium">Çankaya, Kızılay, Yenimahalle salon yönetim ve sadakat kartı.</p>
+          </a>
+          <a href="/rehber/izmir-kafe-restoran" className="rounded-2xl border border-stone-200 p-4 hover:border-orange-400 transition-colors">
+            <p className="text-sm font-black text-stone-900">İzmir Kafe &amp; Restoran</p>
+            <p className="mt-1 text-xs text-stone-600 font-medium">Alsancak, Bostanlı bahçe masa takibi ve temassız QR menü.</p>
+          </a>
+        </div>
+      </section>
+
+      {/* Etkileşimli Araçlar */}
+      <section className="mt-12 grid gap-6 lg:grid-cols-2">
+        {/* Araç 1: Berber Usta/Kalfa Prim Hesaplayıcı */}
+        <div className="rounded-3xl bg-white border border-stone-200 p-6 shadow-xs">
+          <div className="flex items-center gap-2 text-orange-600 text-xs font-black uppercase">
+            <Calculator className="w-4 h-4" />
+            Ücretsiz Araç 1
+          </div>
+          <h2 className="mt-1 text-xl font-black text-stone-900">Berber Usta / Kalfa Prim Hesaplayıcı</h2>
+          <p className="mt-1 text-xs text-stone-500 font-medium">Günlük salon cirosuna göre usta payını ve dükkan netini anında hesaplayın.</p>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <label className="text-xs font-bold text-stone-700">
+              Günlük Toplam Ciro (₺)
+              <input
+                type="number"
+                min={0}
+                value={dailyTurnover}
+                onChange={(e) => setDailyTurnover(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2 text-sm font-bold text-stone-900"
+              />
+            </label>
+            <label className="text-xs font-bold text-stone-700">
+              Prim Oranı (%)
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={commissionPct}
+                onChange={(e) => setCommissionPct(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2 text-sm font-bold text-stone-900"
+              />
+            </label>
+            <label className="text-xs font-bold text-stone-700">
+              Aylık Çalışma Günü
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={workDays}
+                onChange={(e) => setWorkDays(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2 text-sm font-bold text-stone-900"
+              />
+            </label>
+            <label className="text-xs font-bold text-stone-700">
+              Usta / Kalfa Sayısı
+              <input
+                type="number"
+                min={1}
+                max={30}
+                value={staffCount}
+                onChange={(e) => setStaffCount(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2 text-sm font-bold text-stone-900"
+              />
+            </label>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl bg-stone-900 text-white p-4 text-center">
+            <div>
+              <p className="text-[11px] text-stone-400 font-bold">Günlük Prim Havuzu</p>
+              <p className="mt-0.5 text-lg font-black text-amber-400">₺{dailyStaffPool.toLocaleString('tr-TR')}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-stone-400 font-bold">Günlük Dükkan Payı</p>
+              <p className="mt-0.5 text-lg font-black text-emerald-400">₺{dailyShopShare.toLocaleString('tr-TR')}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-stone-400 font-bold">Kişi Başı Aylık</p>
+              <p className="mt-0.5 text-lg font-black text-white">₺{monthlyPerStaff.toLocaleString('tr-TR')}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Araç 2: Ücretsiz QR Menü & Randevu Karekod Oluşturucu */}
+        <div className="rounded-3xl bg-white border border-stone-200 p-6 shadow-xs">
+          <div className="flex items-center gap-2 text-orange-600 text-xs font-black uppercase">
+            <QrCode className="w-4 h-4" />
+            Ücretsiz Araç 2
+          </div>
+          <h2 className="mt-1 text-xl font-black text-stone-900">QR Menü &amp; Randevu Karekod Oluşturucu</h2>
+          <p className="mt-1 text-xs text-stone-500 font-medium">Dükkan adınızı yazın, yüksek hata düzeltmeli (ECC-H) karekodunuzu anında oluşturun.</p>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setQrMode('m')}
+              className={`flex-1 py-2 rounded-xl text-xs font-black border cursor-pointer ${
+                qrMode === 'm' ? 'bg-orange-500 text-white border-orange-500' : 'bg-stone-50 text-stone-700 border-stone-200'
+              }`}
+            >
+              QR Menü (/m/)
+            </button>
+            <button
+              type="button"
+              onClick={() => setQrMode('r')}
+              className={`flex-1 py-2 rounded-xl text-xs font-black border cursor-pointer ${
+                qrMode === 'r' ? 'bg-orange-500 text-white border-orange-500' : 'bg-stone-50 text-stone-700 border-stone-200'
+              }`}
+            >
+              Online Randevu (/r/)
+            </button>
+          </div>
+
+          <input
+            type="text"
+            value={qrShopName}
+            onChange={(e) => setQrShopName(e.target.value)}
+            placeholder="Dükkan adınız (örn. Usta Eller Berber)"
+            className="mt-3 w-full rounded-xl border border-stone-300 px-3 py-2 text-sm font-bold text-stone-900"
+          />
+
+          <div className="mt-4 flex flex-col sm:flex-row items-center gap-4 rounded-2xl bg-stone-50 border border-stone-200 p-4">
+            <img
+              src={generatedQrImageUrl}
+              alt={`${qrShopName || 'Dükkan'} QR Kodu`}
+              className="w-28 h-28 rounded-xl border border-stone-200 bg-white p-1.5 shrink-0"
+            />
+            <div className="flex-1 min-w-0 w-full">
+              <p className="text-[11px] font-black text-stone-500 uppercase">Hedef Bağlantı</p>
+              <p className="mt-0.5 text-xs font-bold text-stone-800 break-all">{generatedQrTargetUrl}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCopy(generatedQrTargetUrl, () => {
+                    setQrCopied(true);
+                    setTimeout(() => setQrCopied(false), 1800);
+                  })}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-black cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  {qrCopied ? 'Kopyalandı!' : 'Linki Kopyala'}
+                </button>
+                <a
+                  href={generatedQrImageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-black"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Görseli Aç / İndir
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Araç 3: Kopyalanabilir WhatsApp Hatırlatma Şablonları */}
+      <section className="mt-10 rounded-3xl bg-white border border-stone-200 p-6 sm:p-8">
+        <div className="flex items-center gap-2 text-emerald-700 text-xs font-black uppercase">
+          <MessageCircle className="w-4 h-4" />
+          Ücretsiz Araç 3 · Hazır Mesaj Şablonları
+        </div>
+        <h2 className="mt-1 text-xl font-black text-stone-900">Kopyalanabilir WhatsApp Veresiye &amp; Randevu Şablonları</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {WHATSAPP_TEMPLATES.map((tpl) => {
+            const isCopied = copiedTplId === tpl.id;
+            return (
+              <div key={tpl.id} className="rounded-2xl border border-stone-200 bg-stone-50 p-4 flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">{tpl.badge}</span>
+                  <h3 className="mt-0.5 text-sm font-black text-stone-900">{tpl.title}</h3>
+                  <p className="mt-2 text-xs text-stone-600 font-medium leading-relaxed">{tpl.text}</p>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(tpl.text, () => {
+                      setCopiedTplId(tpl.id);
+                      setTimeout(() => setCopiedTplId(null), 1800);
+                    })}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-black cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    {isCopied ? 'Panoya Kopyalandı!' : 'Mesajı Kopyala'}
+                  </button>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(tpl.text)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-black"
+                  >
+                    WhatsApp'ta Aç
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </Shell>
+  );
+}
+
 export function PublicPage({
   route,
   onHome,
@@ -836,6 +1344,8 @@ export function PublicPage({
       return <KayitPage {...props} />;
     case 'fiyat':
       return <FiyatPage {...props} />;
+    case 'rehber':
+      return <RehberPage {...props} />;
     case 'berber':
     case 'guzellik-salonu':
     case 'kafe-restoran':

@@ -9,6 +9,8 @@ const {
   generateSitemapXml,
   getRobotsTxt,
   getDynamicSeoFreshness,
+  SEO_GUIDE_ARTICLES,
+  isValidGuideRoute,
 } = require('../dist/server.cjs');
 
 console.log('🧪 SEO ve Sosyal Paylaşım Önizleme Testleri Başlatılıyor...\n');
@@ -281,6 +283,100 @@ it('generateSitemapXml sektör eşleşmelerini ve menüsüz marketleri doğru fi
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/randevu-sistemi</loc>'));
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/r/demo</loc>'));
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/m/demo</loc>'));
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/rehber</loc>'));
+});
+
+// 16. /m/demo Kafe Demo Kimliği Ayrıştırması
+it('findShopForSeo ve /m/demo Karaköy Kahvecisi & Bistro kimliğini döner, /r/demo berber kalır', () => {
+  const cafeDemo = findShopForSeo('demo', 'menu');
+  assert.ok(cafeDemo);
+  assert.strictEqual(cafeDemo.name, 'Karaköy Kahvecisi & Bistro');
+  assert.strictEqual(cafeDemo.sectorKey, 'kafe_restoran');
+  assert.strictEqual(cafeDemo.cityDistrict, 'Karaköy, İstanbul');
+  assert.ok(cafeDemo.menuItems && cafeDemo.menuItems.length > 0);
+
+  const barberDemo = findShopForSeo('demo');
+  assert.ok(barberDemo);
+  assert.notStrictEqual(barberDemo.name, 'Karaköy Kahvecisi & Bistro');
+
+  const metaMenu = getSeoMetadata('/m/demo');
+  assert.ok(metaMenu.title.includes('Karaköy Kahvecisi & Bistro'));
+  const htmlMenu = renderSeoHtml('/m/demo');
+  assert.ok(htmlMenu.includes('Karaköy Kahvecisi &amp; Bistro') || htmlMenu.includes('Karaköy Kahvecisi & Bistro'));
+});
+
+// 17. /r/demo Onaylı Yorumlar & AggregateRating
+it('/r/demo HairSalon şeması onaylı yorumlar varsa dinamik aggregateRating ve review içerir', () => {
+  const meta = getSeoMetadata('/r/demo');
+  assert.ok(meta.schemaJson.aggregateRating, 'aggregateRating olmalı');
+  assert.ok(Array.isArray(meta.schemaJson.review) && meta.schemaJson.review.length > 0, 'review dizisi olmalı');
+  const html = renderSeoHtml('/r/demo');
+  assert.ok(html.includes('Doğrulanmış Müşteri Yorumları'), 'SSR gövdesinde görünür yorumlar olmalı');
+});
+
+// 18. /fiyat ve /kayit AggregateOffer + twitter:card + /t/:code
+it('/fiyat ve /kayit AggregateOffer şeması, tüm sayfalar twitter:card ve /t/:code noindex döner', () => {
+  for (const r of ['/fiyat', '/fiyatlandirma', '/kayit']) {
+    const m = getSeoMetadata(r);
+    assert.ok(m.schemaJson, `${r} schemaJson içermeli`);
+    assert.strictEqual(m.schemaJson['@type'], 'SoftwareApplication');
+    assert.strictEqual(m.schemaJson.offers['@type'], 'AggregateOffer');
+    assert.strictEqual(m.schemaJson.offers.lowPrice, '0');
+    assert.strictEqual(m.schemaJson.offers.highPrice, '499');
+  }
+
+  const minimalHtml = renderSeoHtml('/berber', 'dukkanimyanimda.com.tr', '<!doctype html><html><head><title>x</title></head><body><div id="root"></div></body></html>');
+  assert.ok(minimalHtml.includes('name="twitter:card" content="summary_large_image"'), 'twitter:card enjekte edilmeli');
+
+  const ticketMeta = getSeoMetadata('/t/demo');
+  assert.strictEqual(ticketMeta.robots, 'noindex, follow');
+  assert.ok(ticketMeta.title.includes('Servis'));
+});
+
+// 19. İnce SSR Sayfaları Zenginleştirme, Sektör Yorumları & Temiz Pilot Telefonları
+it('/teknik-servis, /hukuk, /terzi zengin SSR gövdesi sunar ve sahte 555 01xx telefonları temizdir', () => {
+  const servisHtml = renderSeoHtml('/teknik-servis');
+  assert.ok(servisHtml.includes('/t/demo'), 'Teknik servis SSR içinde /t/demo linki olmalı');
+  assert.ok(servisHtml.includes('Esnaf Yorumları ve Kullanıcı Deneyimleri'), 'Görünür esnaf yorumları olmalı');
+
+  const terziHtml = renderSeoHtml('/terzi');
+  assert.ok(terziHtml.includes('/t/demo'), 'Terzi SSR içinde /t/demo linki olmalı');
+
+  const hukukHtml = renderSeoHtml('/hukuk');
+  assert.ok(hukukHtml.includes('Yaklaşan Duruşma Uyarıları'), 'Hukuk SSR kartları zengin olmalı');
+
+  const homeMeta = getSeoMetadata('/');
+  const homeJson = JSON.stringify(homeMeta.schemaJson);
+  assert.ok(!homeJson.includes('555 0101'), 'Sahte pilot telefon numarası temizlenmiş olmalı');
+});
+
+// 20. /rehber & /rehber/:slug İçerik Kümeleri + Sitemap
+it('SEO_GUIDE_ARTICLES, isValidGuideRoute ve 9 rehber rotası SSR/Schema/Sitemap içinde eksiksizdir', () => {
+  const expectedSlugs = [
+    'berber-no-show-onleme',
+    'kuafor-prim-hesaplama',
+    'ucretsiz-qr-menu-olusturma',
+    'dijital-veresiye-defteri-gecis',
+    'komisyonsuz-randevu-programi',
+    'istanbul-berber-kuafor',
+    'ankara-berber-kuafor',
+    'izmir-kafe-restoran',
+  ];
+  assert.ok(Array.isArray(SEO_GUIDE_ARTICLES) && SEO_GUIDE_ARTICLES.length >= 8);
+  assert.strictEqual(isValidGuideRoute('/rehber'), true);
+  assert.strictEqual(isValidGuideRoute('/rehber/olmayan-yazi'), false);
+
+  const xml = generateSitemapXml('dukkanimyanimda.com.tr');
+  for (const slug of expectedSlugs) {
+    const route = `/rehber/${slug}`;
+    assert.strictEqual(isValidGuideRoute(route), true, `${route} geçerli rehber rotası olmalı`);
+    const meta = getSeoMetadata(route);
+    assert.strictEqual(meta.schemaJson['@type'], 'Article', `${route} Article şeması içermeli`);
+    assert.ok(meta.faqJson && meta.faqJson.length >= 1, `${route} FAQ içermeli`);
+    const html = renderSeoHtml(route);
+    assert.ok(html.includes('<h1'), `${route} SSR H1 içermeli`);
+    assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr${route}</loc>`), `${route} sitemapte olmalı`);
+  }
 });
 
 console.log(`\n========================================`);

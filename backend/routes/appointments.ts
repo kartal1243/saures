@@ -298,6 +298,7 @@ export function registerPublicBarberRoutes(app: Express): void {
         slogan: shopState.shopProfile?.slogan || 'Profesyonel Saç & Sakal Bakımı',
         slug,
         logoUrl: shopState.shopProfile?.logoUrl,
+        iban: shopState.shopProfile?.iban || '',
         isVip,
         vipTier: limits.tier,
         brandingRequired: !isDemo && !limits.removeBranding,
@@ -309,7 +310,12 @@ export function registerPublicBarberRoutes(app: Express): void {
       monthlyUsed: monthlyOnlineApts,
       staff: allowedStaff,
       services,
-      settings,
+      settings: {
+        ...settings,
+        requireDeposit: Boolean(settings.requireDeposit),
+        depositAmount: Number(settings.depositAmount) || 0,
+        loyaltyTarget: Number(settings.loyaltyTarget) || 10,
+      },
       occupiedSlots,
       timeBlocks,
       reviews: (shopState.barberReviews && shopState.barberReviews.length > 0)
@@ -318,8 +324,41 @@ export function registerPublicBarberRoutes(app: Express): void {
     });
   });
 
+  // 1b. Müşteri Dijital Sadakat Kartı (Tamamlanan Randevu Sayısı — KVKK Güvenli)
+  app.get('/api/public/barber/:identifier/loyalty', publicActionRateLimit, (req: Request, res: Response) => {
+    const { shopState } = resolveBarberShop(req.params.identifier);
+    if (!shopState) {
+      return res.status(404).json({ error: 'İşletme bulunamadı.' });
+    }
+    const rawPhone = String(req.query.phone || '');
+    if (!isValidTurkishPhone(rawPhone)) {
+      return res.status(400).json({ error: 'Geçerli bir cep telefonu numarası giriniz.' });
+    }
+    const cleanPhone = normalizePhone(rawPhone);
+    const target = Number(shopState.barberSettings?.loyaltyTarget) || 10;
+    const completedCount = (shopState.appointments || []).filter(
+      (a) => normalizePhone(a.phone) === cleanPhone && a.status === 'tamamlandi'
+    ).length;
+    const activeCount = (shopState.appointments || []).filter(
+      (a) => normalizePhone(a.phone) === cleanPhone && (a.status === 'bekliyor' || a.status === 'onayli')
+    ).length;
+
+    const currentCycle = completedCount > 0 && completedCount % target === 0 ? target : completedCount % target;
+    const rewardReady = completedCount > 0 && completedCount % target === 0;
+
+    res.json({
+      success: true,
+      completedCount,
+      activeCount,
+      currentProgress: currentCycle,
+      target,
+      rewardReady,
+      remainingToReward: rewardReady ? 0 : target - currentCycle,
+    });
+  });
+
   // 2. Randevu SMS / WhatsApp Onay Kodu Gönderimi (Gerçek Doğrulama)
-  app.post('/api/public/barber/send-otp', publicActionRateLimit, (req: Request, res: Response) => {
+  app.post('/api/public/barber/send-otp', publicActionRateLimit, async (req: Request, res: Response) => {
     const rawPhone = String(req.body?.phone || '');
     const cleanPhone = normalizePhone(rawPhone);
     if (!isValidTurkishPhone(rawPhone)) {
@@ -333,18 +372,41 @@ export function registerPublicBarberRoutes(app: Express): void {
       attempts: 0,
     });
 
+    const smsBody = `Dükkanım Yanımda Randevu Onay Kodunuz: ${code}`;
     const cleanNumber = cleanPhone.startsWith('0') ? cleanPhone.slice(1) : cleanPhone;
-    const whatsappText = encodeURIComponent(`Dükkânım Yanımda Randevu Onay Kodunuz: ${code}`);
-    const whatsappLink = `https://wa.me/90${cleanNumber}?text=${whatsappText}`;
+    const fallbackWhatsappLink = `https://wa.me/90${cleanNumber}?text=${encodeURIComponent(smsBody)}`;
+
+    let smsResult: {
+      sent: boolean;
+      simulated: boolean;
+      provider: string;
+      whatsappLink: string;
+      error?: string;
+    } | null = null;
+
+    try {
+      const smsModPath = '../services/smsProvider';
+      const smsMod = await import(smsModPath);
+      if (typeof smsMod?.sendSmsMessage === 'function') {
+        smsResult = await smsMod.sendSmsMessage(cleanPhone, smsBody, { category: 'barber_otp' });
+      }
+    } catch {
+      // smsProvider henüz mevcut değilse güvenli fallback kullan
+    }
 
     const identifier = String(req.body?.identifier || '').toLowerCase().trim();
     const isDemo = cleanPhone === '05900000011' || cleanPhone === '05550000000' || identifier === 'demo' || process.env.NODE_ENV !== 'production';
 
     res.json({
       success: true,
-      message: 'Onay kodunuz SMS olarak gönderildi.',
+      message: smsResult && !smsResult.simulated
+        ? 'Onay kodunuz SMS olarak telefonunuza gönderildi.'
+        : 'Onay kodunuz hazırlandı (SMS ağ geçidi aktif değilse WhatsApp ile doğrulayabilirsiniz).',
       demoCode: isDemo ? code : undefined,
-      whatsappLink,
+      smsSent: Boolean(smsResult && smsResult.sent && !smsResult.simulated),
+      simulated: smsResult ? smsResult.simulated : true,
+      provider: smsResult?.provider || 'fallback_whatsapp',
+      whatsappLink: smsResult?.whatsappLink || fallbackWhatsappLink,
     });
   });
 

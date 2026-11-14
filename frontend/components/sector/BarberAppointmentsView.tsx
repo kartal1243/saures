@@ -288,10 +288,8 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   const [blockEndTime, setBlockEndTime] = useState('14:00');
   const [blockReason, setBlockReason] = useState('Öğle Molası');
 
-  // Personel Ekle / Düzenle Formu (Ad, e-posta, şifre, prim %, rol)
+  // Personel Ekle / Düzenle Formu (Ad, prim %, rol, telefon)
   const [staffFormName, setStaffFormName] = useState('');
-  const [staffFormEmail, setStaffFormEmail] = useState('');
-  const [staffFormPassword, setStaffFormPassword] = useState('');
   const [staffFormCommission, setStaffFormCommission] = useState(30);
   const [staffFormRole, setStaffFormRole] = useState('Usta');
   const [staffFormPhone, setStaffFormPhone] = useState('');
@@ -584,8 +582,6 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     const newStaff: BarberStaff = {
       id: `staff_${Date.now()}`,
       name: staffFormName.trim(),
-      email: staffFormEmail.trim(),
-      password: staffFormPassword.trim(),
       commissionRate: Number(staffFormCommission) || 30,
       role: staffFormRole,
       title: staffFormRole,
@@ -606,16 +602,12 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     setStaffList(updated);
     setIsStaffModalOpen(false);
     setStaffFormName('');
-    setStaffFormEmail('');
-    setStaffFormPassword('');
   };
 
   // Personel Düzenle
   const handleOpenEditStaff = (st: BarberStaff) => {
     setEditingStaff(st);
     setStaffFormName(st.name);
-    setStaffFormEmail(st.email || '');
-    setStaffFormPassword(st.password || '');
     setStaffFormCommission(st.commissionRate ?? 30);
     setStaffFormRole(st.role || st.title || 'Usta');
     setStaffFormPhone(st.phone || '');
@@ -632,8 +624,6 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
         ? {
             ...s,
             name: staffFormName.trim(),
-            email: staffFormEmail.trim(),
-            password: staffFormPassword.trim(),
             commissionRate: Number(staffFormCommission) || 30,
             role: staffFormRole,
             title: staffFormRole,
@@ -2389,14 +2379,36 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsDiscountModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-rose-600/20"
-              >
-                <Plus className="w-4 h-4" />
-                <span>İndirimli Saat Ekle</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {settings.discountSlots && settings.discountSlots.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const slotLines = (settings.discountSlots || [])
+                        .map((ds) => {
+                          const dayText = ds.dayOfWeek === -1 ? 'Her Gün' : (DAYS_TR[ds.dayOfWeek] || 'Belirli Gün');
+                          return `• ${dayText} ${ds.startTime}-${ds.endTime}: %${ds.discountPercent} İndirim${ds.label ? ` (${ds.label})` : ''}`;
+                        })
+                        .join('\n');
+                      const bookingLink = `${window.location.origin}/r/${encodeURIComponent(settings.slug || shopSlug || 'demo')}`;
+                      const msg = `🔥 *${storeName} — Flaş İndirimli Saatler!* 💈\n\nSakin saatlerimize özel indirim fırsatlarını kaçırmayın:\n${slotLines}\n\n👉 Hemen online randevu alın:\n${bookingLink}`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>WhatsApp Flaş İndirim Duyurusu Gönder</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsDiscountModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-rose-600/20"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>İndirimli Saat Ekle</span>
+                </button>
+              </div>
             </div>
 
             {(!settings.discountSlots || settings.discountSlots.length === 0) ? (
@@ -2939,30 +2951,8 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
-                  E-Posta (Panel Girişi İçin)
-                </label>
-                <input
-                  type="email"
-                  value={staffFormEmail}
-                  onChange={(e) => setStaffFormEmail(e.target.value)}
-                  placeholder="usta@salondukkan.com"
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
-                  Giriş Şifresi
-                </label>
-                <input
-                  type="password"
-                  value={staffFormPassword}
-                  onChange={(e) => setStaffFormPassword(e.target.value)}
-                  placeholder="******"
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs"
-                />
+              <div className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800/70 border border-stone-200 dark:border-stone-700 text-[11px] text-stone-600 dark:text-stone-300">
+                <strong>Bilgi:</strong> İşletme paneline güvenlik gereği yalnızca dükkan sahibi giriş yapabilir; personel için ayrı giriş şifresi gerekmez.
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
@@ -3070,17 +3060,8 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
-                  E-Posta (Giriş İçin)
-                </label>
-                <input
-                  type="email"
-                  value={staffFormEmail}
-                  onChange={(e) => setStaffFormEmail(e.target.value)}
-                  placeholder="usta@salondukkan.com"
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs text-stone-900 dark:text-white"
-                />
+              <div className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800/70 border border-stone-200 dark:border-stone-700 text-[11px] text-stone-600 dark:text-stone-300">
+                <strong>Not:</strong> İşletme paneline yalnızca dükkan sahibi giriş yapabilir; personel takvimi ve prim hesaplaması otomatik yürütülür.
               </div>
 
               {/* Usta Bazlı Dinamik Fiyat ve Süre Ayarları (Kolay Randevu Modülü) */}

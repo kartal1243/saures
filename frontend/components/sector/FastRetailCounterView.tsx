@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Product, Customer } from '../../../shared/types.ts';
 import { cleanPhoneForWhatsApp } from '../../utils/formatters.ts';
+import { printHtmlDocument, escapeHtml } from '../../utils/printTemplate.ts';
 
 interface FastRetailCounterViewProps {
   products: Product[];
@@ -186,8 +187,12 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
   // Kamera ile Barkod Okuma Modalı
   const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [manualCamBarcode, setManualCamBarcode] = useState('');
+  const [barcodeDetectorSupported] = useState<boolean>(() => typeof window !== 'undefined' && 'BarcodeDetector' in window);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
+  const scanTimerRef = useRef<number | null>(null);
+  const lastScannedRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
 
   // Ürün Kataloğu
   const displayProducts = useMemo<DisplayProduct[]>(() => {
@@ -260,11 +265,27 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
     (product: {
       id?: string;
       name: string;
+      barcode?: string;
       sellingPrice: number;
       currentStock?: number;
       unit?: string;
       isWeighed?: boolean;
     }, quantity: number = 1) => {
+      const matchedRealProduct =
+        product.id?.startsWith('quick_')
+          ? (products || []).find(
+              (p) =>
+                (product.barcode && p.barcode === product.barcode) ||
+                p.name.toLowerCase() === product.name.toLowerCase()
+            )
+          : undefined;
+      const resolvedProductId =
+        product.id?.startsWith('free_') || product.id?.startsWith('catalog_')
+          ? undefined
+          : product.id?.startsWith('quick_')
+          ? matchedRealProduct?.id
+          : product.id;
+
       setCart((prev) => {
         const existing = prev.find((item) => item.name === product.name);
         if (existing) {
@@ -274,11 +295,11 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
         return [
           ...prev,
           {
-            productId: product.id?.startsWith('quick_') || product.id?.startsWith('free_') ? undefined : product.id,
+            productId: resolvedProductId,
             name: product.name,
             unitPrice: product.sellingPrice,
             quantity: Number(quantity.toFixed(3)),
-            currentStock: product.currentStock,
+            currentStock: matchedRealProduct?.currentStock ?? product.currentStock,
             isWeighed: Boolean(product.isWeighed || product.unit?.toLowerCase() === 'kg'),
             unit: product.unit || 'Adet',
           },
@@ -289,7 +310,7 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
       setLastSaleMessage(`+ ${product.name} sepete eklendi`);
       setTimeout(() => setLastSaleMessage(null), 3000);
     },
-    [soundEnabled]
+    [soundEnabled, products]
   );
 
   // Miktar Güncelleme (+ / -)
@@ -371,50 +392,86 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
     [displayProducts]
   );
 
+  const processScannedBarcode = useCallback(
+    async (rawCode: string): Promise<boolean> => {
+      const raw = String(rawCode || '').trim();
+      if (!raw) return false;
+
+      // 1. EAN-13 Terazi Barkodu mu?
+      const scaleItem = parseTurkishScaleBarcode(raw);
+      if (scaleItem) {
+        addToCart(
+          {
+            id: scaleItem.product?.id,
+            name: scaleItem.name,
+            sellingPrice: scaleItem.unitPrice,
+            isWeighed: true,
+            unit: 'Kg',
+          },
+          scaleItem.quantity
+        );
+        return true;
+      }
+
+      // 2. Normal Barkod veya İsim Eşleşmesi
+      const lower = raw.toLowerCase();
+      const matched = displayProducts.find(
+        (p) => (p.barcode && p.barcode.toLowerCase() === lower) || p.name.toLowerCase() === lower
+      );
+
+      if (matched) {
+        if (matched.unit?.toLowerCase() === 'kg') {
+          setWeighedModalProduct(matched);
+          setManualWeightKg('1.000');
+        } else {
+          addToCart(matched, 1);
+        }
+        return true;
+      }
+
+      // 3. TR Barkod Kataloğu (/api/products/barcode-catalog/:barcode)
+      try {
+        const res = await fetch(`/api/products/barcode-catalog/${encodeURIComponent(raw)}`);
+        if (res.ok) {
+          const catalog = await res.json();
+          if (catalog?.found && catalog?.item?.name) {
+            const unitPrice = Number(catalog.item.suggestedSalePrice) || 0;
+            if (unitPrice > 0) {
+              addToCart(
+                {
+                  id: `catalog_${raw}`,
+                  name: catalog.item.name,
+                  barcode: raw,
+                  sellingPrice: unitPrice,
+                  unit: catalog.item.unit || 'Adet',
+                },
+                catalog.weightKg || 1
+              );
+              return true;
+            }
+          }
+        }
+      } catch {
+        // katalog erişilemezse bildirim akışına devam et
+      }
+
+      playPosAudio('alert', soundEnabled);
+      setLastSaleMessage(`'${raw}' barkodu bulunamadı. Serbest satıştan tutar girebilirsiniz.`);
+      setTimeout(() => setLastSaleMessage(null), 3500);
+      return false;
+    },
+    [parseTurkishScaleBarcode, displayProducts, addToCart, soundEnabled]
+  );
+
   // Minimalist Barkod / Arama Enter İşleyicisi (Klavye Esareti Yok)
-  const handleBarcodeSubmit = (e: React.FormEvent) => {
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const raw = barcodeQuery.trim();
     if (!raw) return;
-
-    // 1. EAN-13 Terazi Barkodu mu?
-    const scaleItem = parseTurkishScaleBarcode(raw);
-    if (scaleItem) {
-      addToCart(
-        {
-          id: scaleItem.product?.id,
-          name: scaleItem.name,
-          sellingPrice: scaleItem.unitPrice,
-          isWeighed: true,
-          unit: 'Kg',
-        },
-        scaleItem.quantity
-      );
+    const ok = await processScannedBarcode(raw);
+    if (ok) {
       setBarcodeQuery('');
-      return;
     }
-
-    // 2. Normal Barkod veya İsim Eşleşmesi
-    const lower = raw.toLowerCase();
-    const matched = displayProducts.find(
-      (p) => (p.barcode && p.barcode.toLowerCase() === lower) || p.name.toLowerCase() === lower
-    );
-
-    if (matched) {
-      if (matched.unit?.toLowerCase() === 'kg') {
-        setWeighedModalProduct(matched);
-        setManualWeightKg('1.000');
-      } else {
-        addToCart(matched, 1);
-      }
-      setBarcodeQuery('');
-      return;
-    }
-
-    // 3. Eşleşme yoksa bildirim ver
-    playPosAudio('alert', soundEnabled);
-    setLastSaleMessage(`'${raw}' barkodu bulunamadı. Serbest satıştan tutar girebilirsiniz.`);
-    setTimeout(() => setLastSaleMessage(null), 3500);
   };
 
   // Bakkal Serbest Tutar Girişi (Hızlı Barkodsuz Satış)
@@ -596,7 +653,19 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
     setIsReceiptModalOpen(true);
   };
 
-  // Kamera Okuma
+  // Kamera Okuma + BarcodeDetector Döngüsü (1.2 sn cooldown)
+  const stopCamera = useCallback(() => {
+    if (scanTimerRef.current !== null) {
+      window.clearInterval(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+    }
+    setIsCameraScannerOpen(false);
+  }, []);
+
   const startCamera = async () => {
     setCameraError(null);
     setIsCameraScannerOpen(true);
@@ -609,17 +678,111 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
+
+      if ('BarcodeDetector' in window) {
+        const DetectorCtor = (window as any).BarcodeDetector;
+        const detector = new DetectorCtor({
+          formats: ['ean_13', 'ean_8', 'upc_a', 'code_128', 'qr_code'],
+        });
+        if (scanTimerRef.current !== null) {
+          window.clearInterval(scanTimerRef.current);
+        }
+        scanTimerRef.current = window.setInterval(async () => {
+          const videoEl = videoRef.current;
+          if (!videoEl || videoEl.readyState < 2) return;
+          try {
+            const barcodes = await detector.detect(videoEl);
+            if (!Array.isArray(barcodes) || barcodes.length === 0) return;
+            const rawVal = String(barcodes[0]?.rawValue || '').trim();
+            if (!rawVal) return;
+
+            const now = Date.now();
+            if (lastScannedRef.current.code === rawVal && now - lastScannedRef.current.at < 1200) {
+              return;
+            }
+            lastScannedRef.current = { code: rawVal, at: now };
+
+            if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+              navigator.vibrate(80);
+            }
+            playPosAudio('scan', soundEnabled);
+            await processScannedBarcode(rawVal);
+          } catch {
+            // tek kare okuma hatası akışı durdurmaz
+          }
+        }, 250);
+      }
     } catch (_err) {
-      setCameraError('Kamera erişimine izin verilmedi veya kamera bulunamadı.');
+      setCameraError('Kamera erişimine izin verilmedi veya kamera bulunamadı. Aşağıdan manuel barkod girebilirsiniz.');
     }
   };
 
-  const stopCamera = () => {
-    if (cameraStreamRef.current) {
-      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
-      cameraStreamRef.current = null;
-    }
-    setIsCameraScannerOpen(false);
+  const handlePrintZReport = () => {
+    const grandTotal = sessionSales.cashTotal + sessionSales.cardTotal + sessionSales.creditTotal;
+    printHtmlDocument({
+      title: 'Gün Sonu Z-Raporu',
+      paperWidth: '80mm',
+      bodyHtml: `
+        <div style="text-align:center;border-bottom:1px dashed #111;padding-bottom:8px;margin-bottom:8px;">
+          <div style="font-size:14px;font-weight:900;">${escapeHtml(storeName || 'HIZLI TEZGÂH KASA')}</div>
+          <div style="font-size:11px;font-weight:700;">GÜN SONU Z-RAPORU</div>
+          <div style="font-size:10px;color:#555;">${escapeHtml(new Date().toLocaleString('tr-TR'))}</div>
+        </div>
+        <div style="font-size:11px;line-height:1.7;">
+          <div style="display:flex;justify-content:space-between;"><span>İşlem Adedi:</span><strong>${sessionSales.count} Adet</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>Nakit Tahsilat:</span><strong>${sessionSales.cashTotal.toFixed(2)} ₺</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>POS / Kredi Kartı:</span><strong>${sessionSales.cardTotal.toFixed(2)} ₺</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>Veresiye Defterine Yazılan:</span><strong>${sessionSales.creditTotal.toFixed(2)} ₺</strong></div>
+        </div>
+        <div style="border-top:2px solid #111;margin-top:8px;padding-top:6px;display:flex;justify-content:space-between;font-size:13px;font-weight:900;">
+          <span>GENEL CİRO:</span>
+          <span>${grandTotal.toFixed(2)} ₺</span>
+        </div>
+        <div style="text-align:center;font-size:9px;color:#666;margin-top:10px;">Dükkânım Yanımda Kasa Sistemi</div>
+      `,
+    });
+  };
+
+  const handlePrintThermalReceipt = () => {
+    if (!receiptData) return;
+    const rowsHtml = receiptData.items
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding:3px 0;">${escapeHtml(item.name)}<br/><span style="font-size:9px;color:#555;">${item.quantity} ${escapeHtml(item.unit || 'Ad')} x ${item.unitPrice.toFixed(2)} ₺</span></td>
+          <td style="text-align:right;font-weight:700;vertical-align:top;padding:3px 0;">${(item.quantity * item.unitPrice).toFixed(2)} ₺</td>
+        </tr>`
+      )
+      .join('');
+    printHtmlDocument({
+      title: `Satış Fişi ${receiptData.receiptNo}`,
+      paperWidth: receiptPaperWidth,
+      bodyHtml: `
+        <div style="text-align:center;border-bottom:1px dashed #111;padding-bottom:8px;margin-bottom:8px;">
+          <div style="font-size:14px;font-weight:900;text-transform:uppercase;">${escapeHtml(receiptData.storeName || storeName || 'DÜKKÂNIM YANIMDA')}</div>
+          <div style="font-size:10px;color:#444;">Fiş No: ${escapeHtml(receiptData.receiptNo)}</div>
+          <div style="font-size:10px;color:#555;">${escapeHtml(receiptData.date)}</div>
+          ${receiptData.customerName ? `<div style="font-size:10px;font-weight:700;margin-top:2px;">Müşteri: ${escapeHtml(receiptData.customerName)}</div>` : ''}
+        </div>
+        <table style="width:100%;font-size:11px;border-bottom:1px dashed #111;">${rowsHtml}</table>
+        <div style="margin-top:8px;font-size:11px;">
+          <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:900;">
+            <span>TOPLAM:</span>
+            <span>${receiptData.total.toFixed(2)} ₺</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;color:#444;margin-top:2px;">
+            <span>Ödeme:</span>
+            <span>${escapeHtml(receiptData.paymentMethod)}</span>
+          </div>
+          ${receiptData.cashReceived !== undefined ? `<div style="display:flex;justify-content:space-between;color:#444;"><span>Alınan Nakit:</span><span>${receiptData.cashReceived.toFixed(2)} ₺</span></div>` : ''}
+          ${receiptData.changeAmount !== undefined && receiptData.changeAmount > 0 ? `<div style="display:flex;justify-content:space-between;font-weight:700;"><span>Para Üstü:</span><span>${receiptData.changeAmount.toFixed(2)} ₺</span></div>` : ''}
+        </div>
+        <div style="text-align:center;border-top:1px dotted #111;margin-top:10px;padding-top:6px;font-size:9px;color:#555;">
+          <div style="font-weight:700;margin-bottom:2px;">${escapeHtml(receiptData.footerMessage || receiptFooter || 'Bizi Tercih Ettiğiniz İçin Teşekkür Ederiz')}</div>
+          <div>Dükkânım Yanımda Kasa Sistemi</div>
+        </div>
+      `,
+    });
   };
 
   return (
@@ -1356,7 +1519,7 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={handlePrintZReport}
                 className="px-5 py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
@@ -1515,7 +1678,7 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={handlePrintThermalReceipt}
                 className="px-5 py-2.5 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
@@ -1556,11 +1719,40 @@ export const FastRetailCounterView: React.FC<FastRetailCounterViewProps> = ({
                 <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 h-0.5 bg-rose-500 shadow-[0_0_12px_#f43f5e] animate-pulse pointer-events-none" />
                 <div className="absolute bottom-2 inset-x-0 text-center">
                   <span className="px-2.5 py-1 rounded-full bg-black/70 text-[10px] text-stone-300 backdrop-blur-xs">
-                    Barkodu kırmızı çizgiye hizalayın
+                    {barcodeDetectorSupported
+                      ? 'Barkodu kırmızı çizgiye hizalayın (Otomatik okur)'
+                      : 'Tarayıcı otomatik okuma desteklemiyor — aşağıdan barkod yazın'}
                   </span>
                 </div>
               </div>
             )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const val = manualCamBarcode.trim();
+                if (!val) return;
+                const ok = await processScannedBarcode(val);
+                if (ok) {
+                  setManualCamBarcode('');
+                }
+              }}
+              className="flex gap-2"
+            >
+              <input
+                type="text"
+                value={manualCamBarcode}
+                onChange={(e) => setManualCamBarcode(e.target.value)}
+                placeholder="Manuel barkod gir / yapıştır..."
+                className="flex-1 px-3 py-2 rounded-xl bg-stone-800 border border-stone-700 text-xs text-white font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              />
+              <button
+                type="submit"
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white cursor-pointer"
+              >
+                Ekle
+              </button>
+            </form>
 
             <button
               type="button"

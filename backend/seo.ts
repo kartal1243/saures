@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getAccounts } from './accounts';
-import { loadShopState, slugify, demoBarberServices } from './shopState';
+import { loadShopState, slugify, demoBarberServices, demoBarberReviews } from './shopState';
 import { DEMO_ACCOUNT_ID, DEMO_PHONE } from './demoSeed';
 
 export interface SeoMetadata {
@@ -32,7 +32,258 @@ export interface ResolvedShop {
   closedDays?: number[];
   services?: { id: string; name: string; price: number; durationMinutes?: number }[];
   menuItems?: { id: string; name: string; price: number; category: string; description?: string; imageUrl?: string }[];
+  reviews?: { id: string; customerName: string; staffName?: string; rating: number; comment: string; createdAt: string }[];
   logoUrl?: string;
+}
+
+export interface SeoGuideArticle {
+  slug: string;
+  title: string;
+  seoTitle: string;
+  description: string;
+  category: string;
+  readTime: string;
+  updatedAt: string;
+  h1: string;
+  lead: string;
+  sections: { heading: string; body: string; bullets?: string[] }[];
+  faq: { q: string; a: string }[];
+  ctaHref: string;
+  ctaLabel: string;
+}
+
+export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
+  {
+    slug: 'berber-no-show-onleme',
+    title: 'Berberlerde Gelmeyen Müşteri (No-Show) Nasıl Önlenir?',
+    seoTitle: 'Berber ve Kuaförlerde No-Show Önleme Rehberi | Dükkanım Yanımda',
+    description: 'Randevusuna gelmeyen müşteriler yüzünden boş kalan koltukları doldurmanın 5 pratik yolu: WhatsApp otomatik hatırlatma, kapora ve online sıra yönetimi.',
+    category: 'Berber & Kuaför',
+    readTime: '4 dk okuma',
+    updatedAt: '2026-11-14',
+    h1: 'Berber ve Kuaförlerde Gelmeyen Müşteri (No-Show) Nasıl Önlenir?',
+    lead: 'Bir koltuğun 45 dakika boş kalması günde 2-3 müşterilik ciro kaybı demektir. Doğru hatırlatma ve online teyit akışıyla no-show oranını %70’e kadar düşürebilirsiniz.',
+    sections: [
+      {
+        heading: '1. Randevudan 2 Saat Önce Otomatik Hatırlatma Gönderin',
+        body: 'Müşterilerin çoğu unutkanlık veya saat karışıklığı nedeniyle gelmez. WhatsApp veya SMS üzerinden giden nazik bir hatırlatma, son dakika iptallerini erken bildirmenizi sağlar.',
+        bullets: [
+          'Randevu saatinden 2 saat önce otomatik teyit mesajı planlayın',
+          'Gelemeyecek müşteriye tek tıkla iptal/erteleme seçeneği sunun',
+          'Boşalan saati bekleme listesindeki müşteriye anında açın',
+        ],
+      },
+      {
+        heading: '2. VIP İşlemlerde FAST / IBAN Kapora Alın',
+        body: 'Gelin başı, damat tıraşı veya uzun süren boya işlemlerinde sembolik kapora almak ciddiyeti artırır ve son dakika firelerini sıfıra indirir.',
+      },
+    ],
+    faq: [
+      { q: 'No-show müşterileri takip etmek için ekstra ücret öder miyim?', a: 'Hayır. Dükkânım Yanımda üzerinden gelen randevular tek ekranda izlenir ve WhatsApp hatırlatma şablonları ücretsiz hazırlanır.' },
+      { q: 'Boş kalan saatleri nasıl hızlı doldurabilirim?', a: 'Ölü saat / boş slot duyurusuyla müdavimlerinize WhatsApp üzerinden flaş indirim mesajı gönderebilirsiniz.' },
+    ],
+    ctaHref: '/berber',
+    ctaLabel: 'Berber Randevu Panelini İncele',
+  },
+  {
+    slug: 'kuafor-prim-hesaplama',
+    title: 'Berber ve Kuaför Usta / Kalfa Prim Hesaplama Rehberi',
+    seoTitle: 'Berber ve Kuaför Prim Hesaplama Yöntemleri | Dükkanım Yanımda',
+    description: 'Koltuk cirosu, yüzdelik hakediş ve malzeme düşümüyle adil usta/kalfa prim hesaplama yöntemleri ve ücretsiz online prim hesaplayıcı.',
+    category: 'Berber & Kuaför',
+    readTime: '5 dk okuma',
+    updatedAt: '2026-11-14',
+    h1: 'Berber ve Kuaför Salonlarında Usta & Kalfa Prim Hesaplama',
+    lead: 'Akşam kasa kapatırken defterden tek tek işlem toplamak yerine, her hizmet sonrası personel payını otomatik hesaplamak hem şeffaflık hem de hız kazandırır.',
+    sections: [
+      {
+        heading: 'En Yaygın 3 Prim Modeli',
+        body: 'Türkiye’deki berber ve kuaför salonlarında genellikle yüzdelik ciro paylaşımı, sabit koltuk kirası veya maaş + barem prim modeli uygulanır.',
+        bullets: [
+          'Saf Yüzdelik (%40-%50): Kesim ve sakal gelirinden sabit oran düşülür',
+          'Malzeme Düşümlü Prim: Boya/bakım işlemlerinde ürün maliyeti sonrası net ciro paylaşılır',
+          'Hedef Baremli Prim: Aylık belirli ciroyu aşan ustaya ekstra %5 bonus verilir',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Her personel için farklı prim oranı tanımlanabilir mi?', a: 'Evet, usta, kalfa ve çırak için ayrı komisyon oranları belirlenip akşam kapanışta otomatik raporlanır.' },
+      { q: 'Prim ödemeleri kasadan gider olarak düşülür mü?', a: 'Evet, ödenen maaş ve primler tek tıkla kasa gideri olarak işlenir.' },
+    ],
+    ctaHref: '/kuafor',
+    ctaLabel: 'Kuaför Prim & Takip Sistemini Gör',
+  },
+  {
+    slug: 'ucretsiz-qr-menu-olusturma',
+    title: 'Kafe ve Restoranlar İçin Ücretsiz QR Menü Nasıl Yapılır?',
+    seoTitle: 'Ücretsiz QR Menü Oluşturma ve Masa Sipariş Rehberi | Dükkanım Yanımda',
+    description: 'Baskı maliyeti olmadan 2 dakikada karekod QR menü hazırlayın, fiyat güncellemelerini anında yansıtın ve masadan canlı sipariş alın.',
+    category: 'Kafe & Restoran',
+    readTime: '4 dk okuma',
+    updatedAt: '2026-11-14',
+    h1: 'Kafe ve Restoranlar İçin Ücretsiz QR Menü Nasıl Yapılır?',
+    lead: 'Sürekli değişen ürün fiyatları yüzünden her ay kağıt menü bastırmak yerine telefonunuzdan yönetilen canlı bir dijital QR menüyle masrafı sıfırlayın.',
+    sections: [
+      {
+        heading: '3 Adımda Masaya Özel Karekod Menü',
+        body: 'Ürünlerinizi kategorilere ayırın, fiyat ve fotoğrafları girin; sistem her masaya özel QR baskı kartını otomatik üretir.',
+        bullets: [
+          'Menü linkiniz (/m/dukkan-adiniz) hiç değişmeden ürün fiyatlarını anında güncelleyin',
+          'Müşteriler telefonundan sepet oluşturup doğrudan adisyon masasına sipariş göndersin',
+          'Tek dokunuşla garson ve hesap çağırma bildirimlerini anında alın',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'QR menü için aylık ekstra modül ücreti var mı?', a: 'Hayır, rakiplerin aksine QR menü ve masa yönetimi Dükkânım Yanımda içinde ek modül ücreti olmadan sunulur.' },
+      { q: 'Müşterinin uygulama indirmesi gerekir mi?', a: 'Hayır, telefon kamerası karekodu okuttuğunda menü doğrudan tarayıcıda açılır.' },
+    ],
+    ctaHref: '/kafe-restoran',
+    ctaLabel: 'Kafe & QR Menü Çözümünü İncele',
+  },
+  {
+    slug: 'dijital-veresiye-defteri-gecis',
+    title: 'Kağıt Veresiye Defterinden Dijitale Geçiş Rehberi',
+    seoTitle: 'Esnaf Veresiye Programı: Kağıt Defterden Dijitale Geçiş | Dükkanım Yanımda',
+    description: 'Bakkal, market ve mahalle esnafı için kayıp alacakları önleyen dijital veresiye defteri, barkodlu satış ve WhatsApp borç hatırlatma rehberi.',
+    category: 'Bakkal & Market',
+    readTime: '4 dk okuma',
+    updatedAt: '2026-11-14',
+    h1: 'Kağıt Veresiye Defterinden Dijitale Geçiş ve Alacak Yönetimi',
+    lead: 'Yıpranan, sayfaları karışan veya kaybolan veresiye defterleri esnafa her yıl ciddi alacak kaybı yaşatır. Açılış bakiyesiyle 5 dakikada dijitale geçebilirsiniz.',
+    sections: [
+      {
+        heading: 'Eski Borçları Kaybetmeden Geçiş Adımları',
+        body: 'Müşterilerinizi ad ve telefon numarasıyla kaydedip mevcut toplam bakiyelerini tek işlemde açılış borcu olarak tanımlayın.',
+        bullets: [
+          'Her tahsilat ve yeni alışverişte güncel bakiye anlık hesaplanır',
+          'WhatsApp üzerinden tek tuşla kibar, kurumsal hesap ekstresi gönderilir',
+          'Bulut yedekleme sayesinde telefon kaybolsa bile verileriniz silinmez',
+        ],
+      },
+    ],
+    faq: [
+      { q: '25 müşteriye kadar ücretsiz kullanabilir miyim?', a: 'Evet, Çırak paketi sonsuza dek ücretsizdir ve kredi kartı gerektirmez.' },
+      { q: 'Barkod okuyucu almam şart mı?', a: 'Hayır, telefon kameranızla ürün barkodunu okutup sepete ekleyebilirsiniz.' },
+    ],
+    ctaHref: '/bakkal-market',
+    ctaLabel: 'Bakkal & Veresiye Modülünü Gör',
+  },
+  {
+    slug: 'komisyonsuz-randevu-programi',
+    title: 'Komisyonsuz Berber & Güzellik Salonu Randevu Programı Seçimi',
+    seoTitle: '%0 Komisyonlu Online Randevu Sistemi Karşılaştırması | Dükkanım Yanımda',
+    description: 'Yeni müşteri komisyonu (%20) kesen pazaryeri uygulamalarına karşı dükkanınıza özel %0 komisyonlu online randevu linki kurmanın avantajları.',
+    category: 'Karşılaştırma & Strateji',
+    readTime: '5 dk okuma',
+    updatedAt: '2026-11-14',
+    h1: '%0 Komisyonlu Online Randevu Programı Neden Önemli?',
+    lead: 'Bazı global randevu platformları ilk randevulardan %20’ye varan komisyon ve mesaj başına yüksek kontör ücreti keser. Kendi müşteri kitlenizi kendi linkinizle büyütmek kârınızı korur.',
+    sections: [
+      {
+        heading: 'Kendi Markanızı ve Müşteri Verinizi Koruyun',
+        body: 'Müşterilerinizi rakip salonların da listelendiği bir pazaryerine göndermek yerine doğrudan dükkanınızın logosu ve fiyatlarıyla açılan /r/dukkan-adiniz sayfanıza yönlendirin.',
+        bullets: [
+          'Randevu başına %0 komisyon — kazancınızın tamamı kasanızda kalır',
+          'Instagram bio, Google İşletme Profili ve WhatsApp durumuna tek link ekleyin',
+          'Aynı panelde kasa, veresiye, personel primi ve sadakat kartını yönetin',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Dükkanım Yanımda randevulardan komisyon alır mı?', a: 'Kesinlikle hayır. Tüm paketlerde randevu komisyonu %0’dır.' },
+      { q: 'Mevcut müşteri listemi kolayca aktarabilir miyim?', a: 'Evet, müşterilerinizi hızlıca ekleyip dijital sadakat ve hatırlatma akışına dahil edebilirsiniz.' },
+    ],
+    ctaHref: '/fiyat',
+    ctaLabel: 'Şeffaf Paketleri İncele',
+  },
+  {
+    slug: 'istanbul-berber-kuafor',
+    title: 'İstanbul Berber & Kuaför Randevu ve Salon Yönetimi',
+    seoTitle: 'İstanbul Berber ve Kuaför Randevu Sistemi | Dükkanım Yanımda',
+    description: 'Kadıköy, Beşiktaş, Şişli, Üsküdar ve tüm İstanbul berber ile kuaför salonları için 7/24 online randevu, koltuk sırası ve prim takip sistemi.',
+    category: 'Yerel Esnaf Rehberi',
+    readTime: '3 dk okuma',
+    updatedAt: '2026-11-14',
+    h1: 'İstanbul Berber & Kuaför Salonları İçin Online Randevu Çözümü',
+    lead: 'İstanbul’un yoğun semtlerinde telefon trafiğine boğulmadan koltuklarınızı tam kapasite doldurun; müşterileriniz 15 saniyede uygun saati seçsin.',
+    sections: [
+      {
+        heading: 'İstanbul Esnafına Özel Hızlı Kurulum',
+        body: 'Kadıköy’den Bakırköy’e, Nişantaşı’ndan Ümraniye’ye kadar tek veya çok koltuklu tüm salonlar donanım almadan telefon üzerinden çalışır.',
+        bullets: [
+          'Google Haritalar profilinize /r/dukkan-adiniz randevu linkinizi bağlayın',
+          'Trafik kaynaklı gecikmelerde tek tuşla WhatsApp durum bilgilendirmesi yapın',
+          'Gün sonu usta-kalfa hakedişini akşam 30 saniyede kapatın',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'İstanbul’daki çok şubeli veya çok koltuklu salonlar kullanabilir mi?', a: 'Evet, her usta ve koltuk için ayrı takvim ve prim oranı tanımlanabilir.' },
+    ],
+    ctaHref: '/r/demo',
+    ctaLabel: 'Canlı Berber Randevu Demosunu Gör',
+  },
+  {
+    slug: 'ankara-berber-kuafor',
+    title: 'Ankara Berber & Kuaför Randevu ve Koltuk Yönetim Sistemi',
+    seoTitle: 'Ankara Berber ve Kuaför Randevu Programı | Dükkanım Yanımda',
+    description: 'Çankaya, Kızılay, Keçiören, Yenimahalle ve tüm Ankara berber/kuaför işletmeleri için online randevu, veresiye ve kasa takip programı.',
+    category: 'Yerel Esnaf Rehberi',
+    readTime: '3 dk okuma',
+    updatedAt: '2026-11-14',
+    h1: 'Ankara Berber & Kuaförler İçin Dijital Randevu ve Salon Defteri',
+    lead: 'Çankaya’dan Etimesgut’a kadar Ankara’daki berber ve kuaför salonları için özel saat bloklama, personel prim takibi ve WhatsApp hatırlatma tek platformda.',
+    sections: [
+      {
+        heading: 'Memur ve Öğrenci Yoğun Saatlerini Verimli Planlayın',
+        body: 'Öğle arası ve akşam çıkışı yoğunluğunda çakışan randevuları engelleyip ölü saatlere özel indirim duyurusu yapabilirsiniz.',
+        bullets: [
+          'İşlem süresine göre otomatik slot planlama (saç 30 dk, boya 90 dk)',
+          'Düzenli gelen müşteriler için 10’lu dijital sadakat kartı',
+          'Kredi kartsız ücretsiz başlangıç',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Ankara’daki esnaflar için yerinde kurulum gerekiyor mu?', a: 'Hayır, bulut tabanlı olduğu için 2 dakikada telefonunuzdan aktif edersiniz.' },
+    ],
+    ctaHref: '/berber',
+    ctaLabel: 'Berber Sistemini İncele',
+  },
+  {
+    slug: 'izmir-kafe-restoran',
+    title: 'İzmir Kafe & Restoran QR Menü ve Adisyon Sistemi',
+    seoTitle: 'İzmir Kafe ve Restoran Adisyon & QR Menü Programı | Dükkanım Yanımda',
+    description: 'Alsancak, Bostanlı, Bornova ve Çeşme kafeleri için canlı masa takibi, temassız QR menü, garson çağırma ve komisyonsuz adisyon yazılımı.',
+    category: 'Yerel Esnaf Rehberi',
+    readTime: '3 dk okuma',
+    updatedAt: '2026-11-14',
+    h1: 'İzmir Kafe & Restoranları İçin QR Menü ve Masa Adisyon Sistemi',
+    lead: 'Alsancak ve Bostanlı gibi yoğun masa sirkülasyonu olan bölgelerde müşterilerinizin karekod okutup sipariş vermesini ve hesap istemesini hızlandırın.',
+    sections: [
+      {
+        heading: 'Sahil ve Bahçe Masalarında Garson Beklemeye Son',
+        body: 'Dükkan logosuyla markalanmış masa QR standları sayesinde müşteriler menüyü görüntüler, sepetten sipariş gönderir ve tek tıkla garson çağırır.',
+        bullets: [
+          'Bahçe, teras ve salon bölgelerine göre sınırsız masa yerleşimi',
+          'Mutfak/kasa ekranına anında sesli bildirimle düşen QR siparişleri',
+          'Gün sonu nakit, kredi kartı ve açık adisyon raporu',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Sezonluk mekanlarda dondurma veya iptal var mı?', a: 'Taahhüt yoktur; istediğiniz ay paketinizi değiştirebilir veya iptal edebilirsiniz.' },
+    ],
+    ctaHref: '/m/demo',
+    ctaLabel: 'Canlı QR Menü Demosunu Gör',
+  },
+];
+
+export function isValidGuideRoute(pathname: string): boolean {
+  const clean = (pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+  if (clean === '/rehber') return true;
+  return SEO_GUIDE_ARTICLES.some((a) => `/rehber/${a.slug}` === clean);
 }
 
 export const demoCafeMenuItems = [
@@ -86,9 +337,37 @@ export function getDynamicSeoFreshness(customDate?: Date) {
 /**
  * Identifier (slug, telefon veya accountId) ile dükkanı accounts ve shopState'den bulur.
  */
-export function findShopForSeo(identifier: string): ResolvedShop | null {
+export function findShopForSeo(identifier: string, mode?: 'barber' | 'menu'): ResolvedShop | null {
   const rawId = (identifier || '').toLowerCase().trim();
   if (!rawId) return null;
+
+  if (rawId === 'demo' && mode === 'menu') {
+    return {
+      name: 'Karaköy Kahvecisi & Bistro',
+      slug: 'demo',
+      phone: '0555 000 0000',
+      cityDistrict: 'Karaköy, İstanbul',
+      slogan: 'Geleneksel lezzetler, taze kahve ve hızlı servis',
+      businessField: 'Kafe & Restoran',
+      sectorKey: 'kafe_restoran',
+      isVip: true,
+      exists: true,
+      openingTime: '08:30',
+      closingTime: '23:30',
+      closedDays: [],
+      services: [],
+      menuItems: demoCafeMenuItems.map((m) => ({
+        id: m.id,
+        name: m.name,
+        price: m.price,
+        category: m.category,
+        description: m.description,
+        imageUrl: m.imageUrl,
+      })),
+      reviews: [],
+      logoUrl: '/brand/phone_mockup_retina.png',
+    };
+  }
 
   const accounts = getAccounts();
 
@@ -157,6 +436,21 @@ export function findShopForSeo(identifier: string): ResolvedShop | null {
     imageUrl: m.imageUrl,
   }));
 
+  const rawReviews = targetState?.barberReviews && targetState.barberReviews.length > 0
+    ? targetState.barberReviews
+    : (targetAcc?.id === DEMO_ACCOUNT_ID || rawId === 'demo' ? demoBarberReviews : []);
+
+  const reviews = (rawReviews || [])
+    .filter((r) => r.approved !== false && typeof r.rating === 'number' && r.comment)
+    .map((r) => ({
+      id: r.id,
+      customerName: r.customerName,
+      staffName: r.staffName,
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt,
+    }));
+
   const logoUrl = targetState?.shopProfile?.logoUrl || (rawId === 'demo' ? '/brand/phone_mockup_retina.png' : undefined);
 
   return {
@@ -174,6 +468,7 @@ export function findShopForSeo(identifier: string): ResolvedShop | null {
     closedDays: targetState?.barberSettings?.closedDays || [0],
     services,
     menuItems,
+    reviews,
     logoUrl,
   };
 }
@@ -241,7 +536,6 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
       district: 'Şişli',
       latitude: 41.0504,
       longitude: 28.9928,
-      phone: '0212 555 0101',
       url: `${origin}/guzellik-salonu`,
       badge: 'Paket & Seans Takibi',
     },
@@ -256,8 +550,7 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
       district: 'Çankaya',
       latitude: 39.8969,
       longitude: 32.8644,
-      phone: '0312 555 0102',
-      url: `${origin}/kuafor`,
+      url: `${origin}/rehber/ankara-berber-kuafor`,
       badge: 'Online Randevu',
     },
     {
@@ -271,8 +564,7 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
       district: 'Konak',
       latitude: 38.4382,
       longitude: 27.1428,
-      phone: '0232 555 0103',
-      url: `${origin}/kafe-restoran`,
+      url: `${origin}/rehber/izmir-kafe-restoran`,
       badge: 'Canlı Masa Takibi',
     },
     {
@@ -286,7 +578,6 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
       district: 'Nilüfer',
       latitude: 40.2133,
       longitude: 28.9833,
-      phone: '0224 555 0104',
       url: `${origin}/bakkal-market`,
       badge: 'Veresiye & Hızlı POS',
     },
@@ -301,7 +592,6 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
       district: 'Muratpaşa',
       latitude: 36.8841,
       longitude: 30.7056,
-      phone: '0242 555 0105',
       url: `${origin}/terzi`,
       badge: 'Tadilat & Fiş Takibi',
     },
@@ -316,7 +606,6 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
       district: 'Üsküdar',
       latitude: 41.0267,
       longitude: 29.0156,
-      phone: '0216 555 0106',
       url: `${origin}/teknik-servis`,
       badge: 'Servis Fişi & Cihaz Sorgulama',
     },
@@ -389,7 +678,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
   // 1. Randevu rotaları: /r/:slug veya /randevu/:slug
   if (clean.startsWith('/r/') || clean.startsWith('/randevu/')) {
     const slug = clean.replace(/^\/(r|randevu)\/?/, '');
-    const shop = findShopForSeo(slug);
+    const shop = findShopForSeo(slug, 'barber');
     if (shop) {
       const title = `${shop.name} - Online Randevu Al | Dükkanım Yanımda`;
       const ogTitle = `${shop.name} - Kolay Online Randevu`;
@@ -454,6 +743,34 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         },
       };
 
+      const shopReviews = shop.reviews && shop.reviews.length > 0 ? shop.reviews : [];
+      const reviewSchemaBlock = shopReviews.length > 0
+        ? {
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: (
+                shopReviews.reduce((acc, r) => acc + Math.max(1, Math.min(5, r.rating || 5)), 0) /
+                shopReviews.length
+              ).toFixed(1),
+              reviewCount: shopReviews.length,
+              bestRating: '5',
+              worstRating: '1',
+            },
+            review: shopReviews.map((r) => ({
+              '@type': 'Review',
+              author: { '@type': 'Person', name: r.customerName },
+              datePublished: (r.createdAt || fresh.todayIso).split('T')[0],
+              reviewBody: r.comment,
+              reviewRating: {
+                '@type': 'Rating',
+                ratingValue: Math.max(1, Math.min(5, r.rating || 5)),
+                bestRating: 5,
+                worstRating: 1,
+              },
+            })),
+          }
+        : {};
+
       const schemaJson = {
         '@context': 'https://schema.org',
         '@type': [primaryType, 'HealthAndBeautyBusiness'],
@@ -481,6 +798,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
           },
         ],
         ...(offerCatalog ? { hasOfferCatalog: offerCatalog } : {}),
+        ...reviewSchemaBlock,
         potentialAction,
       };
 
@@ -512,7 +830,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
   // 2. QR Menü rotaları: /m/:slug veya /menu/:slug veya /menu
   if (clean.startsWith('/m/') || clean.startsWith('/menu/') || clean === '/menu') {
     const slug = clean === '/menu' ? 'demo' : clean.replace(/^\/(m|menu)\/?/, '');
-    const shop = findShopForSeo(slug);
+    const shop = findShopForSeo(slug, 'menu');
     if (shop) {
       const title = `${shop.name} - Dijital QR Menü & Fiyatlar | Dükkanım Yanımda`;
       const ogTitle = `${shop.name} - Dijital Menü`;
@@ -1094,7 +1412,144 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     };
   }
 
+  // 3.5. Kamusal Servis & Emanet Durum Takip Ekranı (/t/:code)
+  if (clean.startsWith('/t/')) {
+    return {
+      title: 'Canlı Servis & Emanet Durum Takibi | Dükkanım Yanımda',
+      ogTitle: 'Cihaz & Emanet Fişi Durum Sorgulama — Dükkanım Yanımda',
+      description: 'Teknik servis cihaz tamir durumu veya terzi emanet teslimat takibini fiş kodunuzla anlık görüntüleyin.',
+      ogDescription: 'Servis ve emanet fişi canlı durum sorgulama.',
+      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      canonical: `${origin}${clean}`,
+      robots: 'noindex, follow',
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Teknik Servis & Takip', url: `${origin}/teknik-servis` },
+      ],
+    };
+  }
+
+  // 3.6. Esnaf Rehberi & İçerik Kümeleri (/rehber ve /rehber/:slug)
+  if (clean === '/rehber') {
+    const canonical = `${origin}/rehber`;
+    return {
+      title: `Esnaf Rehberi, Prim Hesaplayıcı & Ücretsiz QR Araçları (${fresh.year}) | Dükkanım Yanımda`,
+      ogTitle: 'Esnaf Rehberi ve Ücretsiz İşletme Araçları — Dükkanım Yanımda',
+      description: 'Berber no-show önleme, kuaför prim hesaplayıcı, ücretsiz QR menü karekod oluşturucu, dijital veresiye geçişi ve şehir bazlı esnaf rehberleri.',
+      ogDescription: 'Esnaf rehberleri, ücretsiz prim hesaplayıcı ve karekod oluşturucu.',
+      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      canonical,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Esnaf Rehberi', url: canonical },
+      ],
+      faqJson: [
+        {
+          q: 'Esnaf rehberindeki prim hesaplayıcı ve QR kod oluşturucu ücretsiz mi?',
+          a: 'Evet, üye olmadan doğrudan tarayıcınızdan sınırsız şekilde kullanabilirsiniz.',
+        },
+        {
+          q: 'Buradaki şablonları WhatsApp işletme hesabımda kullanabilir miyim?',
+          a: 'Evet, tüm veresiye ve randevu hatırlatma şablonlarını tek tıkla kopyalayıp gönderebilirsiniz.',
+        },
+      ],
+      schemaJson: {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: 'Dükkânım Yanımda Esnaf Rehberi ve İçerik Kümeleri',
+        numberOfItems: SEO_GUIDE_ARTICLES.length,
+        itemListElement: SEO_GUIDE_ARTICLES.map((art, idx) => ({
+          '@type': 'ListItem',
+          position: idx + 1,
+          name: art.title,
+          url: `${origin}/rehber/${art.slug}`,
+        })),
+      },
+    };
+  }
+
+  if (clean.startsWith('/rehber/')) {
+    const slug = clean.replace(/^\/rehber\//, '');
+    const article = SEO_GUIDE_ARTICLES.find((a) => a.slug === slug);
+    if (article) {
+      const canonical = `${origin}/rehber/${article.slug}`;
+      return {
+        title: article.seoTitle,
+        ogTitle: article.title,
+        description: article.description,
+        ogDescription: article.description,
+        ogImage: `${origin}/brand/phone_mockup_retina.png`,
+        canonical,
+        breadcrumbs: [
+          { name: 'Ana Sayfa', url: origin },
+          { name: 'Esnaf Rehberi', url: `${origin}/rehber` },
+          { name: article.title, url: canonical },
+        ],
+        faqJson: article.faq,
+        schemaJson: {
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: article.h1,
+          description: article.description,
+          datePublished: article.updatedAt,
+          dateModified: fresh.todayIso,
+          inLanguage: 'tr-TR',
+          author: {
+            '@type': 'Organization',
+            name: 'Dükkanım Yanımda',
+            url: `${origin}/`,
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'Dükkanım Yanımda',
+            logo: {
+              '@type': 'ImageObject',
+              url: `${origin}/icon-512.png`,
+            },
+          },
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': canonical,
+          },
+        },
+      };
+    }
+    return {
+      title: 'Esnaf Rehberi | Dükkanım Yanımda',
+      ogTitle: 'Esnaf Rehberi — Dükkanım Yanımda',
+      description: 'Aradığınız rehber yazısı bulunamadı; tüm esnaf rehberlerini inceleyin.',
+      ogDescription: 'Tüm esnaf rehberlerini ve ücretsiz araçları inceleyin.',
+      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      canonical: `${origin}/rehber`,
+      robots: 'noindex, follow',
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Esnaf Rehberi', url: `${origin}/rehber` },
+      ],
+    };
+  }
+
   // 4. Sabit Bilgi ve İşlem Sayfaları
+  const pricingSchemaJson = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Dükkanım Yanımda',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'All',
+    offers: {
+      '@type': 'AggregateOffer',
+      lowPrice: '0',
+      highPrice: '499',
+      priceCurrency: 'TRY',
+      offerCount: 3,
+      offers: [
+        { '@type': 'Offer', name: 'Çırak Paketi', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        { '@type': 'Offer', name: 'Usta Paketi', price: '249', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        { '@type': 'Offer', name: 'Patron VIP', price: '499', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+      ],
+    },
+  };
+
   if (clean === '/fiyat' || clean === '/fiyatlandirma') {
     const canonical = `${origin}/fiyat`;
     const breadcrumbs = [
@@ -1125,6 +1580,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       canonical,
       breadcrumbs,
       faqJson,
+      schemaJson: pricingSchemaJson,
     };
   }
 
@@ -1136,6 +1592,11 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogDescription: 'Kredi kartı gerekmez. Dükkanını 2 dakikada ücretsiz kur.',
       ogImage: `${origin}/brand/logo-horizontal.png`,
       canonical: `${origin}/kayit`,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Ücretsiz Kayıt', url: `${origin}/kayit` },
+      ],
+      schemaJson: pricingSchemaJson,
     };
   }
 
@@ -1339,6 +1800,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
         <a href="/kafe-restoran" style="color:#cbd5e1;text-decoration:none;">Kafe &amp; QR Menü</a>
         <a href="/bakkal-market" style="color:#cbd5e1;text-decoration:none;">Bakkal &amp; POS</a>
         <a href="/teknik-servis" style="color:#cbd5e1;text-decoration:none;">Teknik Servis</a>
+        <a href="/rehber" style="color:#cbd5e1;text-decoration:none;">Esnaf Rehberi</a>
         <a href="/fiyat" style="color:#cbd5e1;text-decoration:none;">Fiyatlar</a>
         <a href="/kayit" style="background:#f97316;color:#ffffff;padding:6px 14px;border-radius:8px;text-decoration:none;">Ücretsiz Kayıt</a>
       </nav>
@@ -1392,6 +1854,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
         <a href="/teknik-servis" style="color:#cbd5e1;text-decoration:none;">Teknik Servis</a>
         <a href="/hukuk" style="color:#cbd5e1;text-decoration:none;">Hukuk Bürosu</a>
         <a href="/terzi" style="color:#cbd5e1;text-decoration:none;">Terzi &amp; Kuru Temizleme</a>
+        <a href="/rehber" style="color:#cbd5e1;text-decoration:none;">Esnaf Rehberi</a>
         <a href="/fiyat" style="color:#cbd5e1;text-decoration:none;">Fiyatlar</a>
         <a href="/iletisim" style="color:#cbd5e1;text-decoration:none;">İletişim</a>
         <a href="/gizlilik" style="color:#cbd5e1;text-decoration:none;">Gizlilik &amp; KVKK</a>
@@ -1405,11 +1868,29 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
   // 1. Randevu Rotaları: /r/:slug veya /randevu/:slug
   if (clean.startsWith('/r/') || clean.startsWith('/randevu/')) {
     const slug = clean.replace(/^\/(r|randevu)\/?/, '');
-    const shop = findShopForSeo(slug);
+    const shop = findShopForSeo(slug, 'barber');
     if (shop) {
       const shopLogo = shop.logoUrl
         ? (shop.logoUrl.startsWith('http') ? shop.logoUrl : `${origin}${shop.logoUrl}`)
         : `${origin}/brand/phone_mockup_retina.png`;
+
+      const shopReviewsHtml = (shop.reviews && shop.reviews.length > 0)
+        ? `
+        <section aria-label="Müşteri Yorumları" style="margin-top:28px;margin-bottom:28px;">
+          <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:12px;">Doğrulanmış Müşteri Yorumları</h2>
+          <div style="display:grid;gap:10px;">
+            ${shop.reviews.map((rev) => `
+              <div style="background:#ffffff;padding:14px 18px;border-radius:10px;border:1px solid #e2e8f0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <strong style="color:#0f172a;font-size:14px;">${escapeHtml(rev.customerName)}</strong>
+                  <span style="color:#ea580c;font-weight:800;font-size:13px;">★ ${rev.rating}/5</span>
+                </div>
+                <p style="margin:0;color:#475569;font-size:13px;line-height:1.5;">${escapeHtml(rev.comment)}</p>
+              </div>
+            `).join('')}
+          </div>
+        </section>`
+        : '';
 
       mainBodyContent = `
       <article style="max-width:860px;margin:0 auto;">
@@ -1439,6 +1920,8 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
           </ul>
         </section>
 
+        ${shopReviewsHtml}
+
         <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:20px;text-align:center;">
           <h3 style="font-size:17px;font-weight:800;color:#9a3412;margin:0 0 6px 0;">Sıra Beklemeden Rezervasyon Yapın</h3>
           <p style="font-size:13px;color:#7c2d12;margin:0 0 14px 0;">İstediğiniz ustayı, hizmeti ve müsait saati seçerek randevunuzu hemen oluşturabilirsiniz.</p>
@@ -1451,7 +1934,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
   // 2. QR Menü Rotaları: /m/:slug veya /menu/:slug veya /menu
   else if (clean.startsWith('/m/') || clean.startsWith('/menu/') || clean === '/menu') {
     const slug = clean === '/menu' ? 'demo' : clean.replace(/^\/(m|menu)\/?/, '');
-    const shop = findShopForSeo(slug);
+    const shop = findShopForSeo(slug, 'menu');
     if (shop) {
       const shopLogo = shop.logoUrl
         ? (shop.logoUrl.startsWith('http') ? shop.logoUrl : `${origin}${shop.logoUrl}`)
@@ -1692,7 +2175,33 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
     mainBodyContent = `
     <article style="max-width:960px;margin:0 auto;">
       <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Cihaz kabul fişi, parça maliyeti ve işçilik hesabı, tamir durumu ve müşteriye tek tıkla 'Cihazınız Hazır' WhatsApp bildirimi.</p>
+      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Cihaz kabul fişi, parça maliyeti ve işçilik hesabı, QR kodlu canlı durum takibi ve müşteriye tek tıkla 'Cihazınız Hazır' WhatsApp bildirimi tek ekranda.</p>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:28px;">
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">QR Kodlu Cihaz Kabul Fişi</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Her cihaz için benzersiz fiş numarası ve müşteri takip linki üretilir; müşteri telefonundan tamir aşamasını canlı izler.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Parça Maliyeti &amp; Net Kâr</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Ekran, batarya veya yedek parça giderlerini işçilikle birlikte fişe işleyin, gün sonu net kazancınızı görün.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Tek Tıkla WhatsApp Hazır Bildirimi</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Tamir bittiğinde müşteriye cihaz durumu, tutar ve takip bağlantısıyla otomatik WhatsApp mesajı hazırlayın.</p>
+        </div>
+      </section>
+
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 20px;margin-bottom:28px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">
+        <span style="font-size:14px;font-weight:700;color:#9a3412;">Müşterinizin göreceği canlı tamir durumu ekranını test edin:</span>
+        <a href="/t/demo" style="color:#ea580c;font-weight:900;font-size:14px;text-decoration:none;">Canlı Fiş Takip Demosu (/t/demo) →</a>
+      </div>
+
+      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
+        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Teknik Servisinizi 2 Dakikada Dijitale Taşıyın</h2>
+        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">Donanım gerekmez. Hemen ücretsiz kayıt olun, ilk kabul fişinizi kesin.</p>
+        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Servis Panelini Başlat</a>
+      </div>
     </article>`;
   }
 
@@ -1701,7 +2210,28 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
     mainBodyContent = `
     <article style="max-width:960px;margin:0 auto;">
       <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">Avukat ve Hukuk Bürosu Dava Takip ve Masraf Yazılımı</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Müvekkil cari hesabı, duruşma takvimi, vekalet ücreti ve masraf takibi tek ekranda.</p>
+      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Müvekkil cari hesabı, yaklaşan duruşma takvimi, vekalet ücreti ve masraf kalemleri tek güvenli ekranda.</p>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:28px;">
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Yaklaşan Duruşma Uyarıları</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Mahkeme, dosya numarası ve celse tarihleri kronolojik dizilir; 3 gün içindeki duruşmalar üstte vurgulanır.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Müvekkil Avans &amp; Masraf Cari Kartı</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Vekalet ücreti, harç/tebligat masrafları ve danışmanlık tahsilatları tek tuşla büro kasasına işlenir.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Şifreli ve İzole Büro Defteri</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Tüm dosyalar HTTPS üzerinden taşınır; büro kayıtlarınıza yalnızca yetkili hesap sahibi erişir.</p>
+        </div>
+      </section>
+
+      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
+        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Hukuk Büronuz İçin Düzenli Dosya &amp; Tahsilat Takibi</h2>
+        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">Kredi kartı gerekmez. 2 dakikada ücretsiz hesabınızı oluşturun.</p>
+        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Hukuk Panelini Başlat</a>
+      </div>
     </article>`;
   }
 
@@ -1710,8 +2240,128 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
     mainBodyContent = `
     <article style="max-width:960px;margin:0 auto;">
       <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">Terzi &amp; Kuru Temizleme Emanet Takip Sistemi</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Emanet fişi, tadilat durumu, teslimat tarihi ve müşteri ölçü notları cebinizde.</p>
+      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Emanet fişi, tadilat durumu, teslimat tarihi, QR askı fişi ve müşteri ölçü notları cebinizde.</p>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:28px;">
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Askı &amp; Emanet Fişi Yazdırma</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Bırakılan kıyafetlere QR kodlu emanet fişi kesin; geciken teslimatlar listenin en üstünde uyarı verir.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Müşteri Ölçü &amp; Prova Arşivi</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Beden ve paça ölçülerini bir kez kaydedin, tekrar gelen müşteride tek dokunuşla görüntüleyin.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Hazır WhatsApp Bildirimi &amp; Kasa</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Tadilat bittiğinde müşteriye tek tuşla WhatsApp'tan haber verin, teslimatta tahsilatı kasaya işleyin.</p>
+        </div>
+      </section>
+
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 20px;margin-bottom:28px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">
+        <span style="font-size:14px;font-weight:700;color:#9a3412;">Müşterinizin fiş durumu sorgulayacağı ekranı inceleyin:</span>
+        <a href="/t/demo" style="color:#ea580c;font-weight:900;font-size:14px;text-decoration:none;">Canlı Emanet Fişi Takip Demosu (/t/demo) →</a>
+      </div>
+
+      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
+        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Terzi ve Kuru Temizleme Fişlerinizi Dijitalleştirin</h2>
+        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">2 dakikada ücretsiz kayıt olun, kayıp fiş sorununu bitirin.</p>
+        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Terzi Panelini Başlat</a>
+      </div>
     </article>`;
+  }
+
+  // 11.5. Canlı Servis & Emanet Fişi Takibi (/t/:code)
+  else if (clean.startsWith('/t/')) {
+    mainBodyContent = `
+    <article style="max-width:760px;margin:0 auto;">
+      <h1 style="font-size:30px;font-weight:900;color:#0f172a;margin-bottom:10px;">Canlı Servis &amp; Emanet Durum Takibi</h1>
+      <p style="font-size:15px;color:#475569;line-height:1.6;margin-bottom:24px;">Cihaz tamir veya terzi emanet fişinizin güncel durumunu, tahmini teslimat bilgisini ve işletme iletişim detaylarını bu ekrandan takip edebilirsiniz.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <a href="/teknik-servis" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Teknik Servis Sistemi →</a>
+        <a href="/terzi" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Terzi Emanet Sistemi →</a>
+      </div>
+    </article>`;
+  }
+
+  // 11.6. Esnaf Rehberi Ana Merkezi (/rehber)
+  else if (clean === '/rehber') {
+    mainBodyContent = `
+    <article style="max-width:960px;margin:0 auto;">
+      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">Esnaf Rehberi, Prim Hesaplayıcı &amp; Ücretsiz QR Araçları</h1>
+      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:28px;">Berber no-show önleme, kuaför prim hesaplama, ücretsiz QR menü karekod oluşturucu, dijital veresiye geçişi ve şehir bazlı esnaf rehberleri tek merkezde.</p>
+
+      <section style="margin-bottom:32px;">
+        <h2 style="font-size:20px;font-weight:900;color:#0f172a;margin-bottom:14px;">Ücretsiz İşletme Araçları</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;">
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;">
+            <h3 style="font-size:16px;font-weight:800;color:#ea580c;margin:0 0 6px 0;">Berber Usta / Kalfa Prim Hesaplayıcı</h3>
+            <p style="font-size:13px;color:#64748b;margin:0;">Ciro, yüzdelik oran ve koltuk sayısına göre günlük ve aylık usta hakedişini anında hesaplayın.</p>
+          </div>
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;">
+            <h3 style="font-size:16px;font-weight:800;color:#ea580c;margin:0 0 6px 0;">Ücretsiz QR Menü &amp; Randevu Karekod Oluşturucu</h3>
+            <p style="font-size:13px;color:#64748b;margin:0;">Dükkan linkiniz için yüksek çözünürlüklü karekodu saniyeler içinde üretip yazdırın.</p>
+          </div>
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;">
+            <h3 style="font-size:16px;font-weight:800;color:#ea580c;margin:0 0 6px 0;">WhatsApp Hatırlatma Şablonları</h3>
+            <p style="font-size:13px;color:#64748b;margin:0;">Veresiye borç ve randevu teyit mesajlarını tek tıkla kopyalayıp müşterinize gönderin.</p>
+          </div>
+        </div>
+      </section>
+
+      <section style="margin-bottom:32px;">
+        <h2 style="font-size:20px;font-weight:900;color:#0f172a;margin-bottom:14px;">Tüm Sektör ve Şehir Rehberleri</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;">
+          ${SEO_GUIDE_ARTICLES.map((art) => `
+            <a href="/rehber/${escapeHtml(art.slug)}" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;display:block;">
+              <span style="font-size:11px;font-weight:800;color:#ea580c;text-transform:uppercase;">${escapeHtml(art.category)} · ${escapeHtml(art.readTime)}</span>
+              <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:6px 0 6px 0;">${escapeHtml(art.title)}</h3>
+              <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">${escapeHtml(art.description)}</p>
+            </a>
+          `).join('')}
+        </div>
+      </section>
+    </article>`;
+  }
+
+  // 11.7. Esnaf Rehberi Makale & Yerel SEO Sayfası (/rehber/:slug)
+  else if (clean.startsWith('/rehber/')) {
+    const slug = clean.replace(/^\/rehber\//, '');
+    const article = SEO_GUIDE_ARTICLES.find((a) => a.slug === slug);
+    if (article) {
+      mainBodyContent = `
+      <article style="max-width:860px;margin:0 auto;">
+        <span style="font-size:11px;font-weight:900;text-transform:uppercase;color:#ea580c;background:#fff7ed;padding:4px 10px;border-radius:6px;border:1px solid #fed7aa;">${escapeHtml(article.category)} · ${escapeHtml(article.readTime)}</span>
+        <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin:12px 0 12px 0;line-height:1.2;">${escapeHtml(article.h1)}</h1>
+        <p style="font-size:16px;color:#475569;line-height:1.65;margin-bottom:28px;">${escapeHtml(article.lead)}</p>
+
+        ${article.sections.map((sec) => `
+          <section style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:22px;margin-bottom:18px;">
+            <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 10px 0;">${escapeHtml(sec.heading)}</h2>
+            <p style="font-size:14px;color:#475569;line-height:1.65;margin:0;">${escapeHtml(sec.body)}</p>
+            ${sec.bullets && sec.bullets.length > 0 ? `
+              <ul style="margin:12px 0 0 0;padding-left:18px;color:#334155;font-size:14px;line-height:1.7;">
+                ${sec.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}
+              </ul>
+            ` : ''}
+          </section>
+        `).join('')}
+
+        <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:26px;text-align:center;margin:28px 0;">
+          <h2 style="font-size:20px;font-weight:900;margin:0 0 8px 0;">Dükkanınızı 2 Dakikada Dijitale Alın</h2>
+          <p style="font-size:14px;color:#94a3b8;margin:0 0 16px 0;">Kurulum yok, komisyon %0. Hemen ücretsiz deneyin.</p>
+          <a href="${escapeHtml(article.ctaHref)}" style="display:inline-block;background:#f97316;color:#ffffff;font-size:14px;font-weight:800;padding:11px 24px;border-radius:10px;text-decoration:none;">${escapeHtml(article.ctaLabel)}</a>
+        </div>
+
+        <section style="margin-top:24px;">
+          <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:10px;">Diğer Esnaf Rehberleri</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            ${SEO_GUIDE_ARTICLES.filter((x) => x.slug !== article.slug).slice(0, 4).map((x) => `
+              <a href="/rehber/${escapeHtml(x.slug)}" style="background:#ffffff;border:1px solid #e2e8f0;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:700;color:#ea580c;text-decoration:none;">${escapeHtml(x.title)}</a>
+            `).join('')}
+          </div>
+        </section>
+      </article>`;
+    }
   }
 
   // 12. Fiyatlandırma
@@ -1812,11 +2462,46 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
     </article>`;
   }
 
+  const isSectorLanding = [
+    '/berber', '/berber-randevu-programi',
+    '/kuafor', '/kuafor-randevu', '/kadin-kuafor',
+    '/randevu-sistemi', '/online-randevu',
+    '/guzellik-salonu', '/guzellik-merkezi', '/guzellik', '/lazer-epilasyon',
+    '/kafe-restoran', '/kafe', '/restoran', '/adisyon', '/qr-menu',
+    '/bakkal-market', '/bakkal', '/market', '/veresiye-defteri', '/pos-sistemi',
+    '/teknik-servis', '/servis', '/hukuk', '/avukat', '/terzi',
+  ].includes(clean);
+
+  const sectorTestimonialsHtml = isSectorLanding
+    ? `
+    <section aria-label="Esnaf Yorumları ve Kullanıcı Deneyimleri" style="margin-top:36px;padding-top:28px;border-top:1px solid #e2e8f0;">
+      <h2 style="font-size:22px;font-weight:900;color:#0f172a;margin-bottom:14px;">Esnaf Yorumları ve Kullanıcı Deneyimleri</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;">
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">
+          <p style="font-size:13px;color:#ea580c;font-weight:800;margin:0 0 6px 0;">★★★★★ 5.0 · Kadıköy / Berber Esnafı</p>
+          <p style="font-size:13px;color:#475569;margin:0 0 8px 0;line-height:1.5;">“Koltuk sırası ve usta primleri yüzünden akşamları 1 saat hesap yapıyorduk, şimdi 30 saniyede kasayı kapatıyoruz.”</p>
+          <strong style="font-size:12px;color:#0f172a;">Ahmet K. — Erkek Kuaförü</strong>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">
+          <p style="font-size:13px;color:#ea580c;font-weight:800;margin:0 0 6px 0;">★★★★★ 5.0 · Çankaya / Kafe İşletmesi</p>
+          <p style="font-size:13px;color:#475569;margin:0 0 8px 0;line-height:1.5;">“QR menüden gelen siparişler anında adisyona düşüyor, fiyat değişince yeniden menü bastırma derdi bitti.”</p>
+          <strong style="font-size:12px;color:#0f172a;">Merve T. — Kafe &amp; Bistro</strong>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">
+          <p style="font-size:13px;color:#ea580c;font-weight:800;margin:0 0 6px 0;">★★★★★ 4.9 · Nilüfer / Mahalle Marketi</p>
+          <p style="font-size:13px;color:#475569;margin:0 0 8px 0;line-height:1.5;">“Veresiye defteri kaybolma korkusu kalmadı, WhatsApp hatırlatma ile unutulan alacaklarımızı topladık.”</p>
+          <strong style="font-size:12px;color:#0f172a;">Hasan Y. — Şarküteri &amp; Bakkal</strong>
+        </div>
+      </div>
+    </section>`
+    : '';
+
   return `
   ${headerHtml}
   <main id="main-content" style="max-width:1200px;margin:30px auto;padding:0 20px;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;">
     ${breadcrumbHtml}
     ${mainBodyContent}
+    ${sectorTestimonialsHtml}
     ${faqSectionHtml}
   </main>
   ${footerHtml}`;
@@ -1884,6 +2569,14 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
     html = html.replace(/<meta\s+property=["']og:image["'][^>]*>/i, ogImageTag);
   } else {
     html = html.replace('</head>', `${ogImageTag}\n</head>`);
+  }
+
+  // <meta name="twitter:card" ...>
+  const twitterCardTag = '<meta name="twitter:card" content="summary_large_image" />';
+  if (/name=["']twitter:card["']/i.test(html)) {
+    html = html.replace(/<meta\s+name=["']twitter:card["'][^>]*>/i, twitterCardTag);
+  } else {
+    html = html.replace('</head>', `${twitterCardTag}\n</head>`);
   }
 
   // <meta name="twitter:title" ...>
@@ -2039,6 +2732,14 @@ export function generateSitemapXml(rawHost?: string): string {
     { loc: `${origin}/terzi`, priority: '0.8', changefreq: 'weekly', title: 'Terzi & Kuru Temizleme Emanet Takip Sistemi', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/iletisim`, priority: '0.6', changefreq: 'monthly', title: 'İletişim & Destek', img: `${origin}/icon-512.png` },
     { loc: `${origin}/gizlilik`, priority: '0.4', changefreq: 'yearly', title: 'Gizlilik Politikası & KVKK Güvencesi', img: `${origin}/icon-512.png` },
+    { loc: `${origin}/rehber`, priority: '0.9', changefreq: 'weekly', title: 'Esnaf Rehberi, Prim Hesaplayıcı & Ücretsiz QR Araçları', img: `${origin}/brand/phone_mockup_retina.png` },
+    ...SEO_GUIDE_ARTICLES.map((art) => ({
+      loc: `${origin}/rehber/${art.slug}`,
+      priority: '0.85',
+      changefreq: 'weekly',
+      title: art.title,
+      img: `${origin}/brand/phone_mockup_retina.png`,
+    })),
   ];
 
   // Aktif dükkanların dinamik linkleri

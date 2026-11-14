@@ -44,6 +44,7 @@ export interface SubscriptionPlan {
   interval: SubscriptionInterval;
   nextDueDate: string; // YYYY-MM-DD
   description?: string;
+  autoReminderSent?: boolean;
 }
 
 export interface Customer {
@@ -431,6 +432,9 @@ export interface BarberSalonSettings {
   autoConfirm?: boolean;
   notes?: string;
   discountSlots?: BarberDiscountSlot[];
+  requireDeposit?: boolean;
+  depositAmount?: number;
+  loyaltyTarget?: number;
 }
 
 export interface AppointmentStep {
@@ -478,6 +482,7 @@ export interface Appointment {
   originalPrice?: number;
   discountNote?: string;
   hasReview?: boolean;
+  autoReminderSent?: boolean;
   createdAt: string;
 }
 

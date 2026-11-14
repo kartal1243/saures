@@ -1,0 +1,66 @@
+{
+  "packageId": "com.dukkanimyanimda.twa",
+  "host": "dukkanimyanimda.com.tr",
+  "name": "Dükkânım Yanımda",
+  "launcherName": "Dükkânım",
+  "display": "standalone",
+  "themeColor": "#f95700",
+  "themeColorDark": "#1c1917",
+  "navigationColor": "#fafaf9",
+  "navigationColorDark": "#0c0a09",
+  "navigationDividerColor": "#e7e5e4",
+  "navigationDividerColorDark": "#292524",
+  "backgroundColor": "#fafaf9",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://dukkanimyanimda.com.tr/icon-512.png",
+  "maskableIconUrl": "https://dukkanimyanimda.com.tr/icon-512.png",
+  "monochromeIconUrl": "https://dukkanimyanimda.com.tr/icon-192.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android-upload-keystore.jks",
+    "alias": "dukkanim-upload"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Hızlı Kasa",
+      "shortName": "Kasa",
+      "url": "https://dukkanimyanimda.com.tr/?tab=sector_view&quick=pos",
+      "chosenIconUrl": "https://dukkanimyanimda.com.tr/icon-192.png"
+    },
+    {
+      "name": "Randevular",
+      "shortName": "Randevu",
+      "url": "https://dukkanimyanimda.com.tr/?tab=sector_view&quick=appointments",
+      "chosenIconUrl": "https://dukkanimyanimda.com.tr/icon-192.png"
+    },
+    {
+      "name": "Masalar",
+      "shortName": "Masalar",
+      "url": "https://dukkanimyanimda.com.tr/?tab=sector_view&quick=tables",
+      "chosenIconUrl": "https://dukkanimyanimda.com.tr/icon-192.png"
+    },
+    {
+      "name": "Veresiye",
+      "shortName": "Veresiye",
+      "url": "https://dukkanimyanimda.com.tr/?tab=customers",
+      "chosenIconUrl": "https://dukkanimyanimda.com.tr/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://dukkanimyanimda.com.tr/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://dukkanimyanimda.com.tr/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": []
+}

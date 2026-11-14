@@ -12,9 +12,12 @@ import {
   Banknote,
   CreditCard,
   ChevronRight,
+  MessageCircle,
+  Printer,
 } from 'lucide-react';
 import type { CustodyTicket, Customer } from '../../../shared/types.ts';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, cleanPhoneForWhatsApp } from '../../utils/formatters';
+import { printHtmlDocument, escapeHtml } from '../../utils/printTemplate';
 
 interface CustodyTicketsViewProps {
   tickets: CustodyTicket[];
@@ -231,6 +234,51 @@ export const CustodyTicketsView: React.FC<CustodyTicketsViewProps> = ({
                 </div>
               </div>
               <div className="mt-3 flex justify-end gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trackUrl = `${window.location.origin}/t/${encodeURIComponent(t.id)}`;
+                    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=H&data=${encodeURIComponent(trackUrl)}`;
+                    printHtmlDocument({
+                      title: `Emanet Askı Fişi #${t.id.slice(-6).toUpperCase()}`,
+                      paperWidth: '58mm',
+                      bodyHtml: `
+                        <div style="text-align:center;border-bottom:1px dashed #111;padding-bottom:6px;margin-bottom:6px;">
+                          <div style="font-size:12px;font-weight:900;">EMANET / ASKI FİŞİ</div>
+                          <div style="font-size:10px;font-weight:700;">#${escapeHtml(t.id.slice(-6).toUpperCase())}</div>
+                        </div>
+                        <div style="font-size:10px;line-height:1.5;margin-bottom:6px;">
+                          <div><strong>Müşteri:</strong> ${escapeHtml(t.customerName)}</div>
+                          <div><strong>Eşya:</strong> ${escapeHtml(t.itemDesc)}</div>
+                          <div><strong>Teslim Sözü:</strong> ${escapeHtml(t.promisedDate || '—')}</div>
+                          <div><strong>Kalan Tutar:</strong> ${escapeHtml(formatCurrency(restOf(t)))}</div>
+                        </div>
+                        <div style="text-align:center;border-top:1px dashed #111;padding-top:6px;">
+                          <img src="${qrSrc}" alt="QR" style="width:96px;height:96px;margin:0 auto 4px;display:block;" />
+                          <div style="font-size:9px;font-weight:700;">Durum Sorgulama Kodu</div>
+                        </div>
+                      `,
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 transition-colors cursor-pointer"
+                  title="Askı / Emanet Fişi Yazdır (QR'lı)"
+                >
+                  <Printer className="w-3 h-3" /> Askı Fişi (QR)
+                </button>
+                {t.phone && t.status !== 'teslim' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const waPhone = cleanPhoneForWhatsApp(t.phone);
+                      const trackUrl = `${window.location.origin}/t/${encodeURIComponent(t.id)}`;
+                      const text = `Merhaba ${t.customerName}, bıraktığınız "${t.itemDesc}" eşyanız teslime hazırdır. Kalan tutar: ${formatCurrency(restOf(t))}. Takip: ${trackUrl}`;
+                      window.open(`https://wa.me/${waPhone || ''}?text=${encodeURIComponent(text)}`, '_blank');
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 transition-colors cursor-pointer"
+                  >
+                    <MessageCircle className="w-3 h-3" /> Eşyanız Hazır WhatsApp
+                  </button>
+                )}
                 {meta.next && (
                   <button
                     type="button"

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Supplier, PaymentMethod } from '../../../shared/types.ts';
-import { Truck, X, Check, Banknote, CreditCard, Send, ShoppingCart, Wallet } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Supplier, PaymentMethod, Product } from '../../../shared/types.ts';
+import { Truck, X, Check, Banknote, CreditCard, Send, ShoppingCart, Wallet, MessageCircle } from 'lucide-react';
+import { cleanPhoneForWhatsApp } from '../../utils/formatters';
 
 export type SupplierModalMode = 'form' | 'purchase' | 'pay';
 
@@ -8,6 +9,7 @@ interface SupplierModalProps {
   isOpen: boolean;
   mode: SupplierModalMode;
   supplier: Supplier | null;
+  products?: Product[];
   onClose: () => void;
   onSave: (data: { id?: string; name: string; phone: string; notes: string }) => Promise<void>;
   onPurchase: (id: string, amount: number) => Promise<void>;
@@ -18,6 +20,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   isOpen,
   mode,
   supplier,
+  products: propProducts,
   onClose,
   onSave,
   onPurchase,
@@ -30,6 +33,43 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('nakit');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [criticalProducts, setCriticalProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(supplier?.name || '');
+    setPhone(supplier?.phone || '');
+    setNotes(supplier?.notes || '');
+    if (Array.isArray(propProducts)) {
+      setCriticalProducts(propProducts.filter((p) => p.currentStock <= p.criticalThreshold));
+      return;
+    }
+    fetch('/api/products')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.products)) {
+          setCriticalProducts(
+            data.products.filter((p: Product) => p.currentStock <= p.criticalThreshold)
+          );
+        }
+      })
+      .catch(() => {});
+  }, [isOpen, supplier, propProducts]);
+
+  const handleSendWhatsAppOrderList = () => {
+    const targetName = supplier?.name || name.trim() || 'Tedarikçimiz';
+    const rawPhone = supplier?.phone || phone;
+    const waPhone = cleanPhoneForWhatsApp(rawPhone || '');
+    const lines =
+      criticalProducts.length > 0
+        ? criticalProducts.map(
+            (p, idx) =>
+              `${idx + 1}. ${p.name} (Mevcut: ${p.currentStock} ${p.unit || 'Adet'} / Kritik: ${p.criticalThreshold})`
+          )
+        : ['• İhtiyaç duyulan ürün kalemlerini aşağıya ekleyebilirsiniz:'];
+    const msg = `Merhaba ${targetName},\n\nDükkânımızdaki kritik stoklu ürünler için yeni sipariş listemiz aşağıdadır:\n\n${lines.join('\n')}\n\nFiyat ve teslimat bilgisi rica ederiz. İyi çalışmalar.`;
+    window.open(`https://wa.me/${waPhone || ''}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
 
   if (!isOpen) return null;
 
@@ -227,6 +267,29 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 </div>
               )}
             </>
+          )}
+
+          {(supplier || phone.trim().length >= 10) && (
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-xs font-black text-emerald-900 dark:text-emerald-200">
+                  Kritik Stok Sipariş Listesi ({criticalProducts.length} Ürün)
+                </div>
+                <div className="text-[11px] text-emerald-700 dark:text-emerald-400 truncate">
+                  {criticalProducts.length > 0
+                    ? criticalProducts.slice(0, 3).map((p) => p.name).join(', ')
+                    : 'Genel sipariş mesajı hazırla'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSendWhatsAppOrderList}
+                className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>WhatsApp Sipariş Listesi Gönder</span>
+              </button>
+            </div>
           )}
 
           <div className="pt-2 flex items-center justify-end gap-2.5">

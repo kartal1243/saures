@@ -83,6 +83,21 @@ export function registerVipRoutes(app: Express): void {
     const isTrial = profile?.vipPlan === '14_gun_deneme' || profile?.vipPlan === 'deneme_14_gun';
     const daysLeft = profile?.vipUntil ? Math.max(0, Math.ceil((new Date(profile.vipUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
 
+    const shopierLinks = {
+      usta_aylik:
+        process.env.SHOPIER_USTA_MONTHLY_URL ||
+        'https://www.shopier.com/yamanyazilim/52387477?tier=usta&plan=aylik',
+      usta_yillik:
+        process.env.SHOPIER_USTA_YEARLY_URL ||
+        'https://www.shopier.com/yamanyazilim/52387553?tier=usta&plan=yillik',
+      patron_aylik:
+        process.env.SHOPIER_PATRON_MONTHLY_URL ||
+        'https://www.shopier.com/yamanyazilim/52387477?tier=patron&plan=aylik',
+      patron_yillik:
+        process.env.SHOPIER_PATRON_YEARLY_URL ||
+        'https://www.shopier.com/yamanyazilim/52387553?tier=patron&plan=yillik',
+    };
+
     res.json({
       success: true,
       isVip,
@@ -91,6 +106,7 @@ export function registerVipRoutes(app: Express): void {
       vipUntil: profile?.vipUntil,
       isTrial,
       daysLeft,
+      shopierLinks,
       features: [
         { id: 'unlimited_customers', name: 'Sınırsız Müşteri, Cari ve Veresiye Kaydı (0 TL planda 25 ile sınırlı)', active: true },
         { id: 'unlimited_staff', name: 'Sınırsız Personel/Usta & Otomatik Koltuk Prim Dağılımı', active: true },

@@ -14,8 +14,12 @@ import {
   DollarSign,
   TrendingUp,
   Package,
+  Printer,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { RepairTicket } from '../../../shared/types.ts';
+import { printHtmlDocument, escapeHtml } from '../../utils/printTemplate';
 
 interface RepairTicketsViewProps {
   repairTickets: RepairTicket[];
@@ -128,6 +132,55 @@ export const RepairTicketsView: React.FC<RepairTicketsViewProps> = ({
     }
   };
 
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const getTrackUrl = (ticketId: string) => `${window.location.origin}/t/${encodeURIComponent(ticketId)}`;
+
+  const handleCopyTrackLink = async (ticketId: string) => {
+    const url = getTrackUrl(ticketId);
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopiedId(ticketId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handlePrintAcceptanceSlip = (ticket: RepairTicket) => {
+    const trackUrl = getTrackUrl(ticket.id);
+    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&ecc=H&data=${encodeURIComponent(trackUrl)}`;
+    printHtmlDocument({
+      title: `Servis Kabul Fişi #${ticket.id.slice(-6).toUpperCase()}`,
+      paperWidth: '80mm',
+      bodyHtml: `
+        <div style="text-align:center;border-bottom:1px dashed #111;padding-bottom:8px;margin-bottom:8px;">
+          <div style="font-size:14px;font-weight:900;">TEKNİK SERVİS KABUL FİŞİ</div>
+          <div style="font-size:11px;font-weight:800;margin-top:2px;">Fiş No: #${escapeHtml(ticket.id.slice(-6).toUpperCase())}</div>
+          <div style="font-size:10px;color:#555;">${escapeHtml(ticket.createdAt)}</div>
+        </div>
+        <div style="font-size:11px;line-height:1.55;margin-bottom:8px;">
+          <div><strong>Müşteri:</strong> ${escapeHtml(ticket.customerName)}</div>
+          ${ticket.phone ? `<div><strong>Telefon:</strong> ${escapeHtml(ticket.phone)}</div>` : ''}
+          <div><strong>Cihaz / Araç:</strong> ${escapeHtml(ticket.deviceOrVehicle)}</div>
+          <div><strong>Arıza / İşlem:</strong> ${escapeHtml(ticket.complaint)}</div>
+          <div><strong>Tahmini Tutar:</strong> ${ticket.estimatedCost} ₺</div>
+          ${ticket.notes ? `<div><strong>Not:</strong> ${escapeHtml(ticket.notes)}</div>` : ''}
+        </div>
+        <div style="text-align:center;border-top:1px dashed #111;padding-top:8px;">
+          <img src="${qrSrc}" alt="QR Takip" style="width:120px;height:120px;margin:0 auto 4px;display:block;" />
+          <div style="font-size:10px;font-weight:700;">Cihaz Durumunu Canlı Takip Et</div>
+          <div style="font-size:9px;color:#555;word-break:break-all;">${escapeHtml(trackUrl)}</div>
+        </div>
+      `,
+    });
+  };
+
   const openWhatsAppReady = (ticket: RepairTicket) => {
     const cleanPhone = ticket.phone.replace(/[^0-9]/g, '');
     const phoneWithCode = cleanPhone.startsWith('90')
@@ -136,7 +189,8 @@ export const RepairTicketsView: React.FC<RepairTicketsViewProps> = ({
       ? `90${cleanPhone.substring(1)}`
       : `90${cleanPhone}`;
 
-    const text = `Merhaba ${ticket.customerName}, servisimize bıraktığınız ${ticket.deviceOrVehicle} cihazınız/aracınızın onarımı tamamlanmış olup teslime hazırdır. Ödenecek tutar: ${ticket.estimatedCost} ₺. Dilediğiniz zaman teslim alabilirsiniz.`;
+    const trackUrl = getTrackUrl(ticket.id);
+    const text = `Merhaba ${ticket.customerName}, servisimize bıraktığınız ${ticket.deviceOrVehicle} cihazınız/aracınızın durumu güncellendi. Ödenecek tutar: ${ticket.estimatedCost} ₺. Canlı takip: ${trackUrl}`;
     const url = `https://wa.me/${phoneWithCode}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -343,6 +397,27 @@ export const RepairTicketsView: React.FC<RepairTicketsViewProps> = ({
                         <option value="teslime_hazir">Teslime Hazır</option>
                       </select>
                     )}
+
+                    {/* Kabul Fişi Yazdır (QR'lı) & Takip Linki Kopyala */}
+                    <button
+                      type="button"
+                      onClick={() => handlePrintAcceptanceSlip(ticket)}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 flex items-center gap-1 cursor-pointer"
+                      title="Kabul Fişi Yazdır (QR'lı)"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Kabul Fişi (QR)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyTrackLink(ticket.id)}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 flex items-center gap-1 cursor-pointer"
+                      title="Canlı takip linkini kopyala"
+                    >
+                      {copiedId === ticket.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedId === ticket.id ? 'Kopyalandı' : 'Takip Linki'}</span>
+                    </button>
 
                     {/* WhatsApp Ready Message */}
                     {ticket.phone && ticket.status !== 'teslim_edildi' && (

@@ -54,6 +54,16 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
   const isTargetReached = currentEarnings >= dailyTarget;
   const remaining = Math.max(0, dailyTarget - currentEarnings);
 
+  const syncTargetToServer = (val: number) => {
+    fetch('/api/shop-profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dailyTarget: val }),
+    }).catch((err) => {
+      console.error('Günlük ciro hedefi sunucuya kaydedilemedi:', err);
+    });
+  };
+
   const handleSaveTarget = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const val = Number(tempTarget);
@@ -64,6 +74,7 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
       } catch (err) {
         console.error('Failed to save target to localStorage', err);
       }
+      syncTargetToServer(val);
       setIsEditingTarget(false);
     }
   };
@@ -76,6 +87,7 @@ export const CashSummary: React.FC<CashSummaryProps> = ({ cash, onOpenUpcomingMo
     } catch (err) {
       console.error('Failed to save target to localStorage', err);
     }
+    syncTargetToServer(presetVal);
     setIsEditingTarget(false);
   };
 

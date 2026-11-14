@@ -4,6 +4,21 @@ import path from 'path';
 import { isWhitelistedSearchEngineBot, isWhitelistedOrPrivateIp, blockIp, isIpBlocked } from '../backend/visitorTracker';
 import { detectImageMimeAndExt } from '../backend/routes/profile';
 import { sanitizeCsvField } from '../backend/routes/core';
+import {
+  tokenFromRequest,
+  accountFromRequest,
+  createSession,
+  removeSessionByToken,
+  getAccounts,
+} from '../backend/accounts';
+import { createIdempotencyMiddleware } from '../backend/app';
+import { sendSmsMessage, getSmsGatewayStatus, normalizeTurkishGsm } from '../backend/services/smsProvider';
+import {
+  processShopReminders,
+  runReminderCycleNow,
+  getIstanbulDateAndMinutes,
+} from '../backend/services/reminderScheduler';
+import type { AppState } from '../shared/types';
 
 console.log('🔒 Kapsamlı Admin & Güvenlik Denetim Testleri Başlatılıyor...\n');
 
@@ -217,4 +232,219 @@ assert.ok(lockDuration > 0 && lockDuration <= LOCK_MS, '5. hatalı denemede 15 d
 
 console.log('✅ PASS: Admin brute-force 5 denemede 15 dakika kilitleme mantığı doğrulandı.');
 
-console.log('\n🎉 TÜM GÜVENLİK SIKILAŞTIRMA VE AUDIT TESTLERİ BAŞARIYLA GEÇTİ! 100% PASS');
+// ============================================================================
+// 6. MOBİL BEARER TOKEN AUTH TESTLERİ
+// ============================================================================
+console.log('\n--- 6. Authorization: Bearer Token Doğrulama Testleri ---');
+
+const sampleHexToken = 'a'.repeat(48);
+assert.strictEqual(
+  tokenFromRequest({ headers: { authorization: `Bearer ${sampleHexToken}` } }),
+  sampleHexToken,
+  'Geçerli 48 haneli Bearer hex token ayrıştırılmalı'
+);
+assert.strictEqual(
+  tokenFromRequest({ headers: { authorization: 'Bearer invalid-short-token!' } }),
+  null,
+  'Kısa veya hex dışı Bearer token reddedilmeli'
+);
+assert.strictEqual(
+  tokenFromRequest({ headers: { cookie: `sid=${'b'.repeat(48)}`, authorization: `Bearer ${sampleHexToken}` } }),
+  'b'.repeat(48),
+  'Cookie sid varsa geriye dönük uyumlu şekilde okunmalı'
+);
+
+const firstOwner = getAccounts().find((a) => (a.role || 'owner') === 'owner');
+if (firstOwner) {
+  const sess = createSession(firstOwner.id);
+  try {
+    const resolved = accountFromRequest({ headers: { authorization: `Bearer ${sess.token}` } });
+    assert.ok(resolved && resolved.id === firstOwner.id, 'Bearer token ile aktif dükkan hesabı çözümlenmeli');
+  } finally {
+    removeSessionByToken(sess.token);
+  }
+}
+
+console.log('✅ PASS: Authorization: Bearer <token> oturum çözümü doğrulandı.');
+
+// ============================================================================
+// 7. X-IDEMPOTENCY-KEY DEDUPLICATION MIDDLEWARE TESTLERİ
+// ============================================================================
+console.log('\n--- 7. X-Idempotency-Key Deduplication Middleware Testleri ---');
+
+const idemMiddleware = createIdempotencyMiddleware();
+let handlerExecutions = 0;
+
+function invokeIdem(method: string, url: string, key?: string): { status: number; body: any; replayed: boolean } {
+  let status = 200;
+  let sentBody: any = null;
+  let replayed = false;
+
+  const req: any = {
+    method,
+    url,
+    originalUrl: url,
+    path: url,
+    headers: key ? { 'x-idempotency-key': key } : {},
+  };
+  const res: any = {
+    statusCode: 200,
+    setHeader(name: string, value: string) {
+      if (name.toLowerCase() === 'x-idempotency-replayed' && value === 'true') {
+        replayed = true;
+      }
+    },
+    status(code: number) {
+      this.statusCode = code;
+      status = code;
+      return this;
+    },
+    json(payload: any) {
+      sentBody = payload;
+      return this;
+    },
+  };
+
+  idemMiddleware(req, res, () => {
+    handlerExecutions += 1;
+    res.status(201).json({ success: true, callNo: handlerExecutions });
+  });
+
+  return { status, body: sentBody, replayed };
+}
+
+const firstSale = invokeIdem('POST', '/api/quick-pos-sale', 'offline-tx-uuid-001');
+assert.strictEqual(firstSale.status, 201);
+assert.strictEqual(firstSale.replayed, false);
+assert.strictEqual(firstSale.body.callNo, 1);
+
+const duplicateSale = invokeIdem('POST', '/api/quick-pos-sale', 'offline-tx-uuid-001');
+assert.strictEqual(duplicateSale.status, 201);
+assert.strictEqual(duplicateSale.replayed, true, 'Aynı X-Idempotency-Key tekrarında cache yanıtı dönmeli');
+assert.strictEqual(duplicateSale.body.callNo, 1, 'İşleyici ikinci kez çalışmamalı');
+assert.strictEqual(handlerExecutions, 1);
+
+const tableOrder1 = invokeIdem('POST', '/api/tables/table_1/orders', 'offline-order-002');
+const tableOrder2 = invokeIdem('POST', '/api/tables/table_1/orders', 'offline-order-002');
+assert.strictEqual(tableOrder1.replayed, false);
+assert.strictEqual(tableOrder2.replayed, true);
+assert.strictEqual(handlerExecutions, 2);
+
+console.log('✅ PASS: X-Idempotency-Key deduplication middleware kusursuz çalışıyor.');
+
+// ============================================================================
+// 8. SMS GATEWAY & OTOMATİK HATIRLATMA SCHEDULER TESTLERİ
+// ============================================================================
+console.log('\n--- 8. sendSmsMessage & runReminderCycleNow Testleri ---');
+
+async function runAsyncSecurityTests() {
+  assert.strictEqual(normalizeTurkishGsm('0532 456 78 90'), '905324567890');
+  assert.strictEqual(normalizeTurkishGsm('0212 555 00 00'), '');
+
+  const gw = getSmsGatewayStatus();
+  assert.ok(gw.provider && (gw.mode === 'live' || gw.mode === 'fallback_whatsapp'));
+
+  const smsRes = await sendSmsMessage('0532 456 78 90', 'Randevu hatırlatma testi', { category: 'test' });
+  assert.strictEqual(smsRes.simulated, true, 'Env tanımlı değilken güvenli fallback simülasyon dönmeli');
+  assert.strictEqual(smsRes.provider, 'fallback_whatsapp');
+  assert.ok(smsRes.whatsappLink.startsWith('https://wa.me/905324567890?text='));
+
+  const invalidSmsRes = await sendSmsMessage('abc', 'Mesaj');
+  assert.strictEqual(invalidSmsRes.sent, false);
+  assert.ok(invalidSmsRes.error);
+
+  // Sabit saatte (10:00 İstanbul) randevu + vadesi gelen aidat testi
+  const fixedNowMs = Date.UTC(2026, 10, 14, 7, 0, 0); // 10:00 Europe/Istanbul (UTC+3)
+  const { dateStr: istToday } = getIstanbulDateAndMinutes(fixedNowMs);
+
+  const mockState: AppState = {
+    storeName: 'Test Berber & Esnaf',
+    shopProfile: {
+      storeName: 'Test Berber & Esnaf',
+      ownerName: 'Ahmet Usta',
+      businessField: 'Berber & Kuaför',
+      employeeCount: '2',
+      phone: '05324567890',
+      cityDistrict: 'İstanbul',
+      dailyTarget: 5000,
+      isConfigured: true,
+      isVip: true,
+      vipTier: 'patron',
+      vipUntil: new Date(Date.now() + 30 * 86400000).toISOString(),
+    },
+    customers: [
+      {
+        id: 'cust_1',
+        name: 'Mehmet Kaya',
+        phone: '05334567891',
+        balance: 500,
+        businessCategory: 'berber_kuafor',
+        createdAt: new Date().toISOString(),
+        subscriptionPlan: {
+          enabled: true,
+          title: 'Aylık Bakım Paketi',
+          amount: 500,
+          interval: 'aylik',
+          nextDueDate: istToday,
+        },
+      },
+    ],
+    transactions: [],
+    reminderLogs: [],
+    products: [],
+    tables: [],
+    repairTickets: [],
+    custodyTickets: [],
+    dailyClosings: [],
+    appointments: [
+      {
+        id: 'apt_1',
+        customerName: 'Ali Demir',
+        phone: '05444567892',
+        staffName: 'Ahmet Usta',
+        serviceName: 'Saç Kesimi',
+        price: 300,
+        appointmentDate: istToday,
+        timeSlot: '11:30', // 10:00 -> 11:30 = 90 dk sonra (2 saat içinde)
+        status: 'onayli',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'apt_far',
+        customerName: 'Uzak Randevu',
+        phone: '05444567893',
+        staffName: 'Ahmet Usta',
+        serviceName: 'Sakal',
+        price: 150,
+        appointmentDate: istToday,
+        timeSlot: '16:00', // 6 saat sonra (tetiklenmemeli)
+        status: 'onayli',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+  };
+
+  const pass1 = await processShopReminders('acc_test_1', mockState, fixedNowMs);
+  assert.strictEqual(pass1.appointmentsReminded, 1, '2 saat içindeki 1 randevu hatırlatılmalı');
+  assert.strictEqual(pass1.subscriptionsReminded, 1, 'Vadesi bugün gelen 1 aidat hatırlatılmalı');
+  assert.strictEqual((mockState.appointments![0] as any).autoReminderSent, true, 'autoReminderSent işaretlenmeli');
+  assert.strictEqual((mockState.appointments![1] as any).autoReminderSent, undefined, 'Uzak randevu işaretlenmemeli');
+  assert.strictEqual(mockState.reminderLogs.length, 2, '2 ReminderLog kaydı oluşturulmalı');
+
+  // İkinci çalışmada mükerrer hatırlatma atılmamalı
+  const pass2 = await processShopReminders('acc_test_1', mockState, fixedNowMs + 15 * 60 * 1000);
+  assert.strictEqual(pass2.appointmentsReminded, 0, 'Aynı randevuya tekrar hatırlatma atılmamalı');
+  assert.strictEqual(pass2.subscriptionsReminded, 0, 'Aynı aidata aynı gün tekrar hatırlatma atılmamalı');
+
+  // Global cycle fonksiyonunun hatasız çalıştığını doğrula
+  const cycleResult = await runReminderCycleNow({ nowMs: fixedNowMs });
+  assert.ok(typeof cycleResult.checkedShops === 'number' && cycleResult.checkedShops >= 0);
+
+  console.log('✅ PASS: SMS provider fallback ve otomatik hatırlatma scheduler testleri geçti.');
+  console.log('\n🎉 TÜM GÜVENLİK SIKILAŞTIRMA VE AUDIT TESTLERİ BAŞARIYLA GEÇTİ! 100% PASS');
+}
+
+runAsyncSecurityTests().catch((err) => {
+  console.error('❌ Async test hatası:', err);
+  process.exit(1);
+});

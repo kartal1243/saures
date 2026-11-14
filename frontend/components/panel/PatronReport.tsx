@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { Transaction, Customer, Product, ShopProfile } from '../../../shared/types.ts';
 import { formatCurrency } from '../../utils/formatters';
 import { dayKey, midnight } from '../../utils/dates';
+import { printHtmlDocument, escapeHtml } from '../../utils/printTemplate';
 import {
   Crown,
   Printer,
@@ -12,6 +13,7 @@ import {
   HandCoins,
   TriangleAlert,
   CalendarDays,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface PatronReportProps {
@@ -114,11 +116,100 @@ export const PatronReport: React.FC<PatronReportProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handlePrintPatronReport = () => {
+    const debtorRows = data.debtors
+      .map(
+        (c, i) =>
+          `<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${i + 1}. ${escapeHtml(c.name)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(c.phone || '-')}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;color:#e11d48;">${escapeHtml(formatCurrency(c.balance || 0))}</td></tr>`
+      )
+      .join('');
+    const criticalRows = data.critical
+      .slice(0, 12)
+      .map(
+        (p) =>
+          `<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(p.name)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;color:#e11d48;">${p.currentStock} / ${p.criticalThreshold} ${escapeHtml(p.unit)}</td></tr>`
+      )
+      .join('');
+    printHtmlDocument({
+      title: `Patron Raporu — ${shopProfile.storeName || 'Dükkanım'}`,
+      paperWidth: 'A4',
+      bodyHtml: `
+        <div style="border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;">
+          <div>
+            <div style="font-size:11px;font-weight:800;color:#ea580c;text-transform:uppercase;letter-spacing:1px;">Dükkânım Yanımda • Haftalık Özet</div>
+            <h1 style="margin:4px 0 0;font-size:22px;font-weight:900;">${escapeHtml(shopProfile.storeName || 'Dükkanım')} — Patron Raporu</h1>
+          </div>
+          <div style="font-size:12px;color:#475569;font-weight:700;">Dönem: ${escapeHtml(data.weekLabel)}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+          <div style="border:1px solid #a7f3d0;background:#ecfdf5;border-radius:10px;padding:12px;text-align:center;">
+            <div style="font-size:10px;font-weight:800;color:#059669;text-transform:uppercase;">Haftalık Tahsilat</div>
+            <div style="font-size:20px;font-weight:900;color:#047857;margin-top:4px;">${escapeHtml(formatCurrency(data.income))}</div>
+          </div>
+          <div style="border:1px solid #fecdd3;background:#fff1f2;border-radius:10px;padding:12px;text-align:center;">
+            <div style="font-size:10px;font-weight:800;color:#e11d48;text-transform:uppercase;">Haftalık Gider</div>
+            <div style="font-size:20px;font-weight:900;color:#be123c;margin-top:4px;">${escapeHtml(formatCurrency(data.expense))}</div>
+          </div>
+          <div style="border:1px solid #bae6fd;background:#f0f9ff;border-radius:10px;padding:12px;text-align:center;">
+            <div style="font-size:10px;font-weight:800;color:#0284c7;text-transform:uppercase;">Net Durum</div>
+            <div style="font-size:20px;font-weight:900;color:#0369a1;margin-top:4px;">${escapeHtml(formatCurrency(data.net))}</div>
+          </div>
+        </div>
+        <p style="font-size:12px;color:#475569;margin-bottom:18px;">
+          Önceki Hafta Tahsilatı: <strong>${escapeHtml(formatCurrency(data.prevIncome))}</strong> · Haftalık Veresiye Satış: <strong>${escapeHtml(formatCurrency(data.veresiye))}</strong> · Toplam Bekleyen Alacak: <strong>${escapeHtml(formatCurrency(data.totalDebt))}</strong> (${data.debtorCount} kişi)
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <h3 style="font-size:13px;font-weight:900;margin:0 0 8px;">En Yüksek Bakiyeli 5 Müşteri</h3>
+            ${data.debtors.length === 0 ? '<p style="font-size:12px;color:#059669;">Bekleyen alacak yok.</p>' : `<table style="font-size:12px;">${debtorRows}</table>`}
+          </div>
+          <div>
+            <h3 style="font-size:13px;font-weight:900;margin:0 0 8px;">Kritik Stoktaki Ürünler (${data.critical.length})</h3>
+            ${data.critical.length === 0 ? '<p style="font-size:12px;color:#059669;">Tüm stoklar yeterli seviyede.</p>' : `<table style="font-size:12px;">${criticalRows}</table>`}
+          </div>
+        </div>
+      `,
+    });
+  };
+
+  const handleExportAccountantCsv = () => {
+    const csvEscape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = ['Tarih', 'İşlem Türü', 'Müşteri / Cari', 'Ödeme Yöntemi', 'Tutar (TL)', 'Açıklama'].map(csvEscape).join(';');
+    const rows = transactions.map((tx) =>
+      [
+        tx.date || '',
+        tx.type === 'tahsilat' ? 'Tahsilat (Gelir)' : tx.type === 'veresiye' ? 'Veresiye Satış' : 'Gider / Masraf',
+        tx.customerName || 'Genel',
+        tx.paymentMethod || '',
+        Number(tx.amount || 0).toFixed(2).replace('.', ','),
+        tx.description || '',
+      ]
+        .map(csvEscape)
+        .join(';')
+    );
+    const summaryRows = [
+      '',
+      ['ÖZET', `Dönem: ${data.weekLabel}`, `Haftalık Tahsilat: ${data.income.toFixed(2)}`, `Haftalık Gider: ${data.expense.toFixed(2)}`, `Net: ${data.net.toFixed(2)}`, `Toplam Veresiye Alacak: ${data.totalDebt.toFixed(2)}`]
+        .map(csvEscape)
+        .join(';'),
+    ];
+    const csvContent = '\uFEFF' + [header, ...rows, ...summaryRows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `muhasebe-raporu-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const diff = data.income - data.prevIncome;
 
   return (
     <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-4 sm:p-5 shadow-xs">
-      <div className="flex items-center justify-between gap-2 no-print">
+      <div className="flex flex-wrap items-center justify-between gap-2 no-print">
         <h2 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
           <span className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center">
             <CalendarDays className="w-4 h-4" />
@@ -128,7 +219,16 @@ export const PatronReport: React.FC<PatronReportProps> = ({
             <Crown className="w-3 h-3" /> VIP
           </span>
         </h2>
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={handleExportAccountantCsv}
+            title="Muhasebeci için CSV/Excel indir"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-xs font-black transition-colors cursor-pointer"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            Muhasebeci CSV/Excel
+          </button>
           <button
             type="button"
             onClick={copy}
@@ -140,7 +240,7 @@ export const PatronReport: React.FC<PatronReportProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={handlePrintPatronReport}
             title="Raporu yazdır"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-stone-900 dark:bg-white hover:opacity-90 text-white dark:text-stone-900 text-xs font-black transition-opacity cursor-pointer"
           >

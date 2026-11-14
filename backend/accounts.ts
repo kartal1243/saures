@@ -193,13 +193,26 @@ export function pruneExpiredSessions(): number {
   return before - sessions.length;
 }
 
-export function tokenFromRequest(req: { headers: { cookie?: string } }): string | null {
+export function tokenFromRequest(req: {
+  headers: { cookie?: string; authorization?: string | string[] };
+}): string | null {
   const header = req.headers.cookie || '';
   const match = header.match(/(?:^|;\s*)sid=([a-f0-9]+)/);
-  return match ? match[1] : null;
+  if (match) return match[1];
+
+  const rawAuth = Array.isArray(req.headers.authorization)
+    ? req.headers.authorization[0]
+    : req.headers.authorization;
+  if (typeof rawAuth === 'string') {
+    const bearer = rawAuth.trim().match(/^Bearer\s+([a-f0-9]{32,64})$/i);
+    if (bearer) return bearer[1].toLowerCase();
+  }
+  return null;
 }
 
-export function accountFromRequest(req: { headers: { cookie?: string } }): Account | null {
+export function accountFromRequest(req: {
+  headers: { cookie?: string; authorization?: string | string[] };
+}): Account | null {
   const token = tokenFromRequest(req);
   if (!token) return null;
   const session = sessions.find((s) => s.token === token);

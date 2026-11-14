@@ -40,6 +40,8 @@ export const StaffModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   const [salary, setSalary] = useState('');
   const [staffNotes, setStaffNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [salaryMsg, setSalaryMsg] = useState<string | null>(null);
+  const [payingStaffId, setPayingStaffId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const loadStaff = async () => {
@@ -92,6 +94,38 @@ export const StaffModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
       if (res.ok) loadStaff();
     } catch (e) {
       console.error('Personel silinemedi:', e);
+    }
+  };
+
+  const payStaffSalary = async (member: StaffMember) => {
+    const amount = Number(member.salary) || 0;
+    if (amount <= 0) return;
+    if (!confirm(`${member.ownerName} için ${amount.toLocaleString('tr-TR')} ₺ maaş ödemesini kasa gideri olarak işlemek istiyor musunuz?`)) {
+      return;
+    }
+    setPayingStaffId(member.id);
+    setSalaryMsg(null);
+    try {
+      const res = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: '',
+          customerName: member.ownerName,
+          type: 'gider',
+          amount,
+          paymentMethod: 'nakit',
+          category: 'Personel Maaş',
+          description: `Maaş Ödemesi: ${member.ownerName} (${member.position || 'Personel'})`,
+        }),
+      });
+      if (!res.ok) throw new Error('Maaş gideri kaydedilemedi.');
+      setSalaryMsg(`✅ ${member.ownerName} için ${amount.toLocaleString('tr-TR')} ₺ maaş ödemesi kasaya gider yazıldı.`);
+      setTimeout(() => setSalaryMsg(null), 4000);
+    } catch (err: any) {
+      setError(err.message || 'Maaş gideri işlenemedi.');
+    } finally {
+      setPayingStaffId(null);
     }
   };
 
@@ -215,6 +249,11 @@ export const StaffModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
           )}
 
           {/* Maaş özeti */}
+          {salaryMsg && (
+            <div className="px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-xs font-black text-emerald-700 dark:text-emerald-300">
+              {salaryMsg}
+            </div>
+          )}
           {staff.length > 0 && totalSalary > 0 && (
             <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
               <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
@@ -292,14 +331,28 @@ export const StaffModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => removeStaff(s.id)}
-                      className="p-2 rounded-xl text-stone-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0"
-                      title="Personeli sil"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {typeof s.salary === 'number' && s.salary > 0 && (
+                        <button
+                          type="button"
+                          disabled={payingStaffId === s.id}
+                          onClick={() => payStaffSalary(s)}
+                          className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                          title="Maaş Öde (Kasaya Gider Yaz)"
+                        >
+                          <Banknote className="w-3.5 h-3.5" />
+                          <span>{payingStaffId === s.id ? 'İşleniyor...' : 'Maaş Öde (Gider Yaz)'}</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeStaff(s.id)}
+                        className="p-2 rounded-xl text-stone-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0"
+                        title="Personeli sil"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))

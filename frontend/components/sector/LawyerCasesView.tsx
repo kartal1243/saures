@@ -10,6 +10,8 @@ import {
   Check,
   Clock,
   User,
+  AlertTriangle,
+  Banknote,
 } from 'lucide-react';
 import type { CaseFile, Customer, Hearing } from '../../../shared/types.ts';
 import { formatCurrency } from '../../utils/formatters';
@@ -57,6 +59,78 @@ export const LawyerCasesView: React.FC<LawyerCasesViewProps> = ({
   const [hearings, setHearings] = useState<Hearing[]>([]);
   const [newHearingDate, setNewHearingDate] = useState('');
   const [newHearingNote, setNewHearingNote] = useState('');
+  const [feeCase, setFeeCase] = useState<CaseFile | null>(null);
+  const [feeAmount, setFeeAmount] = useState('');
+  const [feeMode, setFeeMode] = useState<'tahsilat' | 'veresiye'>('tahsilat');
+  const [feePayMethod, setFeePayMethod] = useState<'nakit' | 'kart' | 'havale'>('havale');
+  const [feeSubmitting, setFeeSubmitting] = useState(false);
+  const [feeFeedback, setFeeFeedback] = useState<string | null>(null);
+
+  const upcoming3DayHearings = useMemo(() => {
+    const todayStr = dayKey(new Date());
+    const limitDate = new Date();
+    limitDate.setDate(limitDate.getDate() + 3);
+    const limitStr = dayKey(limitDate);
+
+    const list: Array<{ fileNo: string; clientName: string; date: string; court?: string }> = [];
+    for (const c of cases) {
+      if (c.status === 'kapali') continue;
+      const dates = new Set<string>();
+      if (c.hearingDate) dates.add(c.hearingDate);
+      for (const h of c.hearings || []) {
+        if (h.date) dates.add(h.date);
+      }
+      dates.forEach((d) => {
+        if (d >= todayStr && d <= limitStr) {
+          list.push({ fileNo: c.fileNo, clientName: c.clientName, date: d, court: c.court });
+        }
+      });
+    }
+    return list.sort((a, b) => a.date.localeCompare(b.date));
+  }, [cases]);
+
+  const handleOpenFeeModal = (c: CaseFile) => {
+    const computed = Math.max(0, (Number(c.consultancyHours) || 0) * (Number(c.hourlyRate) || 0));
+    setFeeCase(c);
+    setFeeAmount(computed > 0 ? String(computed) : '');
+    setFeeMode('tahsilat');
+    setFeePayMethod('havale');
+  };
+
+  const handleRecordConsultancyFee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feeCase) return;
+    const amt = Number(feeAmount);
+    if (!amt || amt <= 0) return;
+    setFeeSubmitting(true);
+    try {
+      const res = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: feeCase.customerId || '',
+          customerName: feeCase.clientName,
+          type: feeMode,
+          amount: amt,
+          paymentMethod: feeMode === 'veresiye' ? 'veresiye' : feePayMethod,
+          category: 'Danışmanlık Ücreti',
+          description: `Dava #${feeCase.fileNo} Danışmanlık / Vekalet Ücreti (${feeCase.consultancyHours || 0} saat)`,
+        }),
+      });
+      if (!res.ok) throw new Error('İşlem kaydedilemedi.');
+      setFeeFeedback(
+        feeMode === 'tahsilat'
+          ? `#${feeCase.fileNo} için ${formatCurrency(amt)} kasaya tahsilat olarak işlendi.`
+          : `#${feeCase.fileNo} için ${formatCurrency(amt)} müvekkil carisine borç yazıldı.`
+      );
+      setFeeCase(null);
+      setTimeout(() => setFeeFeedback(null), 4000);
+    } catch (err: any) {
+      alert(err.message || 'Ücret kaydedilemedi.');
+    } finally {
+      setFeeSubmitting(false);
+    }
+  };
 
   const switchTab = (t: LawyerTab) => {
     setTab(t);
@@ -193,6 +267,36 @@ export const LawyerCasesView: React.FC<LawyerCasesViewProps> = ({
         </div>
       </div>
 
+      {upcoming3DayHearings.length > 0 && (
+        <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/35 border border-amber-300 dark:border-amber-800/70 p-4 flex items-start gap-3">
+          <span className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-5 h-5" />
+          </span>
+          <div className="min-w-0 flex-1 space-y-1">
+            <h4 className="text-xs sm:text-sm font-black text-amber-950 dark:text-amber-200">
+              Yaklaşan Duruşma Uyarısı (3 Gün İçinde — {upcoming3DayHearings.length} Duruşma)
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {upcoming3DayHearings.map((h, i) => (
+                <span
+                  key={`${h.fileNo}-${h.date}-${i}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-stone-900 border border-amber-200 dark:border-amber-800 text-[11px] font-bold text-stone-800 dark:text-stone-100"
+                >
+                  <Gavel className="w-3 h-3 text-amber-600" />
+                  <span>{h.date} • #{h.fileNo} ({h.clientName})</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {feeFeedback && (
+        <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 px-4 py-3 text-xs font-black text-emerald-800 dark:text-emerald-200">
+          ✅ {feeFeedback}
+        </div>
+      )}
+
       {tab === 'cases' ? (
         <div className="grid sm:grid-cols-2 gap-3">
           {cases.length === 0 && (
@@ -248,7 +352,14 @@ export const LawyerCasesView: React.FC<LawyerCasesViewProps> = ({
                     </p>
                   </div>
                 </div>
-                <div className="mt-3 flex justify-end gap-1.5">
+                <div className="mt-3 flex justify-end gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenFeeModal(c)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-black bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 transition-colors cursor-pointer"
+                  >
+                    <Banknote className="w-3 h-3" /> Danışmanlık Ücretini Kasaya / Cariye İşle
+                  </button>
                   <button
                     type="button"
                     onClick={() => openEdit(c)}
@@ -408,6 +519,80 @@ export const LawyerCasesView: React.FC<LawyerCasesViewProps> = ({
                 <button type="submit" disabled={saving} className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black text-sm shadow-md transition-transform active:scale-98 cursor-pointer disabled:opacity-50">
                   <Check className="w-5 h-5 stroke-[3]" />
                   <span>{saving ? 'Kaydediliyor...' : 'Dosyayı Kaydet'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {feeCase && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-md border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden">
+            <div className="p-4 bg-linear-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-black">Danışmanlık / Vekalet Ücreti İşle</h3>
+                <p className="text-[11px] opacity-85">#{feeCase.fileNo} — {feeCase.clientName}</p>
+              </div>
+              <button type="button" onClick={() => setFeeCase(null)} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleRecordConsultancyFee} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">Tutar (₺) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="any"
+                  required
+                  value={feeAmount}
+                  onChange={(e) => setFeeAmount(e.target.value)}
+                  placeholder="Örn: 3500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm font-black"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFeeMode('tahsilat')}
+                  className={`py-2 px-3 rounded-xl text-xs font-black border cursor-pointer ${
+                    feeMode === 'tahsilat' ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'
+                  }`}
+                >
+                  Kasaya Tahsilat İşle
+                </button>
+                <button
+                  type="button"
+                  disabled={!feeCase.customerId}
+                  onClick={() => setFeeMode('veresiye')}
+                  className={`py-2 px-3 rounded-xl text-xs font-black border cursor-pointer disabled:opacity-40 ${
+                    feeMode === 'veresiye' ? 'bg-amber-600 text-white border-amber-700' : 'bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'
+                  }`}
+                >
+                  Müvekkil Cariye Borç
+                </button>
+              </div>
+              {feeMode === 'tahsilat' && (
+                <select
+                  value={feePayMethod}
+                  onChange={(e) => setFeePayMethod(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold"
+                >
+                  <option value="havale">Havale / EFT</option>
+                  <option value="nakit">Nakit</option>
+                  <option value="kart">Kredi Kartı</option>
+                </select>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setFeeCase(null)} className="px-4 py-2 text-xs font-bold text-stone-500 cursor-pointer">
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  disabled={feeSubmitting}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black cursor-pointer disabled:opacity-50"
+                >
+                  {feeSubmitting ? 'İşleniyor...' : 'Kaydet'}
                 </button>
               </div>
             </form>

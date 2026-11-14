@@ -58,10 +58,10 @@ const CUSTOM_PANEL_PERKS = [
 ];
 
 const SHOPIER_LINKS = {
-  usta_aylik: 'https://www.shopier.com/yamanyazilim/52387477',
-  usta_yillik: 'https://www.shopier.com/yamanyazilim/52387553',
-  patron_aylik: 'https://www.shopier.com/yamanyazilim/52387477',
-  patron_yillik: 'https://www.shopier.com/yamanyazilim/52387553',
+  usta_aylik: 'https://www.shopier.com/yamanyazilim/52387477?tier=usta&plan=aylik',
+  usta_yillik: 'https://www.shopier.com/yamanyazilim/52387553?tier=usta&plan=yillik',
+  patron_aylik: 'https://www.shopier.com/yamanyazilim/52387477?tier=patron&plan=aylik',
+  patron_yillik: 'https://www.shopier.com/yamanyazilim/52387553?tier=patron&plan=yillik',
 };
 
 export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
@@ -76,12 +76,28 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
   const [paymentRedirected, setPaymentRedirected] = useState(false);
+  const [shopierLinks, setShopierLinks] = useState(SHOPIER_LINKS);
 
   useEffect(() => {
     if (!isAlreadyVip) {
       setActiveTab('pricing');
     } else {
       setActiveTab('request');
+    }
+    if (isOpen) {
+      fetch('/api/vip/status')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.shopierLinks) {
+            setShopierLinks((prev) => ({
+              usta_aylik: data.shopierLinks.usta_aylik || prev.usta_aylik,
+              usta_yillik: data.shopierLinks.usta_yillik || prev.usta_yillik,
+              patron_aylik: data.shopierLinks.patron_aylik || prev.patron_aylik,
+              patron_yillik: data.shopierLinks.patron_yillik || prev.patron_yillik,
+            }));
+          }
+        })
+        .catch(() => {});
     }
   }, [isAlreadyVip, isOpen]);
 
@@ -96,8 +112,8 @@ export const VipAiConsultantModal: React.FC<VipAiConsultantModalProps> = ({
 
   const handleUpgrade = (planTier: 'usta' | 'patron' = 'patron') => {
     const targetUrl = planTier === 'usta'
-      ? (selectedPlan === 'yillik' ? SHOPIER_LINKS.usta_yillik : SHOPIER_LINKS.usta_aylik)
-      : (selectedPlan === 'yillik' ? SHOPIER_LINKS.patron_yillik : SHOPIER_LINKS.patron_aylik);
+      ? (selectedPlan === 'yillik' ? shopierLinks.usta_yillik : shopierLinks.usta_aylik)
+      : (selectedPlan === 'yillik' ? shopierLinks.patron_yillik : shopierLinks.patron_aylik);
 
     setPaymentRedirected(true);
     window.open(targetUrl, '_blank', 'noopener,noreferrer');

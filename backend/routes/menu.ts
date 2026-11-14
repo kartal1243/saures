@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from 'express';
 import crypto from 'crypto';
-import type { MenuItem } from '../../shared/types';
+import type { MenuItem, TableOrderItem } from '../../shared/types';
 import { S, saveState, als } from '../context';
 import { broadcast, broadcastToAccount } from '../realtime';
 import { getAccounts } from '../accounts';
@@ -8,6 +8,7 @@ import { loadShopState, persistShopState, isReservedSlug } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { publicActionRateLimit } from '../guards';
 import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
+import { lookupPublicTicket } from './repair';
 
 const SAMPLE_MENU_ITEMS: MenuItem[] = [
   {
@@ -145,45 +146,58 @@ export function slugify(text: string): string {
     .replace(/-+/g, '-');
 }
 
+function resolveMenuShop(identifier: string) {
+  const rawId = String(identifier || '').toLowerCase().trim();
+  const accounts = getAccounts();
+
+  let targetAcc = accounts.find(
+    (a) =>
+      a.id.toLowerCase() === rawId ||
+      a.phone === rawId ||
+      slugify(a.shopName) === rawId
+  );
+
+  let shopState = targetAcc ? loadShopState(targetAcc.id) : null;
+
+  if (!shopState) {
+    for (const a of accounts) {
+      const st = loadShopState(a.id);
+      const shopSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
+      if (shopSlug === rawId) {
+        targetAcc = a;
+        shopState = st;
+        break;
+      }
+    }
+  }
+
+  // Yalnızca rawId 'demo' ise demo hesabına düş; var olmayan diğer sluglar 404 dönmelidir!
+  if (!shopState && rawId === 'demo') {
+    const fallbackAcc = accounts.find(
+      (a) => a.id === DEMO_ACCOUNT_ID || a.phone === DEMO_PHONE || a.phone === '05550000000'
+    );
+    if (fallbackAcc) {
+      targetAcc = fallbackAcc;
+      shopState = loadShopState(fallbackAcc.id);
+    }
+  }
+
+  return { rawId, targetAcc, shopState };
+}
+
 /** Herkese Açık QR Menü Rotaları (Guard Öncesi Çağrılır - Şifresiz) */
 export function registerPublicMenuRoutes(app: Express): void {
+  // Kamusal Servis & Emanet Fişi Takip Ucu (/t/:code)
+  app.get('/api/public/ticket/:code', publicActionRateLimit, (req: Request, res: Response) => {
+    const ticket = lookupPublicTicket(req.params.code);
+    if (!ticket) {
+      return res.status(404).json({ error: 'Bu takip koduna ait servis veya emanet kaydı bulunamadı.' });
+    }
+    return res.json({ success: true, ticket });
+  });
+
   app.get('/api/public/menu/:identifier', (req: Request, res: Response) => {
-    const rawId = req.params.identifier.toLowerCase().trim();
-    const accounts = getAccounts();
-
-    // 1. Slug veya Account ID veya Telefon ile dükkan bul
-    let targetAcc = accounts.find(
-      (a) =>
-        a.id.toLowerCase() === rawId ||
-        a.phone === rawId ||
-        slugify(a.shopName) === rawId
-    );
-
-    // Eğer bulunamazsa shopState dosyalarını tara (slug kontrolü)
-    let shopState = targetAcc ? loadShopState(targetAcc.id) : null;
-
-    if (!shopState) {
-      for (const a of accounts) {
-        const st = loadShopState(a.id);
-        const shopSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
-        if (shopSlug === rawId) {
-          targetAcc = a;
-          shopState = st;
-          break;
-        }
-      }
-    }
-
-    // Yalnızca rawId 'demo' ise demo hesabına düş; var olmayan diğer sluglar 404 dönmelidir!
-    if (!shopState && rawId === 'demo') {
-      const fallbackAcc = accounts.find(
-        (a) => a.id === DEMO_ACCOUNT_ID || a.phone === DEMO_PHONE || a.phone === '05550000000'
-      );
-      if (fallbackAcc) {
-        targetAcc = fallbackAcc;
-        shopState = loadShopState(fallbackAcc.id);
-      }
-    }
+    const { rawId, targetAcc, shopState } = resolveMenuShop(req.params.identifier);
 
     if (!shopState) {
       return res.status(404).json({ error: 'İşletme menüsü bulunamadı.' });
@@ -209,24 +223,30 @@ export function registerPublicMenuRoutes(app: Express): void {
       });
     }
 
+    const isDemoCafe = rawId === 'demo';
     const items =
       Array.isArray(shopState.menuItems) && shopState.menuItems.length > 0
         ? shopState.menuItems
         : SAMPLE_MENU_ITEMS;
 
-    const slug =
-      shopState.shopProfile?.slug ||
-      slugify(shopState.shopProfile?.storeName || targetAcc?.shopName || 'restoran');
+    const slug = isDemoCafe
+      ? 'demo'
+      : shopState.shopProfile?.slug ||
+        slugify(shopState.shopProfile?.storeName || targetAcc?.shopName || 'restoran');
 
     res.json({
       success: true,
-      shopName: shopState.shopProfile?.storeName || targetAcc?.shopName || 'Restoran & Kafe',
-      slogan: shopState.shopProfile?.slogan || 'Afiyet Olsun',
-      logoUrl: shopState.shopProfile?.logoUrl,
-      phone: shopState.shopProfile?.phone || targetAcc?.phone || '',
-      cityDistrict: shopState.shopProfile?.cityDistrict || '',
+      shopName: isDemoCafe
+        ? 'Karaköy Kahvecisi & Bistro'
+        : shopState.shopProfile?.storeName || targetAcc?.shopName || 'Restoran & Kafe',
+      slogan: isDemoCafe
+        ? 'Geleneksel lezzetler, taze kahve ve hızlı servis'
+        : shopState.shopProfile?.slogan || 'Afiyet Olsun',
+      logoUrl: isDemoCafe ? undefined : shopState.shopProfile?.logoUrl,
+      phone: isDemoCafe ? '' : shopState.shopProfile?.phone || targetAcc?.phone || '',
+      cityDistrict: isDemoCafe ? 'Karaköy, İstanbul' : shopState.shopProfile?.cityDistrict || '',
       slug,
-      brandingRequired: !limits.removeBranding,
+      brandingRequired: isDemoCafe ? true : !limits.removeBranding,
       menuItems: items,
       tables: (shopState.tables || []).map((t) => ({ id: t.id, name: t.name })),
     });
@@ -234,38 +254,13 @@ export function registerPublicMenuRoutes(app: Express): void {
 
   // Masadan Canlı Garson Çağır & Hesap İste (QR Menü Müşteri Butonları - Şifresiz Public Uç)
   app.post('/api/public/menu/:identifier/table-action', publicActionRateLimit, (req: Request, res: Response) => {
-    const rawId = (req.params.identifier || '').toLowerCase();
-    const accounts = getAccounts();
-    let targetAcc = accounts.find(
-      (a) =>
-        a.id.toLowerCase() === rawId ||
-        a.phone === rawId ||
-        slugify(a.shopName) === rawId
-    );
+    const { targetAcc, shopState: st } = resolveMenuShop(req.params.identifier);
 
-    if (!targetAcc) {
-      for (const a of accounts) {
-        const st = loadShopState(a.id);
-        const shopSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
-        if (shopSlug === rawId) {
-          targetAcc = a;
-          break;
-        }
-      }
-    }
-
-    if (!targetAcc && rawId === 'demo') {
-      targetAcc = accounts.find(
-        (a) => a.id === DEMO_ACCOUNT_ID || a.phone === DEMO_PHONE || a.phone === '05550000000'
-      );
-    }
-
-    if (!targetAcc) {
+    if (!targetAcc || !st) {
       return res.status(404).json({ error: 'İşletme bulunamadı.' });
     }
 
     const { tableNo, action } = req.body || {}; // action: 'waiter' | 'bill'
-    const st = loadShopState(targetAcc.id);
     const table = (st.tables || []).find((t) => t.id === tableNo || t.name === tableNo);
 
     if (table) {
@@ -295,6 +290,154 @@ export function registerPublicMenuRoutes(app: Express): void {
     res.json({
       success: true,
       message: action === 'bill' ? `${displayTable} için hesap talebi kasaya iletildi.` : `${displayTable} için garson çağrısı personele iletildi.`,
+    });
+  });
+
+  // Masadan QR Menü Canlı Sipariş Gönderimi (Şifresiz Public Uç)
+  app.post('/api/public/menu/:identifier/order', publicActionRateLimit, async (req: Request, res: Response) => {
+    const { rawId, targetAcc, shopState: st } = resolveMenuShop(req.params.identifier);
+    if (!targetAcc || !st) {
+      return res.status(404).json({ error: 'İşletme bulunamadı.' });
+    }
+
+    if (st.shopProfile) {
+      checkAndUpdateVipStatus(st.shopProfile);
+    }
+    if (!st.shopProfile?.isVip && rawId !== 'demo') {
+      return res.status(403).json({
+        error: 'Bu işletmenin Dijital QR Menü sipariş servisi aktif değildir.',
+        code: 'VIP_REQUIRED',
+      });
+    }
+
+    const { tableNo, items, customerNote } = req.body || {};
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Sepetiniz boş. Lütfen en az bir ürün seçiniz.' });
+    }
+    if (items.length > 30) {
+      return res.status(400).json({ error: 'Tek siparişte en fazla 30 kalem gönderilebilir.' });
+    }
+
+    const menuCatalog =
+      Array.isArray(st.menuItems) && st.menuItems.length > 0 ? st.menuItems : SAMPLE_MENU_ITEMS;
+
+    const nowTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const builtOrders: TableOrderItem[] = [];
+
+    for (const rawItem of items) {
+      const qty = Math.min(50, Math.max(1, Math.floor(Number(rawItem?.quantity) || 1)));
+      const menuItem = menuCatalog.find(
+        (m) =>
+          (rawItem?.menuItemId && m.id === rawItem.menuItemId) ||
+          (rawItem?.id && m.id === rawItem.id) ||
+          (rawItem?.name && m.name.toLowerCase() === String(rawItem.name).trim().toLowerCase())
+      );
+      if (!menuItem || menuItem.isAvailable === false) continue;
+
+      const unitPrice = Number(menuItem.price) || 0;
+      const itemNote = rawItem?.note ? String(rawItem.note).trim().slice(0, 120) : '';
+      const globalNote = customerNote ? String(customerNote).trim().slice(0, 120) : '';
+      const combinedNote = [itemNote, globalNote ? `Müşteri Notu: ${globalNote}` : ''].filter(Boolean).join(' • ');
+
+      builtOrders.push({
+        id: `ord_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name: menuItem.name,
+        productName: menuItem.name,
+        quantity: qty,
+        unitPrice,
+        price: unitPrice,
+        total: unitPrice * qty,
+        time: nowTime,
+        note: combinedNote || 'QR Menü Siparişi',
+      });
+    }
+
+    if (builtOrders.length === 0) {
+      return res.status(400).json({ error: 'Seçilen ürünler menüde bulunamadı veya stok dışı.' });
+    }
+
+    if (!Array.isArray(st.tables)) st.tables = [];
+    const reqTable = String(tableNo || '').trim();
+    let table = st.tables.find(
+      (t) =>
+        t.id === reqTable ||
+        t.name.toLowerCase() === reqTable.toLowerCase()
+    );
+
+    if (!table && st.tables.length > 0 && !reqTable) {
+      table = st.tables[0];
+    }
+
+    if (!table && reqTable) {
+      table = {
+        id: `tbl_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        name: reqTable.slice(0, 40),
+        section: 'Salon',
+        isOccupied: false,
+        totalAmount: 0,
+        orders: [],
+      };
+      st.tables.push(table);
+    }
+
+    if (!table) {
+      return res.status(400).json({ error: 'Lütfen masa bilgisi seçiniz.' });
+    }
+
+    if (!Array.isArray(table.orders)) table.orders = [];
+    table.orders.push(...builtOrders);
+    table.isOccupied = true;
+    table.status = 'dolu';
+    table.openedAt = table.openedAt || nowTime;
+    table.activeCall = 'waiter';
+    table.totalAmount = table.orders.reduce(
+      (sum, o) => sum + (o.isGift ? 0 : Number(o.total || (o.unitPrice || 0) * (o.quantity || 1))),
+      0
+    );
+    table.activeBillTotal = table.totalAmount;
+
+    const orderTotal = builtOrders.reduce((sum, o) => sum + o.total, 0);
+    st.lastUpdated = new Date().toISOString();
+    persistShopState(targetAcc.id, st);
+
+    broadcastToAccount(targetAcc.id, {
+      type: 'TABLE_UPDATED',
+      payload: table,
+    });
+
+    broadcastToAccount(targetAcc.id, {
+      type: 'TABLE_CALL_ALERT' as any,
+      payload: {
+        tableNo: table.name,
+        tableId: table.id,
+        action: `QR Menüden Yeni Sipariş (${builtOrders.length} kalem • ${orderTotal.toLocaleString('tr-TR')} ₺) 🍽️`,
+        time: nowTime,
+      },
+    });
+
+    // Cihaz push bildirimi varsa gönder (opsiyonel @admin-ve-guvenlik modülü)
+    try {
+      const devicesModPath = './devices';
+      const devicesMod = await import(devicesModPath);
+      if (typeof devicesMod?.sendPushToAccount === 'function') {
+        await devicesMod.sendPushToAccount(targetAcc.id, {
+          title: `${table.name} — Yeni QR Sipariş!`,
+          body: `${builtOrders.map((o) => `${o.quantity}x ${o.name}`).join(', ')} (${orderTotal} ₺)`,
+          url: '/?tab=tables',
+          tag: `table-order-${table.id}`,
+        });
+      }
+    } catch {
+      // devices modülü henüz hazır değilse veya push başarısızsa siparişi bozma
+    }
+
+    return res.json({
+      success: true,
+      message: `${table.name} siparişiniz mutfağa/kasaya iletildi!`,
+      tableName: table.name,
+      orderTotal,
+      tableTotal: table.totalAmount,
+      items: builtOrders,
     });
   });
 }

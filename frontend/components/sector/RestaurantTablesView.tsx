@@ -34,6 +34,7 @@ import {
 import { Customer, MenuItem, RestaurantTable, TableOrderItem } from '../../../shared/types.ts';
 import { RestaurantMenuManager } from './RestaurantMenuManager';
 import { TableQrMenuModal } from './TableQrMenuModal';
+import { printHtmlDocument, escapeHtml } from '../../utils/printTemplate';
 
 interface RestaurantTablesViewProps {
   tables: RestaurantTable[];
@@ -1632,8 +1633,8 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
                 {/* 80mm Fiş Görsel Alanı */}
                 <div id="thermal-receipt-80mm" className="border-2 border-dashed border-stone-300 p-4 rounded-2xl font-mono text-xs space-y-3 bg-stone-50">
                   <div className="text-center space-y-1 pb-2 border-b border-stone-300">
-                    <h2 className="text-base font-black tracking-wider uppercase">DÜKKÂNIM RESTORAN</h2>
-                    <p className="text-[10px] text-stone-600">Seyir Terasi Hızlı Adisyon</p>
+                    <h2 className="text-base font-black tracking-wider uppercase">{storeName || profileFallback.storeName || 'Restoran & Kafe'}</h2>
+                    <p className="text-[10px] text-stone-600">{activeTable.section ? `${activeTable.section} Hızlı Adisyon` : 'Masa Adisyon Fişi'}</p>
                     <div className="text-[11px] font-bold mt-1">
                       {activeTable.name.toUpperCase()}
                     </div>
@@ -1695,7 +1696,53 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => window.print()}
+                    onClick={() => {
+                      const orderRows = activeTable.orders
+                        .map(
+                          (ord) => `
+                          <tr>
+                            <td style="padding:3px 0;">${escapeHtml(ord.name)}${ord.isGift ? ' (İKRAM)' : ''}</td>
+                            <td style="text-align:center;padding:3px 0;">${ord.quantity} x ${ord.unitPrice}</td>
+                            <td style="text-align:right;font-weight:700;padding:3px 0;">${ord.total} ₺</td>
+                          </tr>`
+                        )
+                        .join('');
+                      const receiptShopName = storeName || profileFallback.storeName || 'Restoran & Kafe';
+                      printHtmlDocument({
+                        title: `${receiptShopName} — ${activeTable.name} Adisyon`,
+                        paperWidth: '80mm',
+                        bodyHtml: `
+                          <div style="text-align:center;border-bottom:1px dashed #111;padding-bottom:8px;margin-bottom:8px;">
+                            <div style="font-size:15px;font-weight:900;text-transform:uppercase;">${escapeHtml(receiptShopName)}</div>
+                            <div style="font-size:10px;color:#555;">${escapeHtml(activeTable.section ? `${activeTable.section} Hızlı Adisyon` : 'Masa Adisyon Fişi')}</div>
+                            <div style="font-size:12px;font-weight:900;margin-top:4px;">${escapeHtml(activeTable.name.toUpperCase())}</div>
+                            <div style="font-size:10px;color:#555;">${escapeHtml(new Date().toLocaleDateString('tr-TR'))} • ${escapeHtml(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }))}</div>
+                          </div>
+                          ${activeTable.note ? `<div style="border:1px solid #ccc;padding:4px 6px;margin-bottom:8px;font-size:10px;"><strong>Not:</strong> ${escapeHtml(activeTable.note)}</div>` : ''}
+                          <table style="width:100%;font-size:11px;border-bottom:1px dashed #111;">
+                            <thead>
+                              <tr style="border-bottom:1px solid #ddd;font-size:10px;color:#555;">
+                                <th style="text-align:left;padding-bottom:3px;">ÜRÜN</th>
+                                <th style="text-align:center;padding-bottom:3px;">ADET</th>
+                                <th style="text-align:right;padding-bottom:3px;">TUTAR</th>
+                              </tr>
+                            </thead>
+                            <tbody>${orderRows}</tbody>
+                          </table>
+                          <div style="margin-top:8px;font-size:11px;">
+                            ${adisyonGiftsTotal > 0 ? `<div style="display:flex;justify-content:space-between;color:#555;"><span>İkram İndirimi:</span><span>-${adisyonGiftsTotal} ₺</span></div>` : ''}
+                            <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:900;border-top:2px solid #111;padding-top:6px;margin-top:4px;">
+                              <span>GENEL TOPLAM:</span>
+                              <span>${activeTable.totalAmount} ₺</span>
+                            </div>
+                          </div>
+                          <div style="text-align:center;border-top:1px dashed #111;margin-top:10px;padding-top:6px;font-size:10px;color:#555;">
+                            <div>Mali değeri yoktur — Bilgi Fişidir</div>
+                            <div style="font-weight:900;margin-top:2px;">AFİYET OLSUN!</div>
+                          </div>
+                        `,
+                      });
+                    }}
                     className="px-5 py-2.5 rounded-xl bg-stone-900 text-white font-black text-xs cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
                   >
                     <Printer className="w-4 h-4" />

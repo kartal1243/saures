@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Product } from '../../../shared/types.ts';
-import { X, Package, AlertTriangle, CheckCircle2, Tag, Barcode, DollarSign } from 'lucide-react';
+import { X, Package, AlertTriangle, CheckCircle2, Tag, Barcode, DollarSign, Camera, Search, Loader2 } from 'lucide-react';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -25,6 +25,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [barcode, setBarcode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [isCamOpen, setIsCamOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   const categories = [
     'Gıda & Bakliyat',
@@ -63,6 +69,98 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
     setError(null);
   }, [productToEdit, isOpen]);
+
+  const stopBarcodeCamera = () => {
+    if (timerRef.current !== null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setIsCamOpen(false);
+  };
+
+  const lookupBarcodeCatalog = async (rawCode: string) => {
+    const code = rawCode.trim();
+    if (!code) return;
+    setIsLookingUp(true);
+    setCatalogMsg(null);
+    try {
+      const res = await fetch(`/api/products/barcode-catalog/${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (res.ok && data?.found && data?.item) {
+        if (!name.trim() && data.item.name) setName(data.item.name);
+        if (data.item.category && categories.includes(data.item.category)) {
+          setCategory(data.item.category);
+        }
+        if (data.item.unit && units.includes(data.item.unit)) {
+          setUnit(data.item.unit);
+        }
+        if (!salePrice && data.item.suggestedSalePrice) {
+          setSalePrice(String(data.item.suggestedSalePrice));
+        }
+        setCatalogMsg(`Katalogdan bulundu: ${data.item.name}`);
+      } else {
+        setCatalogMsg('Bu barkod katalogda bulunamadı; bilgilerini elle girebilirsiniz.');
+      }
+    } catch {
+      setCatalogMsg('Katalog sorgulanamadı.');
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const startBarcodeCamera = async () => {
+    if (isCamOpen) {
+      stopBarcodeCamera();
+      return;
+    }
+    setCatalogMsg(null);
+    setIsCamOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      if ('BarcodeDetector' in window) {
+        const DetectorCtor = (window as any).BarcodeDetector;
+        const detector = new DetectorCtor({ formats: ['ean_13', 'ean_8', 'upc_a', 'code_128', 'qr_code'] });
+        timerRef.current = window.setInterval(async () => {
+          const videoEl = videoRef.current;
+          if (!videoEl || videoEl.readyState < 2) return;
+          try {
+            const found = await detector.detect(videoEl);
+            const raw = String(found?.[0]?.rawValue || '').trim();
+            if (raw) {
+              setBarcode(raw);
+              stopBarcodeCamera();
+              await lookupBarcodeCatalog(raw);
+            }
+          } catch {
+            // ignore frame detection error
+          }
+        }, 250);
+      } else {
+        setCatalogMsg('Tarayıcınız otomatik kamera barkod okuyucuyu desteklemiyor; barkodu yazıp "Katalogdan Bul"a tıklayın.');
+      }
+    } catch {
+      setIsCamOpen(false);
+      setCatalogMsg('Kamera açılamadı. Barkodu yazıp "Katalogdan Bul"a basabilirsiniz.');
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopBarcodeCamera();
+      setCatalogMsg(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -269,13 +367,43 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <Barcode className="w-3.5 h-3.5 text-stone-400" />
               <span>Barkod / Stok Kodu (İsteğe Bağlı)</span>
             </label>
-            <input
-              type="text"
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              placeholder="Örn. 8690123456789"
-              className="w-full px-3 py-2 text-sm bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-white font-mono focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-            />
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="text"
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                placeholder="Örn. 8690504016212"
+                className="flex-1 min-w-[160px] px-3 py-2 text-sm bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-white font-mono focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+              />
+              <button
+                type="button"
+                onClick={startBarcodeCamera}
+                className="px-3 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-xs font-bold text-stone-700 dark:text-stone-200 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Camera className="w-3.5 h-3.5 text-amber-600" />
+                <span>{isCamOpen ? 'Kamerayı Kapat' : 'Kamerayla Oku'}</span>
+              </button>
+              <button
+                type="button"
+                disabled={!barcode.trim() || isLookingUp}
+                onClick={() => lookupBarcodeCatalog(barcode)}
+                className="px-3 py-2 rounded-xl bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isLookingUp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                <span>Katalogdan Bul</span>
+              </button>
+            </div>
+            {isCamOpen && (
+              <div className="mt-2 relative rounded-xl overflow-hidden bg-black aspect-video border border-stone-700">
+                <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
+                <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 h-0.5 bg-rose-500" />
+              </div>
+            )}
+            {catalogMsg && (
+              <p className="mt-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                {catalogMsg}
+              </p>
+            )}
           </div>
 
           {/* Footer */}

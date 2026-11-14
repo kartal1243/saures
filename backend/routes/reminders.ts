@@ -4,21 +4,44 @@ import type { ReminderLog } from '../../shared/types';
 import { S, saveState } from '../context';
 import { GEMINI_MODEL } from '../config';
 import { broadcast } from '../realtime';
+import { sendSmsMessage, getSmsGatewayStatus, type SmsSendResult } from '../services/smsProvider';
+import { getShopAutoReminderQuota, getReminderSchedulerStatus } from '../services/reminderScheduler';
 
 export function registerReminderRoutes(app: Express): void {
+  // Hatırlatma & SMS Gateway Durumu
+  app.get('/api/reminders/status', (_req: Request, res: Response) => {
+    const state = S();
+    res.json({
+      success: true,
+      gateway: getSmsGatewayStatus(),
+      quota: getShopAutoReminderQuota(state),
+      scheduler: getReminderSchedulerStatus(),
+    });
+  });
+
   // 6. Record Reminder Sent (WhatsApp / SMS)
-  app.post('/api/reminders/send', (req: Request, res: Response) => {
-    const { customerId, channel, message, type } = req.body;
+  app.post('/api/reminders/send', async (req: Request, res: Response) => {
+    const { customerId, channel, message, type, phone: bodyPhone, customerName: bodyName } = req.body || {};
     const customer = S().customers.find((c) => c.id === customerId);
+    const targetPhone = customer ? customer.phone : String(bodyPhone || '');
+    const selectedChannel: 'whatsapp' | 'sms' = channel === 'sms' ? 'sms' : 'whatsapp';
+
+    let smsResult: SmsSendResult | undefined;
+    let status: ReminderLog['status'] = 'gonderildi';
+
+    if (selectedChannel === 'sms') {
+      smsResult = await sendSmsMessage(targetPhone, String(message || ''), { category: type || 'veresiye' });
+      status = smsResult.sent ? 'gonderildi' : 'hazirlandi';
+    }
 
     const reminderLog: ReminderLog = {
       id: `rem_${Date.now()}`,
       customerId: customerId || '',
-      customerName: customer ? customer.name : 'Müşteri',
-      phone: customer ? customer.phone : '',
-      channel: channel || 'whatsapp',
+      customerName: customer ? customer.name : String(bodyName || 'Müşteri'),
+      phone: targetPhone,
+      channel: selectedChannel,
       message: message || '',
-      status: 'gonderildi',
+      status,
       sentAt: new Date().toLocaleString('tr-TR'),
       type: type || 'veresiye',
     };
@@ -27,7 +50,7 @@ export function registerReminderRoutes(app: Express): void {
     saveState();
 
     broadcast({ type: 'REMINDER_SENT', payload: reminderLog });
-    res.json({ success: true, reminderLog });
+    res.json({ success: true, reminderLog, ...(smsResult ? { smsResult } : {}) });
   });
 
   // 7. Gemini AI Smart Reminder Crafter

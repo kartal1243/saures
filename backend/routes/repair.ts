@@ -1,9 +1,162 @@
 import type { Express, Request, Response } from 'express';
-import type { RepairTicket, Transaction } from '../../shared/types';
+import type { CustodyTicket, RepairTicket, Transaction } from '../../shared/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast } from '../realtime';
 import { localDay } from '../day';
+import { getAccounts } from '../accounts';
+import { loadShopState } from '../shopState';
+
+export interface PublicTicketLookupResult {
+  code: string;
+  kind: 'repair' | 'custody';
+  shopName: string;
+  shopPhone: string;
+  shopCityDistrict: string;
+  shopLogoUrl?: string;
+  customerMasked: string;
+  itemTitle: string;
+  complaintOrDetails: string;
+  status: string;
+  statusLabel: string;
+  stepIndex: number;
+  steps: { key: string; label: string }[];
+  estimatedCost: number;
+  advance: number;
+  remainingAmount: number;
+  createdAt: string;
+  promisedOrCompletedAt?: string;
+}
+
+function maskCustomerName(fullName?: string): string {
+  const parts = String(fullName || 'Müşteri').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'Müşteri';
+  if (parts.length === 1) {
+    const p = parts[0];
+    return p.length <= 2 ? `${p[0]}***` : `${p.slice(0, 2)}${'*'.repeat(Math.min(4, p.length - 2))}`;
+  }
+  return parts
+    .map((p, idx) => (idx === 0 ? p : `${p[0]}.`))
+    .join(' ');
+}
+
+const REPAIR_STEPS = [
+  { key: 'kabul_edildi', label: 'Kabul Edildi' },
+  { key: 'parca_bekleniyor', label: 'Parça / İnceleme' },
+  { key: 'tamirde', label: 'İşlemde' },
+  { key: 'teslime_hazir', label: 'Teslime Hazır' },
+  { key: 'teslim_edildi', label: 'Teslim Edildi' },
+];
+
+const CUSTODY_STEPS = [
+  { key: 'kabul', label: 'Teslim Alındı' },
+  { key: 'islemde', label: 'İşlemde' },
+  { key: 'hazir', label: 'Teslime Hazır' },
+  { key: 'teslim', label: 'Teslim Edildi' },
+];
+
+/**
+ * KVKK uyumlu kamusal servis/emanet fişi sorgulama yardımcısı (`/api/public/ticket/:code`).
+ */
+export function lookupPublicTicket(rawCode: string): PublicTicketLookupResult | null {
+  const code = String(rawCode || '').trim();
+  if (!code) return null;
+
+  if (code.toLowerCase() === 'demo') {
+    return {
+      code: 'demo',
+      kind: 'repair',
+      shopName: 'TeknoFix Teknik Servis',
+      shopPhone: '',
+      shopCityDistrict: 'Kadıköy, İstanbul',
+      customerMasked: 'Ahmet Y.',
+      itemTitle: 'iPhone 14 Pro — Ekran & Batarya Değişimi',
+      complaintOrDetails: 'Orijinal ekran yenileme, batarya sağlığı kontrolü ve kasa temizliği',
+      status: 'teslime_hazir',
+      statusLabel: 'Teslime Hazır',
+      stepIndex: 3,
+      steps: REPAIR_STEPS,
+      estimatedCost: 4250,
+      advance: 1000,
+      remainingAmount: 3250,
+      createdAt: new Date(Date.now() - 86400000).toISOString().slice(0, 10) + ' 11:20',
+      promisedOrCompletedAt: new Date().toISOString().slice(0, 10) + ' 16:00',
+    };
+  }
+
+  const normalizedCode = code.toLowerCase();
+  const accounts = getAccounts();
+
+  for (const acc of accounts) {
+    const st = loadShopState(acc.id);
+    const shopName = st.shopProfile?.storeName || acc.shopName || 'Esnaf İşletmesi';
+    const shopPhone = st.shopProfile?.phone || acc.phone || '';
+    const shopCityDistrict = st.shopProfile?.cityDistrict || '';
+    const shopLogoUrl = st.shopProfile?.logoUrl;
+
+    const repair = (st.repairTickets || []).find(
+      (t: RepairTicket) => t.id.toLowerCase() === normalizedCode
+    );
+    if (repair) {
+      const idx = REPAIR_STEPS.findIndex((s) => s.key === repair.status);
+      const stepIndex = idx >= 0 ? idx : 0;
+      const estimatedCost = Number(repair.estimatedCost) || 0;
+      const advance = Number(repair.advance) || 0;
+      return {
+        code: repair.id,
+        kind: 'repair',
+        shopName,
+        shopPhone,
+        shopCityDistrict,
+        shopLogoUrl,
+        customerMasked: maskCustomerName(repair.customerName),
+        itemTitle: repair.deviceOrVehicle || repair.deviceModel || 'Servis Cihazı',
+        complaintOrDetails: repair.complaint || repair.issueDesc || 'Teknik servis bakımı',
+        status: repair.status,
+        statusLabel: REPAIR_STEPS[stepIndex]?.label || repair.status,
+        stepIndex,
+        steps: REPAIR_STEPS,
+        estimatedCost,
+        advance,
+        remainingAmount: Math.max(0, estimatedCost - advance),
+        createdAt: repair.createdAt,
+        promisedOrCompletedAt: repair.completedAt,
+      };
+    }
+
+    const custody = ((st as any).custody || []).find(
+      (t: CustodyTicket) => t.id.toLowerCase() === normalizedCode
+    ) as CustodyTicket | undefined;
+    if (custody) {
+      const idx = CUSTODY_STEPS.findIndex((s) => s.key === custody.status);
+      const stepIndex = idx >= 0 ? idx : 0;
+      const price = Number(custody.price) || 0;
+      const advance = Number(custody.advance) || 0;
+      return {
+        code: custody.id,
+        kind: 'custody',
+        shopName,
+        shopPhone,
+        shopCityDistrict,
+        shopLogoUrl,
+        customerMasked: maskCustomerName(custody.customerName),
+        itemTitle: custody.itemDesc || 'Emanet Eşya',
+        complaintOrDetails: custody.notes || 'Terzi / Kuru temizleme işlemi',
+        status: custody.status,
+        statusLabel: CUSTODY_STEPS[stepIndex]?.label || custody.status,
+        stepIndex,
+        steps: CUSTODY_STEPS,
+        estimatedCost: price,
+        advance,
+        remainingAmount: Math.max(0, price - advance),
+        createdAt: custody.createdAt,
+        promisedOrCompletedAt: custody.completedAt || custody.promisedDate,
+      };
+    }
+  }
+
+  return null;
+}
 
 export function registerRepairRoutes(app: Express): void {
   // ==========================================

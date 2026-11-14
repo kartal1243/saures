@@ -4,6 +4,7 @@ import { BACKUPS_DIR } from './config';
 import { writeJsonFile } from './fsdb';
 import { getAccounts, pruneExpiredSessions } from './accounts';
 import { loadShopState } from './shopState';
+import { startReminderScheduler, runReminderCycleNow } from './services/reminderScheduler';
 
 function dailyBackupAll(): void {
   const date = new Date().toISOString().split('T')[0];
@@ -28,4 +29,8 @@ export function startMaintenance(): void {
   setInterval(pruneExpiredSessions, 60 * 60 * 1000); // saatte bir
   setInterval(dailyBackupAll, 24 * 60 * 60 * 1000); // gunluk
   setTimeout(dailyBackupAll, 15 * 1000); // ilk acilista bugunun yedeği
+  startReminderScheduler();
+  setTimeout(() => {
+    runReminderCycleNow().catch((err) => console.error('[ReminderScheduler] İlk döngü hatası:', err));
+  }, 30 * 1000);
 }
