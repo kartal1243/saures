@@ -26,6 +26,23 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
   const [loadingAi, setLoadingAi] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [sendingApi, setSendingApi] = useState<boolean>(false);
+  const [gatewayStatus, setGatewayStatus] = useState<{ mode: string; provider: string; firebaseBlazeReady?: boolean } | null>(null);
+  const [smsDispatchNotice, setSmsDispatchNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/reminders/status')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.gateway) {
+          setGatewayStatus({
+            mode: d.gateway.mode,
+            provider: d.gateway.provider,
+            firebaseBlazeReady: Boolean(d.firebase?.functionsSmsReady || d.gateway.firebaseBlazeReady),
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Default templates
   const getPresetMessage = (selectedType: string, selectedTone: string) => {
@@ -113,16 +130,17 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
     onClose();
   };
 
-  // Send SMS via Native Device App & log to server
+  // Bulut / Firebase SMS Gönderimi veya Cihaz SMS Fallback
   const handleSendViaNativeSms = async () => {
     setSendingApi(true);
+    setSmsDispatchNotice(null);
     const cleanPhone = cleanPhoneForWhatsApp(customer.phone);
     const finalMessage = message.includes('Dükkânım Yanımda')
       ? message
       : `${message.trim()}\n\n(Dükkânım Yanımda ile gönderildi)`;
 
     try {
-      await fetch('/api/reminders/send', {
+      const resp = await fetch('/api/reminders/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,6 +150,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
           type: reminderType,
         }),
       });
+      const data = await resp.json().catch(() => ({} as any));
 
       onReminderSent({
         customerId: customer.id,
@@ -140,14 +159,25 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
         type: reminderType,
       });
 
-      // Open native SMS app
+      if (data?.smsResult?.sent || data?.smsResult?.queued) {
+        setSmsDispatchNotice(
+          data.smsResult.sent
+            ? '✅ SMS Firebase / Bulut ağ geçidi üzerinden başarıyla gönderildi!'
+            : '✅ Hatırlatma Firebase kuyruğuna (sms_queue) eklendi ve işleniyor.'
+        );
+        setTimeout(() => {
+          onClose();
+        }, 1400);
+        return;
+      }
+
+      // Ağ geçidi aktif değilse cihaz SMS uygulamasını aç
       window.location.href = `sms:${cleanPhone}?body=${encodeURIComponent(finalMessage)}`;
       setTimeout(() => {
         onClose();
       }, 500);
     } catch (err) {
       console.error('Failed to trigger SMS action:', err);
-      // Still open native SMS as fallback
       window.location.href = `sms:${cleanPhone}?body=${encodeURIComponent(finalMessage)}`;
       onClose();
     } finally {
@@ -333,16 +363,27 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
         </div>
 
         {/* Modal Actions */}
+        {smsDispatchNotice && (
+          <div className="mx-4 mb-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-700 dark:text-emerald-300 text-center">
+            {smsDispatchNotice}
+          </div>
+        )}
         <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <button
             type="button"
             onClick={handleSendViaNativeSms}
             disabled={sendingApi}
             className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-            title="Cihazınızın SMS uygulamasını açar ve mesajı iletir"
+            title="Firebase Bulut SMS veya Cihaz SMS uygulaması ile gönderir"
           >
             <Send className="w-3.5 h-3.5" />
-            <span>{sendingApi ? 'Açılıyor...' : 'Cihazın SMS Uygulamasıyla Gönder'}</span>
+            <span>
+              {sendingApi
+                ? 'Gönderiliyor...'
+                : gatewayStatus?.mode === 'live'
+                ? 'Firebase / Bulut SMS Gönder'
+                : 'SMS ile Gönder (Cihaz)'}
+            </span>
           </button>
 
           <button

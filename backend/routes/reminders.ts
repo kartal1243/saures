@@ -1,14 +1,16 @@
 import type { Express, Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import type { ReminderLog } from '../../shared/types';
-import { S, saveState } from '../context';
+import { S, saveState, als } from '../context';
 import { GEMINI_MODEL } from '../config';
 import { broadcast } from '../realtime';
 import { sendSmsMessage, getSmsGatewayStatus, type SmsSendResult } from '../services/smsProvider';
 import { getShopAutoReminderQuota, getReminderSchedulerStatus } from '../services/reminderScheduler';
+import { getFirebaseIntegrationStatus, writeFirestoreDocument } from '../services/firebaseService';
+import { sendPushToAccount } from './devices';
 
 export function registerReminderRoutes(app: Express): void {
-  // Hatırlatma & SMS Gateway Durumu
+  // Hatırlatma, SMS Gateway & Firebase Blaze Durumu
   app.get('/api/reminders/status', (_req: Request, res: Response) => {
     const state = S();
     res.json({
@@ -16,21 +18,41 @@ export function registerReminderRoutes(app: Express): void {
       gateway: getSmsGatewayStatus(),
       quota: getShopAutoReminderQuota(state),
       scheduler: getReminderSchedulerStatus(),
+      firebase: getFirebaseIntegrationStatus(),
     });
   });
 
-  // 6. Record Reminder Sent (WhatsApp / SMS)
+  // Firebase Push Bildirim Testi
+  app.post('/api/reminders/test-push', async (_req: Request, res: Response) => {
+    const accountId = als.getStore()?.accountId;
+    if (!accountId) return res.status(401).json({ error: 'Oturum bulunamadı.' });
+    const shopName = S().shopProfile?.storeName || S().storeName || 'Dükkânım Yanımda';
+    const result = await sendPushToAccount(accountId, {
+      title: `${shopName} — Bildirim Testi`,
+      body: 'Firebase Cloud Messaging anlık bildirim bağlantınız sorunsuz çalışıyor!',
+      url: '/',
+      tag: 'test_push',
+    });
+    res.json({ success: true, ...result });
+  });
+
+  // 6. Record Reminder Sent (WhatsApp / SMS / Firebase)
   app.post('/api/reminders/send', async (req: Request, res: Response) => {
     const { customerId, channel, message, type, phone: bodyPhone, customerName: bodyName } = req.body || {};
     const customer = S().customers.find((c) => c.id === customerId);
     const targetPhone = customer ? customer.phone : String(bodyPhone || '');
     const selectedChannel: 'whatsapp' | 'sms' = channel === 'sms' ? 'sms' : 'whatsapp';
+    const shopName = S().shopProfile?.storeName || S().storeName || 'Dükkânım Yanımda';
+    const accountId = als.getStore()?.accountId || 'default';
 
     let smsResult: SmsSendResult | undefined;
     let status: ReminderLog['status'] = 'gonderildi';
 
     if (selectedChannel === 'sms') {
-      smsResult = await sendSmsMessage(targetPhone, String(message || ''), { category: type || 'veresiye' });
+      smsResult = await sendSmsMessage(targetPhone, String(message || ''), {
+        category: type || 'veresiye',
+        shopName,
+      });
       status = smsResult.sent ? 'gonderildi' : 'hazirlandi';
     }
 
@@ -48,6 +70,12 @@ export function registerReminderRoutes(app: Express): void {
 
     S().reminderLogs.unshift(reminderLog);
     saveState();
+
+    writeFirestoreDocument(`shops/${accountId}/reminder_logs`, reminderLog.id, {
+      ...reminderLog,
+      accountId,
+      createdAtIso: new Date().toISOString(),
+    }).catch(() => {});
 
     broadcast({ type: 'REMINDER_SENT', payload: reminderLog });
     res.json({ success: true, reminderLog, ...(smsResult ? { smsResult } : {}) });

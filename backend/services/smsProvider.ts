@@ -1,8 +1,10 @@
 import { normalizePhone, isValidTurkishPhone } from '../accounts';
+import { dispatchFirebaseSms, getFirebaseIntegrationStatus } from './firebaseService';
 
 export interface SmsSendResult {
   sent: boolean;
   simulated: boolean;
+  queued?: boolean;
   provider: string;
   whatsappLink: string;
   error?: string;
@@ -14,6 +16,7 @@ export interface SmsGatewayStatus {
   provider: string;
   sender: string;
   mode: 'live' | 'fallback_whatsapp';
+  firebaseBlazeReady?: boolean;
 }
 
 export function normalizeTurkishGsm(phone: string): string {
@@ -40,15 +43,20 @@ function resolveProviderConfig(): {
   sender: string;
   webhookUrl: string;
 } {
-  const provider = (process.env.SMS_PROVIDER || '').trim().toLowerCase();
+  const explicitProvider = (process.env.SMS_PROVIDER || '').trim().toLowerCase();
   const apiKey = (process.env.SMS_API_KEY || '').trim();
   const apiSecret = (process.env.SMS_API_SECRET || '').trim();
   const usercode = (process.env.SMS_USERCODE || '').trim();
   const sender = (process.env.SMS_SENDER || 'DUKKANIM').trim();
   const webhookUrl = (process.env.SMS_WEBHOOK_URL || '').trim();
+  const firebaseStatus = getFirebaseIntegrationStatus();
+
+  const provider = explicitProvider || (firebaseStatus.functionsSmsReady ? 'firebase' : '');
 
   let configured = false;
-  if (provider === 'netgsm') {
+  if (provider === 'firebase') {
+    configured = firebaseStatus.functionsSmsReady || firebaseStatus.firestoreReady;
+  } else if (provider === 'netgsm') {
     configured = Boolean(usercode && (apiSecret || apiKey));
   } else if (provider === 'iletimerkezi') {
     configured = Boolean(apiKey && apiSecret);
@@ -71,18 +79,20 @@ function resolveProviderConfig(): {
 
 export function getSmsGatewayStatus(): SmsGatewayStatus {
   const cfg = resolveProviderConfig();
+  const fb = getFirebaseIntegrationStatus();
   return {
     configured: cfg.configured,
     provider: cfg.provider,
     sender: cfg.sender,
     mode: cfg.configured ? 'live' : 'fallback_whatsapp',
+    firebaseBlazeReady: fb.functionsSmsReady,
   };
 }
 
 export async function sendSmsMessage(
   phone: string,
   message: string,
-  options?: { category?: string }
+  options?: { category?: string; shopName?: string }
 ): Promise<SmsSendResult> {
   const gsm = normalizeTurkishGsm(phone);
   const cleanMessage = String(message || '').trim();
@@ -120,6 +130,24 @@ export async function sendSmsMessage(
 
   try {
     const signal = AbortSignal.timeout(8000);
+
+    if (cfg.provider === 'firebase') {
+      const fbRes = await dispatchFirebaseSms({
+        phone: gsm,
+        message: cleanMessage,
+        category: options?.category,
+        shopName: options?.shopName,
+      });
+      return {
+        sent: fbRes.sent,
+        queued: fbRes.queued,
+        simulated: !fbRes.sent && !fbRes.queued,
+        provider: fbRes.provider,
+        whatsappLink,
+        statusCode: fbRes.statusCode,
+        error: fbRes.error,
+      };
+    }
 
     if (cfg.provider === 'netgsm') {
       const body = new URLSearchParams({

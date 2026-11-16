@@ -38,6 +38,7 @@ import { registerShopierWebhook } from './routes/shopierWebhook';
 import { registerPublicShopsMapRoutes } from './routes/publicShopsMap';
 import { registerCommunityRoutes } from './routes/community';
 import { registerDeviceRoutes } from './routes/devices';
+import { runReminderCycleNow } from './services/reminderScheduler';
 import * as seoModule from './seo';
 import { renderSeoHtml, generateSitemapXml, getRobotsTxt, getBaseHtmlTemplate, findShopForSeo } from './seo';
 import { visitorTrackerMiddleware } from './visitorTracker';
@@ -114,15 +115,16 @@ export async function startServer(): Promise<void> {
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Permissions-Policy', 'camera=(self), geolocation=(self), microphone=(self)');
 
-    // Uyumlu & Güçlü Content Security Policy (Harita, Font, Firebase, Analytics ve WebSockets uyumlu)
+    // Uyumlu & Güçlü Content Security Policy (Harita, Font, Firebase Phone Auth reCAPTCHA, FCM, Analytics ve WebSockets uyumlu)
     const cspPolicy = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseio.com https://unpkg.com https://cdnjs.cloudflare.com https://www.googletagmanager.com https://static.cloudflareinsights.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseio.com https://*.firebaseapp.com https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://unpkg.com https://cdnjs.cloudflare.com https://www.googletagmanager.com https://static.cloudflareinsights.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://www.gstatic.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https: *.openstreetmap.org images.unsplash.com https://www.google-analytics.com",
-      "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.identitytoolkit.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.telegram.org https://*.tile.openstreetmap.org https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://cloudflareinsights.com",
-      "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
+      "img-src 'self' data: blob: https: *.openstreetmap.org images.unsplash.com https://www.google-analytics.com https://www.gstatic.com",
+      "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.identitytoolkit.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://fcm.googleapis.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://firestore.googleapis.com https://*.cloudfunctions.net https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://api.telegram.org https://*.tile.openstreetmap.org https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://cloudflareinsights.com",
+      "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://www.google.com https://recaptcha.google.com",
+      "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
     ].join('; ');
@@ -298,6 +300,17 @@ export async function startServer(): Promise<void> {
   // ---------------- Kamusal Medya Ucu: Dükkan Profil Fotoğrafları / Logoları ----------------
   app.get('/media/shop-logo/:filename', serveShopLogo);
 
+  // ---------------- Firebase Cloud Scheduler Cron Tetikleyicisi ----------------
+  app.post('/api/cron/firebase-reminders', async (req, res) => {
+    const expectedSecret = (process.env.FIREBASE_FUNCTIONS_SECRET || process.env.WEBHOOK_SECRET || '').trim();
+    const provided = String(req.headers['x-firebase-secret'] || req.headers['x-webhook-secret'] || '').trim();
+    if (!expectedSecret || provided !== expectedSecret) {
+      return res.status(403).json({ error: 'Yetkisiz cron tetiklemesi.' });
+    }
+    const stats = await runReminderCycleNow();
+    return res.json({ success: true, ...stats });
+  });
+
   // ---------------- Koruma: sonrası için giriş + rol zorunlu ----------------
   app.use('/api', apiGuard);
   app.use(createIdempotencyMiddleware());
@@ -379,6 +392,14 @@ export async function startServer(): Promise<void> {
     '/berber-randevu-programi',
     '/randevu-sistemi',
     '/online-randevu',
+    '/izmit-berber-randevu',
+    '/izmit-berber',
+    '/kocaeli-berber',
+    '/kocaeli-berber-randevu',
+    '/zonguldak-berber-randevu',
+    '/zonguldak-berber',
+    '/eregli-berber',
+    '/kdz-eregli-berber',
     '/guzellik-salonu',
     '/guzellik-merkezi',
     '/guzellik',
@@ -417,6 +438,11 @@ export async function startServer(): Promise<void> {
     '/rehber/istanbul-berber-kuafor',
     '/rehber/ankara-berber-kuafor',
     '/rehber/izmir-kafe-restoran',
+    '/rehber/izmit-berber-kuafor-randevu',
+    '/rehber/zonguldak-berber-kuafor-randevu',
+    '/rehber/kocaeli-esnaf-online-randevu',
+    '/rehber/instagram-biyografi-randevu-linki',
+    '/rehber/pazar-gunu-acik-berber-randevu',
   ]);
 
   function isPublicRouteValid(pathname: string): boolean {
@@ -426,8 +452,9 @@ export async function startServer(): Promise<void> {
       const seoGuideValidator = (seoModule as { isValidGuideRoute?: (p: string) => boolean }).isValidGuideRoute;
       return typeof seoGuideValidator === 'function' ? seoGuideValidator(clean) : GUIDE_FALLBACK_ROUTES.has(clean);
     }
-    if (clean.startsWith('/t/')) {
-      const code = clean.slice(3).split('/')[0];
+    if (clean.startsWith('/t/') || clean.startsWith('/bakim/')) {
+      const prefixLen = clean.startsWith('/bakim/') ? 7 : 3;
+      const code = clean.slice(prefixLen).split('/')[0];
       return Boolean(code);
     }
     const isShop = clean.startsWith('/r/') || clean.startsWith('/randevu/') || clean.startsWith('/m/') || clean.startsWith('/menu/');

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Customer } from '../../../shared/types.ts';
 import { formatCurrency, formatPhoneNumber, getCategoryColor, getCategoryLabel } from '../../utils/formatters';
 import { dayKey } from '../../utils/dates';
-import { MessageSquare, CheckCircle2, Clock, BellRing, ArrowDownLeft } from 'lucide-react';
+import { registerFirebaseWebPush } from '../../firebase';
+import { MessageSquare, Clock, BellRing, ArrowDownLeft, Flame } from 'lucide-react';
 
 interface UpcomingRemindersProps {
   customers: Customer[];
@@ -16,6 +17,33 @@ export const UpcomingReminders: React.FC<UpcomingRemindersProps> = ({
   onOpenPayment,
 }) => {
   const todayStr = dayKey(new Date());
+  const [pushStatusMsg, setPushStatusMsg] = useState<string | null>(null);
+  const [fbStatus, setFbStatus] = useState<{ pushReady?: boolean; blazeMode?: boolean; used?: number; limit?: number } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/reminders/status')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) {
+          setFbStatus({
+            pushReady: d.firebase?.pushReady,
+            blazeMode: d.firebase?.blazeMode,
+            used: d.quota?.usedThisMonth,
+            limit: d.quota?.monthlyLimit,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleEnablePush = async () => {
+    const res = await registerFirebaseWebPush({ askPermission: true });
+    if (res.ok) {
+      setPushStatusMsg('Anlık Firebase bildirimleri bu cihaza bağlandı!');
+    } else {
+      setPushStatusMsg(res.reason || 'Bildirim izni etkinleştirilemedi.');
+    }
+  };
 
   // Filter customers with subscriptions or due dates that are overdue, due today, or due in the next 3 days
   const dueCustomers = customers.filter((c) => {
@@ -37,10 +65,28 @@ export const UpcomingReminders: React.FC<UpcomingRemindersProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
             <h2 className="text-base font-bold text-stone-900 dark:text-white">Günü Gelen Düzenli Ödemeler &amp; Bakımlar</h2>
           </div>
-          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
-            Hepsi Güncel
-          </span>
+          <div className="flex items-center gap-2">
+            {fbStatus?.limit ? (
+              <span className="text-[11px] font-bold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/50 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                <Flame className="w-3 h-3" />
+                Firebase Otomatik ({fbStatus.used || 0}/{fbStatus.limit})
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleEnablePush}
+              className="text-[11px] font-bold text-stone-600 dark:text-stone-300 hover:text-orange-600 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-md cursor-pointer"
+            >
+              🔔 Bildirim Aç
+            </button>
+            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
+              Hepsi Güncel
+            </span>
+          </div>
         </div>
+        {pushStatusMsg && (
+          <p className="text-[11px] font-semibold text-orange-600 dark:text-orange-400 mb-1.5">{pushStatusMsg}</p>
+        )}
         <p className="text-xs text-stone-500 dark:text-stone-400">
           Şu an günü geçen veya hatırlatılması gereken periyodik aidat, kurs ödemesi ya da servis bakımı bulunmuyor.
         </p>

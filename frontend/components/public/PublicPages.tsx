@@ -67,6 +67,14 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
     case 'berber-randevu-programi':
     case 'randevu-sistemi':
     case 'online-randevu':
+    case 'izmit-berber-randevu':
+    case 'izmit-berber':
+    case 'kocaeli-berber':
+    case 'kocaeli-berber-randevu':
+    case 'zonguldak-berber-randevu':
+    case 'zonguldak-berber':
+    case 'eregli-berber':
+    case 'kdz-eregli-berber':
       return 'berber';
     case 'guzellik-salonu':
     case 'guzellik-merkezi':

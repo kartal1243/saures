@@ -34,6 +34,13 @@ import {
   Landmark,
 } from 'lucide-react';
 import type { BarberStaff, BarberService, BarberSalonSettings, BarberReview, BarberDiscountSlot } from '../../../shared/types';
+import {
+  sendFirebasePhoneOtp,
+  confirmFirebasePhoneOtp,
+  resetRecaptchaVerifier,
+  translateFirebaseError,
+} from '../../firebase';
+import type { ConfirmationResult } from 'firebase/auth';
 
 interface OccupiedSlot {
   date: string;
@@ -136,6 +143,21 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
   const [otpSending, setOtpSending] = useState(false);
   const [otpDemoHint, setOtpDemoHint] = useState<string | null>(null);
   const [otpWhatsappLink, setOtpWhatsappLink] = useState<string | null>(null);
+  const [firebaseConfirmResult, setFirebaseConfirmResult] = useState<ConfirmationResult | null>(null);
+  const [otpChannel, setOtpChannel] = useState<'firebase' | 'backend' | null>(null);
+  const [otpResendSec, setOtpResendSec] = useState(0);
+
+  useEffect(() => {
+    if (otpResendSec <= 0) return;
+    const t = setTimeout(() => setOtpResendSec((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [otpResendSec]);
+
+  useEffect(() => {
+    return () => {
+      resetRecaptchaVerifier('barber-recaptcha-container');
+    };
+  }, []);
 
   // Dijital Sadakat Kartı & IBAN Kopyalama
   const [loyaltyInfo, setLoyaltyInfo] = useState<{
@@ -550,7 +572,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
     }
   }, [availableSlots, selectedTimeSlot]);
 
-  // OTP Gönderimi
+  // OTP Gönderimi (Öncelik: Firebase Phone Auth Gerçek SMS -> Yedek: Backend / WhatsApp)
   const handleSendOtp = async () => {
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
@@ -558,7 +580,30 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       return;
     }
     setOtpSending(true);
+    setOtpDemoHint(null);
+    setOtpWhatsappLink(null);
+    setFirebaseConfirmResult(null);
+
     try {
+      const isDemoPhone = cleanPhone === '05900000011' || cleanPhone === '05550000000' || identifier === 'demo';
+      if (!isDemoPhone) {
+        try {
+          const fbRes = await sendFirebasePhoneOtp(cleanPhone, 'barber-recaptcha-container');
+          setFirebaseConfirmResult(fbRes.confirmationResult);
+          setOtpChannel('firebase');
+          setOtpSent(true);
+          setOtpResendSec(60);
+          return;
+        } catch (fbErr: any) {
+          console.warn('Firebase Randevu OTP fallback:', fbErr?.code || fbErr?.message);
+          // Blaze henüz açılmadıysa veya domain yetkili değilse backend/WhatsApp yoluna düş
+          if (fbErr?.code === 'auth/invalid-phone-number') {
+            alert(translateFirebaseError(fbErr));
+            return;
+          }
+        }
+      }
+
       const res = await fetch('/api/public/barber/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -566,13 +611,15 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       });
       const resJson = await res.json();
       if (res.ok) {
+        setOtpChannel('backend');
         setOtpSent(true);
+        setOtpResendSec(60);
         if (resJson.whatsappLink) {
           setOtpWhatsappLink(resJson.whatsappLink);
         }
         if (resJson.demoCode) {
           setOtpDemoHint(resJson.demoCode);
-          setOtpCode(resJson.demoCode); // Otomatik doldur
+          setOtpCode(resJson.demoCode);
         }
       } else {
         alert(resJson.error || 'SMS kodu gönderilemedi.');
@@ -600,12 +647,22 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       return;
     }
     if (data?.settings?.requireOtp && (!otpSent || otpCode.trim().length < 4)) {
-      alert('Lütfen önce SMS doğrulama kodunu gönderip 4 haneli kodu giriniz.');
+      alert('Lütfen önce SMS doğrulama kodunu gönderip 4-6 haneli kodu giriniz.');
       return;
     }
 
     setIsSubmitting(true);
     try {
+      let firebaseIdToken: string | undefined;
+      if (data?.settings?.requireOtp && firebaseConfirmResult) {
+        try {
+          const verified = await confirmFirebasePhoneOtp(firebaseConfirmResult, otpCode.trim());
+          firebaseIdToken = verified.idToken;
+        } catch (fbErr: any) {
+          throw new Error(translateFirebaseError(fbErr));
+        }
+      }
+
       const res = await fetch(`/api/public/barber/${encodeURIComponent(identifier)}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -621,6 +678,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
           serviceIds: selectedServiceIds,
           staffId: selectedStaffId,
           otpCode: otpCode.trim(),
+          firebaseIdToken,
         }),
       });
 
@@ -1506,23 +1564,28 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                 />
               </div>
 
-              {/* Güvenlik: Tek Kullanımlık Kod (OTP) */}
+              {/* Güvenlik: Tek Kullanımlık Kod (OTP — Firebase SMS Doğrulama) */}
               {data.settings.requireOtp && (
                 <div className="pt-2 border-t border-stone-800">
+                  <div id="barber-recaptcha-container" />
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-bold uppercase tracking-wider text-amber-400">
                       SMS Doğrulama Kodu *
                     </label>
-                    {!otpSent && (
-                      <button
-                        type="button"
-                        onClick={handleSendOtp}
-                        disabled={otpSending}
-                        className="text-xs font-bold text-amber-400 hover:text-amber-300 cursor-pointer"
-                      >
-                        {otpSending ? 'Gönderiliyor...' : 'SMS Kodu Gönder'}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={otpSending || otpResendSec > 0}
+                      className="text-xs font-bold text-amber-400 hover:text-amber-300 disabled:opacity-50 cursor-pointer"
+                    >
+                      {otpSending
+                        ? 'Gönderiliyor...'
+                        : otpSent
+                        ? otpResendSec > 0
+                          ? `Tekrar Gönder (${otpResendSec}s)`
+                          : 'Kodu Tekrar Gönder'
+                        : 'SMS Kodu Gönder'}
+                    </button>
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
@@ -1538,7 +1601,13 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                       <div className="flex flex-col text-xs text-emerald-400 font-medium">
                         <div className="flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                          <span>Onay kodu telefonunuza SMS ile iletildi.</span>
+                          <span>
+                            {otpChannel === 'firebase'
+                              ? 'Onay kodunuz Firebase üzerinden SMS olarak gönderildi.'
+                              : otpDemoHint
+                              ? `Demo doğrulama kodu otomatik dolduruldu (${otpDemoHint}).`
+                              : 'Onay kodu telefonunuza iletildi.'}
+                          </span>
                         </div>
                         {otpWhatsappLink && (
                           <a

@@ -11,10 +11,11 @@ Bu kural, projede açılan konuşmaları düzenli ve amaca odaklı tutmak için 
 
 ## 1. 💻 Yazılım Geliştirme Sohbeti (Software & Architecture)
 **Ana Odak:** Kod yazımı, mimari, hata çözümleri, refactoring, testler ve performans.
-Bu sohbet içinde 3 uzman alt ajan (Sub-Agent) koordineli çalışır:
+Bu sohbet içinde uzman alt ajanlar (Sub-Agent) koordineli çalışır:
 - **`seo-uzmani`**: Teknik SEO, Local Business / Kuaför Schema.org JSON-LD yapıları, Core Web Vitals (LCP/CLS/INP), meta etiketler, sitemap.xml ve Google arama motoru görünürlüğü.
 - **`yazilim-gelistirici`**: Full-Stack geliştirme (React, Vite, Tailwind CSS, Node.js/Express, Python), randevu motoru, slot çakışma algoritmaları, sesli asistan (`dukkanim_voice_engine`) ve temiz kod mimarisi.
 - **`admin-ve-guvenlik`**: Süper Admin & Esnaf paneli RBAC yetkilendirmesi, JWT/Cookie oturum güvenliği, API Rate Limiting, SQLi/XSS/CSRF önleme, KVKK veri gizliliği ve denetim logları.
+- **`firebase-uzmani`**: Firebase Blaze altyapısı (`dukkanim-yanimda`), Phone Auth SMS OTP (Şifremi Unuttum, Kayıt & Randevu), E-posta doğrulama/şifre sıfırlama, FCM HTTP v1 Push bildirimleri, Cloud Functions (`functions/index.js`) ve Firestore bulut senkronizasyonu (`firestore.rules` için `firestore-rules-author` eşliğinde).
 
 ---
 

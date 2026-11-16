@@ -1,11 +1,18 @@
 import type { Express, Request, Response } from 'express';
-import type { CustodyTicket, RepairTicket, Transaction } from '../../shared/types';
+import type {
+  CustodyTicket,
+  MaintenanceAsset,
+  MaintenanceLogEntry,
+  RepairTicket,
+  Transaction,
+} from '../../shared/types';
 import { S, saveState } from '../context';
 import { calculateCashRegister } from '../cash';
-import { broadcast } from '../realtime';
+import { broadcast, broadcastToAccount } from '../realtime';
 import { localDay } from '../day';
 import { getAccounts } from '../accounts';
-import { loadShopState } from '../shopState';
+import { loadShopState, persistShopState } from '../shopState';
+import { sendPushToAccount } from './devices';
 
 export interface PublicTicketLookupResult {
   code: string;
@@ -158,6 +165,235 @@ export function lookupPublicTicket(rawCode: string): PublicTicketLookupResult | 
   return null;
 }
 
+export interface PublicAssetPassportResult {
+  code: string;
+  shopName: string;
+  shopPhone: string;
+  shopCityDistrict: string;
+  shopLogoUrl?: string;
+  clientName: string;
+  locationArea?: string;
+  deviceName: string;
+  brandModel?: string;
+  serialNumberMasked?: string;
+  intervalDays: number;
+  lastMaintenanceDate: string;
+  nextMaintenanceDate: string;
+  warrantyUntil?: string;
+  daysRemaining: number;
+  statusBadge: 'guncel' | 'yaklasiyor' | 'gecikmis';
+  statusLabel: string;
+  logs: MaintenanceLogEntry[];
+}
+
+function addDaysToIsoDate(dateStr: string, days: number): string {
+  const base = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? new Date(`${dateStr}T12:00:00Z`) : new Date();
+  if (Number.isNaN(base.getTime())) return localDay();
+  base.setUTCDate(base.getUTCDate() + Math.max(1, Number(days) || 90));
+  return base.toISOString().slice(0, 10);
+}
+
+function computeAssetMaintenanceStatus(nextDate: string): {
+  daysRemaining: number;
+  statusBadge: 'guncel' | 'yaklasiyor' | 'gecikmis';
+  statusLabel: string;
+} {
+  const todayStr = localDay();
+  const todayMs = new Date(`${todayStr}T00:00:00Z`).getTime();
+  const nextMs = new Date(`${nextDate}T00:00:00Z`).getTime();
+  const daysRemaining = Number.isFinite(nextMs) ? Math.round((nextMs - todayMs) / 86400000) : 0;
+
+  if (daysRemaining < 0) {
+    return {
+      daysRemaining,
+      statusBadge: 'gecikmis',
+      statusLabel: `Bakım ${Math.abs(daysRemaining)} Gün Gecikti!`,
+    };
+  }
+  if (daysRemaining <= 15) {
+    return {
+      daysRemaining,
+      statusBadge: 'yaklasiyor',
+      statusLabel: daysRemaining === 0 ? 'Bakım Bugün!' : `Bakıma ${daysRemaining} Gün Kaldı`,
+    };
+  }
+  return {
+    daysRemaining,
+    statusBadge: 'guncel',
+    statusLabel: `Bakımı Güncel (${daysRemaining} gün var)`,
+  };
+}
+
+/**
+ * KVKK uyumlu kamusal QR Makine / Cihaz Bakım Pasaportu (`/api/public/asset/:code`).
+ */
+export function lookupPublicAsset(rawCode: string): PublicAssetPassportResult | null {
+  const code = String(rawCode || '').trim();
+  if (!code) return null;
+
+  if (code.toLowerCase() === 'demo') {
+    const nextDate = addDaysToIsoDate(localDay(), 12);
+    const status = computeAssetMaintenanceStatus(nextDate);
+    return {
+      code: 'demo',
+      shopName: 'TeknoFix Endüstriyel Servis',
+      shopPhone: '',
+      shopCityDistrict: 'İkitelli OSB, İstanbul',
+      clientName: 'Yılmaz Metal CNC Fabrika',
+      locationArea: 'A Blok — CNC İşleme Hattı 2',
+      deviceName: 'Haas VF-2 CNC Dik İşleme Merkezi',
+      brandModel: 'Haas VF-2SS / 2024',
+      serialNumberMasked: 'SN-***4892',
+      intervalDays: 90,
+      lastMaintenanceDate: addDaysToIsoDate(localDay(), -78),
+      nextMaintenanceDate: nextDate,
+      warrantyUntil: addDaysToIsoDate(localDay(), 290),
+      ...status,
+      logs: [
+        {
+          id: 'ml_demo_1',
+          date: addDaysToIsoDate(localDay(), -78),
+          summary: 'Spindle yağ kontrolü, kızak bakımı, filtre değişimi ve eksen kalibrasyonu',
+          technician: 'Murat Usta',
+          partsChanged: 'Hava Filtresi, Yağ Kartuşu',
+          meterReading: '4.280 saat',
+        },
+        {
+          id: 'ml_demo_2',
+          date: addDaysToIsoDate(localDay(), -168),
+          summary: 'Soğutma pompası revizyonu ve elektrik pano termal kontrolü',
+          technician: 'Murat Usta',
+          partsChanged: 'Soğutma Keçesi',
+          meterReading: '3.610 saat',
+        },
+      ],
+    };
+  }
+
+  const normalizedCode = code.toLowerCase();
+  const accounts = getAccounts();
+
+  for (const acc of accounts) {
+    const st = loadShopState(acc.id);
+    const asset = (st.maintenanceAssets || []).find(
+      (a: MaintenanceAsset) =>
+        a.id.toLowerCase() === normalizedCode ||
+        (a.code && a.code.toLowerCase() === normalizedCode)
+    );
+    if (!asset) continue;
+
+    const status = computeAssetMaintenanceStatus(asset.nextMaintenanceDate);
+    const serial = asset.serialNumber || '';
+    const serialNumberMasked =
+      serial.length > 4 ? `***${serial.slice(-4)}` : serial || undefined;
+
+    return {
+      code: asset.code || asset.id,
+      shopName: st.shopProfile?.storeName || acc.shopName || 'Teknik Servis',
+      shopPhone: st.shopProfile?.phone || acc.phone || '',
+      shopCityDistrict: st.shopProfile?.cityDistrict || '',
+      shopLogoUrl: st.shopProfile?.logoUrl,
+      clientName: asset.clientName,
+      locationArea: asset.locationArea,
+      deviceName: asset.deviceName,
+      brandModel: asset.brandModel,
+      serialNumberMasked,
+      intervalDays: asset.intervalDays,
+      lastMaintenanceDate: asset.lastMaintenanceDate,
+      nextMaintenanceDate: asset.nextMaintenanceDate,
+      warrantyUntil: asset.warrantyUntil,
+      ...status,
+      logs: Array.isArray(asset.logs) ? asset.logs.slice(0, 20) : [],
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Fabrika / müşteri QR makine sayfasından doğrudan arıza veya bakım talebi açar.
+ */
+export async function requestServiceForPublicAsset(
+  rawCode: string,
+  payload: { reporterName?: string; reporterPhone?: string; issueDescription?: string; urgency?: string }
+): Promise<{ ok: boolean; statusCode: number; error?: string; ticket?: RepairTicket }> {
+  const code = String(rawCode || '').trim();
+  if (!code) return { ok: false, statusCode: 400, error: 'Geçersiz cihaz kodu.' };
+
+  const description = String(payload.issueDescription || '').trim();
+  const reporterName = String(payload.reporterName || '').trim();
+  const reporterPhone = String(payload.reporterPhone || '').trim();
+  if (!description || !reporterName) {
+    return { ok: false, statusCode: 400, error: 'Bildiren kişi adı ve arıza/bakım açıklaması zorunludur.' };
+  }
+
+  if (code.toLowerCase() === 'demo') {
+    const now = new Date();
+    return {
+      ok: true,
+      statusCode: 200,
+      ticket: {
+        id: `rep_demo_${Date.now()}`,
+        customerName: `${reporterName} (Yılmaz Metal Demo)`,
+        phone: reporterPhone,
+        deviceOrVehicle: 'Haas VF-2 CNC Dik İşleme Merkezi [QR Demo]',
+        complaint: description,
+        estimatedCost: 0,
+        partCost: 0,
+        status: 'kabul_edildi',
+        notes: `Aciliyet: ${payload.urgency || 'Normal'}`,
+        createdAt: `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`,
+      },
+    };
+  }
+
+  const normalizedCode = code.toLowerCase();
+  const accounts = getAccounts();
+  for (const acc of accounts) {
+    const st = loadShopState(acc.id);
+    const asset = (st.maintenanceAssets || []).find(
+      (a: MaintenanceAsset) =>
+        a.id.toLowerCase() === normalizedCode ||
+        (a.code && a.code.toLowerCase() === normalizedCode)
+    );
+    if (!asset) continue;
+
+    const now = new Date();
+    const newTicket: RepairTicket = {
+      id: `rep_qr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      customerName: `${asset.clientName} — ${reporterName}`,
+      phone: reporterPhone || asset.clientPhone || '',
+      deviceOrVehicle: `${asset.deviceName}${asset.locationArea ? ` (${asset.locationArea})` : ''}`,
+      deviceModel: asset.brandModel,
+      complaint: `[QR Pasaport: ${asset.code}] ${description}`,
+      estimatedCost: 0,
+      partCost: 0,
+      status: 'kabul_edildi',
+      notes: `Öncelik: ${payload.urgency || 'Normal'} | Seri: ${asset.serialNumber || '-'}`,
+      createdAt: `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`,
+    };
+
+    if (!Array.isArray(st.repairTickets)) st.repairTickets = [];
+    st.repairTickets.unshift(newTicket);
+    persistShopState(acc.id, st);
+
+    try {
+      broadcastToAccount(acc.id, { type: 'REPAIR_TICKET_UPDATED', payload: newTicket });
+    } catch {}
+
+    sendPushToAccount(acc.id, {
+      title: `🚨 QR Arıza Bildirimi: ${asset.deviceName}`,
+      body: `${asset.clientName} (${reporterName}): ${description.slice(0, 120)}`,
+      url: '/',
+      tag: `asset_alert_${asset.id}`,
+    }).catch(() => {});
+
+    return { ok: true, statusCode: 200, ticket: newTicket };
+  }
+
+  return { ok: false, statusCode: 404, error: 'Bu QR koduna kayıtlı cihaz bulunamadı.' };
+}
+
 export function registerRepairRoutes(app: Express): void {
   // ==========================================
   // 16. SEKTÖRE ÖZEL: TEKNİK SERVİS & TAMİR (İŞ EMRİ & FİŞ)
@@ -279,6 +515,136 @@ export function registerRepairRoutes(app: Express): void {
     S().repairTickets = S().repairTickets.filter((t) => t.id !== id);
     saveState();
     broadcast({ type: 'REPAIR_TICKET_DELETED', payload: { id } });
+    res.json({ success: true });
+  });
+
+  // ==========================================
+  // 16b. FABRİKA & TEKNİK SERVİS QR MAKİNE BAKIM PASAPORTU
+  // ==========================================
+  app.get('/api/maintenance-assets', (_req: Request, res: Response) => {
+    res.json({ maintenanceAssets: S().maintenanceAssets || [] });
+  });
+
+  app.post('/api/maintenance-assets', (req: Request, res: Response) => {
+    const body = req.body || {};
+    const clientName = String(body.clientName || '').trim();
+    const deviceName = String(body.deviceName || '').trim();
+    if (!clientName || !deviceName) {
+      return res.status(400).json({ error: 'Firma/Müşteri adı ve cihaz/makine adı zorunludur.' });
+    }
+
+    if (!Array.isArray(S().maintenanceAssets)) S().maintenanceAssets = [];
+    const intervalDays = Math.max(1, Number(body.intervalDays) || 90);
+    const lastDate = String(body.lastMaintenanceDate || localDay()).trim();
+    const nextDate = String(body.nextMaintenanceDate || addDaysToIsoDate(lastDate, intervalDays)).trim();
+
+    let asset: MaintenanceAsset;
+    if (body.id) {
+      const idx = S().maintenanceAssets!.findIndex((a) => a.id === body.id);
+      if (idx === -1) return res.status(404).json({ error: 'Cihaz kaydı bulunamadı.' });
+      asset = {
+        ...S().maintenanceAssets![idx],
+        clientName,
+        clientPhone: body.clientPhone !== undefined ? String(body.clientPhone).trim() : S().maintenanceAssets![idx].clientPhone,
+        locationArea: body.locationArea !== undefined ? String(body.locationArea).trim() : S().maintenanceAssets![idx].locationArea,
+        deviceName,
+        brandModel: body.brandModel !== undefined ? String(body.brandModel).trim() : S().maintenanceAssets![idx].brandModel,
+        serialNumber: body.serialNumber !== undefined ? String(body.serialNumber).trim() : S().maintenanceAssets![idx].serialNumber,
+        intervalDays,
+        lastMaintenanceDate: lastDate,
+        nextMaintenanceDate: nextDate,
+        warrantyUntil: body.warrantyUntil !== undefined ? String(body.warrantyUntil).trim() : S().maintenanceAssets![idx].warrantyUntil,
+        notes: body.notes !== undefined ? String(body.notes).trim() : S().maintenanceAssets![idx].notes,
+      };
+      S().maintenanceAssets![idx] = asset;
+    } else {
+      const shortCode = `MKN-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      asset = {
+        id: `asset_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        code: String(body.code || shortCode).trim().toUpperCase(),
+        clientName,
+        clientPhone: String(body.clientPhone || '').trim() || undefined,
+        locationArea: String(body.locationArea || '').trim() || undefined,
+        deviceName,
+        brandModel: String(body.brandModel || '').trim() || undefined,
+        serialNumber: String(body.serialNumber || '').trim() || undefined,
+        intervalDays,
+        lastMaintenanceDate: lastDate,
+        nextMaintenanceDate: nextDate,
+        warrantyUntil: String(body.warrantyUntil || '').trim() || undefined,
+        notes: String(body.notes || '').trim() || undefined,
+        logs: [],
+        createdAt: new Date().toISOString(),
+      };
+      S().maintenanceAssets!.unshift(asset);
+    }
+
+    saveState();
+    broadcast({ type: 'MAINTENANCE_ASSET_UPDATED', payload: asset });
+    res.json({ success: true, asset });
+  });
+
+  app.post('/api/maintenance-assets/:id/record-maintenance', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const body = req.body || {};
+    if (!Array.isArray(S().maintenanceAssets)) S().maintenanceAssets = [];
+    const asset = S().maintenanceAssets!.find((a) => a.id === id);
+    if (!asset) return res.status(404).json({ error: 'Cihaz kaydı bulunamadı.' });
+
+    const maintenanceDate = String(body.maintenanceDate || localDay()).trim();
+    const summary = String(body.summary || 'Periyodik bakım ve genel kontrol yapıldı').trim();
+    const cost = Number(body.cost) || 0;
+
+    const entry: MaintenanceLogEntry = {
+      id: `ml_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      date: maintenanceDate,
+      summary,
+      technician: String(body.technician || '').trim() || undefined,
+      partsChanged: String(body.partsChanged || '').trim() || undefined,
+      cost: cost > 0 ? cost : undefined,
+      meterReading: String(body.meterReading || '').trim() || undefined,
+    };
+
+    if (!Array.isArray(asset.logs)) asset.logs = [];
+    asset.logs.unshift(entry);
+    asset.lastMaintenanceDate = maintenanceDate;
+    asset.nextMaintenanceDate = addDaysToIsoDate(maintenanceDate, asset.intervalDays);
+
+    let incomeTx: Transaction | undefined;
+    let cash;
+    if (body.addToCash && cost > 0) {
+      const now = new Date();
+      const todayStr = S().businessDate || localDay();
+      const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      incomeTx = {
+        id: `tx_mnt_${Date.now()}`,
+        customerId: '',
+        customerName: asset.clientName,
+        type: 'tahsilat',
+        amount: cost,
+        paymentMethod: body.paymentMethod === 'kart' ? 'kart' : 'nakit',
+        description: `Periyodik Bakım (${asset.code}): ${asset.deviceName}`,
+        date: `${todayStr} ${timeStr}`,
+        createdAt: now.toISOString(),
+      };
+      S().transactions.unshift(incomeTx);
+      cash = calculateCashRegister();
+    }
+
+    saveState();
+    broadcast({ type: 'MAINTENANCE_ASSET_UPDATED', payload: asset });
+    if (incomeTx && cash) {
+      broadcast({ type: 'TRANSACTION_CREATED', payload: { transaction: incomeTx, cash } });
+    }
+    res.json({ success: true, asset, transaction: incomeTx, cash });
+  });
+
+  app.delete('/api/maintenance-assets/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!Array.isArray(S().maintenanceAssets)) S().maintenanceAssets = [];
+    S().maintenanceAssets = S().maintenanceAssets!.filter((a) => a.id !== id);
+    saveState();
+    broadcast({ type: 'MAINTENANCE_ASSET_DELETED', payload: { id } });
     res.json({ success: true });
   });
 }

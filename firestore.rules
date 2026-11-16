@@ -1,0 +1,402 @@
+rules_version = '2';
+
+// ===============================================================
+// Dükkanım Yanımda — Cloud Firestore Security Rules (Prototype)
+// Project ID: dukkanim-yanimda
+// ===============================================================
+//
+// Mimari Özet / Architecture Summary:
+// - Node.js Express sunucusu Firestore'a Service Account OAuth2 JWT / Admin SDK ile bağlanır
+//   (Admin SDK & Service Account REST API istemci kurallarını güvenli biçimde bypass eder).
+// - Firebase Blaze Cloud Functions v2 (functions/index.js) `firebase-admin` ile çalışır:
+//   `sms_queue` (`onDocumentCreated`), `sms_logs` ve zamanlanmış hatırlatma tetikleyicileri.
+// - İstemci (Web / Android TWA / PWA) kimlik doğrulaması birincil olarak Express oturumu ile yapılır;
+//   Firebase Auth (`request.auth != null`) Phone Auth SMS OTP, e-posta sıfırlama ve FCM push için kullanılır.
+// - Bu kurallar varsayılan kapalı (fail-closed / default-deny) ilkesiyle tüm doğrudan istemci yazmalarını
+//   kapatır (`allow write: if false;`) ve hassas KVKK / PII koleksiyonlarını tamamen izole eder.
+//
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: sms_queue/{docId}
+// Document ID: sms_<timestamp>_<randomHex>
+// Access: Server / Admin SDK / Cloud Functions ONLY (client read & write denied)
+// Fields:
+//   - phone: string (required, PII - GSM number)
+//   - message: string (required, PII - SMS body)
+//   - category: string (required, e.g. 'reminder', 'appointment_reminder', 'subscription_due')
+//   - shopName: string (required)
+//   - status: string (required, 'pending' | 'sent' | 'logged_only')
+//   - createdAt: string | timestamp (required)
+//   - provider: string (optional, set by Cloud Function)
+//   - error: string | null (optional, set by Cloud Function)
+//   - processedAt: timestamp (optional, set by Cloud Function)
+//
+// Collection: sms_logs/{docId}
+// Document ID: auto-id
+// Access: Server / Admin SDK / Cloud Functions ONLY (client read & write denied)
+// Fields:
+//   - phone: string (required, PII)
+//   - category: string (required)
+//   - shopName: string (required)
+//   - provider: string (required)
+//   - sent: bool (required)
+//   - error: string | null (optional)
+//   - createdAt: timestamp (required)
+//
+// Collection: password_resets/{docId}
+// Document ID: reset_<base36>_<random>
+// Access: Server / Admin SDK ONLY (client read & write denied)
+// Fields:
+//   - id: string (required)
+//   - phone: string (required, PII)
+//   - shopName: string (required)
+//   - ownerName: string (required, PII)
+//   - ip: string (required, PII)
+//   - createdAt: string | timestamp (required)
+//   - status: string (required, e.g. 'otp_sent')
+//
+// Collection: device_tokens/{docId}
+// Document ID: dev_<randomHex>
+// Access: Server-managed via /api/devices/register (client read & write denied)
+// Fields:
+//   - id: string (required)
+//   - accountId: string (required)
+//   - token: string (required, secret FCM device token)
+//   - platform: string (required, 'android' | 'ios' | 'web')
+//   - deviceName: string (optional)
+//   - createdAt: string | timestamp (required)
+//   - updatedAt: string | timestamp (required)
+//
+// Collection: shops/{accountId}
+// Document ID: acc_<id> (3..128 chars, [A-Za-z0-9._-]+)
+// Access: Read ONLY by authenticated Firebase user with verified custom claim
+//         `request.auth.token.accountId == accountId`; all client writes denied.
+// Fields (summary snapshot mirrored by backend Admin SDK / REST):
+//   - accountId: string (required, immutable, matches doc ID)
+//   - storeName: string (required, 1..120 chars)
+//   - businessField: string (optional, 1..80 chars)
+//   - sectorKey: string (optional, 1..60 chars)
+//   - cityDistrict: string (optional, 1..120 chars)
+//   - vipTier: string (optional, 'cirak' | 'usta' | 'patron')
+//   - isVip: bool (optional)
+//   - updatedAt: string | timestamp (optional)
+//
+// Subcollection: shops/{accountId}/reminder_logs/{logId} (and all subcollections under shops/{accountId})
+// Access: Server / Admin SDK ONLY (client read & write denied - contains customer PII & cloud backups)
+// Fields (reminder_logs):
+//   - id: string (required)
+//   - customerId: string (optional)
+//   - customerName: string (required, PII)
+//   - phone: string (required, PII)
+//   - channel: string (required, 'whatsapp' | 'sms')
+//   - message: string (required, PII)
+//   - status: string (required, 'gonderildi' | 'hazirlandi' | 'teslim_edildi')
+//   - sentAt: string | timestamp (required)
+//   - type: string (required, 'veresiye' | 'aidat' | 'bakim' | 'ozel')
+//
+// Collection: public_assets/{assetCode}
+// Document ID: assetCode (3..64 chars, ^[A-Za-z0-9][A-Za-z0-9._-]*$)
+// Access: Optional public QR machine maintenance passport read-only metadata (`get` ONLY, `list` & `write` denied).
+//         Strict non-PII allowlist enforced; primary endpoint is VPS Express `/api/public/asset/:code`.
+// Fields:
+//   - code: string (required, must equal assetCode)
+//   - shopName: string (required, 1..120 chars)
+//   - shopSlug: string (optional, 1..120 chars)
+//   - shopCityDistrict: string (optional, 1..120 chars)
+//   - deviceName: string (required, 1..120 chars)
+//   - brandModel: string (optional, 1..120 chars)
+//   - intervalDays: int (optional, 1..3650)
+//   - lastMaintenanceDate: string | timestamp (optional, YYYY-MM-DD or ISO 8601)
+//   - nextMaintenanceDate: string | timestamp (optional, YYYY-MM-DD or ISO 8601)
+//   - warrantyUntil: string | timestamp (optional, YYYY-MM-DD or ISO 8601)
+//   - status: string (optional, enum)
+//   - logsCount: int (optional, 0..10000)
+//   - isPublic: bool (required, must be true)
+//   - updatedAt: string | timestamp (optional)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions / Ortak Güvenlik Yardımcıları
+    // ===============================================================
+
+    // Kimlik doğrulama kontrolü (Firebase Auth oturumu var mı?)
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    // Kullanıcı kimliği sahiplik kontrolü (gelecekteki kullanıcı-bazlı yollar için standart yardımcı)
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Oluşturma sırasında UID manipülasyonunu engeller
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+             request.resource.data.uid == request.auth.uid;
+    }
+
+    // Güncelleme sırasında UID alanının değiştirilmesini engeller
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+             request.resource.data.uid == resource.data.uid;
+    }
+
+    // Hesap kimliği (accountId) biçim ve uzunluk doğrulaması
+    function isValidAccountId(accountId) {
+      return accountId is string &&
+             accountId.size() >= 3 &&
+             accountId.size() <= 128 &&
+             accountId.matches("^[A-Za-z0-9][A-Za-z0-9._-]*$");
+    }
+
+    // Sunucu tarafından imzalanmış özel JWT claim (`accountId`) ile dükkan sahipliğini doğrular.
+    // Not: İstemci tarafından sağlanan `request.resource.data` alanlarına asla güvenilmez.
+    function hasShopAccountClaim(accountId) {
+      return isAuthenticated() &&
+             isValidAccountId(accountId) &&
+             ('accountId' in request.auth.token) &&
+             request.auth.token.accountId is string &&
+             request.auth.token.accountId == accountId;
+    }
+
+    // Belgenin zorunlu alanları içerdiğini doğrular
+    function hasRequiredFields(data, fields) {
+      return data is map && data.keys().hasAll(fields);
+    }
+
+    // Belgenin yalnızca izin verilen alanları içerdiğini doğrular (Schema Pollution koruması)
+    function hasOnlyAllowedFields(data, fields) {
+      return data is map && data.keys().hasOnly(fields);
+    }
+
+    // Belgenin yasaklı / PII alanları içermediğini doğrular (ek savunma katmanı)
+    function hasNoForbiddenFields(data, fields) {
+      return data is map && !data.keys().hasAny(fields);
+    }
+
+    // Zorunlu metin alanı tip ve uzunluk sınırı (DoS / 1MB payload koruması)
+    function validStringLength(data, field, minLen, maxLen) {
+      return (field in data) &&
+             data[field] is string &&
+             data[field].size() >= minLen &&
+             data[field].size() <= maxLen;
+    }
+
+    // Opsiyonel metin alanı tip ve uzunluk sınırı
+    function isValidOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) ||
+             (data[field] is string &&
+              data[field].size() >= minLen &&
+              data[field].size() <= maxLen);
+    }
+
+    // Liste tipi ve maksimum eleman sayısı sınırı
+    function isValidList(listVal, maxSize) {
+      return listVal is list && listVal.size() <= maxSize;
+    }
+
+    // Değişmez alanların güncellemede korunmasını sağlar
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Opsiyonel tam sayı alanının aralık doğrulaması
+    function isValidOptionalIntRange(data, field, minVal, maxVal) {
+      return !(field in data) ||
+             (data[field] is int &&
+              data[field] >= minVal &&
+              data[field] <= maxVal);
+    }
+
+    // YYYY-MM-DD veya ISO 8601 tarih metni doğrulaması
+    function isValidDateOrIsoString(val) {
+      return val is string &&
+             val.size() >= 10 &&
+             val.size() <= 40 &&
+             val.matches("^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?)?$");
+    }
+
+    // Opsiyonel Firestore timestamp veya geçerli tarih/ISO metni (boş dize '' yoksayılır)
+    function isValidOptionalDateOrTimestamp(data, field) {
+      return !(field in data) ||
+             data[field] is timestamp ||
+             (data[field] is string && data[field].size() == 0) ||
+             isValidDateOrIsoString(data[field]);
+    }
+
+    // ===============================================================
+    // Domain Validators / Alan Doğrulayıcıları
+    // ===============================================================
+
+    // Dükkan özet belgesinin tenant tutarlılığını kontrol eder (belge yoksa exists=false dönebilir)
+    function isShopSummaryTenantMatch(accountId) {
+      return resource == null ||
+             (resource.data is map &&
+              (!('accountId' in resource.data) || resource.data.accountId == accountId));
+    }
+
+    // Dükkan özet şeması doğrulayıcısı (sunucu taraflı şema standardı & olası yazma/denetim doğrulaması)
+    function isValidShopSummary(data, accountId) {
+      let allowedFields = [
+        'accountId',
+        'storeName',
+        'businessField',
+        'sectorKey',
+        'cityDistrict',
+        'vipTier',
+        'isVip',
+        'updatedAt'
+      ];
+      return data is map &&
+             isValidAccountId(accountId) &&
+             hasRequiredFields(data, ['accountId', 'storeName']) &&
+             hasOnlyAllowedFields(data, allowedFields) &&
+             data.accountId is string &&
+             data.accountId == accountId &&
+             validStringLength(data, 'storeName', 1, 120) &&
+             isValidOptionalString(data, 'businessField', 1, 80) &&
+             isValidOptionalString(data, 'sectorKey', 1, 60) &&
+             isValidOptionalString(data, 'cityDistrict', 1, 120) &&
+             (!('vipTier' in data) || (data.vipTier is string && data.vipTier in ['cirak', 'usta', 'patron'])) &&
+             (!('isVip' in data) || data.isVip is bool) &&
+             isValidOptionalDateOrTimestamp(data, 'updatedAt');
+    }
+
+    // Kamusal QR cihaz bakım pasaportu doğrulayıcısı (sıfır PII + katı alan beyaz listesi)
+    function isValidPublicAssetPassport(data, assetCode) {
+      let allowedFields = [
+        'code',
+        'shopName',
+        'shopSlug',
+        'shopCityDistrict',
+        'deviceName',
+        'brandModel',
+        'intervalDays',
+        'lastMaintenanceDate',
+        'nextMaintenanceDate',
+        'warrantyUntil',
+        'status',
+        'logsCount',
+        'isPublic',
+        'updatedAt'
+      ];
+      let forbiddenPiiFields = [
+        'phone',
+        'clientPhone',
+        'customerPhone',
+        'clientName',
+        'customerName',
+        'ownerName',
+        'email',
+        'address',
+        'iban',
+        'serialNumber',
+        'notes',
+        'locationArea',
+        'logs',
+        'accountId',
+        'uid',
+        'token',
+        'passwordHash'
+      ];
+      let allowedStatuses = [
+        'aktif',
+        'bakim_yaklasiyor',
+        'bakim_gecikti',
+        'pasif',
+        'active',
+        'due',
+        'overdue'
+      ];
+
+      return data is map &&
+             assetCode is string &&
+             assetCode.size() >= 3 &&
+             assetCode.size() <= 64 &&
+             assetCode.matches("^[A-Za-z0-9][A-Za-z0-9._-]*$") &&
+             hasRequiredFields(data, ['code', 'shopName', 'deviceName', 'isPublic']) &&
+             hasOnlyAllowedFields(data, allowedFields) &&
+             hasNoForbiddenFields(data, forbiddenPiiFields) &&
+             data.isPublic is bool &&
+             data.isPublic == true &&
+             data.code is string &&
+             data.code == assetCode &&
+             validStringLength(data, 'shopName', 1, 120) &&
+             validStringLength(data, 'deviceName', 1, 120) &&
+             isValidOptionalString(data, 'shopSlug', 0, 120) &&
+             isValidOptionalString(data, 'shopCityDistrict', 0, 120) &&
+             isValidOptionalString(data, 'brandModel', 0, 120) &&
+             isValidOptionalIntRange(data, 'intervalDays', 1, 3650) &&
+             isValidOptionalDateOrTimestamp(data, 'lastMaintenanceDate') &&
+             isValidOptionalDateOrTimestamp(data, 'nextMaintenanceDate') &&
+             isValidOptionalDateOrTimestamp(data, 'warrantyUntil') &&
+             (!('status' in data) || (data.status is string && data.status in allowedStatuses)) &&
+             isValidOptionalIntRange(data, 'logsCount', 0, 10000) &&
+             isValidOptionalDateOrTimestamp(data, 'updatedAt');
+    }
+
+    // ===============================================================
+    // Collection Rules / Koleksiyon Kuralları
+    // ===============================================================
+
+    // 1. Giden SMS ve hatırlatma kuyruğu: Yalnızca sunucu (Service Account) ve Cloud Functions v2 erişebilir.
+    match /sms_queue/{docId} {
+      allow read, write: if false;
+    }
+
+    // 2. Gönderilen SMS/Push denetim logları: Yalnızca sunucu ve Cloud Functions erişebilir.
+    match /sms_logs/{docId} {
+      allow read, write: if false;
+    }
+
+    // 3. Şifre sıfırlama OTP ve hız sınırlama kayıtları: İstemci erişimine tamamen kapalıdır.
+    match /password_resets/{docId} {
+      allow read, write: if false;
+    }
+
+    // 4. FCM push bildirim cihaz jetonları: /api/devices/register üzerinden sunucu yönetir.
+    match /device_tokens/{docId} {
+      allow read, write: if false;
+    }
+
+    // 5. Dükkan özet belgeleri ve alt koleksiyonlar (günlük yedekler, hatırlatma logları):
+    // - Yalnızca özel JWT claim'i `accountId == {accountId}` olan kullanıcı kendi dükkan özetini okuyabilir.
+    // - Tüm istemci yazmaları kapalıdır; günlük bulut yedekleri ve `reminder_logs` dahil tüm alt koleksiyonlar
+    //   müşteri PII (telefon/mesaj) içerdiği için istemci okuma ve yazmasına tamamen kapalıdır.
+    match /shops/{accountId} {
+      allow read: if hasShopAccountClaim(accountId) && isShopSummaryTenantMatch(accountId);
+      allow write: if false;
+
+      match /reminder_logs/{logId} {
+        allow read, write: if false;
+      }
+
+      match /{subcollection=**} {
+        allow read, write: if false;
+      }
+    }
+
+    // 6. Opsiyonel kamusal QR cihaz bakım pasaportu (KVKK uyumlu, salt okunur ve PII-arındırılmış):
+    // - Toplu tarama / kazımayı (scraping) önlemek için `list` tamamen kapalıdır (`allow list: if false;`).
+    // - Yalnızca QR kodu (`assetCode`) bilinen ve `isPublic == true` işaretli, sıfır PII içeren
+    //   tekil belge okumalarına (`get`) izin verilir; yazma tamamen kapalıdır.
+    match /public_assets/{assetCode} {
+      allow get: if resource != null && isValidPublicAssetPassport(resource.data, assetCode);
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // ===============================================================
+    // Global Fail-Closed Fallback / Varsayılan Tüm Erişimleri Reddet
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

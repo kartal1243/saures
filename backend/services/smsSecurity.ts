@@ -4,7 +4,7 @@ import { readJsonFile, writeJsonFile } from '../fsdb';
 
 // Güvenlik ve Harcama Muhafızı Limit Sabitleri
 export const SMS_LIMITS = {
-  GLOBAL_DAILY_LIMIT: 20,       // Platform genelinde günlük maksimum 20 SMS (Harcama Sigortası)
+  GLOBAL_DAILY_LIMIT: 20,       // Spark / varsayılan güvenli tavan (Blaze modunda env ile yükselir)
   PHONE_DAILY_LIMIT: 3,         // Aynı numaraya günde en fazla 3 SMS
   PHONE_COOLDOWN_MS: 60 * 1000, // Aynı numaraya 1 dakika bekleme süresi (SMS flood koruması)
   IP_DAILY_LIMIT: 10,           // Aynı IP adresinden günde en fazla 10 SMS
@@ -12,8 +12,26 @@ export const SMS_LIMITS = {
   HOURLY_WINDOW_MS: 60 * 60 * 1000,
 };
 
+export function getEffectiveSmsLimits() {
+  const isBlaze = process.env.FIREBASE_BLAZE_ENABLED === 'true';
+  const envGlobal = Number(process.env.SMS_GLOBAL_DAILY_LIMIT || 0);
+  const envPhoneDaily = Number(process.env.SMS_PHONE_DAILY_LIMIT || 0);
+  const envIpDaily = Number(process.env.SMS_IP_DAILY_LIMIT || 0);
+  const envIpHourly = Number(process.env.SMS_IP_HOURLY_LIMIT || 0);
+
+  return {
+    GLOBAL_DAILY_LIMIT: envGlobal > 0 ? envGlobal : isBlaze ? 5000 : SMS_LIMITS.GLOBAL_DAILY_LIMIT,
+    PHONE_DAILY_LIMIT: envPhoneDaily > 0 ? envPhoneDaily : isBlaze ? 5 : SMS_LIMITS.PHONE_DAILY_LIMIT,
+    PHONE_COOLDOWN_MS: SMS_LIMITS.PHONE_COOLDOWN_MS,
+    IP_DAILY_LIMIT: envIpDaily > 0 ? envIpDaily : isBlaze ? 30 : SMS_LIMITS.IP_DAILY_LIMIT,
+    IP_HOURLY_LIMIT: envIpHourly > 0 ? envIpHourly : isBlaze ? 15 : SMS_LIMITS.IP_HOURLY_LIMIT,
+    HOURLY_WINDOW_MS: SMS_LIMITS.HOURLY_WINDOW_MS,
+    isBlazeMode: isBlaze,
+  };
+}
+
 // WhatsApp Destek / Manuel Doğrulama Hattı
-export const WHATSAPP_SUPPORT_PHONE = '905550000000'; // Dükkânım Yanımda Destek Hattı
+export const WHATSAPP_SUPPORT_PHONE = (process.env.SUPPORT_WHATSAPP_PHONE || '905550000000').replace(/\D/g, '') || '905550000000'; // Dükkânım Yanımda Destek Hattı
 
 export interface PhoneSmsRecord {
   countToday: number;
@@ -115,6 +133,7 @@ export function generateWhatsAppVerificationLink(phone: string): string {
  * 4. Katman: IP saatlik ve günlük limit kontrolü
  */
 export function checkSmsEligibility(rawPhone: string, rawIp: string): EligibilityResult {
+  const limits = getEffectiveSmsLimits();
   const phone = rawPhone.replace(/\D/g, '');
   const ip = (rawIp || 'unknown').trim();
   const state = loadSmsSecurityState();
@@ -122,7 +141,7 @@ export function checkSmsEligibility(rawPhone: string, rawIp: string): Eligibilit
   const today = getTodayDateStr();
 
   // 1. Katman: Küresel Devre Kesici (Global Circuit Breaker)
-  if (state.isCircuitBreakerTripped || state.globalCountToday >= SMS_LIMITS.GLOBAL_DAILY_LIMIT) {
+  if (state.isCircuitBreakerTripped || state.globalCountToday >= limits.GLOBAL_DAILY_LIMIT) {
     return {
       allowed: false,
       reason: 'CIRCUIT_BREAKER_ACTIVE',
@@ -139,8 +158,8 @@ export function checkSmsEligibility(rawPhone: string, rawIp: string): Eligibilit
     if (phoneRecord.dateStr === today) {
       // 2. Katman: Cooldown (1 dakika içinde tekrar SMS istenemez)
       const elapsed = now - (phoneRecord.lastSentAt || 0);
-      if (elapsed < SMS_LIMITS.PHONE_COOLDOWN_MS) {
-        const remainingSec = Math.ceil((SMS_LIMITS.PHONE_COOLDOWN_MS - elapsed) / 1000);
+      if (elapsed < limits.PHONE_COOLDOWN_MS) {
+        const remainingSec = Math.ceil((limits.PHONE_COOLDOWN_MS - elapsed) / 1000);
         return {
           allowed: false,
           reason: 'PHONE_COOLDOWN',
@@ -150,12 +169,12 @@ export function checkSmsEligibility(rawPhone: string, rawIp: string): Eligibilit
         };
       }
 
-      // 3. Katman: Günlük Max 3 SMS
-      if (phoneRecord.countToday >= SMS_LIMITS.PHONE_DAILY_LIMIT) {
+      // 3. Katman: Günlük Telefon Limiti
+      if (phoneRecord.countToday >= limits.PHONE_DAILY_LIMIT) {
         return {
           allowed: false,
           reason: 'PHONE_DAILY_LIMIT',
-          message: 'Bu telefon numarası için günlük SMS gönderme sınırına (3 SMS) ulaşıldı. WhatsApp ile hemen doğrulayabilirsiniz.',
+          message: `Bu telefon numarası için günlük SMS gönderme sınırına (${limits.PHONE_DAILY_LIMIT} SMS) ulaşıldı. WhatsApp veya e-posta ile hemen doğrulayabilirsiniz.`,
           fallbackToWhatsapp: true,
           whatsappLink: generateWhatsAppVerificationLink(phone),
         };
@@ -168,11 +187,11 @@ export function checkSmsEligibility(rawPhone: string, rawIp: string): Eligibilit
   if (ipRecord && ipRecord.dateStr === today) {
     // 1 saat içindeki istekleri filtrele
     const recentTimestamps = (ipRecord.recentTimestamps || []).filter(
-      (ts) => now - ts < SMS_LIMITS.HOURLY_WINDOW_MS
+      (ts) => now - ts < limits.HOURLY_WINDOW_MS
     );
 
-    // Saatte max 5 SMS
-    if (recentTimestamps.length >= SMS_LIMITS.IP_HOURLY_LIMIT) {
+    // Saatte max SMS
+    if (recentTimestamps.length >= limits.IP_HOURLY_LIMIT) {
       return {
         allowed: false,
         reason: 'IP_HOURLY_LIMIT',
@@ -182,8 +201,8 @@ export function checkSmsEligibility(rawPhone: string, rawIp: string): Eligibilit
       };
     }
 
-    // Günde max 10 SMS
-    if (ipRecord.countToday >= SMS_LIMITS.IP_DAILY_LIMIT) {
+    // Günde max SMS
+    if (ipRecord.countToday >= limits.IP_DAILY_LIMIT) {
       return {
         allowed: false,
         reason: 'IP_DAILY_LIMIT',
@@ -202,6 +221,7 @@ export function checkSmsEligibility(rawPhone: string, rawIp: string): Eligibilit
  * data/sms-security-state.json dosyasına anında yazar.
  */
 export function recordSmsSent(rawPhone: string, rawIp: string): void {
+  const limits = getEffectiveSmsLimits();
   const phone = rawPhone.replace(/\D/g, '');
   const ip = (rawIp || 'unknown').trim();
   const state = loadSmsSecurityState();
@@ -210,9 +230,9 @@ export function recordSmsSent(rawPhone: string, rawIp: string): void {
 
   // Global sayaç artır
   state.globalCountToday = (state.globalCountToday || 0) + 1;
-  if (state.globalCountToday >= SMS_LIMITS.GLOBAL_DAILY_LIMIT) {
+  if (state.globalCountToday >= limits.GLOBAL_DAILY_LIMIT) {
     state.isCircuitBreakerTripped = true;
-    console.warn(`[SMS Security] ⚠️ KÜRESEL DEVRE KESİCİ DEVREYE GİRDİ! Günlük kota (${SMS_LIMITS.GLOBAL_DAILY_LIMIT}) doldu.`);
+    console.warn(`[SMS Security] ⚠️ KÜRESEL DEVRE KESİCİ DEVREYE GİRDİ! Günlük kota (${limits.GLOBAL_DAILY_LIMIT}) doldu.`);
   }
 
   // Telefon sayacı
@@ -236,7 +256,7 @@ export function recordSmsSent(rawPhone: string, rawIp: string): void {
     };
   } else {
     const recent = (state.ips[ip].recentTimestamps || []).filter(
-      (ts) => now - ts < SMS_LIMITS.HOURLY_WINDOW_MS
+      (ts) => now - ts < limits.HOURLY_WINDOW_MS
     );
     recent.push(now);
     state.ips[ip].recentTimestamps = recent;
@@ -257,11 +277,12 @@ export function getSmsSecurityStats(): {
   totalTrackedPhones: number;
   totalTrackedIps: number;
 } {
+  const limits = getEffectiveSmsLimits();
   const state = loadSmsSecurityState();
   return {
     today: state.globalDate,
     globalCountToday: state.globalCountToday || 0,
-    globalLimit: SMS_LIMITS.GLOBAL_DAILY_LIMIT,
+    globalLimit: limits.GLOBAL_DAILY_LIMIT,
     isCircuitBreakerTripped: !!state.isCircuitBreakerTripped,
     totalTrackedPhones: Object.keys(state.phones || {}).length,
     totalTrackedIps: Object.keys(state.ips || {}).length,

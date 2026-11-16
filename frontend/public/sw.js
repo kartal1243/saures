@@ -45,11 +45,13 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       const parsed = event.data.json();
+      const notif = parsed.notification || {};
+      const data = parsed.data || {};
       payload = {
-        title: parsed.title || payload.title,
-        body: parsed.body || payload.body,
-        url: parsed.url || payload.url,
-        tag: parsed.tag || payload.tag,
+        title: parsed.title || notif.title || data.title || payload.title,
+        body: parsed.body || notif.body || data.body || payload.body,
+        url: parsed.url || data.url || (parsed.fcmOptions && parsed.fcmOptions.link) || payload.url,
+        tag: parsed.tag || notif.tag || data.tag || payload.tag,
       };
     } catch {
       const text = event.data.text();

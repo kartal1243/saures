@@ -6,6 +6,7 @@ import type {
   CaseFile,
   CustodyTicket,
   Customer,
+  MaintenanceAsset,
   Product,
   RepairTicket,
   RestaurantTable,
@@ -61,12 +62,27 @@ interface SectorModuleSwitchProps {
     paymentMethod: 'nakit' | 'kart'
   ) => Promise<void>;
   onCreditSaleToCustomer: (customerId: string, amount: number, description: string) => Promise<void>;
-  // Teknik servis
+  // Teknik servis & QR Bakım Pasaportu
   repairTickets: RepairTicket[];
   onAddRepairTicket: (data: Partial<RepairTicket>) => Promise<void>;
   onUpdateRepairStatus: (id: string, status: RepairTicket['status']) => Promise<void>;
   onCompleteRepairTicket: (id: string, paymentMethod: 'nakit' | 'kart', deductPartCost: boolean) => Promise<void>;
   onDeleteRepairTicket: (id: string) => Promise<void>;
+  maintenanceAssets?: MaintenanceAsset[];
+  onSaveMaintenanceAsset?: (data: Partial<MaintenanceAsset>) => Promise<void>;
+  onRecordAssetMaintenance?: (
+    id: string,
+    payload: {
+      summary: string;
+      technician?: string;
+      partsChanged?: string;
+      cost?: number;
+      meterReading?: string;
+      addToCash?: boolean;
+      paymentMethod?: 'nakit' | 'kart';
+    }
+  ) => Promise<void>;
+  onDeleteMaintenanceAsset?: (id: string) => Promise<void>;
   // Avukat / Danışman
   cases: CaseFile[];
   lawyerTab: LawyerTab;
@@ -144,6 +160,11 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
         onUpdateStatus={props.onUpdateRepairStatus}
         onCompleteTicket={props.onCompleteRepairTicket}
         onDeleteTicket={props.onDeleteRepairTicket}
+        maintenanceAssets={props.maintenanceAssets}
+        onSaveMaintenanceAsset={props.onSaveMaintenanceAsset}
+        onRecordAssetMaintenance={props.onRecordAssetMaintenance}
+        onDeleteMaintenanceAsset={props.onDeleteMaintenanceAsset}
+        storeName={props.storeName}
       />
     );
   }

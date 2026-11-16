@@ -8,7 +8,7 @@ import { loadShopState, persistShopState, isReservedSlug } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { publicActionRateLimit } from '../guards';
 import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
-import { lookupPublicTicket } from './repair';
+import { lookupPublicTicket, lookupPublicAsset, requestServiceForPublicAsset } from './repair';
 
 const SAMPLE_MENU_ITEMS: MenuItem[] = [
   {
@@ -194,6 +194,23 @@ export function registerPublicMenuRoutes(app: Express): void {
       return res.status(404).json({ error: 'Bu takip koduna ait servis veya emanet kaydı bulunamadı.' });
     }
     return res.json({ success: true, ticket });
+  });
+
+  // Kamusal QR Makine & Cihaz Bakım Pasaportu (/bakim/:code)
+  app.get('/api/public/asset/:code', publicActionRateLimit, (req: Request, res: Response) => {
+    const asset = lookupPublicAsset(req.params.code);
+    if (!asset) {
+      return res.status(404).json({ error: 'Bu QR koduna kayıtlı cihaz veya makine kaydı bulunamadı.' });
+    }
+    return res.json({ success: true, asset });
+  });
+
+  app.post('/api/public/asset/:code/request-service', publicActionRateLimit, async (req: Request, res: Response) => {
+    const result = await requestServiceForPublicAsset(req.params.code, req.body || {});
+    if (!result.ok) {
+      return res.status(result.statusCode).json({ error: result.error });
+    }
+    return res.json({ success: true, ticket: result.ticket });
   });
 
   app.get('/api/public/menu/:identifier', (req: Request, res: Response) => {

@@ -156,6 +156,34 @@ export interface RepairTicket {
   completedAt?: string;
 }
 
+export interface MaintenanceLogEntry {
+  id: string;
+  date: string;
+  summary: string;
+  technician?: string;
+  partsChanged?: string;
+  cost?: number;
+  meterReading?: string;
+}
+
+export interface MaintenanceAsset {
+  id: string;
+  code: string;
+  clientName: string;
+  clientPhone?: string;
+  locationArea?: string;
+  deviceName: string;
+  brandModel?: string;
+  serialNumber?: string;
+  intervalDays: number;
+  lastMaintenanceDate: string;
+  nextMaintenanceDate: string;
+  warrantyUntil?: string;
+  notes?: string;
+  logs: MaintenanceLogEntry[];
+  createdAt: string;
+}
+
 // Sektöre Özel: Terzi / Kuru Temizleme Emanet (bırakılan eşya) Takibi
 export interface CustodyTicket {
   id: string;
@@ -170,6 +198,34 @@ export interface CustodyTicket {
   notes?: string;
   createdAt: string;
   completedAt?: string;
+}
+
+export interface MaintenanceLogEntry {
+  id: string;
+  date: string;
+  summary: string;
+  technician?: string;
+  partsChanged?: string;
+  cost?: number;
+  meterReading?: string;
+}
+
+export interface MaintenanceAsset {
+  id: string;
+  code: string;
+  clientName: string;
+  clientPhone?: string;
+  locationArea?: string;
+  deviceName: string;
+  brandModel?: string;
+  serialNumber?: string;
+  intervalDays: number;
+  lastMaintenanceDate: string;
+  nextMaintenanceDate: string;
+  warrantyUntil?: string;
+  notes?: string;
+  logs: MaintenanceLogEntry[];
+  createdAt: string;
 }
 
 // Tedarikçi cari hesabı: dükkanın toptancı/imalatçıya olan borcu
@@ -509,6 +565,7 @@ export interface AppState {
   appointments: Appointment[];
   tables: RestaurantTable[];
   repairTickets: RepairTicket[];
+  maintenanceAssets?: MaintenanceAsset[];
   suppliers: Supplier[];
   services: ServiceItem[];
   cases: CaseFile[];
@@ -551,6 +608,8 @@ export type WSEvent =
   | { type: 'REPAIR_UPDATED'; payload: RepairTicket }
   | { type: 'REPAIR_TICKET_UPDATED'; payload: RepairTicket }
   | { type: 'REPAIR_TICKET_DELETED'; payload: { id: string } }
+  | { type: 'MAINTENANCE_ASSET_UPDATED'; payload: MaintenanceAsset }
+  | { type: 'MAINTENANCE_ASSET_DELETED'; payload: { id: string } }
   | { type: 'SUPPLIER_UPDATED'; payload: Supplier }
   | { type: 'SUPPLIER_DELETED'; payload: { id: string } }
   | { type: 'SERVICE_UPDATED'; payload: ServiceItem }

@@ -54,6 +54,7 @@ export function registerCoreRoutes(app: Express): void {
       ? (Array.isArray(ns.tables) ? ns.tables : [])
       : (Array.isArray(ns.tables) ? ns.tables.slice(0, FREE_TABLE_LIMIT) : []);
     st.repairTickets = Array.isArray(ns.repairTickets) ? ns.repairTickets : [];
+    st.maintenanceAssets = Array.isArray(ns.maintenanceAssets) ? ns.maintenanceAssets : [];
     st.suppliers = Array.isArray(ns.suppliers) ? ns.suppliers : [];
     (st as any).services = Array.isArray(ns.services) ? ns.services : [];
     (st as any).cases = Array.isArray(ns.cases) ? ns.cases : [];
@@ -105,6 +106,7 @@ export function registerCoreRoutes(app: Express): void {
       appointments: S().appointments || [],
       tables: S().tables || [],
       repairTickets: S().repairTickets || [],
+      maintenanceAssets: S().maintenanceAssets || [],
       suppliers: S().suppliers || [],
       services: (S() as any).services || [],
       cases: (S() as any).cases || [],

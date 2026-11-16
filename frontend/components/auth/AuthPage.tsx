@@ -1,10 +1,16 @@
-import React, { useState, useRef } from 'react';
-import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing, Mail, CheckCircle2, MessageSquare, AlertTriangle } from 'lucide-react';
-import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
+import React, { useState, useEffect } from 'react';
+import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing, Mail, CheckCircle2 } from 'lucide-react';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
 import { PhoneMockupHero } from './PhoneMockupHero';
-import { auth } from '../../firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
+import {
+  sendFirebasePhoneOtp,
+  confirmFirebasePhoneOtp,
+  resetRecaptchaVerifier,
+  translateFirebaseError,
+  sendFirebaseRecoveryEmailLink,
+  completeFirebaseRecoveryEmailLink,
+} from '../../firebase';
+import type { ConfirmationResult } from 'firebase/auth';
 
 interface AuthPageProps {
   onSuccess: () => void;
@@ -30,6 +36,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const [kvkkAccepted, setKvkkAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Opsiyonel Kayıt Firebase SMS Doğrulama
+  const [regConfirmResult, setRegConfirmResult] = useState<ConfirmationResult | null>(null);
+  const [regOtpSent, setRegOtpSent] = useState(false);
+  const [regOtpCode, setRegOtpCode] = useState('');
+  const [regOtpBusy, setRegOtpBusy] = useState(false);
+  const [regFirebaseIdToken, setRegFirebaseIdToken] = useState<string | null>(null);
+  const [regOtpMsg, setRegOtpMsg] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +79,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
       const body =
         mode === 'login'
           ? { phone: identifier, password }
-          : { shopName, ownerName, phone: identifier, email, password, kvkkAccepted: true };
+          : {
+              shopName,
+              ownerName,
+              phone: identifier,
+              email,
+              password,
+              kvkkAccepted: true,
+              ...(regFirebaseIdToken ? { firebaseIdToken: regFirebaseIdToken } : {}),
+            };
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,8 +109,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   };
 
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [forgotMethod, setForgotMethod] = useState<'sms' | 'email'>('sms');
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [recoveryPhone, setRecoveryPhone] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryEmailIdToken, setRecoveryEmailIdToken] = useState<string | null>(null);
+  const [forgotEmailSentMsg, setForgotEmailSentMsg] = useState<string | null>(null);
+  const [matchedShopPreview, setMatchedShopPreview] = useState<{ shopName: string; maskedEmail?: string } | null>(null);
   const [forgotOtpCode, setForgotOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
@@ -98,10 +125,33 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const [forgotWhatsappLink, setForgotWhatsappLink] = useState<string | null>(null);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [circuitBreakerActive, setCircuitBreakerActive] = useState(false);
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const [resendCooldownSec, setResendCooldownSec] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldownSec <= 0) return;
+    const t = setTimeout(() => setResendCooldownSec((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldownSec]);
+
+  useEffect(() => {
+    // Firebase E-posta sıfırlama linkinden dönüldüyse modalı doğrudan Adım 2'ye aç
+    completeFirebaseRecoveryEmailLink()
+      .then((res) => {
+        if (res.matched && res.idToken) {
+          setRecoveryEmail(res.email || '');
+          if (res.phone) setRecoveryPhone(res.phone);
+          setRecoveryEmailIdToken(res.idToken);
+          setForgotMethod('email');
+          setForgotStep(2);
+          setIsForgotPasswordOpen(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const closeForgotPasswordModal = () => {
     setIsForgotPasswordOpen(false);
+    setForgotMethod('sms');
     setForgotStep(1);
     setForgotSuccess(false);
     setForgotError(null);
@@ -109,15 +159,75 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
     setNewPassword('');
     setNewPasswordConfirm('');
     setConfirmationResult(null);
+    setRecoveryEmailIdToken(null);
+    setForgotEmailSentMsg(null);
+    setMatchedShopPreview(null);
     setCircuitBreakerActive(false);
     setForgotWhatsappLink(null);
-    if (recaptchaVerifierRef.current) {
-      try {
-        recaptchaVerifierRef.current.clear();
-      } catch (e) {
-        // reCAPTCHA temizleme
+    setResendCooldownSec(0);
+    resetRecaptchaVerifier('recaptcha-container');
+  };
+
+  const triggerForgotPhoneSms = async () => {
+    setForgotError(null);
+    setCircuitBreakerActive(false);
+    const cleanDigits = recoveryPhone.replace(/\D/g, '');
+    if (!cleanDigits.startsWith('05') || cleanDigits.length !== 11) {
+      setForgotError('Lütfen 05 ile başlayan 11 haneli geçerli bir telefon numarası giriniz.');
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const checkRes = await fetch('/api/auth/forgot-password/check-eligibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: recoveryPhone }),
+      });
+      const checkData = await checkRes.json().catch(() => ({}));
+
+      if (checkData.shopName) {
+        setMatchedShopPreview({ shopName: checkData.shopName, maskedEmail: checkData.maskedEmail });
       }
-      recaptchaVerifierRef.current = null;
+      if (checkData.whatsappLink) {
+        setForgotWhatsappLink(checkData.whatsappLink);
+      }
+
+      if (!checkRes.ok || checkData.allowed === false) {
+        if (checkData.fallbackToWhatsapp) {
+          setCircuitBreakerActive(true);
+          setForgotError(checkData.message || 'SMS kotası koruma altında. WhatsApp veya E-posta ile anında doğrulayabilirsiniz.');
+        } else {
+          setForgotError(checkData.error || checkData.message || 'SMS kodu gönderilemiyor.');
+        }
+        return;
+      }
+
+      const { confirmationResult: conf } = await sendFirebasePhoneOtp(
+        cleanDigits,
+        'recaptcha-container',
+        () => setForgotError('Güvenlik doğrulaması zaman aşımına uğradı. Lütfen tekrar deneyiniz.')
+      );
+
+      setConfirmationResult(conf);
+      setResendCooldownSec(60);
+
+      fetch('/api/auth/forgot-password/record-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: recoveryPhone }),
+      }).catch(() => {});
+
+      setForgotStep(2);
+    } catch (err: any) {
+      console.error('Firebase SMS Gönderim Hatası:', err);
+      const errCode = String(err?.code || '');
+      if (errCode === 'auth/quota-exceeded' || errCode === 'auth/too-many-requests' || err?.message?.includes('quota')) {
+        setCircuitBreakerActive(true);
+      }
+      setForgotError(translateFirebaseError(err));
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -412,6 +522,75 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all font-sans"
                   />
                 </div>
+                {mode === 'register' && (
+                  <div className="mt-2">
+                    <div id="register-recaptcha-container" />
+                    {regFirebaseIdToken ? (
+                      <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Telefon Firebase SMS ile doğrulandı
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            disabled={regOtpBusy || phone.replace(/\D/g, '').length !== 11}
+                            onClick={async () => {
+                              setRegOtpBusy(true);
+                              setRegOtpMsg(null);
+                              try {
+                                const res = await sendFirebasePhoneOtp(phone, 'register-recaptcha-container');
+                                setRegConfirmResult(res.confirmationResult);
+                                setRegOtpSent(true);
+                                setRegOtpMsg('6 haneli doğrulama kodu SMS ile gönderildi.');
+                              } catch (err: any) {
+                                setRegOtpMsg(translateFirebaseError(err));
+                              } finally {
+                                setRegOtpBusy(false);
+                              }
+                            }}
+                            className="text-[11px] font-bold text-orange-600 hover:text-orange-700 disabled:opacity-45 cursor-pointer"
+                          >
+                            {regOtpBusy ? 'Firebase SMS gönderiliyor...' : '📱 Telefonu Firebase SMS ile Doğrula (İsteğe Bağlı)'}
+                          </button>
+                        </div>
+                        {regOtpSent && regConfirmResult && (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              maxLength={6}
+                              value={regOtpCode}
+                              onChange={(e) => setRegOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                              placeholder="6 haneli kod"
+                              className="w-32 px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs font-mono font-bold text-center"
+                            />
+                            <button
+                              type="button"
+                              disabled={regOtpBusy || regOtpCode.length < 6}
+                              onClick={async () => {
+                                if (!regConfirmResult) return;
+                                setRegOtpBusy(true);
+                                try {
+                                  const verified = await confirmFirebasePhoneOtp(regConfirmResult, regOtpCode);
+                                  setRegFirebaseIdToken(verified.idToken);
+                                  setRegOtpMsg('Telefon doğrulandı!');
+                                } catch (err: any) {
+                                  setRegOtpMsg(translateFirebaseError(err));
+                                } finally {
+                                  setRegOtpBusy(false);
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+                            >
+                              Onayla
+                            </button>
+                          </div>
+                        )}
+                        {regOtpMsg && <p className="text-[11px] font-semibold text-stone-600">{regOtpMsg}</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {mode === 'register' && (
@@ -534,7 +713,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
         </div>
       </div>
 
-      {/* Şifremi Unuttum Kurtarma Modalı (Firebase Phone Auth & WhatsApp Koruma Kalkanı) */}
+      {/* Şifremi Unuttum Kurtarma Modalı (Firebase Phone Auth + E-posta + WhatsApp Koruma Kalkanı) */}
       {isForgotPasswordOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 border border-stone-200 animate-in fade-in zoom-in-95 duration-200">
@@ -544,7 +723,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-stone-900 flex items-center gap-2">
                 <Lock className="w-4 h-4 text-orange-600" />
-                {forgotStep === 1 ? 'Şifremi Unuttum' : 'Yeni Şifre Belirleme'}
+                {forgotStep === 1 ? 'Şifremi Unuttum (Firebase)' : 'Yeni Şifre Belirleme'}
               </h3>
               <button
                 type="button"
@@ -555,6 +734,36 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
               </button>
             </div>
 
+            {forgotStep === 1 && !forgotSuccess && (
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-stone-100 rounded-xl text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotMethod('sms');
+                    setForgotError(null);
+                    setForgotEmailSentMsg(null);
+                  }}
+                  className={`py-2 rounded-lg transition-all cursor-pointer ${
+                    forgotMethod === 'sms' ? 'bg-white text-orange-600 shadow-xs' : 'text-stone-500'
+                  }`}
+                >
+                  📱 Telefon SMS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotMethod('email');
+                    setForgotError(null);
+                  }}
+                  className={`py-2 rounded-lg transition-all cursor-pointer ${
+                    forgotMethod === 'email' ? 'bg-white text-orange-600 shadow-xs' : 'text-stone-500'
+                  }`}
+                >
+                  ✉️ E-posta Linki
+                </button>
+              </div>
+            )}
+
             {forgotSuccess ? (
               <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold space-y-3 text-center">
                 <div className="text-3xl">🎉</div>
@@ -564,141 +773,142 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                 </p>
               </div>
             ) : forgotStep === 1 ? (
-              <>
-                <p className="text-xs text-stone-500 leading-relaxed">
-                  Kayıtlı cep telefonu numaranızı giriniz. Güvenlik doğrulamasının ardından telefonunuza SMS ile 6 haneli onay kodu gönderilecektir.
-                </p>
+              forgotMethod === 'sms' ? (
+                <>
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    Kayıtlı cep telefonu numaranızı giriniz. Firebase Blaze güvenlik doğrulamasıyla telefonunuza SMS ile 6 haneli onay kodu gönderilecektir.
+                  </p>
 
-                {forgotError && (
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2">
-                    <span className="shrink-0 mt-0.5">⚠️</span>
-                    <span>{forgotError}</span>
-                  </div>
-                )}
-
-                {/* Devre Kesici veya Kota Aşımı Aktifse WhatsApp Doğrulama Kartı */}
-                {circuitBreakerActive && forgotWhatsappLink && (
-                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2.5 animate-in fade-in duration-300">
-                    <div className="flex items-center gap-2 font-black text-xs text-emerald-950">
-                      <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs shrink-0 shadow-xs">
-                        💬
-                      </span>
-                      WhatsApp ile Hızlı Doğrulama
+                  {forgotError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2">
+                      <span className="shrink-0 mt-0.5">⚠️</span>
+                      <span>{forgotError}</span>
                     </div>
-                    <p className="text-[11px] text-emerald-800 leading-relaxed font-medium">
-                      Platform SMS harcama koruması veya günlük limit devrededir. WhatsApp yetkili hattımızdan beklemeden hemen şifrenizi yenileyebilirsiniz.
-                    </p>
-                    <a
-                      href={forgotWhatsappLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer text-center"
-                    >
-                      WhatsApp Yetkili Hattına Bağlan →
-                    </a>
+                  )}
+
+                  {circuitBreakerActive && forgotWhatsappLink && (
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2.5 animate-in fade-in duration-300">
+                      <div className="flex items-center gap-2 font-black text-xs text-emerald-950">
+                        <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs shrink-0 shadow-xs">
+                          💬
+                        </span>
+                        WhatsApp ile Hızlı Doğrulama
+                      </div>
+                      <p className="text-[11px] text-emerald-800 leading-relaxed font-medium">
+                        Platform SMS limiti veya harcama koruması devrededir. WhatsApp hattımızdan veya E-posta sekmesinden şifrenizi yenileyebilirsiniz.
+                      </p>
+                      <a
+                        href={forgotWhatsappLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer text-center"
+                      >
+                        WhatsApp Yetkili Hattına Bağlan →
+                      </a>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">Dükkan Telefonunuz</label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={11}
+                      value={recoveryPhone}
+                      onChange={(e) => {
+                        const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
+                        setRecoveryPhone(clean);
+                        setForgotError(null);
+                      }}
+                      placeholder="05XXXXXXXXX"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500 font-mono tracking-wider font-bold"
+                    />
                   </div>
-                )}
 
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-700 mb-1">Dükkan Telefonunuz</label>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={11}
-                    value={recoveryPhone}
-                    onChange={(e) => {
-                      const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
-                      setRecoveryPhone(clean);
-                      setForgotError(null);
-                    }}
-                    placeholder="05XXXXXXXXX"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500 font-mono tracking-wider font-bold"
-                  />
-                </div>
+                  <div className="space-y-2 pt-1">
+                    {!circuitBreakerActive && (
+                      <button
+                        type="button"
+                        disabled={forgotLoading || !recoveryPhone}
+                        onClick={triggerForgotPhoneSms}
+                        className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+                      >
+                        {forgotLoading ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> SMS Gönderiliyor…</>
+                        ) : (
+                          'Firebase SMS Onay Kodu Gönder'
+                        )}
+                      </button>
+                    )}
 
-                <div className="space-y-2 pt-1">
-                  {!circuitBreakerActive && (
                     <button
                       type="button"
-                      disabled={forgotLoading || !recoveryPhone}
+                      onClick={closeForgotPasswordModal}
+                      className="w-full py-2 rounded-xl text-stone-500 hover:text-stone-800 text-xs font-semibold cursor-pointer"
+                    >
+                      Vazgeç
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    Kayıt sırasında tanımladığınız dükkan e-posta adresinize veya telefon numaranıza bağlı kurtarma adresine tek tıkla Firebase doğrulama bağlantısı gönderin.
+                  </p>
+
+                  {forgotError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2">
+                      <span className="shrink-0 mt-0.5">⚠️</span>
+                      <span>{forgotError}</span>
+                    </div>
+                  )}
+
+                  {forgotEmailSentMsg && (
+                    <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                      ✅ {forgotEmailSentMsg}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">Kayıtlı E-posta Adresiniz</label>
+                    <input
+                      type="email"
+                      value={recoveryEmail}
+                      onChange={(e) => {
+                        setRecoveryEmail(e.target.value);
+                        setForgotError(null);
+                      }}
+                      placeholder="ornek@dukkanim.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={forgotLoading || (!recoveryEmail.trim() && !recoveryPhone.trim())}
                       onClick={async () => {
                         setForgotError(null);
-                        setCircuitBreakerActive(false);
-                        const cleanDigits = recoveryPhone.replace(/\D/g, '');
-                        if (!cleanDigits.startsWith('05') || cleanDigits.length !== 11) {
-                          setForgotError('Lütfen 05 ile başlayan 11 haneli geçerli bir telefon numarası giriniz.');
-                          return;
-                        }
-
+                        setForgotEmailSentMsg(null);
                         setForgotLoading(true);
                         try {
-                          // 1. Aşama: Backend Devre Kesici & Uygunluk Kontrolü
-                          const checkRes = await fetch('/api/auth/forgot-password/check-eligibility', {
+                          const res = await fetch('/api/auth/forgot-password/send-email-reset', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ phone: recoveryPhone }),
+                            body: JSON.stringify({
+                              email: recoveryEmail.trim(),
+                              phone: recoveryPhone.trim(),
+                            }),
                           });
-                          const checkData = await checkRes.json().catch(() => ({}));
-
-                          if (!checkRes.ok || checkData.allowed === false) {
-                            if (checkData.fallbackToWhatsapp) {
-                              setCircuitBreakerActive(true);
-                              setForgotWhatsappLink(checkData.whatsappLink || null);
-                              setForgotError(checkData.message || 'SMS kotası koruma altında. WhatsApp ile anında doğrulayabilirsiniz.');
-                            } else {
-                              setForgotError(checkData.error || checkData.message || 'SMS kodu gönderilemiyor.');
-                            }
-                            return;
-                          }
-
-                          // 2. Aşama: Firebase Phone Auth & Invisible reCAPTCHA
-                          if (!recaptchaVerifierRef.current) {
-                            recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                              size: 'invisible',
-                              callback: () => {},
-                              'expired-callback': () => {
-                                setForgotError('Güvenlik doğrulaması zaman aşımına uğradı. Lütfen tekrar deneyiniz.');
-                              },
-                            });
-                          }
-
-                          // Uluslararası format (+90 5XX XXX XX XX)
-                          const formattedPhone = '+90' + cleanDigits.slice(1);
-
-                          const confirmation = await signInWithPhoneNumber(
-                            auth,
-                            formattedPhone,
-                            recaptchaVerifierRef.current
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(data.error || 'E-posta adresi doğrulanamadı.');
+                          const targetEmail = data.email || recoveryEmail.trim();
+                          await sendFirebaseRecoveryEmailLink(targetEmail, recoveryPhone.trim());
+                          setForgotEmailSentMsg(
+                            `${targetEmail} adresine doğrulama bağlantısı gönderildi. Gelen kutunuzdaki bağlantıya tıkladığınızda yeni şifre ekranı otomatik açılacaktır.`
                           );
-
-                          setConfirmationResult(confirmation);
-
-                          // Sayaç kaydı için backend'e bildir
-                          fetch('/api/auth/forgot-password/record-sms', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ phone: recoveryPhone }),
-                          }).catch(() => {});
-
-                          setForgotStep(2);
                         } catch (err: any) {
-                          console.error('Firebase SMS Gönderim Hatası:', err);
-                          if (
-                            err.code === 'auth/quota-exceeded' ||
-                            err.code === 'auth/too-many-requests' ||
-                            err.message?.includes('quota')
-                          ) {
-                            setCircuitBreakerActive(true);
-                            const waLink = `https://wa.me/905550000000?text=${encodeURIComponent(
-                              'Merhaba Dükkânım Yanımda Destek Ekibi, şifre sıfırlama güvenliği için WhatsApp üzerinden doğrulama talep ediyorum. Dükkan numaram: ' + recoveryPhone
-                            )}`;
-                            setForgotWhatsappLink(waLink);
-                            setForgotError('Günlük SMS harcama kotası doldu. WhatsApp ile anında şifrenizi yenileyebilirsiniz.');
-                          } else if (err.code === 'auth/invalid-phone-number') {
-                            setForgotError('Geçersiz telefon numarası formatı.');
-                          } else {
-                            setForgotError(err.message || 'SMS onay kodu gönderilemedi. Lütfen bağlantınızı kontrol ediniz.');
-                          }
+                          setForgotError(translateFirebaseError(err));
                         } finally {
                           setForgotLoading(false);
                         }
@@ -706,27 +916,34 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                       className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
                     >
                       {forgotLoading ? (
-                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> SMS Gönderiliyor…</>
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gönderiliyor…</>
                       ) : (
-                        'SMS Onay Kodu Gönder'
+                        'E-posta Doğrulama Linki Gönder'
                       )}
                     </button>
-                  )}
 
-                  <button
-                    type="button"
-                    onClick={closeForgotPasswordModal}
-                    className="w-full py-2 rounded-xl text-stone-500 hover:text-stone-800 text-xs font-semibold cursor-pointer"
-                  >
-                    Vazgeç
-                  </button>
-                </div>
-              </>
+                    <button
+                      type="button"
+                      onClick={closeForgotPasswordModal}
+                      className="w-full py-2 rounded-xl text-stone-500 hover:text-stone-800 text-xs font-semibold cursor-pointer"
+                    >
+                      Vazgeç
+                    </button>
+                  </div>
+                </>
+              )
             ) : (
               <>
-                <p className="text-xs text-stone-500 leading-relaxed">
-                  <strong className="text-stone-800">{recoveryPhone}</strong> numarasına gönderilen 6 haneli onay kodunu ve yeni şifrenizi giriniz.
-                </p>
+                {recoveryEmailIdToken ? (
+                  <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 font-semibold">
+                    ✅ <strong className="text-emerald-900">{recoveryEmail}</strong> e-posta adresiniz Firebase ile doğrulandı. Şimdi yeni şifrenizi belirleyin.
+                  </p>
+                ) : (
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    {matchedShopPreview?.shopName ? <strong className="text-orange-600">{matchedShopPreview.shopName} — </strong> : null}
+                    <strong className="text-stone-800">{recoveryPhone}</strong> numarasına gönderilen 6 haneli onay kodunu ve yeni şifrenizi giriniz.
+                  </p>
+                )}
 
                 {forgotError && (
                   <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2">
@@ -736,30 +953,42 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                 )}
 
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-stone-700 mb-1">6 Haneli SMS Kodu *</label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={forgotOtpCode}
-                      onChange={(e) => {
-                        setForgotOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                        setForgotError(null);
-                      }}
-                      placeholder="123456"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-center text-lg font-mono tracking-widest font-black outline-none focus:border-orange-500"
-                    />
-                    {forgotWhatsappLink && (
-                      <a
-                        href={forgotWhatsappLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-block text-[11px] text-emerald-600 font-bold hover:underline mt-1"
-                      >
-                        Kodu WhatsApp ile doğrula / al →
-                      </a>
-                    )}
-                  </div>
+                  {!recoveryEmailIdToken && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-stone-700">6 Haneli SMS Kodu *</label>
+                        <button
+                          type="button"
+                          disabled={forgotLoading || resendCooldownSec > 0}
+                          onClick={triggerForgotPhoneSms}
+                          className="text-[11px] font-bold text-orange-600 hover:text-orange-700 disabled:text-stone-400 cursor-pointer"
+                        >
+                          {resendCooldownSec > 0 ? `Tekrar Gönder (${resendCooldownSec}s)` : 'Kodu Tekrar Gönder'}
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={forgotOtpCode}
+                        onChange={(e) => {
+                          setForgotOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                          setForgotError(null);
+                        }}
+                        placeholder="123456"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-center text-lg font-mono tracking-widest font-black outline-none focus:border-orange-500"
+                      />
+                      {forgotWhatsappLink && (
+                        <a
+                          href={forgotWhatsappLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-block text-[11px] text-emerald-600 font-bold hover:underline mt-1"
+                        >
+                          Kodu WhatsApp ile doğrula / al →
+                        </a>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-[11px] font-bold text-stone-700 mb-1">Yeni Şifre (En az 6 karakter) *</label>
@@ -793,7 +1022,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                 <div className="space-y-2 pt-2">
                   <button
                     type="button"
-                    disabled={forgotLoading || forgotOtpCode.length < 4 || !newPassword}
+                    disabled={forgotLoading || (!recoveryEmailIdToken && forgotOtpCode.length < 4) || !newPassword}
                     onClick={async () => {
                       setForgotError(null);
                       if (newPassword.length < 6) {
@@ -807,19 +1036,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
 
                       setForgotLoading(true);
                       try {
-                        let idToken: string | undefined;
+                        let idToken: string | undefined = recoveryEmailIdToken || undefined;
 
-                        // Firebase Phone Auth confirmation doğrulama
-                        if (confirmationResult) {
-                          const userCredential = await confirmationResult.confirm(forgotOtpCode);
-                          idToken = await userCredential.user.getIdToken();
+                        if (!idToken && confirmationResult) {
+                          const verified = await confirmFirebasePhoneOtp(confirmationResult, forgotOtpCode);
+                          idToken = verified.idToken;
                         }
 
                         const res = await fetch('/api/auth/forgot-password/verify-and-reset', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
-                            phone: recoveryPhone,
+                            phone: recoveryPhone || '',
                             idToken,
                             otpCode: forgotOtpCode,
                             newPassword,
@@ -836,13 +1064,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                         }, 1200);
                       } catch (err: any) {
                         console.error('Şifre Doğrulama Hatası:', err);
-                        if (err.code === 'auth/invalid-verification-code') {
-                          setForgotError('Girdiğiniz 6 haneli SMS onay kodu hatalı.');
-                        } else if (err.code === 'auth/code-expired') {
-                          setForgotError('SMS onay kodunun süresi dolmuş. Lütfen yeni bir kod isteyiniz.');
-                        } else {
-                          setForgotError(err.message || 'Bağlantı hatası oluştu.');
-                        }
+                        setForgotError(translateFirebaseError(err));
                       } finally {
                         setForgotLoading(false);
                       }
@@ -856,17 +1078,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForgotStep(1);
-                      setConfirmationResult(null);
-                      setForgotError(null);
-                    }}
-                    className="w-full py-1.5 text-stone-500 hover:text-stone-800 text-xs font-semibold cursor-pointer"
-                  >
-                    ← Numarayı Değiştir
-                  </button>
+                  {!recoveryEmailIdToken && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotStep(1);
+                        setConfirmationResult(null);
+                        setForgotError(null);
+                      }}
+                      className="w-full py-1.5 text-stone-500 hover:text-stone-800 text-xs font-semibold cursor-pointer"
+                    >
+                      ← Numarayı Değiştir
+                    </button>
+                  )}
                 </div>
               </>
             )}

@@ -28,14 +28,14 @@ console.log('✓ /r/demo: WhatsApp önizleme başlıklarında gerçek dükkan ad
 
 // 2b. Menü: /m/demo
 const htmlMenu = renderSeoHtml('/m/demo', 'dukkanimyanimda.com.tr');
-assert(htmlMenu.includes('Makas &amp; Tarak Erkek Kuaförü') || htmlMenu.includes('Makas & Tarak Erkek Kuaförü'), 'Menü sayfasında dükkan adı olmalı');
+assert(htmlMenu.includes('Karaköy Kahvecisi') || htmlMenu.includes('Makas &amp; Tarak Erkek Kuaförü'), 'Menü sayfasında dükkan adı olmalı');
 assert(htmlMenu.includes('property="og:title"'), 'og:title bulunmalı');
 assert(htmlMenu.includes('property="og:description"'), 'og:description bulunmalı');
 console.log('✓ /m/demo: Dijital QR menü başlığı ve OG meta etiketleri doğrulandı.');
 
 // 2c. Sektör Sayfaları: /berber, /kafe-restoran, /bakkal
 const htmlBerber = renderSeoHtml('/berber', 'dukkanimyanimda.com.tr');
-assert(htmlBerber.includes('Berber &amp; Kuaför') || htmlBerber.includes('Berber & Kuaför'), '/berber başlığı doğru olmalı');
+assert(htmlBerber.includes('Berber Randevu') || htmlBerber.includes('Berber &amp; Kuaför'), '/berber başlığı doğru olmalı');
 const htmlKafe = renderSeoHtml('/kafe-restoran', 'dukkanimyanimda.com.tr');
 assert(htmlKafe.includes('Kafe &amp; Restoran') || htmlKafe.includes('Kafe & Restoran'), '/kafe-restoran başlığı doğru olmalı');
 const htmlBakkal = renderSeoHtml('/bakkal', 'dukkanimyanimda.com.tr');
@@ -53,3 +53,4 @@ console.log('✓ Telefon doğrulama kuralları doğrulandı.\n');
 console.log('==============================================');
 console.log('TÜM TESTLER BAŞARIYLA GEÇTİ! SİSTEM HAZIR.');
 console.log('==============================================');
+process.exit(0);

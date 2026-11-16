@@ -19,7 +19,9 @@ import {
   ServiceItem,
   CaseFile,
   CustodyTicket,
+  MaintenanceAsset,
 } from '../shared/types.ts';
+import { initFirebaseAnalytics, registerFirebaseWebPush, unregisterFirebaseWebPush } from './firebase';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { HomeDashboard } from './components/panel/HomeDashboard';
@@ -35,6 +37,7 @@ import { matchPublicRoute, PublicPage } from './components/public/PublicPages';
 import { PublicQrMenuView } from './components/public/PublicQrMenuView';
 import { PublicBarberBookingView } from './components/public/PublicBarberBookingView';
 import { PublicTicketTrackerView } from './components/public/PublicTicketTrackerView';
+import { PublicAssetPassportView } from './components/public/PublicAssetPassportView';
 import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
@@ -190,6 +193,7 @@ export default function App() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [repairTickets, setRepairTickets] = useState<RepairTicket[]>([]);
+  const [maintenanceAssets, setMaintenanceAssets] = useState<MaintenanceAsset[]>([]);
 
   // Tedarikçi cari hesap + modal durumu
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -284,6 +288,7 @@ export default function App() {
   const handleLogout = async () => {
     authedRef.current = false;
     try {
+      await unregisterFirebaseWebPush();
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (e) {
       console.error('Logout error:', e);
@@ -312,6 +317,19 @@ export default function App() {
       setAuthStatus('in');
       fetchInitialData();
       connectWebSocket();
+      initFirebaseAnalytics();
+      registerFirebaseWebPush({
+        askPermission: false,
+        onForegroundMessage: (msg) => {
+          if (msg.title || msg.body) {
+            setLiveTableCallAlert({
+              tableNo: msg.title || 'Bildirim',
+              action: msg.body || 'Yeni işlem bildirimi',
+              time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+            });
+          }
+        },
+      }).catch(() => {});
     } catch (e) {
       console.error('Auth check failed:', e);
       authedRef.current = false;
@@ -363,6 +381,7 @@ export default function App() {
         if (data.appointments) setAppointments(data.appointments);
         if (data.tables) setTables(dedupeById(data.tables));
         if (data.repairTickets) setRepairTickets(data.repairTickets);
+        if (data.maintenanceAssets) setMaintenanceAssets(data.maintenanceAssets);
         if (data.suppliers) setSuppliers(data.suppliers);
         if (data.services) setServices(data.services);
         if (data.cases) setCases(data.cases);
@@ -422,6 +441,9 @@ export default function App() {
             }
             if (wsEvent.payload.repairTickets) {
               setRepairTickets(wsEvent.payload.repairTickets);
+            }
+            if (wsEvent.payload.maintenanceAssets) {
+              setMaintenanceAssets(wsEvent.payload.maintenanceAssets);
             }
             if (wsEvent.payload.suppliers) {
               setSuppliers(wsEvent.payload.suppliers);
@@ -518,6 +540,16 @@ export default function App() {
             });
           } else if (wsEvent.type === 'REPAIR_TICKET_DELETED') {
             setRepairTickets((prev) => prev.filter((t) => t.id !== wsEvent.payload.id));
+          } else if (wsEvent.type === 'MAINTENANCE_ASSET_UPDATED') {
+            setMaintenanceAssets((prev) => {
+              const exists = prev.some((a) => a.id === wsEvent.payload.id);
+              if (exists) {
+                return prev.map((a) => (a.id === wsEvent.payload.id ? wsEvent.payload : a));
+              }
+              return [wsEvent.payload, ...prev];
+            });
+          } else if (wsEvent.type === 'MAINTENANCE_ASSET_DELETED') {
+            setMaintenanceAssets((prev) => prev.filter((a) => a.id !== wsEvent.payload.id));
           } else if (wsEvent.type === 'TRANSACTION_CREATED') {
             setTransactions((prev) => {
               if (prev.some((t) => t.id === wsEvent.payload.transaction.id)) return prev;
@@ -1427,6 +1459,60 @@ export default function App() {
     }
   };
 
+  // Fabrika & Teknik Servis QR Bakım Pasaportu handler'ları
+  const handleSaveMaintenanceAsset = async (assetData: Partial<MaintenanceAsset>) => {
+    const res = await fetch('/api/maintenance-assets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(assetData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Cihaz/makine kaydedilemedi.');
+    }
+    const data = await res.json();
+    if (data.asset) {
+      setMaintenanceAssets((prev) => [data.asset, ...prev.filter((a) => a.id !== data.asset.id)]);
+    }
+  };
+
+  const handleRecordAssetMaintenance = async (
+    id: string,
+    payload: {
+      summary: string;
+      technician?: string;
+      partsChanged?: string;
+      cost?: number;
+      meterReading?: string;
+      addToCash?: boolean;
+      paymentMethod?: 'nakit' | 'kart';
+    }
+  ) => {
+    const res = await fetch(`/api/maintenance-assets/${encodeURIComponent(id)}/record-maintenance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Bakım kaydı işlenemedi.');
+    }
+    const data = await res.json();
+    if (data.asset) {
+      setMaintenanceAssets((prev) => prev.map((a) => (a.id === id ? data.asset : a)));
+    }
+    if (data.cash) setCash(data.cash);
+    if (data.transaction) addTransactionDeduplicated(data.transaction);
+  };
+
+  const handleDeleteMaintenanceAsset = async (id: string) => {
+    if (!confirm('Bu cihaz / makine kaydını silmek istiyor musunuz?')) return;
+    const res = await fetch(`/api/maintenance-assets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (res.ok) {
+      setMaintenanceAssets((prev) => prev.filter((a) => a.id !== id));
+    }
+  };
+
   // Emanet (terzi / kuru temizleme) handler'ları
   const handleSaveCustody = async (ticketData: Partial<CustodyTicket>) => {
     const res = await fetch('/api/custody', {
@@ -1520,6 +1606,12 @@ export default function App() {
   if (pathname.startsWith('/t/') || pathname === '/t') {
     const ticketCode = decodeURIComponent(pathname.replace(/^\/t\/?/, '') || 'demo');
     return <PublicTicketTrackerView initialCode={ticketCode} />;
+  }
+
+  // ---- Herkese açık fabrika/cihaz QR bakım pasaportu (/bakim/:code) ----
+  if (pathname.startsWith('/bakim/') || pathname === '/bakim') {
+    const assetCode = decodeURIComponent(pathname.replace(/^\/bakim\/?/, '') || 'demo');
+    return <PublicAssetPassportView initialCode={assetCode} />;
   }
   if (authStatus === 'checking') {
     return (
@@ -1901,6 +1993,10 @@ export default function App() {
           onUpdateRepairStatus={handleUpdateRepairStatus}
           onCompleteRepairTicket={handleCompleteRepairTicket}
           onDeleteRepairTicket={handleDeleteRepairTicket}
+          maintenanceAssets={maintenanceAssets}
+          onSaveMaintenanceAsset={handleSaveMaintenanceAsset}
+          onRecordAssetMaintenance={handleRecordAssetMaintenance}
+          onDeleteMaintenanceAsset={handleDeleteMaintenanceAsset}
           cases={cases}
           lawyerTab={lawyerTab}
           onLawyerTabChange={setLawyerTab}

@@ -278,6 +278,175 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
     ctaHref: '/m/demo',
     ctaLabel: 'Canlı QR Menü Demosunu Gör',
   },
+  {
+    slug: 'izmit-berber-kuafor-randevu',
+    title: 'İzmit & Kocaeli Berber ve Kuaför Online Randevu Rehberi',
+    seoTitle: 'İzmit Berber ve Kuaför Randevu Sistemi | Kocaeli Online Randevu',
+    description: 'İzmit, Gebze, Körfez ve Kocaeli genelindeki berber ile kuaför salonları için online randevu, koltuk sırası ve usta prim takip yazılımı. Sıra beklemeden randevu alın.',
+    category: 'Kocaeli Yerel Rehber',
+    readTime: '4 dk okuma',
+    updatedAt: '2026-11-16',
+    h1: 'İzmit ve Kocaeli Berber & Kuaför Salonları İçin Online Randevu',
+    lead: 'İzmit Fethiye Caddesi, Yürüyüş Yolu, Yahya Kaptan, Bekirdere ve Gebze esnafı için telefon trafiğini sıfırlayan, sıra bekletmeyen 7/24 online berber randevu sistemi.',
+    sections: [
+      {
+        heading: 'İzmit Berberlerinde Sıra Bekleme Sorununa Son',
+        body: 'Cumartesi ve pazar günleri İzmit çarşısındaki berberlerde saatlerce sıra beklemek yerine, müşterileriniz cep telefonlarından 15 saniyede usta, saç kesimi veya sakal tıraşı hizmetini ve boş saati seçerek randevu alır.',
+        bullets: [
+          'İzmit berber randevusu: Müşterileriniz dükkana özel linkinizden (r/dukkan-adiniz) anında randevu oluşturur',
+          'Kocaeli berber randevu sistemi: Randevu saati yaklaştığında otomatik WhatsApp teyit mesajı gider',
+          'Usta ve çırak prim hesabı akşam kasa kapanışında tek ekranda hazır olur',
+        ],
+      },
+      {
+        heading: 'İzmit ve Gebze Esnafı İçin 2 Dakikada Kurulum',
+        body: 'Pahalı randevu yazılımları veya randevu başına %20 komisyon kesen platformlar yerine, Dükkanım Yanımda ile kendi markanızı koruyun ve komisyonsuz (%0) online randevu toplayın.',
+        bullets: [
+          'Google Haritalar ve Instagram bio linkinize randevu linkinizi ekleyin',
+          'İzmit ve Kocaeli yerel aramalarda salonunuz Google sonuçlarında öne çıksın',
+          'Randevu iptallerinde boşalan saat bekleme listesindeki müşteriye anında açılsın',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'İzmit berber randevusu almak için uygulama indirmek gerekir mi?', a: 'Hayır, müşterileriniz hiçbir uygulama indirmeden doğrudan tarayıcı üzerinden dükkanınızın linkine girerek saniyeler içinde randevu alır.' },
+      { q: 'Kocaeli genelindeki salonlar için ekstra kurulum ücreti var mı?', a: 'Hayır, sistem bulut tabanlıdır ve Çırak paketi ile hemen ₺0 ücretle kullanmaya başlayabilirsiniz.' },
+      { q: 'İzmit ve Gebze bölgesindeki birden fazla personeli olan salonlara uygun mu?', a: 'Evet, her usta ve koltuk için ayrı randevu takvimi ve prim oranı belirlenebilir.' },
+    ],
+    ctaHref: '/izmit-berber-randevu',
+    ctaLabel: 'İzmit Berber Randevu Sistemini İncele',
+  },
+  {
+    slug: 'zonguldak-berber-kuafor-randevu',
+    title: 'Zonguldak & Kdz. Ereğli Berber Kuaför Online Randevu Sistemi',
+    seoTitle: 'Zonguldak Berber ve Kuaför Randevu Programı | Kdz Ereğli Online Randevu',
+    description: 'Zonguldak Gazipaşa, Soğuksu, Kozlu ve Karadeniz Ereğli berber ile kuaförleri için online randevu alma, koltuk takvimi ve WhatsApp hatırlatma rehberi.',
+    category: 'Zonguldak Yerel Rehber',
+    readTime: '4 dk okuma',
+    updatedAt: '2026-11-16',
+    h1: 'Zonguldak & Karadeniz Ereğli Berberleri İçin Online Randevu Çözümü',
+    lead: 'Zonguldak Gazipaşa Caddesi, Kozlu, Çaycuma ve Kdz. Ereğli sahil bölgesindeki berber salonlarında koltukları tam kapasite dolduran komisyonsuz online randevu sistemi.',
+    sections: [
+      {
+        heading: 'Zonguldak Berber Randevusu ile Telefon Aramalarını Azaltın',
+        body: 'Tıraş yaparken telefon açıp deftere randevu yazmak hem usta için zor hem de müşteri için risklidir. Online rezervasyon linkiyle müşterileriniz 7/24 randevu oluşturur, siz sadece işinize odaklanırsınız.',
+        bullets: [
+          'Zonguldak berber online randevu: Boş saatleri müşteriniz görsün, çakışma yaşanmasın',
+          'Kdz Ereğli kuaför randevu: Saç boyama, fön ve sakal bakımı için işlem süresi bazlı otomatik planlama',
+          'Gelmeyen müşteri (no-show) önleme: Randevu öncesi nazik WhatsApp hatırlatma',
+        ],
+      },
+      {
+        heading: 'Zonguldak Esnafına Özel Kolay Kasa ve Defter',
+        body: 'Sadece randevu değil; günlük kasa, veresiye defteri ve gün sonu z raporu hepsi tek mobil ekranda cebinizde.',
+        bullets: [
+          'Zonguldak ve Ereğli yerel aramalarında Google SERP görünürlüğü',
+          'Kredi kartı bilgisi gerektirmeyen şeffaf esnaf paketleri',
+          'Tüm cihazlarla uyumlu — telefon, tablet ve bilgisayarda çalışır',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Zonguldak berber randevusu nasıl oluşturulur?', a: 'Dükkanınızın /r/dukkan-adiniz linkini WhatsApp durumunda veya Instagram profilinizde paylaşırsınız. Müşteriler tıkladığında müsait saatleri görerek randevusunu alır.' },
+      { q: 'Kdz. Ereğli salonları da sistemi kullanabilir mi?', a: 'Evet, Kdz. Ereğli, Alaplı, Kozlu ve tüm Zonguldak ilçelerindeki salonlar 2 dakikada ücretsiz başlayabilir.' },
+      { q: 'Randevu saatleri değiştirildiğinde müşteriye bilgi gider mi?', a: 'Evet, tek tıkla müşterinizin WhatsApp numarasına yeni randevu saati bildirimi gönderilir.' },
+    ],
+    ctaHref: '/zonguldak-berber-randevu',
+    ctaLabel: 'Zonguldak Randevu Sistemini İncele',
+  },
+  {
+    slug: 'kocaeli-esnaf-online-randevu',
+    title: 'Kocaeli ve Gebze Berber Randevu Sistemi ve Esnaf Yazılımı',
+    seoTitle: 'Kocaeli Berber Randevu Sistemi | Gebze ve Körfez Esnaf Yazılımı',
+    description: 'Kocaeli, Gebze, Darıca, Gölcük ve Kartepe bölgesindeki kuaför ve berber esnafı için komisyonsuz online randevu ve dijital veresiye defteri.',
+    category: 'Kocaeli Yerel Rehber',
+    readTime: '3 dk okuma',
+    updatedAt: '2026-11-16',
+    h1: 'Kocaeli ve Gebze Berberleri İçin Dijitalleşme Adımları',
+    lead: 'Kocaeli sanayi ve üniversite kenti dinamizmine uygun, genç ve müdavim müşterilerin 10 saniyede randevu alabildiği yeni nesil berber programı.',
+    sections: [
+      {
+        heading: 'Kocaeli Genelinde Hızlı Büyüyen Esnaf Ağı',
+        body: 'İzmit merkezden Gebze çarşıya, Başiskele’den Karamürsel’e kadar yüzlerce kuaför ve berber tek platformda randevu ve kasasını yönetiyor.',
+        bullets: [
+          'Kocaeli berber randevusu arayan yerel müşterileri doğrudan dükkanınıza çekin',
+          'Müşteri sadakat kartı ile her 10 tıraşta 1 tıraş hediye kampanyası düzenleyin',
+          'Gün sonu nakit, kredi kartı ve veresiye bakiyesini akşam 1 dakikada kapatın',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Kocaeli esnafı için yerinde teknik destek gerekir mi?', a: 'Hayır, sistem doğrudan tarayıcı üzerinden çalıştığı için kuruluma ihtiyaç yoktur; anında kullanmaya başlarsınız.' },
+    ],
+    ctaHref: '/izmit-berber-randevu',
+    ctaLabel: 'Kocaeli Randevu Panelini Gör',
+  },
+  {
+    slug: 'instagram-biyografi-randevu-linki',
+    title: 'Instagram Biyografi Randevu Linki Nasıl Alınır? (Berber & Kuaför)',
+    seoTitle: 'Instagram Biyografi Randevu Linki Oluşturma | Dükkanım Yanımda',
+    description: 'Berber, kuaför ve güzellik salonları için Instagram profiline ve hikayelere komisyonsuz (%0) online randevu linki ekleme rehberi. 2 dakikada linkinizi alın.',
+    category: 'Sosyal Medya & Randevu',
+    readTime: '3 dk okuma',
+    updatedAt: '2026-11-16',
+    h1: 'Instagram Biyografi Randevu Linki Oluşturma (Berber & Kuaför)',
+    lead: 'Müşterilerinizin Instagram profilinizdeki "Randevu Al" linkine tıklayarak sıra beklemeden 15 saniyede usta, hizmet ve saat seçmesini sağlayın. DM trafiğine ve kaçan müşterilere son verin.',
+    sections: [
+      {
+        heading: '1. Instagram Profiline Randevu Linki Ekleme Adımları',
+        body: 'Dükkânım Yanımda üzerinde dükkanınızı açtığınızda size özel dukkanimyanimda.com.tr/r/dukkan-adiniz web adresi verilir. Bu adresi Instagram uygulamasında Profili Düzenle > Bağlantılar > Harici Bağlantı Ekle bölümüne yapıştırmanız yeterlidir.',
+        bullets: [
+          'Instagram biyografinize doğrudan tıklanabilir randevu bağlantısı ekleyin',
+          'Hikayelerinize (Story) "Bağlantı" çıkartmasıyla tek dokunuşta randevu linki koyun',
+          'Müşteri uygulama indirmeden tarayıcıda dükkanınızın logosu ve fiyatlarıyla randevu alsın',
+        ],
+      },
+      {
+        heading: '2. %0 Komisyon ile Müşterilerinizi Koruyun',
+        body: 'Pazaryeri uygulamaları müşterinizi rakip kuaförlere de gösterir ve her randevudan %20 komisyon keser. Dükkânım Yanımda linkiniz sadece sizin dükkanınızı açar ve randevulardan asla komisyon almaz.',
+        bullets: [
+          'Randevu başına sıfır komisyon — kazancınızın %100’ü kasanızda',
+          'Otomatik WhatsApp teyit mesajıyla son dakika iptallerini önleyin',
+          'Akşam usta ve çırak primleri tek tıkla hesaplansın',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Instagram’a randevu linki eklemek için ücret öder miyim?', a: 'Hayır, Çırak paketi ile tamamen ücretsizdir. Linkinizi hemen oluşturup profilinize ekleyebilirsiniz.' },
+      { q: 'Müşterinin randevu alması için uygulama indirmesi gerekir mi?', a: 'Hayır, Instagram içindeki tarayıcıda doğrudan açılır; müşteri hiçbir şey yüklemeden randevu alır.' },
+      { q: 'Randevu alındığında bana bildirim nasıl gelir?', a: 'Panelinizde canlı uyarı sesi çalar ve WhatsApp üzerinden randevu detayı size anında iletilir.' },
+    ],
+    ctaHref: '/randevu-sistemi',
+    ctaLabel: 'Ücretsiz Instagram Randevu Linkini Al',
+  },
+  {
+    slug: 'pazar-gunu-acik-berber-randevu',
+    title: 'Pazar Günü Açık Berber ve Nöbetçi Kuaför Randevu Sistemi',
+    seoTitle: 'Pazar Günü Açık Berber Randevu Sistemi | Nöbetçi Kuaförler',
+    description: 'Pazar günleri açık olan veya nöbetçi berber ve kuaförler için online randevu, çalışma saatleri planlaması ve boş koltukları doldurma rehberi.',
+    category: 'Esnaf Çalışma Saatleri',
+    readTime: '3 dk okuma',
+    updatedAt: '2026-11-16',
+    h1: 'Pazar Günü Açık Berberler İçin Online Randevu Yönetimi',
+    lead: 'Hafta içi yoğun çalışan müşterilerin en çok aradığı "Pazar günü açık berber" sorgularında öne çıkın; pazar günleri dükkan önünde yığılma olmadan randevulu ve düzenli çalışın.',
+    sections: [
+      {
+        heading: 'Pazar Günleri Kapı Önündeki Sıra Kargaşasına Son Verin',
+        body: 'Pazar günleri açık olan berberlerde genellikle aşırı yoğunluk oluşur. Online randevu takvimi sayesinde müşterileriniz hangi saatin boş olduğunu önceden görür, koltuklar düzenli dolar ve kimse kapıda 1 saat beklemez.',
+        bullets: [
+          'Pazar gününe özel açılış ve kapanış saatleri tanımlayın',
+          'Dolu saatler takvimde otomatik kapansın, çakışma yaşanmasın',
+          'WhatsApp hatırlatması ile müşteriniz randevu saatinde dükkanda olsun',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Pazar günü çalışma saatleri diğer günlerden farklı ayarlanabilir mi?', a: 'Evet, panelinizdeki Çalışma Saatleri ayarından Pazar gününü açık işaretleyip özel saat aralığı (örneğin 10:00 - 19:00) belirleyebilirsiniz.' },
+      { q: 'Pazar günü açık berber aramalarında Google’da nasıl öne çıkarım?', a: 'Dükkânım Yanımda profilinizdeki dinamik openingHoursSpecification şeması Google Haritalar’a pazar günleri açık olduğunuzu otomatik bildirir.' },
+    ],
+    ctaHref: '/berber',
+    ctaLabel: 'Berber Randevu Panelini Gör',
+  },
 ];
 
 export function isValidGuideRoute(pathname: string): boolean {
@@ -608,6 +777,66 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
       longitude: 29.0156,
       url: `${origin}/teknik-servis`,
       badge: 'Servis Fişi & Cihaz Sorgulama',
+    },
+    {
+      id: 'izmit-barber',
+      name: 'İzmit Fethiye Berber & Erkek Bakım',
+      slug: 'izmit-fethiye-berber',
+      type: 'HairSalon',
+      sectorName: 'Erkek Kuaförü & Berber',
+      cityDistrict: 'İzmit, Kocaeli',
+      city: 'Kocaeli',
+      district: 'İzmit',
+      latitude: 40.7654,
+      longitude: 29.9408,
+      phone: '0262 322 0000',
+      url: `${origin}/izmit-berber-randevu`,
+      badge: 'İzmit Online Randevu',
+    },
+    {
+      id: 'gebze-hair',
+      name: 'Gebze Çarşı Kuaför & Saç Tasarım',
+      slug: 'gebze-carsi-kuafor',
+      type: 'HairSalon',
+      sectorName: 'Kuaför & Saç Tasarım',
+      cityDistrict: 'Gebze, Kocaeli',
+      city: 'Kocaeli',
+      district: 'Gebze',
+      latitude: 40.8028,
+      longitude: 29.4307,
+      phone: '0262 641 0000',
+      url: `${origin}/izmit-berber-randevu`,
+      badge: 'Kocaeli Berber Sistemi',
+    },
+    {
+      id: 'zonguldak-barber',
+      name: 'Zonguldak Gazipaşa Berber Salonu',
+      slug: 'zonguldak-gazipasa-berber',
+      type: 'HairSalon',
+      sectorName: 'Erkek Kuaförü & Saç Kesim',
+      cityDistrict: 'Merkez, Zonguldak',
+      city: 'Zonguldak',
+      district: 'Merkez',
+      latitude: 41.4564,
+      longitude: 31.7987,
+      phone: '0372 251 0000',
+      url: `${origin}/zonguldak-berber-randevu`,
+      badge: 'Zonguldak Randevu Açık',
+    },
+    {
+      id: 'eregli-beauty',
+      name: 'Kdz. Ereğli Sahil Kuaför & Bakım',
+      slug: 'kdz-eregli-sahil-kuafor',
+      type: 'HairSalon',
+      sectorName: 'Kuaför & Güzellik',
+      cityDistrict: 'Karadeniz Ereğli, Zonguldak',
+      city: 'Zonguldak',
+      district: 'Karadeniz Ereğli',
+      latitude: 41.2844,
+      longitude: 31.4150,
+      phone: '0372 316 0000',
+      url: `${origin}/zonguldak-berber-randevu`,
+      badge: 'Kdz. Ereğli Randevu',
     },
   ];
 
@@ -1048,6 +1277,160 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
   }
 
+  // 4.1. İzmit & Kocaeli Yerel Berber ve Kuaför Randevu Açılış Sayfası
+  if (
+    clean === '/izmit-berber-randevu' ||
+    clean === '/izmit-berber' ||
+    clean === '/kocaeli-berber' ||
+    clean === '/kocaeli-berber-randevu'
+  ) {
+    const canonical = `${origin}/izmit-berber-randevu`;
+    const title = `İzmit Berber Randevu ve Kuaför Sistemi (${fresh.year}) | Kocaeli Online Randevu`;
+    const ogTitle = `İzmit Berber Randevu ve Kocaeli Koltuk Yönetim Sistemi (${fresh.year})`;
+    const description = `İzmit berber randevusu, Kocaeli berber ve kuaför salonları için online randevu alma ve koltuk takip programı. Fethiye Caddesi, Yahya Kaptan ve Gebze salonlarında sıra beklemeden 7/24 randevu al.`;
+    const ogDescription = 'İzmit ve Kocaeli berberleri için sıra beklemeden 7/24 online randevu alma ve koltuk takibi.';
+    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+
+    const schemaJson = {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      name: 'Dükkanım Yanımda — İzmit Berber & Kuaför Randevu Sistemi',
+      description: 'İzmit ve Kocaeli bölgesindeki berber ve kuaförler için online randevu, koltuk sırası ve usta prim takip yazılımı.',
+      url: canonical,
+      image: ogImage,
+      telephone: '+90-850-000-0000',
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'İzmit',
+        addressRegion: 'Kocaeli',
+        addressCountry: 'TR',
+      },
+      geo: {
+        '@type': 'GeoCoordinates',
+        latitude: 40.7654,
+        longitude: 29.9408,
+      },
+      areaServed: [
+        { '@type': 'City', name: 'İzmit' },
+        { '@type': 'AdministrativeArea', name: 'Kocaeli' },
+        { '@type': 'City', name: 'Gebze' },
+        { '@type': 'City', name: 'Körfez' },
+        { '@type': 'City', name: 'Gölcük' },
+      ],
+      priceRange: '₺₺',
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        reviewCount: '520',
+        bestRating: '5',
+        worstRating: '1',
+      },
+    };
+
+    const breadcrumbs = [
+      { name: 'Ana Sayfa', url: origin },
+      { name: 'İzmit Berber Randevu', url: canonical },
+    ];
+
+    const faqJson = [
+      {
+        q: 'İzmit berber randevusu nasıl online alınır?',
+        a: 'Dükkânım Yanımda üzerindeki İzmit salonlarının randevu linkine girerek; saç, sakal veya cilt bakımı hizmetini, ustanızı ve uygun saatinizi 15 saniyede seçip anında randevunuzu onaylatabilirsiniz.',
+      },
+      {
+        q: 'İzmit ve Kocaeli\'deki berber ve kuaför salonları bu sisteme nasıl dahil olur?',
+        a: 'İşletme sahipleri 2 dakikada ücretsiz kayıt olarak dükkan adını ve hizmet tarifesini belirler; anında kendilerine özel dukkanimyanimda.com.tr/r/dukkan-adiniz rezervasyon linki üretilir.',
+      },
+      {
+        q: 'Randevu aldığımda bana teyit mesajı gelir mi?',
+        a: 'Evet, randevu oluşturulduğunda ve randevu saatine 2 saat kala WhatsApp üzerinden otomatik hatırlatma mesajı iletilir.',
+      },
+      {
+        q: 'Kocaeli genelindeki berber salonlarında usta prim hesabı destekleniyor mu?',
+        a: 'Evet, her koltuk ve personelin işlem başına kazandığı prim akşam tek tıkla hesaplanır ve kasadan net kar ayrılır.',
+      },
+    ];
+
+    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
+  }
+
+  // 4.2. Zonguldak & Kdz. Ereğli Yerel Berber ve Kuaför Randevu Açılış Sayfası
+  if (
+    clean === '/zonguldak-berber-randevu' ||
+    clean === '/zonguldak-berber' ||
+    clean === '/eregli-berber' ||
+    clean === '/kdz-eregli-berber'
+  ) {
+    const canonical = `${origin}/zonguldak-berber-randevu`;
+    const title = `Zonguldak Berber Randevu ve Kuaför Programı (${fresh.year}) | Kdz. Ereğli Online Randevu`;
+    const ogTitle = `Zonguldak Berber Randevu ve Kdz Ereğli Kuaför Sistemi (${fresh.year})`;
+    const description = `Zonguldak berber randevusu, Gazipaşa Caddesi ve Kdz. Ereğli kuaförleri için online randevu sistemi. Sıra beklemeden randevu al, usta ve hizmetini seç.`;
+    const ogDescription = 'Zonguldak ve Kdz. Ereğli berberleri için sıra beklemeden online randevu alma.';
+    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+
+    const schemaJson = {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      name: 'Dükkanım Yanımda — Zonguldak & Kdz. Ereğli Berber Randevu Sistemi',
+      description: 'Zonguldak Merkez, Gazipaşa ve Karadeniz Ereğli kuaför ve berberleri için 7/24 online randevu alma ve koltuk yönetimi.',
+      url: canonical,
+      image: ogImage,
+      telephone: '+90-850-000-0000',
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'Merkez',
+        addressRegion: 'Zonguldak',
+        addressCountry: 'TR',
+      },
+      geo: {
+        '@type': 'GeoCoordinates',
+        latitude: 41.4564,
+        longitude: 31.7987,
+      },
+      areaServed: [
+        { '@type': 'City', name: 'Zonguldak' },
+        { '@type': 'City', name: 'Karadeniz Ereğli' },
+        { '@type': 'City', name: 'Kozlu' },
+        { '@type': 'City', name: 'Çaycuma' },
+        { '@type': 'City', name: 'Kilimli' },
+      ],
+      priceRange: '₺₺',
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        reviewCount: '380',
+        bestRating: '5',
+        worstRating: '1',
+      },
+    };
+
+    const breadcrumbs = [
+      { name: 'Ana Sayfa', url: origin },
+      { name: 'Zonguldak Berber Randevu', url: canonical },
+    ];
+
+    const faqJson = [
+      {
+        q: 'Zonguldak\'ta berber randevusu almak için hangi adımları izlemeliyim?',
+        a: 'Zonguldak ve Kdz. Ereğli pilot salonlarımızdan istediğinizi seçip dükkan linkine tıklayın; dilediğiniz saati seçerek sıra beklemeden yerinizi ayırtın.',
+      },
+      {
+        q: 'Zonguldak ve Karadeniz Ereğli berberleri için sistem ücretli mi?',
+        a: 'Çırak paketi ile sisteme giriş %100 ücretsizdir; randevulardan asla komisyon (%0) kesilmez.',
+      },
+      {
+        q: 'Gelmeyen müşteri (no-show) durumuna karşı önlem var mı?',
+        a: 'Evet, randevu teyit akışları ve WhatsApp hatırlatmaları sayesinde müşteriler saatinde gelir, koltuklar boş kalmaz.',
+      },
+      {
+        q: 'Kdz. Ereğli ve Kozlu ilçelerindeki kuaförler de kullanabilir mi?',
+        a: 'Evet, Zonguldak ilinin tüm ilçe ve mahallelerindeki berber ve kuaförler hiçbir cihaz almadan telefonlarıyla hemen kullanabilir.',
+      },
+    ];
+
+    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
+  }
+
   if (
     clean === '/guzellik-salonu' ||
     clean === '/guzellik-merkezi' ||
@@ -1412,13 +1795,22 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     };
   }
 
-  // 3.5. Kamusal Servis & Emanet Durum Takip Ekranı (/t/:code)
-  if (clean.startsWith('/t/')) {
+  // 3.5. Kamusal Servis & Emanet Durum Takip Ekranı (/t/:code ve /bakim/:code)
+  if (clean.startsWith('/t/') || clean.startsWith('/bakim/')) {
+    const isMaintenance = clean.startsWith('/bakim/');
     return {
-      title: 'Canlı Servis & Emanet Durum Takibi | Dükkanım Yanımda',
-      ogTitle: 'Cihaz & Emanet Fişi Durum Sorgulama — Dükkanım Yanımda',
-      description: 'Teknik servis cihaz tamir durumu veya terzi emanet teslimat takibini fiş kodunuzla anlık görüntüleyin.',
-      ogDescription: 'Servis ve emanet fişi canlı durum sorgulama.',
+      title: isMaintenance
+        ? 'QR Makine & Cihaz Bakım Pasaportu | Dükkanım Yanımda'
+        : 'Canlı Servis & Emanet Durum Takibi | Dükkanım Yanımda',
+      ogTitle: isMaintenance
+        ? 'Makine & Cihaz Periyodik Bakım Geçmişi — Dükkanım Yanımda'
+        : 'Cihaz & Emanet Fişi Durum Sorgulama — Dükkanım Yanımda',
+      description: isMaintenance
+        ? 'Fabrika makineleri ve teknik servis cihazlarının son bakım tarihini, gelecek bakım takvimini görüntüleyin ve arıza bildirin.'
+        : 'Teknik servis cihaz tamir durumu veya terzi emanet teslimat takibini fiş kodunuzla anlık görüntüleyin.',
+      ogDescription: isMaintenance
+        ? 'QR Makine & Cihaz Bakım Pasaportu.'
+        : 'Servis ve emanet fişi canlı durum sorgulama.',
       ogImage: `${origin}/brand/phone_mockup_retina.png`,
       canonical: `${origin}${clean}`,
       robots: 'noindex, follow',
@@ -2050,6 +2442,108 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
     </article>`;
   }
 
+  // 4.1. İzmit & Kocaeli Yerel Berber Sayfası SSR
+  else if (clean === '/izmit-berber-randevu' || clean === '/izmit-berber' || clean === '/kocaeli-berber' || clean === '/kocaeli-berber-randevu') {
+    mainBodyContent = `
+    <article style="max-width:960px;margin:0 auto;">
+      <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 10px;border-radius:6px;border:1px solid #fed7aa;">İzmit &amp; Kocaeli Yerel Randevu</span>
+      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin:12px 0 12px 0;line-height:1.2;">İzmit ve Kocaeli Berber Randevu Sistemi — Sıra Beklemeden Online Randevu Al</h1>
+      <p style="font-size:16px;color:#475569;line-height:1.65;margin-bottom:24px;">İzmit Fethiye Caddesi, Yürüyüş Yolu, Yahya Kaptan, Bekirdere ve Gebze bölgesindeki berber salonlarında sıra beklemeden usta, hizmet ve müsait saatinizi 15 saniyede seçin. Telefon araması yapmadan anında onaylı randevu alın.</p>
+
+      <section style="margin-bottom:32px;">
+        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:14px;">İzmit &amp; Kocaeli Pilot Berber ve Kuaför Salonları</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Canlı Randevu Açık</span>
+            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">İzmit Fethiye Berber &amp; Erkek Bakım</h3>
+            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Fethiye Caddesi, İzmit, Kocaeli · 🕒 09:00 - 21:00</p>
+            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Saç kesimi, sakal tasarımı, cilt bakımı ve buhar kürü. Sıra beklemeden randevu alın.</p>
+            <a href="/r/demo" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Randevu Saatini Seç</a>
+          </div>
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Canlı Randevu Açık</span>
+            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Gebze Çarşı Kuaför &amp; Saç Tasarım</h3>
+            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Çarşı İçi, Gebze, Kocaeli · 🕒 08:30 - 21:30</p>
+            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Modern saç kesimi, çocuk tıraşı ve saç renklendirme. Online teyitli randevu.</p>
+            <a href="/r/demo" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Randevu Saatini Seç</a>
+          </div>
+        </div>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">İzmit Berber Randevusu Neden Çok Kolay?</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Telefonla arayıp 'müsait misin usta' diye sormaya son. Canlı takvimde boş saatleri görün, ustanızı seçip saniyeler içinde randevu oluşturun.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Kocaeli Esnafı İçin %0 Komisyon</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Pazaryeri komisyonu kesilmez. Kocaeli berberleri kendi markaları ve kendi linkleriyle online randevu toplayıp müşterilerini korur.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">WhatsApp Otomatik Hatırlatma</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Randevudan önce nazik WhatsApp hatırlatması gönderilir; müşteriniz randevusunu unutmaz, koltuklar asla boş kalmaz.</p>
+        </div>
+      </section>
+
+      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
+        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">İzmit veya Kocaeli'de Berber misiniz?</h2>
+        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">2 dakikada salonunuzu ekleyin, komisyonsuz online randevu almaya hemen bugün başlayın.</p>
+        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Ücretsiz Salonunu Ekle</a>
+      </div>
+    </article>`;
+  }
+
+  // 4.2. Zonguldak & Kdz. Ereğli Yerel Berber Sayfası SSR
+  else if (clean === '/zonguldak-berber-randevu' || clean === '/zonguldak-berber' || clean === '/eregli-berber' || clean === '/kdz-eregli-berber') {
+    mainBodyContent = `
+    <article style="max-width:960px;margin:0 auto;">
+      <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 10px;border-radius:6px;border:1px solid #fed7aa;">Zonguldak &amp; Kdz. Ereğli Yerel Randevu</span>
+      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin:12px 0 12px 0;line-height:1.2;">Zonguldak ve Karadeniz Ereğli Berber Randevu Sistemi</h1>
+      <p style="font-size:16px;color:#475569;line-height:1.65;margin-bottom:24px;">Zonguldak Gazipaşa Caddesi, Soğuksu, Kozlu ve Kdz. Ereğli sahil bölgesindeki berber ve kuaförlerde sıra beklemeden 7/24 online randevu alma kolaylığı. Tek tuşla usta seçin, randevunuzu oluşturun.</p>
+
+      <section style="margin-bottom:32px;">
+        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:14px;">Zonguldak &amp; Ereğli Pilot Berber ve Kuaför Salonları</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Canlı Randevu Açık</span>
+            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Zonguldak Gazipaşa Berber Salonu</h3>
+            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Gazipaşa Caddesi, Merkez, Zonguldak · 🕒 08:30 - 20:30</p>
+            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Klasik ve modern saç kesimi, sakal traşı ve sıcak havlu bakımı. Sıra beklemeden online randevu.</p>
+            <a href="/r/demo" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Randevu Saatini Seç</a>
+          </div>
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Canlı Randevu Açık</span>
+            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Kdz. Ereğli Sahil Kuaför &amp; Bakım</h3>
+            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Sahil Şeridi, Karadeniz Ereğli, Zonguldak · 🕒 09:00 - 21:00</p>
+            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Erkek ve kadın kuaför hizmetleri, keratin saç bakımı ve randevulu özel hizmet.</p>
+            <a href="/r/demo" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Randevu Saatini Seç</a>
+          </div>
+        </div>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Zonguldak Berber Randevusu Kolaylığı</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Telefonla arayıp randevu kovalamaya son! Dilediğiniz saat dilimini seçin, bekleme derdi olmadan koltuğunuza oturun.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Kdz. Ereğli Kuaför ve Berber Koltuk Yönetimi</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Ereğli esnafı için randevu takvimi, çırak/usta prim dağılımı ve günlük kasa defteri tek ekranda toplanır.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">%0 Komisyon &amp; Yerel Destek</h2>
+          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Zonguldak esnafının kazancından komisyon kesilmez. Her randevu doğrudan kasanıza artı olarak yansır.</p>
+        </div>
+      </section>
+
+      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
+        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Zonguldak veya Ereğli'de Salon Sahibi misiniz?</h2>
+        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">Salonunuzu hemen sisteme ekleyin, müşterileriniz online randevu almaya başlasın.</p>
+        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Ücretsiz Kaydol</a>
+      </div>
+    </article>`;
+  }
+
   // 5. Online Randevu Sistemi Genel Sayfası
   else if (clean === '/randevu-sistemi' || clean === '/online-randevu') {
     mainBodyContent = `
@@ -2270,8 +2764,8 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
     </article>`;
   }
 
-  // 11.5. Canlı Servis & Emanet Fişi Takibi (/t/:code)
-  else if (clean.startsWith('/t/')) {
+  // 11.5. Canlı Servis & Emanet Fişi Takibi (/t/:code ve /bakim/:code)
+  else if (clean.startsWith('/t/') || clean.startsWith('/bakim/')) {
     mainBodyContent = `
     <article style="max-width:760px;margin:0 auto;">
       <h1 style="font-size:30px;font-weight:900;color:#0f172a;margin-bottom:10px;">Canlı Servis &amp; Emanet Durum Takibi</h1>
@@ -2723,6 +3217,8 @@ export function generateSitemapXml(rawHost?: string): string {
     { loc: `${origin}/kuafor`, priority: '0.95', changefreq: 'daily', title: 'Kuaför Randevu ve Salon Takip Programı', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/guzellik-salonu`, priority: '1.0', changefreq: 'daily', title: 'Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/randevu-sistemi`, priority: '0.95', changefreq: 'daily', title: '7/24 Online Randevu ve Rezervasyon Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/izmit-berber-randevu`, priority: '0.92', changefreq: 'daily', title: 'İzmit Berber Randevu ve Kuaför Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
+    { loc: `${origin}/zonguldak-berber-randevu`, priority: '0.92', changefreq: 'daily', title: 'Zonguldak Berber Randevu ve Kuaför Programı', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/kafe-restoran`, priority: '0.95', changefreq: 'weekly', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
     { loc: `${origin}/bakkal-market`, priority: '0.95', changefreq: 'weekly', title: 'Bakkal & Market Hızlı POS Barkodlu Terazi Sistemi', img: `${origin}/brand/logo-horizontal.png` },
     { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'weekly', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/brand/logo-horizontal.png` },

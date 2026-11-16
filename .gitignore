@@ -6,6 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+.firebase/
+firebase-debug*.log
+__pycache__/
+*.pyc
 
 # Veri ve test dizinleri
 data/

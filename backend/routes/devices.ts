@@ -5,6 +5,11 @@ import { DATA_DIR } from '../config';
 import { readJsonFile, writeJsonFile } from '../fsdb';
 import { als } from '../context';
 import { accountFromRequest } from '../accounts';
+import {
+  FIREBASE_PROJECT_ID,
+  getFirebaseIntegrationStatus,
+  sendFcmPushMessages,
+} from '../services/firebaseService';
 
 export interface DeviceTokenEntry {
   id: string;
@@ -34,6 +39,18 @@ function resolveAccountId(req: Request): string | null {
 }
 
 export function registerDeviceRoutes(app: Express): void {
+  app.get('/api/devices/push-config', (req: Request, res: Response) => {
+    const accountId = resolveAccountId(req);
+    if (!accountId) return res.status(401).json({ error: 'Oturum gerekli.' });
+
+    const fb = getFirebaseIntegrationStatus();
+    res.json({
+      success: true,
+      vapidPublicKey: (process.env.VITE_FIREBASE_VAPID_KEY || process.env.FIREBASE_VAPID_KEY || '').trim(),
+      ...fb,
+    });
+  });
+
   app.get('/api/devices/list', (req: Request, res: Response) => {
     const accountId = resolveAccountId(req);
     if (!accountId) return res.status(401).json({ error: 'Oturum gerekli.' });
@@ -67,7 +84,8 @@ export function registerDeviceRoutes(app: Express): void {
     }
 
     const nowIso = new Date().toISOString();
-    let list = loadDeviceTokens();
+    // Aynı cihazda hesap değiştirildiğinde eski hesabın push token eşleşmesini temizle (cross-account leak önlemi)
+    let list = loadDeviceTokens().filter((d) => !(d.token === token && d.accountId !== accountId));
     const existing = list.find((d) => d.accountId === accountId && d.token === token);
 
     let saved: DeviceTokenEntry;
@@ -126,71 +144,28 @@ export function registerDeviceRoutes(app: Express): void {
 export async function sendPushToAccount(
   accountId: string,
   notification: { title: string; body: string; url?: string; tag?: string }
-): Promise<{ sent: number; failed: number; simulated: boolean }> {
+): Promise<{ sent: number; failed: number; simulated: boolean; transport?: string }> {
   const list = loadDeviceTokens();
   const targets = list.filter((d) => d.accountId === accountId);
   if (targets.length === 0) {
-    return { sent: 0, failed: 0, simulated: true };
+    return { sent: 0, failed: 0, simulated: true, transport: 'no_registered_devices' };
   }
 
-  const fcmServerKey = (process.env.FCM_SERVER_KEY || '').trim();
-  if (!fcmServerKey) {
-    return { sent: 0, failed: 0, simulated: true };
-  }
+  const pushRes = await sendFcmPushMessages(
+    targets.map((d) => d.token),
+    notification
+  );
 
-  let sent = 0;
-  let failed = 0;
-  const invalidTokens = new Set<string>();
-
-  for (const device of targets) {
-    try {
-      const resp = await fetch('https://fcm.googleapis.com/fcm/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `key=${fcmServerKey}`,
-        },
-        body: JSON.stringify({
-          to: device.token,
-          priority: 'high',
-          notification: {
-            title: notification.title,
-            body: notification.body,
-            icon: '/icon-192.png',
-            click_action: notification.url || '/',
-            tag: notification.tag || 'dukkanim',
-          },
-          data: {
-            url: notification.url || '/',
-            tag: notification.tag || 'dukkanim',
-          },
-        }),
-        signal: AbortSignal.timeout(6000),
-      });
-
-      if (resp.ok) {
-        const json: any = await resp.json().catch(() => null);
-        if (json && json.failure === 1 && Array.isArray(json.results)) {
-          failed += 1;
-          const errCode = json.results[0]?.error;
-          if (errCode === 'NotRegistered' || errCode === 'InvalidRegistration') {
-            invalidTokens.add(device.token);
-          }
-        } else {
-          sent += 1;
-        }
-      } else {
-        failed += 1;
-      }
-    } catch {
-      failed += 1;
-    }
-  }
-
-  if (invalidTokens.size > 0) {
-    const cleaned = list.filter((d) => !(d.accountId === accountId && invalidTokens.has(d.token)));
+  if (pushRes.invalidTokens.length > 0) {
+    const invalidSet = new Set(pushRes.invalidTokens);
+    const cleaned = list.filter((d) => !(d.accountId === accountId && invalidSet.has(d.token)));
     saveDeviceTokens(cleaned);
   }
 
-  return { sent, failed, simulated: false };
+  return {
+    sent: pushRes.sent,
+    failed: pushRes.failed,
+    simulated: pushRes.simulated,
+    transport: pushRes.transport,
+  };
 }

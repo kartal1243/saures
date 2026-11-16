@@ -3,6 +3,8 @@ import { getAccounts } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
 import { broadcastToAccount } from '../realtime';
 import { getEffectiveVipTier } from '../routes/profile';
+import { sendPushToAccount } from '../routes/devices';
+import { writeFirestoreDocument } from './firebaseService';
 import { sendSmsMessage } from './smsProvider';
 
 export interface ReminderCycleStats {
@@ -10,6 +12,7 @@ export interface ReminderCycleStats {
   checkedShops: number;
   appointmentsReminded: number;
   subscriptionsReminded: number;
+  maintenanceReminded?: number;
   smsSent: number;
   simulated: number;
 }
@@ -108,13 +111,14 @@ export async function processShopReminders(
   changed: boolean;
   appointmentsReminded: number;
   subscriptionsReminded: number;
+  maintenanceReminded: number;
   smsSent: number;
   simulated: number;
 }> {
   const { dateStr: today, monthStr, minutesOfDay: nowMinutes } = getIstanbulDateAndMinutes(nowMs);
   const monthlyLimit = getMonthlyAutoReminderLimit(state.shopProfile);
   if (monthlyLimit <= 0) {
-    return { changed: false, appointmentsReminded: 0, subscriptionsReminded: 0, smsSent: 0, simulated: 0 };
+    return { changed: false, appointmentsReminded: 0, subscriptionsReminded: 0, maintenanceReminded: 0, smsSent: 0, simulated: 0 };
   }
 
   if (!Array.isArray(state.reminderLogs)) state.reminderLogs = [];
@@ -124,6 +128,7 @@ export async function processShopReminders(
   let changed = false;
   let appointmentsReminded = 0;
   let subscriptionsReminded = 0;
+  let maintenanceReminded = 0;
   let smsSent = 0;
   let simulated = 0;
 
@@ -141,7 +146,7 @@ export async function processShopReminders(
     if (aptMinutes < nowMinutes || aptMinutes > nowMinutes + 120) continue;
 
     const message = `Merhaba ${apt.customerName}, ${shopName} işletmesindeki bugün saat ${apt.timeSlot} (${apt.serviceName}) randevunuzu hatırlatırız. Görüşmek üzere!`;
-    const result = await sendSmsMessage(apt.phone, message, { category: 'appointment_reminder' });
+    const result = await sendSmsMessage(apt.phone, message, { category: 'appointment_reminder', shopName });
 
     const reminderLog: ReminderLog = {
       id: `rem_auto_${nowMs}_${Math.random().toString(36).slice(2, 6)}`,
@@ -168,6 +173,17 @@ export async function processShopReminders(
     } catch {
       // ignore broadcast errors outside server
     }
+    sendPushToAccount(accountId, {
+      title: `Otomatik Randevu Hatırlatması (${apt.timeSlot})`,
+      body: `${apt.customerName} için ${result.sent ? 'SMS gönderildi' : 'hatırlatma hazırlandı'}.`,
+      url: '/',
+      tag: `rem_apt_${apt.id}`,
+    }).catch(() => {});
+    writeFirestoreDocument(`shops/${accountId}/reminder_logs`, reminderLog.id, {
+      ...reminderLog,
+      accountId,
+      createdAtIso: new Date(nowMs).toISOString(),
+    }).catch(() => {});
   }
 
   // 2. Vadesi bugün gelen abonelik / periyodik aidat kayıtları
@@ -188,7 +204,7 @@ export async function processShopReminders(
     if (alreadySentToday) continue;
 
     const message = `Merhaba ${cust.name}, ${shopName} nezdindeki "${cust.subscriptionPlan.title}" (${cust.subscriptionPlan.amount} TL) ödemenizin vadesi bugün gelmiştir. Hayırlı günler dileriz.`;
-    const result = await sendSmsMessage(cust.phone, message, { category: 'subscription_due' });
+    const result = await sendSmsMessage(cust.phone, message, { category: 'subscription_due', shopName });
 
     const reminderLog: ReminderLog = {
       id: `rem_auto_${nowMs}_${Math.random().toString(36).slice(2, 6)}`,
@@ -215,13 +231,72 @@ export async function processShopReminders(
     } catch {
       // ignore broadcast errors outside server
     }
+    sendPushToAccount(accountId, {
+      title: `Vade Hatırlatması: ${cust.name}`,
+      body: `${cust.subscriptionPlan.title} (${cust.subscriptionPlan.amount} TL) hatırlatması işlendi.`,
+      url: '/',
+      tag: `rem_sub_${cust.id}`,
+    }).catch(() => {});
+    writeFirestoreDocument(`shops/${accountId}/reminder_logs`, reminderLog.id, {
+      ...reminderLog,
+      accountId,
+      createdAtIso: new Date(nowMs).toISOString(),
+    }).catch(() => {});
+  }
+
+  // 3. Periyodik Bakım Zamanı Gelen Makine / Cihazlar (Teknik Servis QR Bakım Pasaportu)
+  for (const asset of state.maintenanceAssets || []) {
+    if (usedThisMonth >= monthlyLimit) break;
+    if (!asset || !asset.nextMaintenanceDate || !asset.clientPhone) continue;
+    if (asset.nextMaintenanceDate > today) continue;
+    if ((asset as any).lastAutoMaintenanceReminderDate === today) continue;
+
+    const message = `Sayın ${asset.clientName}, "${asset.deviceName}" (${asset.code}) ekipmanının periyodik bakım tarihi (${asset.nextMaintenanceDate}) gelmiştir. QR Pasaport: https://dukkanimyanimda.com.tr/bakim/${asset.code}`;
+    const result = await sendSmsMessage(asset.clientPhone, message, { category: 'maintenance_due', shopName });
+
+    const reminderLog: ReminderLog = {
+      id: `rem_auto_${nowMs}_${Math.random().toString(36).slice(2, 6)}`,
+      customerId: asset.id,
+      customerName: `${asset.clientName} (${asset.deviceName})`,
+      phone: asset.clientPhone,
+      channel: result.sent ? 'sms' : 'whatsapp',
+      message,
+      status: result.sent ? 'gonderildi' : 'hazirlandi',
+      sentAt: new Date(nowMs).toLocaleString('tr-TR'),
+      type: 'bakim',
+    };
+
+    state.reminderLogs.unshift(reminderLog);
+    (asset as any).lastAutoMaintenanceReminderDate = today;
+    usedThisMonth += 1;
+    maintenanceReminded += 1;
+    if (result.sent) smsSent += 1;
+    else simulated += 1;
+    changed = true;
+
+    try {
+      broadcastToAccount(accountId, { type: 'REMINDER_SENT', payload: reminderLog });
+    } catch {
+      // ignore
+    }
+    sendPushToAccount(accountId, {
+      title: `Bakım Zamanı: ${asset.deviceName}`,
+      body: `${asset.clientName} cihazı için bakım hatırlatması gönderildi.`,
+      url: `/bakim/${asset.code}`,
+      tag: `rem_asset_${asset.id}`,
+    }).catch(() => {});
+    writeFirestoreDocument(`shops/${accountId}/reminder_logs`, reminderLog.id, {
+      ...reminderLog,
+      accountId,
+      createdAtIso: new Date(nowMs).toISOString(),
+    }).catch(() => {});
   }
 
   if (state.reminderLogs.length > 500) {
     state.reminderLogs = state.reminderLogs.slice(0, 500);
   }
 
-  return { changed, appointmentsReminded, subscriptionsReminded, smsSent, simulated };
+  return { changed, appointmentsReminded, subscriptionsReminded, maintenanceReminded, smsSent, simulated };
 }
 
 export async function runReminderCycleNow(options?: { nowMs?: number }): Promise<ReminderCycleStats> {
@@ -243,6 +318,7 @@ export async function runReminderCycleNow(options?: { nowMs?: number }): Promise
   let checkedShops = 0;
   let appointmentsReminded = 0;
   let subscriptionsReminded = 0;
+  let maintenanceReminded = 0;
   let smsSent = 0;
   let simulated = 0;
 
@@ -255,6 +331,7 @@ export async function runReminderCycleNow(options?: { nowMs?: number }): Promise
         const res = await processShopReminders(acc.id, state, nowMs);
         appointmentsReminded += res.appointmentsReminded;
         subscriptionsReminded += res.subscriptionsReminded;
+        maintenanceReminded += res.maintenanceReminded;
         smsSent += res.smsSent;
         simulated += res.simulated;
         if (res.changed) {
@@ -270,6 +347,7 @@ export async function runReminderCycleNow(options?: { nowMs?: number }): Promise
       checkedShops,
       appointmentsReminded,
       subscriptionsReminded,
+      maintenanceReminded,
       smsSent,
       simulated,
     };

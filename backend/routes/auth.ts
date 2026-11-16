@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from 'express';
+import crypto from 'crypto';
 import path from 'path';
 import { DATA_DIR } from '../config';
 import { readJsonFile, writeJsonFile } from '../fsdb';
@@ -40,38 +41,18 @@ import {
   recordSmsSent,
   generateWhatsAppVerificationLink,
 } from '../services/smsSecurity';
-
-const FIREBASE_API_KEY = 'AIzaSyAU2Zx5J6Df1VSUEdbEvNSfpFxio1pULCQ';
-
-// Google Identity Toolkit REST API ile Firebase Phone Auth idToken doğrulama
-async function verifyFirebasePhoneIdToken(idToken: string): Promise<{ success: boolean; phone?: string; error?: string }> {
-  try {
-    const url = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken }),
-    });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      const message = errData?.error?.message || 'Geçersiz veya süresi dolmuş Firebase oturumu.';
-      return { success: false, error: message };
-    }
-
-    const data = await response.json();
-    const user = data.users?.[0];
-    if (!user || !user.phoneNumber) {
-      return { success: false, error: 'Firebase doğrulamasında telefon numarası bulunamadı.' };
-    }
-
-    return { success: true, phone: user.phoneNumber };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Firebase kimlik doğrulama servisine bağlanılamadı.' };
-  }
-}
+import {
+  verifyFirebaseIdToken,
+  sendFirebaseEmailPasswordReset,
+  getFirebaseIntegrationStatus,
+  writeFirestoreDocument,
+} from '../services/firebaseService';
 
 export function registerAuthRoutes(app: Express): void {
+  app.get('/api/auth/firebase-status', (_req: Request, res: Response) => {
+    const fb = getFirebaseIntegrationStatus();
+    res.json({ success: true, ...fb });
+  });
   // Herkese açık platform metrikleri
   app.get('/api/public/stats', (_req: Request, res: Response) => {
     const accounts = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
@@ -88,13 +69,14 @@ export function registerAuthRoutes(app: Express): void {
     });
   });
 
-  app.post('/api/auth/register', (req: Request, res: Response) => {
+  app.post('/api/auth/register', async (req: Request, res: Response) => {
     const body = req.body || {};
     const shopName = String(body.shopName || '').trim();
     const ownerName = String(body.ownerName || '').trim();
     const phone = normalizePhone(String(body.phone || ''));
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
+    const firebaseIdToken = String(body.firebaseIdToken || '').trim();
 
     if (!shopName || !ownerName || !phone) {
       return res.status(400).json({ error: 'Dükkan adı, yetkili adı ve telefon numarası zorunludur.' });
@@ -110,7 +92,24 @@ export function registerAuthRoutes(app: Express): void {
     if (findAccountByPhone(phone)) {
       return res.status(409).json({ error: 'Bu telefon ile kayıtlı bir hesap var. Giriş yapmayı deneyin.' });
     }
-    const acc: Account = {
+
+    let phoneVerified = false;
+    let firebaseUid: string | undefined;
+    if (firebaseIdToken) {
+      const fbRes = await verifyFirebaseIdToken(firebaseIdToken);
+      if (!fbRes.success || !fbRes.phoneNumber) {
+        return res.status(401).json({ error: fbRes.error || 'Firebase telefon doğrulaması geçersiz.' });
+      }
+      if (normalizePhone(fbRes.phoneNumber) !== phone) {
+        return res.status(403).json({ error: 'Firebase ile doğrulanan telefon numarası formdaki numarayla uyuşmuyor.' });
+      }
+      phoneVerified = true;
+      firebaseUid = fbRes.uid;
+    } else if (process.env.REQUIRE_FIREBASE_REGISTER_OTP === 'true') {
+      return res.status(400).json({ error: 'Kayıt için telefon numaranızı Firebase SMS ile doğrulamanız gereklidir.' });
+    }
+
+    const acc: Account & { phoneVerified?: boolean; firebaseUid?: string } = {
       id: 'acc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       shopName,
       ownerName,
@@ -119,6 +118,8 @@ export function registerAuthRoutes(app: Express): void {
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString(),
       createdIp: clientIp(req),
+      ...(phoneVerified ? { phoneVerified: true } : {}),
+      ...(firebaseUid ? { firebaseUid } : {}),
     };
     addAccount(acc);
     recordLogin(acc, clientIp(req));
@@ -136,6 +137,17 @@ export function registerAuthRoutes(app: Express): void {
       st.shopProfile.vipExpiresAt = trialExpiry;
       persistShopState(acc.id, st);
     }
+
+    writeFirestoreDocument('shops', acc.id, {
+      accountId: acc.id,
+      storeName: acc.shopName,
+      businessField: st.shopProfile.businessField || 'Genel Esnaf',
+      sectorKey: st.shopProfile.sectorKey || 'bakkal_market',
+      cityDistrict: st.shopProfile.cityDistrict || '',
+      vipTier: st.shopProfile.vipTier || 'patron',
+      isVip: Boolean(st.shopProfile.isVip),
+      updatedAt: acc.createdAt,
+    }).catch(() => {});
 
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
@@ -277,24 +289,68 @@ export function registerAuthRoutes(app: Express): void {
       });
     }
 
+    const maskedEmail = matched.email
+      ? (() => {
+          const [u, d] = matched.email.split('@');
+          if (!u || !d) return undefined;
+          return `${u.slice(0, 2)}${'*'.repeat(Math.max(2, u.length - 2))}@${d}`;
+        })()
+      : undefined;
+
     return res.json({
       allowed: true,
       phone,
       shopName: matched.shopName,
       ownerName: matched.ownerName,
+      hasEmail: Boolean(matched.email),
+      maskedEmail,
+      email: matched.email || undefined,
+      whatsappLink: generateWhatsAppVerificationLink(phone),
     });
   });
 
-  // 2. Firebase SMS Gönderim Kaydı (Sayacı kalıcı duruma işler)
+  // 1b. E-posta ile Firebase Şifre Kurtarma Ön Kontrolü & Bağlantı Gönderimi
+  app.post('/api/auth/forgot-password/send-email-reset', rateLimit, async (req: Request, res: Response) => {
+    const body = req.body || {};
+    const rawPhone = String(body.phone || '').trim();
+    const rawEmail = String(body.email || '').trim().toLowerCase();
+
+    const byPhone = rawPhone ? findAccountByPhone(normalizePhone(rawPhone)) : undefined;
+    const byEmail = rawEmail
+      ? getAccounts().find((a) => String(a.email || '').trim().toLowerCase() === rawEmail)
+      : undefined;
+    const matched = byEmail || byPhone;
+
+    if (!matched) {
+      return res.status(404).json({ error: 'Bu bilgiye ait kayıtlı dükkan hesabı bulunamadı.' });
+    }
+    const targetEmail = String(matched.email || rawEmail || '').trim().toLowerCase();
+    if (!targetEmail || !targetEmail.includes('@')) {
+      return res.status(400).json({ error: 'Bu hesaba tanımlı bir kurtarma e-posta adresi bulunmuyor. Lütfen Telefon SMS ile sıfırlamayı deneyiniz.' });
+    }
+
+    // Sadece Firebase E-posta Doğrulama Linki (Email Link) akışına onay verir; mükerrer OOB şifre maili atılmaz.
+    logAuthEvent('password_reset' as any, matched.phone, clientIp(req));
+    return res.json({
+      success: true,
+      email: targetEmail,
+      message: 'Hesap e-posta doğrulamaya hazır.',
+    });
+  });
+
+  // 2. Firebase SMS Gönderim Kaydı (Yalnızca kayıtlı telefonlar ve uygunluk geçtiğinde sayacı işler)
   app.post('/api/auth/forgot-password/record-sms', rateLimit, (req: Request, res: Response) => {
     const body = req.body || {};
     const rawPhone = String(body.phone || '').trim();
     const phone = normalizePhone(rawPhone);
     const ip = clientIp(req);
 
-    if (phone) {
-      recordSmsSent(phone, ip);
-      logAuthEvent('password_reset' as any, phone, ip);
+    if (phone && findAccountByPhone(phone)) {
+      const eligibility = checkSmsEligibility(phone, ip);
+      if (eligibility.allowed) {
+        recordSmsSent(phone, ip);
+        logAuthEvent('password_reset' as any, phone, ip);
+      }
     }
 
     res.json({ success: true });
@@ -375,6 +431,9 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/forgot-password/send-otp', rateLimit, handleForgotPasswordSendOtp);
   app.post('/api/auth/forgot-password', rateLimit, handleForgotPasswordSendOtp);
 
+  // Kullanılmış Firebase sıfırlama jetonlarını tekrar kullanıma karşı tut (1 saat TTL)
+  const usedFirebaseResetTokens = new Map<string, number>();
+
   // 4. Şifre Sıfırlama OTP / Firebase Token Doğrulama ve Yeni Şifre Belirleme
   app.post('/api/auth/forgot-password/verify-and-reset', rateLimit, async (req: Request, res: Response) => {
     const body = req.body || {};
@@ -384,43 +443,80 @@ export function registerAuthRoutes(app: Express): void {
     const otpCode = String(body.otpCode || '').trim();
     const newPassword = String(body.newPassword || '').trim();
 
-    if (!isValidTurkishPhone(rawPhone)) {
-      return res.status(400).json({ error: 'Geçersiz telefon numarası.' });
-    }
     if (!newPassword || newPassword.length < 6) {
       return res.status(400).json({ error: 'Yeni şifreniz en az 6 karakter olmalıdır.' });
     }
 
-    // A. Firebase Phone Auth idToken ile Güvenli Doğrulama (Öncelikli Yol)
+    // A. Firebase Auth idToken (Phone SMS OTP veya E-posta Doğrulama) ile Güvenli Doğrulama
     if (idToken) {
-      const verifyRes = await verifyFirebasePhoneIdToken(idToken);
-      if (!verifyRes.success || !verifyRes.phone) {
+      const tokenHash = crypto.createHash('sha256').update(idToken).digest('hex');
+      const nowMs = Date.now();
+      for (const [k, exp] of usedFirebaseResetTokens.entries()) {
+        if (exp < nowMs) usedFirebaseResetTokens.delete(k);
+      }
+      if (usedFirebaseResetTokens.has(tokenHash)) {
+        return res.status(401).json({ error: 'Bu doğrulama oturumu daha önce kullanılmış. Lütfen yeniden doğrulama yapınız.' });
+      }
+
+      const verifyRes = await verifyFirebaseIdToken(idToken);
+      if (!verifyRes.success) {
         return res.status(401).json({
           error: verifyRes.error || 'Firebase oturum doğrulaması başarısız oldu. Lütfen tekrar deneyiniz.'
         });
       }
 
-      const verifiedPhone = normalizePhone(verifyRes.phone);
-      if (verifiedPhone !== phone) {
-        return res.status(403).json({
-          error: 'Doğrulanan telefon numarası ile hesap numarası uyuşmuyor. Lütfen dükkanınıza ait numarayı doğrulayınız.'
-        });
+      // Token tazelik kontrolü (en fazla 20 dakika önce doğrulanmış olmalı)
+      if (typeof verifyRes.authTimeSec === 'number') {
+        const ageSec = Math.floor(nowMs / 1000) - verifyRes.authTimeSec;
+        if (ageSec > 20 * 60) {
+          return res.status(401).json({ error: 'Doğrulama oturumunun süresi doldu. Lütfen yeniden kod veya bağlantı isteyiniz.' });
+        }
       }
 
-      const acc = findAccountByPhone(phone);
+      let acc = phone ? findAccountByPhone(phone) : undefined;
+      if (verifyRes.phoneNumber) {
+        const verifiedPhone = normalizePhone(verifyRes.phoneNumber);
+        if (rawPhone && (!isValidTurkishPhone(rawPhone) || verifiedPhone !== phone)) {
+          return res.status(403).json({
+            error: 'Doğrulanan telefon numarası ile hesap numarası uyuşmuyor. Lütfen dükkanınıza ait numarayı doğrulayınız.'
+          });
+        }
+        if (!acc) acc = findAccountByPhone(verifiedPhone);
+      } else if (verifyRes.email) {
+        if (!verifyRes.emailVerified) {
+          return res.status(403).json({ error: 'E-posta adresiniz Firebase tarafından henüz doğrulanmamış.' });
+        }
+        const verifiedEmail = verifyRes.email.trim().toLowerCase();
+        if (!acc || String(acc.email || '').trim().toLowerCase() !== verifiedEmail) {
+          acc = getAccounts().find((a) => String(a.email || '').trim().toLowerCase() === verifiedEmail);
+        }
+        if (!acc || String(acc.email || '').trim().toLowerCase() !== verifiedEmail) {
+          return res.status(403).json({
+            error: 'Doğrulanan e-posta adresi hesap e-postasıyla uyuşmuyor.'
+          });
+        }
+      } else {
+        return res.status(401).json({ error: 'Firebase token içinde doğrulanmış telefon veya e-posta bulunamadı.' });
+      }
+
       if (!acc) {
         return res.status(404).json({ error: 'Hesap bulunamadı.' });
       }
 
+      usedFirebaseResetTokens.set(tokenHash, nowMs + 60 * 60 * 1000);
       acc.passwordHash = hashPassword(newPassword);
       persistAccounts();
-      passwordResetOtpStore.delete(phone);
-      clearLoginAttempts(phone);
+      passwordResetOtpStore.delete(acc.phone);
+      clearLoginAttempts(acc.phone);
 
       const ip = clientIp(req);
-      logAuthEvent('login_ok', phone, ip);
+      logAuthEvent('login_ok', acc.phone, ip);
+      writeFirestoreDocument('password_resets', `rst_${Date.now()}`, {
+        accountId: acc.id,
+        method: verifyRes.phoneNumber ? 'firebase_phone_otp' : 'firebase_email_link',
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
 
-      // Oturumu doğrudan açarak kullanıcıyı bekletmeden panele al
       const session = createSession(acc.id);
       res.setHeader('Set-Cookie', sessionCookie(session.token));
 
@@ -429,6 +525,10 @@ export function registerAuthRoutes(app: Express): void {
         message: 'Şifreniz Firebase ile güvenle doğrulandı ve güncellendi! Panele yönlendiriliyorsunuz.',
         account: publicAccount(acc),
       });
+    }
+
+    if (!isValidTurkishPhone(rawPhone)) {
+      return res.status(400).json({ error: 'Geçersiz telefon numarası.' });
     }
 
     // B. Klasik In-Memory OTP Doğrulama (Geriye Dönük WhatsApp / Demo Uyumluluğu)

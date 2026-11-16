@@ -361,8 +361,13 @@ it('SEO_GUIDE_ARTICLES, isValidGuideRoute ve 9 rehber rotası SSR/Schema/Sitemap
     'istanbul-berber-kuafor',
     'ankara-berber-kuafor',
     'izmir-kafe-restoran',
+    'izmit-berber-kuafor-randevu',
+    'zonguldak-berber-kuafor-randevu',
+    'kocaeli-esnaf-online-randevu',
+    'instagram-biyografi-randevu-linki',
+    'pazar-gunu-acik-berber-randevu',
   ];
-  assert.ok(Array.isArray(SEO_GUIDE_ARTICLES) && SEO_GUIDE_ARTICLES.length >= 8);
+  assert.ok(Array.isArray(SEO_GUIDE_ARTICLES) && SEO_GUIDE_ARTICLES.length >= 13);
   assert.strictEqual(isValidGuideRoute('/rehber'), true);
   assert.strictEqual(isValidGuideRoute('/rehber/olmayan-yazi'), false);
 
@@ -377,6 +382,37 @@ it('SEO_GUIDE_ARTICLES, isValidGuideRoute ve 9 rehber rotası SSR/Schema/Sitemap
     assert.ok(html.includes('<h1'), `${route} SSR H1 içermeli`);
     assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr${route}</loc>`), `${route} sitemapte olmalı`);
   }
+});
+
+// 21. İzmit ve Zonguldak Yerel SEO Landing Sayfaları (LocalBusiness & SSR & GeoCoordinates)
+it('İzmit ve Zonguldak landing sayfaları doğru LocalBusiness Geo şeması, H1 ve sitemap içerir', () => {
+  const izmitMeta = getSeoMetadata('/izmit-berber-randevu');
+  assert.ok(izmitMeta.title.includes('İzmit Berber Randevu'));
+  assert.ok(izmitMeta.description.includes('Kocaeli'));
+  assert.strictEqual(izmitMeta.schemaJson['@type'], 'LocalBusiness');
+  assert.strictEqual(izmitMeta.schemaJson.geo.latitude, 40.7654);
+  assert.strictEqual(izmitMeta.schemaJson.geo.longitude, 29.9408);
+  assert.ok(izmitMeta.faqJson && izmitMeta.faqJson.length >= 3);
+
+  const izmitHtml = renderSeoHtml('/izmit-berber-randevu');
+  assert.ok(izmitHtml.includes('İzmit ve Kocaeli Berber Randevu Sistemi'));
+  assert.ok(izmitHtml.includes('Fethiye Caddesi'));
+
+  const zonguldakMeta = getSeoMetadata('/zonguldak-berber-randevu');
+  assert.ok(zonguldakMeta.title.includes('Zonguldak Berber'));
+  assert.ok(zonguldakMeta.description.includes('Ereğli'));
+  assert.strictEqual(zonguldakMeta.schemaJson['@type'], 'LocalBusiness');
+  assert.strictEqual(zonguldakMeta.schemaJson.geo.latitude, 41.4564);
+  assert.strictEqual(zonguldakMeta.schemaJson.geo.longitude, 31.7987);
+  assert.ok(zonguldakMeta.faqJson && zonguldakMeta.faqJson.length >= 3);
+
+  const zonguldakHtml = renderSeoHtml('/zonguldak-berber-randevu');
+  assert.ok(zonguldakHtml.includes('Zonguldak ve Karadeniz Ereğli Berber Randevu'));
+  assert.ok(zonguldakHtml.includes('Gazipaşa'));
+
+  const xml = generateSitemapXml('dukkanimyanimda.com.tr');
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/izmit-berber-randevu</loc>'));
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/zonguldak-berber-randevu</loc>'));
 });
 
 console.log(`\n========================================`);

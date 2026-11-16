@@ -341,6 +341,7 @@ export function buildInitEvent(st: AppState): WSEvent {
       appointments: st.appointments || [],
       tables: st.tables || [],
       repairTickets: st.repairTickets || [],
+      maintenanceAssets: st.maintenanceAssets || [],
       suppliers: st.suppliers || [],
       services: (st as any).services || [],
       cases: (st as any).cases || [],

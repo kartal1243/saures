@@ -21,6 +21,8 @@ import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { FREE_ONLINE_BOOKING_QUOTA } from '../config';
 import { publicActionRateLimit } from '../guards';
 import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
+import { verifyFirebaseIdToken } from '../services/firebaseService';
+import { sendPushToAccount } from './devices';
 
 function slugify(text: string): string {
   const trMap: Record<string, string> = {
@@ -411,7 +413,7 @@ export function registerPublicBarberRoutes(app: Express): void {
   });
 
   // 3. Müşteri Online Randevu Kaydı (4 Adımlı Form Sonu - Bot ve Kotaya Karşı Korumalı)
-  app.post('/api/public/barber/:identifier/book', publicBookingRateLimit, (req: Request, res: Response) => {
+  app.post('/api/public/barber/:identifier/book', publicBookingRateLimit, async (req: Request, res: Response) => {
     const { shopState, account } = resolveBarberShop(req.params.identifier);
     if (!shopState || !account) {
       return res.status(404).json({ error: 'İşletme bulunamadı.' });
@@ -431,6 +433,7 @@ export function registerPublicBarberRoutes(app: Express): void {
       serviceIds,
       staffId,
       otpCode,
+      firebaseIdToken,
     } = req.body;
 
     if (!customerName || !customerName.trim()) {
@@ -488,15 +491,25 @@ export function registerPublicBarberRoutes(app: Express): void {
       });
     }
 
-    // Gerçek OTP Doğrulaması ('1234' bypass kaldırıldı)
+    // Gerçek OTP Doğrulaması: Öncelikli Firebase Phone Auth idToken -> Yedek Backend otpStore
     if (shopState.barberSettings?.requireOtp) {
-      const stored = otpStore.get(cleanPhone);
-      const trimmedCode = String(otpCode || '').trim();
-      const isValid = Boolean(stored && stored.code === trimmedCode && stored.expiresAt > Date.now());
-      if (!isValid) {
+      let otpVerified = false;
+      const cleanToken = String(firebaseIdToken || '').trim();
+      if (cleanToken) {
+        const fbVerify = await verifyFirebaseIdToken(cleanToken);
+        if (fbVerify.success && fbVerify.phoneNumber && normalizePhone(fbVerify.phoneNumber) === cleanPhone) {
+          otpVerified = true;
+        }
+      }
+      if (!otpVerified) {
+        const stored = otpStore.get(cleanPhone);
+        const trimmedCode = String(otpCode || '').trim();
+        otpVerified = Boolean(stored && stored.code === trimmedCode && stored.expiresAt > Date.now());
+        if (otpVerified) otpStore.delete(cleanPhone);
+      }
+      if (!otpVerified) {
         return res.status(400).json({ error: 'Geçersiz veya süresi dolmuş SMS onay kodu. Lütfen önce "SMS Kodu Gönder" butonuna basınız.' });
       }
-      otpStore.delete(cleanPhone);
     }
 
     // Spam Koruması: Aynı telefon için aynı günde max 2 aktif randevu
@@ -699,10 +712,16 @@ export function registerPublicBarberRoutes(app: Express): void {
 
     persistShopState(account.id, shopState);
 
-    // Canlı WebSocket bildirimi (Dükkan sahibi paneline anında düşer ve çan çalar)
+    // Canlı WebSocket & Firebase Push bildirimi (Dükkan sahibi paneline ve telefona anında düşer)
     try {
       broadcastToAccount(account.id, { type: 'APPOINTMENT_UPDATED', payload: newAppointment });
     } catch {}
+    sendPushToAccount(account.id, {
+      title: `Yeni Randevu: ${newAppointment.customerName}`,
+      body: `${date} ${timeSlot} — ${newAppointment.serviceName} (${finalPrice} ₺)`,
+      url: '/',
+      tag: `apt_${newAppointment.id}`,
+    }).catch(() => {});
 
     const storeTitle = shopState.shopProfile?.storeName || account.shopName;
     const whatsappMessage = encodeURIComponent(

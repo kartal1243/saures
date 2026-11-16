@@ -17,8 +17,12 @@ import {
   Printer,
   Copy,
   Check,
+  QrCode,
+  Factory,
+  CalendarClock,
+  ExternalLink,
 } from 'lucide-react';
-import { RepairTicket } from '../../../shared/types.ts';
+import type { MaintenanceAsset, RepairTicket } from '../../../shared/types.ts';
 import { printHtmlDocument, escapeHtml } from '../../utils/printTemplate';
 
 interface RepairTicketsViewProps {
@@ -31,6 +35,22 @@ interface RepairTicketsViewProps {
     deductPartCost: boolean
   ) => Promise<void>;
   onDeleteTicket: (id: string) => Promise<void>;
+  maintenanceAssets?: MaintenanceAsset[];
+  onSaveMaintenanceAsset?: (data: Partial<MaintenanceAsset>) => Promise<void>;
+  onRecordAssetMaintenance?: (
+    id: string,
+    payload: {
+      summary: string;
+      technician?: string;
+      partsChanged?: string;
+      cost?: number;
+      meterReading?: string;
+      addToCash?: boolean;
+      paymentMethod?: 'nakit' | 'kart';
+    }
+  ) => Promise<void>;
+  onDeleteMaintenanceAsset?: (id: string) => Promise<void>;
+  storeName?: string;
 }
 
 const STATUS_CONFIG: Record<
@@ -70,11 +90,40 @@ export const RepairTicketsView: React.FC<RepairTicketsViewProps> = ({
   onUpdateStatus,
   onCompleteTicket,
   onDeleteTicket,
+  maintenanceAssets = [],
+  onSaveMaintenanceAsset,
+  onRecordAssetMaintenance,
+  onDeleteMaintenanceAsset,
+  storeName,
 }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'tickets' | 'assets'>('tickets');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [completingTicket, setCompletingTicket] = useState<RepairTicket | null>(null);
   const [deductPartCostCheck, setDeductPartCostCheck] = useState(true);
+
+  // Makine / Cihaz Bakım Pasaportu Modal States
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [assetClientName, setAssetClientName] = useState('');
+  const [assetClientPhone, setAssetClientPhone] = useState('');
+  const [assetLocationArea, setAssetLocationArea] = useState('');
+  const [assetDeviceName, setAssetDeviceName] = useState('');
+  const [assetBrandModel, setAssetBrandModel] = useState('');
+  const [assetSerialNumber, setAssetSerialNumber] = useState('');
+  const [assetIntervalDays, setAssetIntervalDays] = useState<number>(90);
+  const [assetLastDate, setAssetLastDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [assetWarrantyUntil, setAssetWarrantyUntil] = useState<string>('');
+  const [assetSaving, setAssetSaving] = useState(false);
+
+  const [recordingAsset, setRecordingAsset] = useState<MaintenanceAsset | null>(null);
+  const [mntSummary, setMntSummary] = useState('Periyodik bakım, temizlik ve kalibrasyon yapıldı');
+  const [mntTechnician, setMntTechnician] = useState('');
+  const [mntPartsChanged, setMntPartsChanged] = useState('');
+  const [mntMeterReading, setMntMeterReading] = useState('');
+  const [mntCost, setMntCost] = useState<number | ''>('');
+  const [mntAddToCash, setMntAddToCash] = useState(true);
+  const [mntPayMethod, setMntPayMethod] = useState<'nakit' | 'kart'>('nakit');
+  const [mntSaving, setMntSaving] = useState(false);
 
   // Form State
   const [customerName, setCustomerName] = useState('');
@@ -195,8 +244,307 @@ export const RepairTicketsView: React.FC<RepairTicketsViewProps> = ({
     window.open(url, '_blank');
   };
 
+  const getAssetUrl = (assetCode: string) => `${window.location.origin}/bakim/${encodeURIComponent(assetCode)}`;
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const getDaysDiff = (targetDate: string) => {
+    const a = new Date(`${todayIso}T00:00:00Z`).getTime();
+    const b = new Date(`${targetDate}T00:00:00Z`).getTime();
+    return Number.isFinite(b) ? Math.round((b - a) / 86400000) : 0;
+  };
+  const overdueAssetsCount = maintenanceAssets.filter((a) => getDaysDiff(a.nextMaintenanceDate) < 0).length;
+  const dueSoonAssetsCount = maintenanceAssets.filter((a) => {
+    const d = getDaysDiff(a.nextMaintenanceDate);
+    return d >= 0 && d <= 15;
+  }).length;
+
+  const handlePrintAssetQrSticker = (asset: MaintenanceAsset) => {
+    const assetUrl = getAssetUrl(asset.code || asset.id);
+    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&data=${encodeURIComponent(assetUrl)}`;
+    printHtmlDocument({
+      title: `QR Bakım Etiketi — ${asset.code}`,
+      paperWidth: '80mm',
+      bodyHtml: `
+        <div style="border:2px solid #111;border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.6px;color:#ea580c;">
+            ${escapeHtml(storeName || 'TEKNİK SERVİS BAKIM PASAPORTU')}
+          </div>
+          <div style="font-size:15px;font-weight:900;margin:4px 0 2px;">${escapeHtml(asset.deviceName)}</div>
+          <div style="font-size:11px;font-weight:700;color:#333;">${escapeHtml(asset.clientName)}${asset.locationArea ? ` • ${escapeHtml(asset.locationArea)}` : ''}</div>
+          <img src="${qrSrc}" alt="QR Bakım" style="width:140px;height:140px;margin:8px auto;display:block;" />
+          <div style="font-size:12px;font-weight:900;background:#111;color:#fff;padding:4px 8px;border-radius:6px;display:inline-block;">
+            KOD: ${escapeHtml(asset.code)}
+          </div>
+          <div style="font-size:10px;margin-top:6px;line-height:1.5;">
+            <div><strong>Son Bakım:</strong> ${escapeHtml(asset.lastMaintenanceDate)}</div>
+            <div><strong>Sonraki Bakım:</strong> ${escapeHtml(asset.nextMaintenanceDate)} (Her ${asset.intervalDays} gün)</div>
+            ${asset.serialNumber ? `<div><strong>Seri No:</strong> ${escapeHtml(asset.serialNumber)}</div>` : ''}
+          </div>
+          <div style="font-size:9px;color:#555;margin-top:6px;border-top:1px dashed #999;padding-top:4px;">
+            Bakım geçmişini görmek ve arıza bildirmek için okutunuz
+          </div>
+        </div>
+      `,
+    });
+  };
+
+  const openAssetWhatsAppReminder = (asset: MaintenanceAsset) => {
+    const cleanPhone = (asset.clientPhone || '').replace(/[^0-9]/g, '');
+    const phoneWithCode = cleanPhone.startsWith('90')
+      ? cleanPhone
+      : cleanPhone.startsWith('0')
+      ? `90${cleanPhone.substring(1)}`
+      : `90${cleanPhone}`;
+    const url = getAssetUrl(asset.code || asset.id);
+    const text = `Sayın ${asset.clientName}, "${asset.deviceName}" (${asset.code}) ekipmanınızın periyodik bakım tarihi (${asset.nextMaintenanceDate}) gelmektedir. Bakım geçmişi ve talep pasaportu: ${url}`;
+    window.open(`https://wa.me/${phoneWithCode}?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleSaveAssetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onSaveMaintenanceAsset || !assetClientName.trim() || !assetDeviceName.trim()) return;
+    setAssetSaving(true);
+    try {
+      await onSaveMaintenanceAsset({
+        clientName: assetClientName.trim(),
+        clientPhone: assetClientPhone.trim(),
+        locationArea: assetLocationArea.trim(),
+        deviceName: assetDeviceName.trim(),
+        brandModel: assetBrandModel.trim(),
+        serialNumber: assetSerialNumber.trim(),
+        intervalDays: assetIntervalDays,
+        lastMaintenanceDate: assetLastDate,
+        warrantyUntil: assetWarrantyUntil.trim() || undefined,
+      });
+      setIsAssetModalOpen(false);
+      setAssetClientName('');
+      setAssetClientPhone('');
+      setAssetLocationArea('');
+      setAssetDeviceName('');
+      setAssetBrandModel('');
+      setAssetSerialNumber('');
+      setAssetWarrantyUntil('');
+    } finally {
+      setAssetSaving(false);
+    }
+  };
+
+  const handleRecordMaintenanceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recordingAsset || !onRecordAssetMaintenance || !mntSummary.trim()) return;
+    setMntSaving(true);
+    try {
+      await onRecordAssetMaintenance(recordingAsset.id, {
+        summary: mntSummary.trim(),
+        technician: mntTechnician.trim() || undefined,
+        partsChanged: mntPartsChanged.trim() || undefined,
+        meterReading: mntMeterReading.trim() || undefined,
+        cost: Number(mntCost) || 0,
+        addToCash: mntAddToCash && (Number(mntCost) || 0) > 0,
+        paymentMethod: mntPayMethod,
+      });
+      setRecordingAsset(null);
+      setMntPartsChanged('');
+      setMntMeterReading('');
+      setMntCost('');
+    } finally {
+      setMntSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Alt Sekmeler: Aktif Arıza Fişleri vs QR Makine & Fabrika Bakım Pasaportu */}
+      <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('tickets')}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            activeSubTab === 'tickets'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+          }`}
+        >
+          <Wrench className="w-3.5 h-3.5" />
+          <span>Arıza &amp; Servis Fişleri ({repairTickets.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('assets')}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            activeSubTab === 'assets'
+              ? 'bg-orange-600 text-white shadow-xs'
+              : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+          }`}
+        >
+          <QrCode className="w-3.5 h-3.5" />
+          <span>QR Makine &amp; Bakım Takibi ({maintenanceAssets.length})</span>
+          {overdueAssetsCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px]">
+              {overdueAssetsCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeSubTab === 'assets' ? (
+        <div className="space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400">
+                  <Factory className="w-5 h-5" />
+                </span>
+                <h2 className="text-xl font-black text-stone-900 dark:text-white tracking-tight">
+                  Fabrika &amp; Kurumsal Cihaz QR Bakım Takibi
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-1">
+                Makine/cihaz üzerine QR bakım etiketi yapıştırın; fabrika çalışanları bakım tarihini görüp tek tıkla arıza bildirsin.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAssetModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-orange-600 hover:bg-orange-700 text-white shadow-xs cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Yeni Makine / Cihaz Ekle</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
+              <span className="text-xs text-stone-500 font-semibold">Kayıtlı Makine / Cihaz</span>
+              <div className="text-2xl font-black text-stone-900 dark:text-white mt-0.5">{maintenanceAssets.length}</div>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-rose-200 dark:border-rose-900/50">
+              <span className="text-xs text-rose-600 font-semibold">Bakımı Geciken</span>
+              <div className="text-2xl font-black text-rose-600 mt-0.5">{overdueAssetsCount}</div>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-amber-200 dark:border-amber-900/50">
+              <span className="text-xs text-amber-600 font-semibold">15 Gün İçinde Bakımı Gelen</span>
+              <div className="text-2xl font-black text-amber-600 mt-0.5">{dueSoonAssetsCount}</div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-xs">
+            {maintenanceAssets.length === 0 ? (
+              <div className="p-12 text-center text-stone-400 space-y-3">
+                <QrCode className="w-10 h-10 mx-auto opacity-40 text-orange-500" />
+                <p className="font-bold text-stone-700 dark:text-stone-200">Henüz QR Bakım Pasaportlu Cihaz Eklenmedi</p>
+                <p className="text-xs max-w-md mx-auto">
+                  Fabrika CNC makineleri, kompresörler, kombi/klima veya medikal cihazlar ekleyip üzerlerine QR bakım etiketi basabilirsiniz.
+                </p>
+                <a
+                  href="/bakim/demo"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:underline"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Örnek Fabrika Bakım Pasaportunu İncele (/bakim/demo)
+                </a>
+              </div>
+            ) : (
+              <div className="divide-y divide-stone-100 dark:divide-stone-800">
+                {maintenanceAssets.map((asset) => {
+                  const diff = getDaysDiff(asset.nextMaintenanceDate);
+                  const badgeCls =
+                    diff < 0
+                      ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                      : diff <= 15
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300';
+                  const badgeLabel =
+                    diff < 0 ? `${Math.abs(diff)} gün gecikti!` : diff === 0 ? 'Bugün bakım!' : `${diff} gün kaldı`;
+
+                  return (
+                    <div key={asset.id} className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-black text-orange-600 bg-orange-50 dark:bg-orange-950/50 px-2 py-0.5 rounded-md">
+                            {asset.code}
+                          </span>
+                          <h4 className="text-sm font-black text-stone-900 dark:text-white">{asset.deviceName}</h4>
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${badgeCls}`}>{badgeLabel}</span>
+                        </div>
+                        <p className="text-xs text-stone-700 dark:text-stone-300 font-semibold">
+                          <strong>Firma / Fabrika:</strong> {asset.clientName}
+                          {asset.locationArea ? ` • ${asset.locationArea}` : ''}
+                          {asset.clientPhone ? ` (${asset.clientPhone})` : ''}
+                        </p>
+                        <p className="text-xs text-stone-500 flex items-center gap-3 flex-wrap">
+                          <span className="inline-flex items-center gap-1">
+                            <CalendarClock className="w-3.5 h-3.5 text-orange-500" />
+                            Son Bakım: <strong>{asset.lastMaintenanceDate}</strong>
+                          </span>
+                          <span>→</span>
+                          <span>
+                            Sonraki Bakım: <strong className="text-stone-900 dark:text-white">{asset.nextMaintenanceDate}</strong> (Her {asset.intervalDays} gün)
+                          </span>
+                          <span>• {asset.logs?.length || 0} Geçmiş İşlem</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handlePrintAssetQrSticker(asset)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-200 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>QR Sticker Yazdır</span>
+                        </button>
+                        <a
+                          href={`/bakim/${encodeURIComponent(asset.code || asset.id)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 flex items-center gap-1"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Pasaport</span>
+                        </a>
+                        {asset.clientPhone && (
+                          <button
+                            type="button"
+                            onClick={() => openAssetWhatsAppReminder(asset)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 cursor-pointer"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>Hatırlat</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRecordingAsset(asset);
+                            setMntSummary('Periyodik bakım, temizlik ve kalibrasyon yapıldı');
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Bakım Yapıldı</span>
+                        </button>
+                        {onDeleteMaintenanceAsset && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteMaintenanceAsset(asset.id)}
+                            className="p-2 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                            title="Cihazı sil"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs">
         <div>
@@ -664,6 +1012,210 @@ export const RepairTicketsView: React.FC<RepairTicketsViewProps> = ({
             >
               Vazgeç
             </button>
+          </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Modal: Yeni Makine / Cihaz Ekle (QR Bakım Pasaportu) */}
+      {isAssetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-lg p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h3 className="font-bold text-stone-900 dark:text-white text-base mb-1">
+              Yeni QR Bakım Pasaportlu Makine / Cihaz
+            </h3>
+            <p className="text-xs text-stone-500 mb-4">
+              Fabrika, atölye veya işletmedeki cihazı kaydedin; QR etiket basıp bakım dönemlerini otomatik takip edin.
+            </p>
+            <form onSubmit={handleSaveAssetSubmit} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="Firma / Fabrika Adı *"
+                  value={assetClientName}
+                  onChange={(e) => setAssetClientName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                />
+                <input
+                  type="tel"
+                  placeholder="Yetkili GSM (05XX...)"
+                  value={assetClientPhone}
+                  onChange={(e) => setAssetClientPhone(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                />
+              </div>
+              <input
+                type="text"
+                required
+                placeholder="Makine / Cihaz Adı * (Örn: Atlas Copco Kompresör)"
+                value={assetDeviceName}
+                onChange={(e) => setAssetDeviceName(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input
+                  type="text"
+                  placeholder="Bölüm / Hat (A Blok)"
+                  value={assetLocationArea}
+                  onChange={(e) => setAssetLocationArea(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                />
+                <input
+                  type="text"
+                  placeholder="Marka / Model"
+                  value={assetBrandModel}
+                  onChange={(e) => setAssetBrandModel(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                />
+                <input
+                  type="text"
+                  placeholder="Seri No"
+                  value={assetSerialNumber}
+                  onChange={(e) => setAssetSerialNumber(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-500 mb-1">Bakım Periyodu</label>
+                  <select
+                    value={assetIntervalDays}
+                    onChange={(e) => setAssetIntervalDays(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                  >
+                    <option value={30}>Aylık (30 Gün)</option>
+                    <option value={60}>2 Ayda Bir (60 Gün)</option>
+                    <option value={90}>3 Ayda Bir (90 Gün)</option>
+                    <option value={180}>6 Ayda Bir (180 Gün)</option>
+                    <option value={365}>Yıllık (365 Gün)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-500 mb-1">Son Bakım Tarihi</label>
+                  <input
+                    type="date"
+                    value={assetLastDate}
+                    onChange={(e) => setAssetLastDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-500 mb-1">Garanti Bitiş</label>
+                  <input
+                    type="date"
+                    value={assetWarrantyUntil}
+                    onChange={(e) => setAssetWarrantyUntil(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAssetModalOpen(false)}
+                  className="px-3 py-1.5 text-xs text-stone-500 cursor-pointer"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  disabled={assetSaving}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white cursor-pointer"
+                >
+                  {assetSaving ? 'Kaydediliyor...' : 'Kaydet & QR Üret'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Periyodik Bakım Yapıldı İşaretle */}
+      {recordingAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-md p-6 shadow-xl">
+            <h3 className="font-bold text-stone-900 dark:text-white text-base mb-1">
+              Bakım Kaydı İşle ({recordingAsset.code})
+            </h3>
+            <p className="text-xs text-stone-500 mb-4">
+              {recordingAsset.deviceName} — sonraki bakım tarihi otomatik +{recordingAsset.intervalDays} gün ileri alınacaktır.
+            </p>
+            <form onSubmit={handleRecordMaintenanceSubmit} className="space-y-3">
+              <textarea
+                rows={2}
+                required
+                placeholder="Yapılan bakım / kontrol özeti *"
+                value={mntSummary}
+                onChange={(e) => setMntSummary(e.target.value)}
+                className="w-full p-2.5 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder="Teknisyen Adı"
+                  value={mntTechnician}
+                  onChange={(e) => setMntTechnician(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                />
+                <input
+                  type="text"
+                  placeholder="Çalışma Saati / Sayaç"
+                  value={mntMeterReading}
+                  onChange={(e) => setMntMeterReading(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Değişen Parçalar / Sarf Malzeme"
+                value={mntPartsChanged}
+                onChange={(e) => setMntPartsChanged(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+              />
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <input
+                  type="number"
+                  placeholder="Bakım Ücreti (₺)"
+                  value={mntCost}
+                  onChange={(e) => setMntCost(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl text-sm font-bold border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                />
+                <select
+                  value={mntPayMethod}
+                  onChange={(e) => setMntPayMethod(e.target.value as 'nakit' | 'kart')}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                >
+                  <option value="nakit">Nakit Tahsilat</option>
+                  <option value="kart">Kart / Havale</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={mntAddToCash}
+                  onChange={(e) => setMntAddToCash(e.target.checked)}
+                />
+                <span>Ücret girildiyse bugünün kasasına otomatik GELİR işle</span>
+              </label>
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setRecordingAsset(null)}
+                  className="px-3 py-1.5 text-xs text-stone-500 cursor-pointer"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={mntSaving}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                >
+                  {mntSaving ? 'Kaydediliyor...' : 'Bakımı Tamamla'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

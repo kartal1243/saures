@@ -236,6 +236,7 @@ export function emptyState(seed?: { storeName: string; ownerName: string; phone:
     appointments: [],
     tables: [],
     repairTickets: [],
+    maintenanceAssets: [],
     suppliers: [],
     services: [],
     cases: [],
@@ -296,6 +297,7 @@ export function loadShopState(accountId: string): AppState {
   if (!Array.isArray(st.appointments)) st.appointments = [];
   if (!Array.isArray(st.tables)) st.tables = [];
   if (!Array.isArray(st.repairTickets)) st.repairTickets = [];
+  if (!Array.isArray(st.maintenanceAssets)) st.maintenanceAssets = [];
   if (!Array.isArray((st as any).suppliers)) (st as any).suppliers = [];
   if (!Array.isArray((st as any).services)) (st as any).services = [];
   if (!Array.isArray((st as any).cases)) (st as any).cases = [];
