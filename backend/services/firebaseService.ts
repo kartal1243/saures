@@ -60,6 +60,7 @@ export interface FirebaseIntegrationStatus {
   pushReady: boolean;
   functionsSmsReady: boolean;
   firestoreReady: boolean;
+  firestoreDatabaseId: string;
   vapidKeyConfigured: boolean;
   appCheckConfigured: boolean;
   appCheckEnforced: boolean;
@@ -331,6 +332,10 @@ function toFirestoreValue(val: unknown): Record<string, unknown> {
   return { stringValue: String(val) };
 }
 
+export function getFirestoreDatabaseId(): string {
+  return (process.env.FIREBASE_FIRESTORE_DATABASE_ID || 'default').trim();
+}
+
 /**
  * Firestore REST API üzerinden belge yazar (Service Account gerekir).
  */
@@ -347,7 +352,8 @@ export async function writeFirestoreDocument(
 
     const cleanCollection = collectionPath.replace(/^\/+|\/+$/g, '');
     const cleanId = encodeURIComponent(docId);
-    const url = `https://firestore.googleapis.com/v1/projects/${auth.projectId}/databases/(default)/documents/${cleanCollection}/${cleanId}`;
+    const dbId = encodeURIComponent(getFirestoreDatabaseId());
+    const url = `https://firestore.googleapis.com/v1/projects/${auth.projectId}/databases/${dbId}/documents/${cleanCollection}/${cleanId}`;
 
     const fields: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(data)) {
@@ -1345,6 +1351,7 @@ export function getFirebaseIntegrationStatus(): FirebaseIntegrationStatus {
     pushReady: Boolean(sa || fcmLegacyReady),
     functionsSmsReady: fnUrl || (Boolean(sa) && process.env.FIREBASE_SMS_QUEUE_ACTIVE === 'true'),
     firestoreReady: Boolean(sa),
+    firestoreDatabaseId: getFirestoreDatabaseId(),
     vapidKeyConfigured: vapidConfigured,
     appCheckConfigured: Boolean(appCheckSiteKey),
     appCheckEnforced: process.env.FIREBASE_APP_CHECK_ENFORCE === 'true',

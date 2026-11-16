@@ -250,81 +250,8 @@ export function registerAuthRoutes(app: Express): void {
     });
   });
 
-  // Kullanılmış Firebase sıfırlama/giriş jetonlarını tekrar kullanıma karşı tut (1 saat TTL)
+  // Kullanılmış Firebase sıfırlama jetonlarını tekrar kullanıma karşı tut (1 saat TTL)
   const usedFirebaseResetTokens = new Map<string, number>();
-
-  // Telefon + Firebase Phone Auth SMS OTP ile Doğrudan Giriş
-  app.post('/api/auth/phone-login', rateLimit, firebaseAppCheckGuard, async (req: Request, res: Response) => {
-    const body = req.body || {};
-    const rawPhone = String(body.phone || '').trim();
-    const idToken = String(body.idToken || '').trim();
-
-    if (!idToken) {
-      return res.status(400).json({ error: 'Firebase SMS doğrulama jetonu (idToken) zorunludur.' });
-    }
-
-    const nowMs = Date.now();
-    for (const [k, exp] of usedFirebaseResetTokens.entries()) {
-      if (exp < nowMs) usedFirebaseResetTokens.delete(k);
-    }
-
-    const tokenHash = crypto.createHash('sha256').update(idToken).digest('hex');
-    if (usedFirebaseResetTokens.has(tokenHash)) {
-      return res.status(401).json({ error: 'Bu SMS doğrulama oturumu daha önce kullanılmış. Lütfen yeniden kod isteyiniz.' });
-    }
-
-    const fbRes = await verifyFirebaseIdToken(idToken);
-    if (!fbRes.success || !fbRes.phoneNumber) {
-      return res.status(401).json({ error: fbRes.error || 'Firebase telefon doğrulaması geçersiz veya süresi dolmuş.' });
-    }
-
-    if (typeof fbRes.authTimeSec === 'number') {
-      const ageSec = Math.floor(nowMs / 1000) - fbRes.authTimeSec;
-      if (ageSec > 20 * 60) {
-        return res.status(401).json({ error: 'SMS doğrulama oturumunun süresi doldu. Lütfen yeniden SMS kodu alınız.' });
-      }
-    }
-
-    const verifiedPhone = normalizePhone(fbRes.phoneNumber);
-    if (!verifiedPhone) {
-      return res.status(401).json({ error: 'Doğrulanan telefon numarası geçerli Türkiye GSM formatında değil.' });
-    }
-
-    if (rawPhone) {
-      const requestedPhone = normalizePhone(rawPhone);
-      if (!requestedPhone || requestedPhone !== verifiedPhone) {
-        return res.status(403).json({ error: 'Doğrulanan telefon numarası formdaki numara ile uyuşmuyor.' });
-      }
-    }
-
-    const acc = findAccountByPhone(verifiedPhone);
-    if (!acc) {
-      return res.status(404).json({ error: 'Bu telefon numarasına ait kayıtlı bir dükkan hesabı bulunamadı.' });
-    }
-    if (acc.role && acc.role !== 'owner') {
-      logAuthEvent('login_fail', verifiedPhone, clientIp(req));
-      return res.status(403).json({
-        error: 'Personel girisi kapali. Panele sadece dukkan sahibi girer.',
-      });
-    }
-
-    usedFirebaseResetTokens.set(tokenHash, nowMs + 60 * 60 * 1000);
-    clearLoginAttempts(acc.phone);
-    recordLogin(acc, clientIp(req));
-    logAuthEvent('login_ok', acc.phone, clientIp(req));
-
-    const session = createSession(acc.id);
-    res.setHeader('Set-Cookie', sessionCookie(session.token));
-    const returnToken =
-      req.headers['x-client-platform'] === 'android-native' ||
-      body?.returnToken === true;
-
-    return res.json({
-      success: true,
-      account: publicAccount(acc),
-      ...(returnToken ? { sessionToken: session.token } : {}),
-    });
-  });
 
   app.post('/api/auth/logout', (req: Request, res: Response) => {
     const token = tokenFromRequest(req);

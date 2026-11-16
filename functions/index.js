@@ -3,6 +3,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -13,7 +14,13 @@ setGlobalOptions({
   maxInstances: 10,
 });
 
-const db = admin.firestore();
+const FIRESTORE_DATABASE_ID = (
+  process.env.FIREBASE_FIRESTORE_DATABASE_ID ||
+  process.env.FIRESTORE_DATABASE_ID ||
+  'default'
+).trim();
+
+const db = getFirestore(admin.app(), FIRESTORE_DATABASE_ID);
 
 function getNodemailer() {
   try {
@@ -539,7 +546,9 @@ exports.sendReminderSms = onRequest({ cors: false }, async (req, res) => {
 /**
  * 2. Firestore Trigger: `sms_queue/{docId}` belgesi açıldığında otomatik SMS + log işler
  */
-exports.processSmsQueueDoc = onDocumentCreated('sms_queue/{docId}', async (event) => {
+exports.processSmsQueueDoc = onDocumentCreated(
+  { document: 'sms_queue/{docId}', database: FIRESTORE_DATABASE_ID },
+  async (event) => {
   const snap = event.data;
   if (!snap) return;
   const data = snap.data() || {};
@@ -605,7 +614,9 @@ exports.sendBrandedEmail = onRequest({ cors: false }, async (req, res) => {
 /**
  * 4. Firestore Trigger: `email_queue/{docId}` belgesi eklendiğinde kurumsal HTML e-posta gönderir
  */
-exports.processEmailQueueDoc = onDocumentCreated('email_queue/{docId}', async (event) => {
+exports.processEmailQueueDoc = onDocumentCreated(
+  { document: 'email_queue/{docId}', database: FIRESTORE_DATABASE_ID },
+  async (event) => {
   const snap = event.data;
   if (!snap) return;
   const data = snap.data() || {};
@@ -655,7 +666,9 @@ exports.sendTransactionalNotification = onRequest({ cors: false }, async (req, r
 /**
  * 6. Firestore Trigger: `notification_queue/{docId}` çoklu kanal kuyruğu
  */
-exports.processNotificationQueueDoc = onDocumentCreated('notification_queue/{docId}', async (event) => {
+exports.processNotificationQueueDoc = onDocumentCreated(
+  { document: 'notification_queue/{docId}', database: FIRESTORE_DATABASE_ID },
+  async (event) => {
   const snap = event.data;
   if (!snap) return;
   const data = snap.data() || {};

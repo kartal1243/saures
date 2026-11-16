@@ -39,14 +39,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Giriş Yöntemi: Şifre ile Giriş | Firebase SMS Kodu ile Giriş
-  const [loginMethod, setLoginMethod] = useState<'password' | 'sms'>('password');
-  const [loginConfirmResult, setLoginConfirmResult] = useState<ConfirmationResult | null>(null);
-  const [loginOtpSent, setLoginOtpSent] = useState(false);
-  const [loginOtpCode, setLoginOtpCode] = useState('');
-  const [loginOtpBusy, setLoginOtpBusy] = useState(false);
-  const [loginResendCooldownSec, setLoginResendCooldownSec] = useState(0);
-
   // Opsiyonel Kayıt Firebase SMS Doğrulama
   const [regConfirmResult, setRegConfirmResult] = useState<ConfirmationResult | null>(null);
   const [regOtpSent, setRegOtpSent] = useState(false);
@@ -55,94 +47,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const [regFirebaseIdToken, setRegFirebaseIdToken] = useState<string | null>(null);
   const [regOtpMsg, setRegOtpMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (loginResendCooldownSec <= 0) return;
-    const t = setTimeout(() => setLoginResendCooldownSec((s) => Math.max(0, s - 1)), 1000);
-    return () => clearTimeout(t);
-  }, [loginResendCooldownSec]);
-
-  const sendSmsLoginOtp = async () => {
-    setError(null);
-    const cleanDigits = phone.replace(/\D/g, '');
-    if (!cleanDigits.startsWith('05') || cleanDigits.length !== 11) {
-      setError('Lütfen 05 ile başlayan 11 haneli geçerli bir cep telefonu numarası giriniz.');
-      return;
-    }
-
-    setLoginOtpBusy(true);
-    try {
-      const checkRes = await fetchWithAppCheck('/api/auth/forgot-password/check-eligibility', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanDigits }),
-      });
-      const checkData = await checkRes.json().catch(() => ({} as any));
-      if (!checkRes.ok || checkData.allowed === false) {
-        throw new Error(checkData.error || checkData.message || 'SMS doğrulaması şu anda gönderilemiyor.');
-      }
-
-      const { confirmationResult: conf } = await sendFirebasePhoneOtp(
-        cleanDigits,
-        'login-sms-recaptcha-container',
-        () => setError('Güvenlik doğrulaması zaman aşımına uğradı. Lütfen tekrar deneyiniz.')
-      );
-      setLoginConfirmResult(conf);
-      setLoginOtpSent(true);
-      setLoginResendCooldownSec(60);
-
-      fetchWithAppCheck('/api/auth/forgot-password/record-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanDigits }),
-      }).catch(() => {});
-    } catch (err: any) {
-      setError(translateFirebaseError(err));
-    } finally {
-      setLoginOtpBusy(false);
-    }
-  };
-
-  const verifySmsLogin = async () => {
-    setError(null);
-    const cleanDigits = phone.replace(/\D/g, '');
-    if (!loginConfirmResult) {
-      setError('Lütfen önce SMS kodu gönderiniz.');
-      return;
-    }
-    if (loginOtpCode.trim().length < 6) {
-      setError('Lütfen telefonunuza gelen 6 haneli SMS kodunu giriniz.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const verified = await confirmFirebasePhoneOtp(loginConfirmResult, loginOtpCode.trim());
-      const res = await fetchWithAppCheck('/api/auth/phone-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanDigits, idToken: verified.idToken }),
-      });
-      const data = await res.json().catch(() => ({} as any));
-      if (!res.ok) throw new Error(data.error || 'SMS ile giriş tamamlanamadı.');
-      onSuccess();
-    } catch (err: any) {
-      setError(translateFirebaseError(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (mode === 'login' && loginMethod === 'sms') {
-      if (!loginOtpSent) {
-        await sendSmsLoginOtp();
-      } else {
-        await verifySmsLogin();
-      }
-      return;
-    }
 
     if (mode === 'register' && !kvkkAccepted) {
       setError('Lütfen KVKK Aydınlatma Metni ve Kullanım Koşullarını okuyup onaylayınız.');
@@ -201,9 +108,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const switchMode = (m: 'login' | 'register') => {
     setMode(m);
     setError(null);
-    if (m === 'register') {
-      setLoginMethod('password');
-    }
   };
 
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
@@ -573,39 +477,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                 </div>
               )}
 
-              {mode === 'login' && (
-                <div className="grid grid-cols-2 gap-1.5 p-1 bg-stone-100 rounded-xl text-[11px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginMethod('password');
-                      setError(null);
-                    }}
-                    className={`py-2 px-2 rounded-lg transition-all cursor-pointer ${
-                      loginMethod === 'password'
-                        ? 'bg-white text-orange-600 shadow-xs'
-                        : 'text-stone-500 hover:text-stone-700'
-                    }`}
-                  >
-                    🔑 Şifre ile Giriş
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginMethod('sms');
-                      setError(null);
-                    }}
-                    className={`py-2 px-2 rounded-lg transition-all cursor-pointer ${
-                      loginMethod === 'sms'
-                        ? 'bg-white text-orange-600 shadow-xs'
-                        : 'text-stone-500 hover:text-stone-700'
-                    }`}
-                  >
-                    📱 SMS Kodu ile Giriş (Firebase)
-                  </button>
-                </div>
-              )}
-
               {mode === 'register' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
@@ -647,24 +518,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
 
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1">
-                  {mode === 'login'
-                    ? loginMethod === 'sms'
-                      ? 'Kayıtlı Cep Telefonunuz *'
-                      : 'Telefon veya Kullanıcı Adı *'
-                    : 'Telefon *'}
+                  {mode === 'login' ? 'Telefon veya Kullanıcı Adı *' : 'Telefon *'}
                 </label>
                 <div className="relative">
-                  {mode === 'login' && loginMethod === 'password' && !/^\d/.test(phone) ? (
+                  {mode === 'login' && !/^\d/.test(phone) ? (
                     <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   ) : (
                     <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   )}
                   <input
-                    type={mode === 'login' && loginMethod === 'password' ? 'text' : 'tel'}
-                    inputMode={mode === 'login' && loginMethod === 'password' ? 'text' : 'numeric'}
+                    type={mode === 'login' ? 'text' : 'tel'}
+                    inputMode={mode === 'login' ? 'text' : 'numeric'}
                     value={phone}
                     onChange={(e) => {
-                      if (mode === 'login' && loginMethod === 'password') {
+                      if (mode === 'login') {
                         setPhone(e.target.value.trim());
                       } else {
                         const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
@@ -672,69 +539,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                       }
                     }}
                     required
-                    maxLength={mode === 'login' && loginMethod === 'password' ? 32 : 11}
-                    autoComplete={mode === 'login' && loginMethod === 'password' ? 'username' : 'tel'}
-                    placeholder={
-                      mode === 'login' && loginMethod === 'password'
-                        ? '05XXXXXXXXX veya kullanıcı adı'
-                        : '05XXXXXXXXX'
-                    }
+                    maxLength={mode === 'login' ? 32 : 11}
+                    autoComplete={mode === 'login' ? 'username' : 'tel'}
+                    placeholder={mode === 'login' ? '05XXXXXXXXX veya kullanıcı adı' : '05XXXXXXXXX'}
                     title={
-                      mode === 'login' && loginMethod === 'password'
+                      mode === 'login'
                         ? '05 ile başlayan telefon veya kullanıcı adı'
                         : '05 ile başlayan 11 haneli cep telefonu numarası (Örn: 05XXXXXXXXX)'
                     }
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all font-sans"
                   />
                 </div>
-                {mode === 'login' && loginMethod === 'sms' && (
-                  <div className="mt-3 space-y-2.5">
-                    <div id="login-sms-recaptcha-container" />
-                    {!loginOtpSent ? (
-                      <button
-                        type="button"
-                        disabled={loginOtpBusy || phone.replace(/\D/g, '').length !== 11}
-                        onClick={sendSmsLoginOtp}
-                        className="w-full py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-black text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        {loginOtpBusy ? (
-                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Firebase SMS Kodu Gönderiliyor…</>
-                        ) : (
-                          '📱 Giriş İçin SMS Onay Kodu Gönder'
-                        )}
-                      </button>
-                    ) : (
-                      <div className="p-3.5 rounded-2xl bg-orange-50/70 border border-orange-200 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-black text-stone-700">6 Haneli SMS Kodu *</label>
-                          <button
-                            type="button"
-                            disabled={loginOtpBusy || loginResendCooldownSec > 0}
-                            onClick={sendSmsLoginOtp}
-                            className="text-[11px] font-bold text-orange-600 hover:text-orange-700 disabled:text-stone-400 cursor-pointer"
-                          >
-                            {loginResendCooldownSec > 0 ? `Tekrar (${loginResendCooldownSec}s)` : 'Kodu Tekrar Gönder'}
-                          </button>
-                        </div>
-                        <input
-                          type="text"
-                          maxLength={6}
-                          inputMode="numeric"
-                          value={loginOtpCode}
-                          onChange={(e) => {
-                            setLoginOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                            setError(null);
-                          }}
-                          placeholder="123456"
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-center text-lg font-mono tracking-widest font-black outline-none focus:border-orange-500"
-                        />
-                        <p className="text-[11px] text-stone-500 font-medium">
-                          Telefonunuza gelen 6 haneli kodu girip aşağıdaki butondan doğrudan panele girebilirsiniz.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
                 {mode === 'register' && (
                   <div className="mt-2">
                     <div id="register-recaptcha-container" />
@@ -826,7 +641,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                 </div>
               )}
 
-              {(mode === 'register' || loginMethod === 'password') && (
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700">
@@ -851,7 +665,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    required={mode === 'register' || loginMethod === 'password'}
+                    required
                     minLength={6}
                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     placeholder="••••••"
@@ -859,7 +673,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                   />
                 </div>
               </div>
-              )}
 
               {/* KVKK ve Kullanım Koşulları Onayı (Kayıt Modunda Zorunlu) */}
               {mode === 'register' && (
@@ -882,25 +695,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
               {/* Ana Giriş Butonu */}
               <button
                 type="submit"
-                disabled={
-                  loading ||
-                  (mode === 'register' && !kvkkAccepted) ||
-                  (mode === 'login' && loginMethod === 'sms' && loginOtpSent && loginOtpCode.trim().length < 6)
-                }
+                disabled={loading || (mode === 'register' && !kvkkAccepted)}
                 className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-sm shadow-md shadow-orange-600/25 transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60"
               >
                 {loading ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Lütfen bekleyin…</>
                 ) : mode === 'login' ? (
-                  loginMethod === 'sms' ? (
-                    loginOtpSent ? (
-                      <>SMS Kodunu Doğrula ve Giriş Yap <ArrowRight className="w-4 h-4" /></>
-                    ) : (
-                      <>SMS Kodu Gönder ve Giriş Yap <ArrowRight className="w-4 h-4" /></>
-                    )
-                  ) : (
-                    <>Giriş Yap <ArrowRight className="w-4 h-4" /></>
-                  )
+                  <>Giriş Yap <ArrowRight className="w-4 h-4" /></>
                 ) : (
                   <>Dükkanı Aç <ArrowRight className="w-4 h-4" /></>
                 )}

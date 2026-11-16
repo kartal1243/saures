@@ -5,6 +5,7 @@ import path from 'path';
 import {
   FIREBASE_PROJECT_ID,
   FIREBASE_PROJECT_NUMBER,
+  getFirestoreDatabaseId,
   getFirebaseIntegrationStatus,
   dispatchFirebaseSms,
   sendFcmPushMessages,
@@ -47,6 +48,7 @@ assert.ok(storageRulesTxt.includes("rules_version = '2'"), 'storage.rules v2 olm
 assert.ok(storageRulesTxt.includes('allow read, write: if false;'), 'storage.rules fail-closed olmalı');
 
 const firebaseJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'firebase.json'), 'utf-8'));
+assert.strictEqual(firebaseJson?.firestore?.database, 'default', 'firebase.json firestore.database default olmalı');
 assert.strictEqual(firebaseJson?.storage?.rules, 'storage.rules', 'firebase.json storage.rules tanımlı olmalı');
 
 const fnPkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'functions', 'package.json'), 'utf-8'));
@@ -56,6 +58,9 @@ const fnTxt = fs.readFileSync(path.join(projectRoot, 'functions', 'index.js'), '
 assert.ok(fnTxt.includes('if (!expectedSecret || providedSecret !== expectedSecret)') || fnTxt.includes('isAuthorizedSecret'), 'Cloud Functions HTTP uçları fail-closed olmalı');
 assert.ok(fnTxt.includes('AbortSignal.timeout'), 'functions/index.js HTTP çağrıları timeout içermeli');
 for (const expectedSymbol of [
+  'getFirestore',
+  'FIRESTORE_DATABASE_ID',
+  'database: FIRESTORE_DATABASE_ID',
   'vatansms',
   'twilio',
   'TWILIO_ACCOUNT_SID',
@@ -95,7 +100,7 @@ assert.ok(appTs.includes("'/api/cron/firebase-reminders'"), 'Firebase 15 dk cron
 assert.ok(appTs.includes("'/api/cron/firebase-daily-09'"), 'Firebase 09:00 günlük cron ucu tanımlı olmalı');
 
 const authTs = fs.readFileSync(path.join(projectRoot, 'backend', 'routes', 'auth.ts'), 'utf-8');
-assert.ok(authTs.includes("'/api/auth/phone-login'"), 'auth.ts /api/auth/phone-login ucu tanımlı olmalı');
+assert.ok(!authTs.includes("'/api/auth/phone-login'"), 'auth.ts doğrudan SMS giriş ucu /api/auth/phone-login kaldırılmış olmalı');
 assert.ok(authTs.includes('firebaseAppCheckGuard'), 'auth.ts firebaseAppCheckGuard kullanmalı');
 assert.ok(authTs.includes('dispatchBrandedEmail'), 'auth.ts hoş geldin / sıfırlama kurumsal maili kullanmalı');
 assert.ok(authTs.includes('emailResetToken'), 'auth.ts özel e-posta sıfırlama token doğrulaması içermeli');
@@ -104,7 +109,7 @@ const adminTs = fs.readFileSync(path.join(projectRoot, 'backend', 'routes', 'adm
 assert.ok(adminTs.includes("'/api/admin/firebase/status'"), 'admin.ts firebase status ucu olmalı');
 assert.ok(adminTs.includes("'/api/admin/firebase/sync'"), 'admin.ts firebase sync ucu olmalı');
 assert.ok(adminTs.includes("'/api/admin/firebase/test-daily-09'"), 'admin.ts daily 09 test ucu olmalı');
-console.log('✅ PASS 2: backend/app.ts CSP/CORS/Cron, auth.ts phone-login/emailReset ve admin.ts Firebase uçları doğrulandı.');
+console.log('✅ PASS 2: backend/app.ts CSP/CORS/Cron, auth.ts emailReset/AppCheck ve admin.ts Firebase uçları doğrulandı.');
 
 // 3. Frontend App Check, Phone Login, Public Viewlar & AdminSite Blaze Kartı
 const fbClient = fs.readFileSync(path.join(projectRoot, 'frontend', 'firebase.ts'), 'utf-8');
@@ -133,13 +138,14 @@ for (const sym of [
   'sendFirebasePhoneOtp',
   'completeFirebaseRecoveryEmailLink',
   'resendCooldownSec',
-  '/api/auth/phone-login',
-  'login-sms-recaptcha-container',
+  '/api/auth/login',
   'emailResetToken',
   'customEmailSent',
 ]) {
   assert.ok(authPage.includes(sym), `AuthPage.tsx ${sym} içermeli`);
 }
+assert.ok(!authPage.includes('/api/auth/phone-login'), 'AuthPage.tsx doğrudan SMS kodu ile giriş çağrısı içermemeli');
+assert.ok(!authPage.includes('login-sms-recaptcha-container'), 'AuthPage.tsx SMS login reCAPTCHA alanı içermemeli');
 
 const bookingView = fs.readFileSync(path.join(projectRoot, 'frontend', 'components', 'public', 'PublicBarberBookingView.tsx'), 'utf-8');
 assert.ok(bookingView.includes('initFirebaseAppCheck'), 'PublicBarberBookingView App Check başlatmalı');
@@ -342,8 +348,17 @@ async function runAsync() {
   assert.strictEqual(ticketReq.ok, true, 'Demo QR arıza bildirimi başarılı olmalı');
   assert.ok(ticketReq.ticket?.id);
 
+  const prevDbIdEnv = process.env.FIREBASE_FIRESTORE_DATABASE_ID;
+  delete process.env.FIREBASE_FIRESTORE_DATABASE_ID;
+  assert.strictEqual(getFirestoreDatabaseId(), 'default', 'Varsayılan Firestore Database ID parantezsiz default olmalı');
+  process.env.FIREBASE_FIRESTORE_DATABASE_ID = 'custom-db';
+  assert.strictEqual(getFirestoreDatabaseId(), 'custom-db', 'FIREBASE_FIRESTORE_DATABASE_ID env override çalışmalı');
+  if (prevDbIdEnv === undefined) delete process.env.FIREBASE_FIRESTORE_DATABASE_ID;
+  else process.env.FIREBASE_FIRESTORE_DATABASE_ID = prevDbIdEnv;
+
   const fbStatus = getFirebaseIntegrationStatus();
   assert.strictEqual(fbStatus.projectId, 'dukkanim-yanimda');
+  assert.strictEqual(fbStatus.firestoreDatabaseId, getFirestoreDatabaseId());
   assert.strictEqual(fbStatus.phoneAuthReady, true);
   assert.ok(fbStatus.storageBucket.includes('dukkanim-yanimda'));
 
