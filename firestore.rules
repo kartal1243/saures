@@ -9,7 +9,10 @@ rules_version = '2';
 // - Node.js Express sunucusu Firestore'a Service Account OAuth2 JWT / Admin SDK ile bağlanır
 //   (Admin SDK & Service Account REST API istemci kurallarını güvenli biçimde bypass eder).
 // - Firebase Blaze Cloud Functions v2 (functions/index.js) `firebase-admin` ile çalışır:
-//   `sms_queue` (`onDocumentCreated`), `sms_logs` ve zamanlanmış hatırlatma tetikleyicileri.
+//   `sms_queue` (`onDocumentCreated`), `sms_logs`, `email_queue` (`onDocumentCreated`), `email_logs`,
+//   `notification_queue` (`onDocumentCreated`), `notification_logs`, zamanlanmış hatırlatma /
+//   sabah 09:00 TR & 15 dakikalık cron execution raporları (`daily_cron_runs`) ve
+//   `shops/{accountId}/cloud_backups/{backupId}` günlük bulut yedeklemeleri.
 // - İstemci (Web / Android TWA / PWA) kimlik doğrulaması birincil olarak Express oturumu ile yapılır;
 //   Firebase Auth (`request.auth != null`) Phone Auth SMS OTP, e-posta sıfırlama ve FCM push için kullanılır.
 // - Bu kurallar varsayılan kapalı (fail-closed / default-deny) ilkesiyle tüm doğrudan istemci yazmalarını
@@ -44,6 +47,79 @@ rules_version = '2';
 //   - sent: bool (required)
 //   - error: string | null (optional)
 //   - createdAt: timestamp (required)
+//
+// Collection: email_queue/{docId}
+// Document ID: email_<timestamp>_<randomHex> (or auto-id)
+// Access: Server / Admin SDK / Cloud Functions v2 ONLY (client read & write denied)
+// Fields:
+//   - to: string (required, PII - recipient email address)
+//   - subject: string (required, email subject)
+//   - type: string (required, e.g. 'welcome' | 'password_reset' | 'booking' | 'order' | 'maintenance' | 'daily_report')
+//   - status: string (required, 'pending' | 'sent' | 'logged_only' | 'failed')
+//   - createdAt: string | timestamp (required)
+//   - provider: string (optional, set by Cloud Function, e.g. 'smtp' | 'resend' | 'sendgrid' | 'firestore_queue')
+//   - text: string (optional, plain-text body)
+//   - html: string (optional, HTML body)
+//   - error: string | null (optional, set by Cloud Function)
+//   - processedAt: timestamp (optional, set by Cloud Function)
+//
+// Collection: email_logs/{docId}
+// Document ID: auto-id
+// Access: Server / Admin SDK / Cloud Functions v2 ONLY (client read & write denied)
+// Fields:
+//   - to: string (required, PII - recipient email address)
+//   - subject: string (required)
+//   - type: string (required)
+//   - provider: string (required)
+//   - sent: bool (required)
+//   - status: string (optional, 'sent' | 'logged_only' | 'failed')
+//   - error: string | null (optional)
+//   - createdAt: timestamp | string (required)
+//
+// Collection: notification_queue/{docId}
+// Document ID: ntf_<timestamp>_<randomHex> (or auto-id)
+// Access: Server / Admin SDK / Cloud Functions v2 ONLY (client read & write denied)
+//         Transactional event notifications (SMS/Email/Push triggers on signup, booking, order, maintenance)
+// Fields:
+//   - event: string (required, 'signup' | 'booking' | 'order' | 'maintenance' | 'reminder' | 'subscription_due')
+//   - accountId: string (required)
+//   - channels: list<string> (required, subset of ['sms', 'email', 'push'])
+//   - recipientPhone: string (optional, PII)
+//   - recipientEmail: string (optional, PII)
+//   - title: string (required)
+//   - message: string (required, PII)
+//   - status: string (required, 'pending' | 'processing' | 'sent' | 'partial' | 'failed')
+//   - createdAt: string | timestamp (required)
+//   - processedAt: timestamp (optional, set by Cloud Function)
+//   - error: string | null (optional)
+//
+// Collection: notification_logs/{docId}
+// Document ID: auto-id
+// Access: Server / Admin SDK / Cloud Functions v2 ONLY (client read & write denied)
+// Fields:
+//   - queueId: string (optional)
+//   - event: string (required, 'signup' | 'booking' | 'order' | 'maintenance' | 'reminder' | 'subscription_due')
+//   - accountId: string (required)
+//   - channel: string (required, 'sms' | 'email' | 'push')
+//   - sent: bool (required)
+//   - provider: string (required)
+//   - error: string | null (optional)
+//   - createdAt: timestamp | string (required)
+//
+// Collection: daily_cron_runs/{docId}
+// Document ID: cron_<YYYY-MM-DD>_<slot> (or auto-id)
+// Access: Server / Admin SDK / Cloud Functions v2 ONLY (client read & write denied)
+//         Scheduled morning 09:00 TR & 15-min cron execution reports
+// Fields:
+//   - jobName: string (required, e.g. 'morning_0900_tr' | 'reminder_15m' | 'daily_backup')
+//   - schedule: string (required, e.g. '0 9 * * *' | 'every 15 minutes')
+//   - timezone: string (optional, e.g. 'Europe/Istanbul')
+//   - ranAt: timestamp | string (required)
+//   - status: string (required, 'ok' | 'partial' | 'failed')
+//   - checkedShops: int (optional)
+//   - notificationsDispatched: int (optional)
+//   - durationMs: int (optional)
+//   - error: string | null (optional)
 //
 // Collection: password_resets/{docId}
 // Document ID: reset_<base36>_<random>
@@ -83,8 +159,8 @@ rules_version = '2';
 //   - isVip: bool (optional)
 //   - updatedAt: string | timestamp (optional)
 //
-// Subcollection: shops/{accountId}/reminder_logs/{logId} (and all subcollections under shops/{accountId})
-// Access: Server / Admin SDK ONLY (client read & write denied - contains customer PII & cloud backups)
+// Subcollection: shops/{accountId}/reminder_logs/{logId}
+// Access: Server / Admin SDK ONLY (client read & write denied - contains customer PII)
 // Fields (reminder_logs):
 //   - id: string (required)
 //   - customerId: string (optional)
@@ -95,6 +171,17 @@ rules_version = '2';
 //   - status: string (required, 'gonderildi' | 'hazirlandi' | 'teslim_edildi')
 //   - sentAt: string | timestamp (required)
 //   - type: string (required, 'veresiye' | 'aidat' | 'bakim' | 'ozel')
+//
+// Subcollection: shops/{accountId}/cloud_backups/{backupId} (and all subcollections under shops/{accountId})
+// Access: Server / Admin SDK ONLY (client read & write denied - contains full shop snapshot, customer PII & financial ledgers)
+// Fields (cloud_backups):
+//   - backupId: string (required)
+//   - accountId: string (required)
+//   - businessDate: string (required, YYYY-MM-DD)
+//   - checksum: string (optional)
+//   - sizeBytes: int (optional)
+//   - snapshot: map (required, full shop state)
+//   - createdAt: timestamp | string (required)
 //
 // Collection: public_assets/{assetCode}
 // Document ID: assetCode (3..64 chars, ^[A-Za-z0-9][A-Za-z0-9._-]*$)
@@ -350,30 +437,66 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // 2. Gönderilen SMS/Push denetim logları: Yalnızca sunucu ve Cloud Functions erişebilir.
+    // 2. Gönderilen SMS/Push denetim logları: Yalnızca sunucu ve Cloud Functions v2 erişebilir.
     match /sms_logs/{docId} {
       allow read, write: if false;
     }
 
-    // 3. Şifre sıfırlama OTP ve hız sınırlama kayıtları: İstemci erişimine tamamen kapalıdır.
+    // 3. Giden e-posta kuyruğu: Yalnızca sunucu (Service Account) ve Cloud Functions v2 erişebilir.
+    // Beklenen şema alanları: `to` (string, PII), `subject` (string), `type` (string),
+    // `status` ('pending' | 'sent' | 'logged_only' | 'failed'), `createdAt` (string | timestamp),
+    // `provider` (string, opsiyonel). İstemci okuma ve yazmasına tamamen kapalıdır.
+    match /email_queue/{docId} {
+      allow read, write: if false;
+    }
+
+    // 4. Gönderilen e-posta denetim logları: Yalnızca sunucu ve Cloud Functions v2 audit log erişimi.
+    match /email_logs/{docId} {
+      allow read, write: if false;
+    }
+
+    // 5. İşlemsel olay bildirim kuyruğu (signup, booking, order, maintenance -> SMS/E-posta/Push tetikleyicileri):
+    // Yalnızca sunucu (Service Account) ve Cloud Functions v2 erişebilir; istemciye tamamen kapalıdır.
+    match /notification_queue/{docId} {
+      allow read, write: if false;
+    }
+
+    // 6. İşlemsel bildirim teslimat denetim logları: Yalnızca sunucu ve Cloud Functions v2 erişebilir.
+    match /notification_logs/{docId} {
+      allow read, write: if false;
+    }
+
+    // 7. Zamanlanmış görev çalışma raporları (sabah 09:00 TR & 15 dakikalık cron execution reports):
+    // Yalnızca sunucu ve Cloud Functions v2 erişebilir; istemciye tamamen kapalıdır.
+    match /daily_cron_runs/{docId} {
+      allow read, write: if false;
+    }
+
+    // 8. Şifre sıfırlama OTP ve hız sınırlama kayıtları: İstemci erişimine tamamen kapalıdır.
     match /password_resets/{docId} {
       allow read, write: if false;
     }
 
-    // 4. FCM push bildirim cihaz jetonları: /api/devices/register üzerinden sunucu yönetir.
+    // 9. FCM push bildirim cihaz jetonları: /api/devices/register üzerinden sunucu yönetir.
     match /device_tokens/{docId} {
       allow read, write: if false;
     }
 
-    // 5. Dükkan özet belgeleri ve alt koleksiyonlar (günlük yedekler, hatırlatma logları):
+    // 10. Dükkan özet belgeleri ve alt koleksiyonlar (günlük yedekler, hatırlatma logları):
     // - Yalnızca özel JWT claim'i `accountId == {accountId}` olan kullanıcı kendi dükkan özetini okuyabilir.
-    // - Tüm istemci yazmaları kapalıdır; günlük bulut yedekleri ve `reminder_logs` dahil tüm alt koleksiyonlar
-    //   müşteri PII (telefon/mesaj) içerdiği için istemci okuma ve yazmasına tamamen kapalıdır.
+    // - Tüm istemci yazmaları kapalıdır; `reminder_logs`, `cloud_backups` ve diğer tüm alt koleksiyonlar
+    //   müşteri PII (telefon/mesaj/cari kayıt) içerdiği için istemci okuma ve yazmasına tamamen kapalıdır.
     match /shops/{accountId} {
       allow read: if hasShopAccountClaim(accountId) && isShopSummaryTenantMatch(accountId);
       allow write: if false;
 
+      // Hatırlatma teslimat logları (müşteri PII içerir): Yalnızca sunucu / Admin SDK.
       match /reminder_logs/{logId} {
+        allow read, write: if false;
+      }
+
+      // Günlük dükkan bulut yedekleri (tam dükkan anlık görüntüsü & PII): Yalnızca sunucu / Admin SDK.
+      match /cloud_backups/{backupId} {
         allow read, write: if false;
       }
 
@@ -382,7 +505,7 @@ service cloud.firestore {
       }
     }
 
-    // 6. Opsiyonel kamusal QR cihaz bakım pasaportu (KVKK uyumlu, salt okunur ve PII-arındırılmış):
+    // 11. Opsiyonel kamusal QR cihaz bakım pasaportu (KVKK uyumlu, salt okunur ve PII-arındırılmış):
     // - Toplu tarama / kazımayı (scraping) önlemek için `list` tamamen kapalıdır (`allow list: if false;`).
     // - Yalnızca QR kodu (`assetCode`) bilinen ve `isPublic == true` işaretli, sıfır PII içeren
     //   tekil belge okumalarına (`get`) izin verilir; yazma tamamen kapalıdır.

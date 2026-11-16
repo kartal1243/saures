@@ -11,7 +11,7 @@ import type {
   CustomerPackage,
   Transaction,
 } from '../../shared/types';
-import { S, saveState } from '../context';
+import { S, saveState, als } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast, broadcastToAccount } from '../realtime';
 import { localDay } from '../day';
@@ -19,9 +19,10 @@ import { getAccounts, clientIp, isValidTurkishPhone, normalizePhone } from '../a
 import { loadShopState, persistShopState, defaultBarberSettings, defaultBarberStaff, defaultBarberServices, demoBarberReviews } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { FREE_ONLINE_BOOKING_QUOTA } from '../config';
-import { publicActionRateLimit } from '../guards';
+import { publicActionRateLimit, firebaseAppCheckGuard } from '../guards';
 import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
-import { verifyFirebaseIdToken } from '../services/firebaseService';
+import { verifyFirebaseIdToken, writeFirestoreDocument } from '../services/firebaseService';
+import { sendSmsMessage } from '../services/smsProvider';
 import { sendPushToAccount } from './devices';
 
 function slugify(text: string): string {
@@ -413,7 +414,7 @@ export function registerPublicBarberRoutes(app: Express): void {
   });
 
   // 3. Müşteri Online Randevu Kaydı (4 Adımlı Form Sonu - Bot ve Kotaya Karşı Korumalı)
-  app.post('/api/public/barber/:identifier/book', publicBookingRateLimit, async (req: Request, res: Response) => {
+  app.post('/api/public/barber/:identifier/book', publicBookingRateLimit, firebaseAppCheckGuard, async (req: Request, res: Response) => {
     const { shopState, account } = resolveBarberShop(req.params.identifier);
     if (!shopState || !account) {
       return res.status(404).json({ error: 'İşletme bulunamadı.' });
@@ -1170,9 +1171,33 @@ export function registerAppointmentRoutes(app: Express): void {
     const apt = S().appointments.find((a) => a.id === id);
     if (!apt) return res.status(404).json({ error: 'Randevu bulunamadı.' });
 
+    const shouldSendConfirmSms = status === 'onayli' && Boolean(apt.phone) && !(apt as any).confirmSmsSent;
     apt.status = status;
+    if (shouldSendConfirmSms) {
+      (apt as any).confirmSmsSent = true;
+    }
+
     saveState();
     broadcast({ type: 'APPOINTMENT_UPDATED', payload: apt });
+
+    if (shouldSendConfirmSms) {
+      const shopName = S().shopProfile?.storeName || S().storeName || 'İşletmemiz';
+      const accountId = als.getStore()?.accountId || '';
+      const confirmMsg = `Merhaba ${apt.customerName}, ${shopName} işletmesindeki ${apt.appointmentDate} saat ${apt.timeSlot} (${apt.serviceName}) randevunuz ONAYLANMIŞTIR. Görüşmek üzere!`;
+      sendSmsMessage(apt.phone, confirmMsg, {
+        category: 'appointment_confirmed',
+        shopName,
+      }).catch(() => {});
+      writeFirestoreDocument('notification_logs', `apt_conf_${Date.now()}_${apt.id}`, {
+        accountId,
+        type: 'appointment_confirmed',
+        appointmentId: apt.id,
+        phone: apt.phone,
+        shopName,
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+    }
+
     res.json({ success: true, appointment: apt });
   };
 

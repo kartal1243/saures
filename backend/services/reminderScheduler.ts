@@ -4,7 +4,7 @@ import { loadShopState, persistShopState } from '../shopState';
 import { broadcastToAccount } from '../realtime';
 import { getEffectiveVipTier } from '../routes/profile';
 import { sendPushToAccount } from '../routes/devices';
-import { writeFirestoreDocument } from './firebaseService';
+import { writeFirestoreDocument, dispatchBrandedEmail } from './firebaseService';
 import { sendSmsMessage } from './smsProvider';
 
 export interface ReminderCycleStats {
@@ -15,6 +15,19 @@ export interface ReminderCycleStats {
   maintenanceReminded?: number;
   smsSent: number;
   simulated: number;
+}
+
+export interface DailyMorningDispatchStats {
+  ranAt: string;
+  date: string;
+  checkedShops: number;
+  skippedDuplicates: number;
+  appointmentsCount: number;
+  duesCount: number;
+  maintenanceCount: number;
+  smsSent: number;
+  emailsSent: number;
+  pushesSent: number;
 }
 
 const SCHEDULER_INTERVAL_MS = 15 * 60 * 1000; // 15 dakika
@@ -378,4 +391,319 @@ export function startReminderScheduler(): void {
   if (typeof schedulerTimer.unref === 'function') {
     schedulerTimer.unref();
   }
+}
+
+function diffDaysIso(targetDateStr: string, baseDateStr: string): number {
+  const t = new Date(`${targetDateStr}T00:00:00Z`).getTime();
+  const b = new Date(`${baseDateStr}T00:00:00Z`).getTime();
+  if (!Number.isFinite(t) || !Number.isFinite(b)) return NaN;
+  return Math.round((t - b) / 86400000);
+}
+
+export async function processDailyMorningForShop(
+  accountId: string,
+  state: AppState,
+  options?: { nowMs?: number; force?: boolean; ownerEmail?: string; ownerName?: string }
+): Promise<{
+  skipped: boolean;
+  changed: boolean;
+  appointmentsCount: number;
+  duesCount: number;
+  maintenanceCount: number;
+  smsSent: number;
+  emailSent: boolean;
+  pushSent: boolean;
+}> {
+  const nowMs = options?.nowMs ?? Date.now();
+  const { dateStr: today, monthStr } = getIstanbulDateAndMinutes(nowMs);
+
+  if ((state as any).lastDailyMorningDispatchDate === today && !options?.force) {
+    return {
+      skipped: true,
+      changed: false,
+      appointmentsCount: 0,
+      duesCount: 0,
+      maintenanceCount: 0,
+      smsSent: 0,
+      emailSent: false,
+      pushSent: false,
+    };
+  }
+
+  if (!Array.isArray(state.reminderLogs)) state.reminderLogs = [];
+  const monthlyLimit = getMonthlyAutoReminderLimit(state.shopProfile);
+  let usedThisMonth = countUsedAutoRemindersThisMonth(state.reminderLogs, monthStr);
+  const shopName = state.shopProfile?.storeName || state.storeName || 'İşletmemiz';
+  const ownerName = options?.ownerName || state.shopProfile?.ownerName || 'İşletme Yetkilisi';
+
+  let changed = false;
+  let smsSent = 0;
+
+  // 1. Bugünkü aktif randevular
+  const todayAppointments = (state.appointments || []).filter(
+    (a) => a && a.appointmentDate === today && (a.status === 'onayli' || a.status === 'bekliyor')
+  );
+  for (const apt of todayAppointments) {
+    if (usedThisMonth >= monthlyLimit) break;
+    if ((apt as any).morningReminderSent || (apt as any).autoReminderSent) continue;
+    if (apt.allowWhatsApp === false || !apt.phone) continue;
+
+    const msg = `Günaydın ${apt.customerName}, ${shopName} işletmesinde bugün saat ${apt.timeSlot} (${apt.serviceName}) randevunuz bulunmaktadır. Görüşmek üzere!`;
+    const res = await sendSmsMessage(apt.phone, msg, { category: 'morning_appointment', shopName });
+    const logEntry: ReminderLog = {
+      id: `rem_auto_${nowMs}_${Math.random().toString(36).slice(2, 6)}`,
+      customerId: '',
+      customerName: apt.customerName,
+      phone: apt.phone,
+      channel: res.sent ? 'sms' : 'whatsapp',
+      message: msg,
+      status: res.sent ? 'gonderildi' : 'hazirlandi',
+      sentAt: new Date(nowMs).toLocaleString('tr-TR'),
+      type: 'ozel',
+    };
+    state.reminderLogs.unshift(logEntry);
+    (apt as any).morningReminderSent = true;
+    usedThisMonth += 1;
+    if (res.sent) smsSent += 1;
+    changed = true;
+
+    writeFirestoreDocument(`shops/${accountId}/reminder_logs`, logEntry.id, {
+      ...logEntry,
+      accountId,
+      createdAtIso: new Date(nowMs).toISOString(),
+    }).catch(() => {});
+  }
+
+  // 2. Vadesi gelmiş / bugün olan abonelikler ve veresiyeler
+  const customerDueMap = new Map<
+    string,
+    { customerId: string; name: string; phone: string; label: string; amount: number }
+  >();
+
+  for (const cust of state.customers || []) {
+    if (!cust) continue;
+    if (cust.subscriptionPlan?.enabled && cust.subscriptionPlan.nextDueDate && cust.subscriptionPlan.nextDueDate <= today) {
+      customerDueMap.set(cust.id, {
+        customerId: cust.id,
+        name: cust.name,
+        phone: cust.phone,
+        label: cust.subscriptionPlan.title || 'Abonelik / Aidat',
+        amount: Number(cust.subscriptionPlan.amount) || 0,
+      });
+      continue;
+    }
+
+    const custDueDate = (cust as any).dueDate as string | undefined;
+    const hasDebt = Number(cust.balance) < 0 || Number(cust.totalDebt) > 0;
+    if (custDueDate && custDueDate <= today && hasDebt) {
+      customerDueMap.set(cust.id, {
+        customerId: cust.id,
+        name: cust.name,
+        phone: cust.phone,
+        label: 'Veresiye Ödeme Vadesi',
+        amount: Math.abs(Number(cust.balance) || Number(cust.totalDebt) || 0),
+      });
+    }
+  }
+
+  for (const tx of state.transactions || []) {
+    if (!tx || tx.type !== 'veresiye' || !tx.dueDate || tx.dueDate > today) continue;
+    if (!tx.customerId || customerDueMap.has(tx.customerId)) continue;
+    const cust = (state.customers || []).find((c) => c.id === tx.customerId);
+    if (!cust || !cust.phone) continue;
+    if (Number(cust.balance) >= 0 && !(Number(cust.totalDebt) > 0)) continue;
+    customerDueMap.set(cust.id, {
+      customerId: cust.id,
+      name: cust.name,
+      phone: cust.phone,
+      label: tx.description || 'Veresiye Ödemesi',
+      amount: Math.abs(Number(cust.balance) || Number(tx.amount) || 0),
+    });
+  }
+
+  const dueItems = Array.from(customerDueMap.values());
+  for (const due of dueItems) {
+    if (usedThisMonth >= monthlyLimit) break;
+    if (!due.phone) continue;
+    const custObj = (state.customers || []).find((c) => c.id === due.customerId);
+    if ((custObj as any)?.lastMorningDueReminderDate === today) continue;
+
+    const msg = `Sayın ${due.name}, ${shopName} nezdindeki "${due.label}" (${due.amount} TL) ödemenizin vadesi gelmiştir. Bilginize sunar, hayırlı günler dileriz.`;
+    const res = await sendSmsMessage(due.phone, msg, { category: 'morning_due', shopName });
+    const logEntry: ReminderLog = {
+      id: `rem_auto_${nowMs}_${Math.random().toString(36).slice(2, 6)}`,
+      customerId: due.customerId,
+      customerName: due.name,
+      phone: due.phone,
+      channel: res.sent ? 'sms' : 'whatsapp',
+      message: msg,
+      status: res.sent ? 'gonderildi' : 'hazirlandi',
+      sentAt: new Date(nowMs).toLocaleString('tr-TR'),
+      type: 'veresiye',
+    };
+    state.reminderLogs.unshift(logEntry);
+    if (custObj) (custObj as any).lastMorningDueReminderDate = today;
+    usedThisMonth += 1;
+    if (res.sent) smsSent += 1;
+    changed = true;
+  }
+
+  // 3. 0–3 gün kalan makine bakımları
+  const upcomingMaint = (state.maintenanceAssets || []).filter((asset) => {
+    if (!asset || !asset.nextMaintenanceDate) return false;
+    const diff = diffDaysIso(asset.nextMaintenanceDate, today);
+    return Number.isFinite(diff) && diff >= 0 && diff <= 3;
+  });
+
+  for (const asset of upcomingMaint) {
+    if (usedThisMonth >= monthlyLimit) break;
+    if (!asset.clientPhone) continue;
+    if ((asset as any).lastMorningMaintReminderDate === today) continue;
+
+    const diff = diffDaysIso(asset.nextMaintenanceDate, today);
+    const whenText = diff === 0 ? 'bugün' : `${diff} gün sonra (${asset.nextMaintenanceDate})`;
+    const msg = `Sayın ${asset.clientName}, "${asset.deviceName}" (${asset.code}) ekipmanınızın periyodik bakım zamanı ${whenText} gelmektedir. QR Pasaport: https://dukkanimyanimda.com.tr/bakim/${asset.code}`;
+    const res = await sendSmsMessage(asset.clientPhone, msg, { category: 'morning_maintenance', shopName });
+    const logEntry: ReminderLog = {
+      id: `rem_auto_${nowMs}_${Math.random().toString(36).slice(2, 6)}`,
+      customerId: asset.id,
+      customerName: `${asset.clientName} (${asset.deviceName})`,
+      phone: asset.clientPhone,
+      channel: res.sent ? 'sms' : 'whatsapp',
+      message: msg,
+      status: res.sent ? 'gonderildi' : 'hazirlandi',
+      sentAt: new Date(nowMs).toLocaleString('tr-TR'),
+      type: 'bakim',
+    };
+    state.reminderLogs.unshift(logEntry);
+    (asset as any).lastMorningMaintReminderDate = today;
+    usedThisMonth += 1;
+    if (res.sent) smsSent += 1;
+    changed = true;
+  }
+
+  if (state.reminderLogs.length > 500) {
+    state.reminderLogs = state.reminderLogs.slice(0, 500);
+  }
+
+  // Duplicate engel işareti
+  (state as any).lastDailyMorningDispatchDate = today;
+  changed = true;
+
+  const hasAnyEvent = todayAppointments.length > 0 || dueItems.length > 0 || upcomingMaint.length > 0;
+  let pushSent = false;
+  let emailSent = false;
+
+  if (hasAnyEvent) {
+    const summaryText = `Bugün ${todayAppointments.length} randevu, ${dueItems.length} vadesi gelen ödeme ve ${upcomingMaint.length} yaklaşan bakım bulunuyor.`;
+    try {
+      const pushRes = await sendPushToAccount(accountId, {
+        title: `Günaydın! ${shopName} 09:00 Özeti`,
+        body: summaryText,
+        url: '/',
+        tag: `daily_09_${today}`,
+      });
+      pushSent = pushRes.sent > 0;
+    } catch {
+      // push hatası akışı kesmez
+    }
+
+    if (options?.ownerEmail && options.ownerEmail.includes('@')) {
+      try {
+        const mailRes = await dispatchBrandedEmail({
+          to: options.ownerEmail,
+          subject: `${shopName} — Sabah 09:00 Günlük İşletme Özeti (${today})`,
+          type: 'daily_summary',
+          shopName,
+          ownerName,
+          recipientName: ownerName,
+          bodyLines: [
+            `Günaydın ${ownerName}, ${today} tarihli sabah 09:00 otomatik tarama özeti hazırdır.`,
+            summaryText,
+          ],
+          details: [
+            { label: 'Bugünkü Randevular', value: String(todayAppointments.length) },
+            { label: 'Vadesi Gelen Abonelik / Veresiye', value: String(dueItems.length) },
+            { label: '0-3 Gün Kalan Makine Bakımları', value: String(upcomingMaint.length) },
+            { label: 'Gönderilen Hatırlatma SMS', value: String(smsSent) },
+          ],
+        });
+        emailSent = Boolean(mailRes.sent);
+      } catch {
+        // email hatası akışı kesmez
+      }
+    }
+  }
+
+  return {
+    skipped: false,
+    changed,
+    appointmentsCount: todayAppointments.length,
+    duesCount: dueItems.length,
+    maintenanceCount: upcomingMaint.length,
+    smsSent,
+    emailSent,
+    pushSent,
+  };
+}
+
+export async function runDailyMorningDispatch(options?: {
+  nowMs?: number;
+  force?: boolean;
+}): Promise<DailyMorningDispatchStats> {
+  const nowMs = options?.nowMs ?? Date.now();
+  const { dateStr: today } = getIstanbulDateAndMinutes(nowMs);
+  const owners = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
+
+  let checkedShops = 0;
+  let skippedDuplicates = 0;
+  let appointmentsCount = 0;
+  let duesCount = 0;
+  let maintenanceCount = 0;
+  let smsSent = 0;
+  let emailsSent = 0;
+  let pushesSent = 0;
+
+  for (const acc of owners) {
+    checkedShops += 1;
+    try {
+      const state = loadShopState(acc.id);
+      const res = await processDailyMorningForShop(acc.id, state, {
+        nowMs,
+        force: options?.force,
+        ownerEmail: acc.email,
+        ownerName: acc.ownerName,
+      });
+
+      if (res.skipped) {
+        skippedDuplicates += 1;
+        continue;
+      }
+
+      appointmentsCount += res.appointmentsCount;
+      duesCount += res.duesCount;
+      maintenanceCount += res.maintenanceCount;
+      smsSent += res.smsSent;
+      if (res.emailSent) emailsSent += 1;
+      if (res.pushSent) pushesSent += 1;
+      if (res.changed) {
+        persistShopState(acc.id, state);
+      }
+    } catch (err) {
+      console.error(`[DailyMorning09] Dükkan işlenirken hata (${acc.id}):`, err);
+    }
+  }
+
+  return {
+    ranAt: new Date(nowMs).toISOString(),
+    date: today,
+    checkedShops,
+    skippedDuplicates,
+    appointmentsCount,
+    duesCount,
+    maintenanceCount,
+    smsSent,
+    emailsSent,
+    pushesSent,
+  };
 }

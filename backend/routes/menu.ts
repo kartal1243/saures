@@ -6,9 +6,10 @@ import { broadcast, broadcastToAccount } from '../realtime';
 import { getAccounts } from '../accounts';
 import { loadShopState, persistShopState, isReservedSlug } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
-import { publicActionRateLimit } from '../guards';
+import { publicActionRateLimit, firebaseAppCheckGuard } from '../guards';
 import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
 import { lookupPublicTicket, lookupPublicAsset, requestServiceForPublicAsset } from './repair';
+import { writeRealtimeDbPulse } from '../services/firebaseService';
 
 const SAMPLE_MENU_ITEMS: MenuItem[] = [
   {
@@ -205,7 +206,7 @@ export function registerPublicMenuRoutes(app: Express): void {
     return res.json({ success: true, asset });
   });
 
-  app.post('/api/public/asset/:code/request-service', publicActionRateLimit, async (req: Request, res: Response) => {
+  app.post('/api/public/asset/:code/request-service', publicActionRateLimit, firebaseAppCheckGuard, async (req: Request, res: Response) => {
     const result = await requestServiceForPublicAsset(req.params.code, req.body || {});
     if (!result.ok) {
       return res.status(result.statusCode).json({ error: result.error });
@@ -311,7 +312,7 @@ export function registerPublicMenuRoutes(app: Express): void {
   });
 
   // Masadan QR Menü Canlı Sipariş Gönderimi (Şifresiz Public Uç)
-  app.post('/api/public/menu/:identifier/order', publicActionRateLimit, async (req: Request, res: Response) => {
+  app.post('/api/public/menu/:identifier/order', publicActionRateLimit, firebaseAppCheckGuard, async (req: Request, res: Response) => {
     const { rawId, targetAcc, shopState: st } = resolveMenuShop(req.params.identifier);
     if (!targetAcc || !st) {
       return res.status(404).json({ error: 'İşletme bulunamadı.' });
@@ -447,6 +448,16 @@ export function registerPublicMenuRoutes(app: Express): void {
     } catch {
       // devices modülü henüz hazır değilse veya push başarısızsa siparişi bozma
     }
+
+    // Opsiyonel Realtime Database canlı sipariş sinyali
+    writeRealtimeDbPulse(`shops/${targetAcc.id}/live_orders/${table.id}`, {
+      tableId: table.id,
+      tableName: table.name,
+      totalAmount: table.totalAmount,
+      lastOrderTotal: orderTotal,
+      itemsCount: builtOrders.length,
+      updatedAt: st.lastUpdated,
+    }).catch(() => {});
 
     return res.json({
       success: true,

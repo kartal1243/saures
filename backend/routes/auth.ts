@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import path from 'path';
 import { DATA_DIR } from '../config';
 import { readJsonFile, writeJsonFile } from '../fsdb';
-import { rateLimit } from '../guards';
+import { rateLimit, firebaseAppCheckGuard, requireOwner } from '../guards';
 import {
   findAccountByPhone,
   findAccountByPhoneOrUsername,
@@ -34,7 +34,6 @@ import {
 } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
 import { ensureDemoAccount, DEMO_PHONE } from '../demoSeed';
-import { requireOwner } from '../guards';
 import { getTierLimits } from './profile';
 import {
   checkSmsEligibility,
@@ -43,9 +42,10 @@ import {
 } from '../services/smsSecurity';
 import {
   verifyFirebaseIdToken,
-  sendFirebaseEmailPasswordReset,
   getFirebaseIntegrationStatus,
   writeFirestoreDocument,
+  dispatchBrandedEmail,
+  isCustomEmailConfigured,
 } from '../services/firebaseService';
 
 export function registerAuthRoutes(app: Express): void {
@@ -143,11 +143,24 @@ export function registerAuthRoutes(app: Express): void {
       storeName: acc.shopName,
       businessField: st.shopProfile.businessField || 'Genel Esnaf',
       sectorKey: st.shopProfile.sectorKey || 'bakkal_market',
-      cityDistrict: st.shopProfile.cityDistrict || '',
+      ...(st.shopProfile.cityDistrict ? { cityDistrict: st.shopProfile.cityDistrict } : {}),
       vipTier: st.shopProfile.vipTier || 'patron',
       isVip: Boolean(st.shopProfile.isVip),
       updatedAt: acc.createdAt,
     }).catch(() => {});
+
+    if (email && email.includes('@')) {
+      const baseUrl = (process.env.APP_BASE_URL || 'https://dukkanimyanimda.com.tr').replace(/\/+$/, '');
+      dispatchBrandedEmail({
+        to: email,
+        subject: `${shopName} — Dükkânım Yanımda'ya Hoş Geldiniz!`,
+        type: 'welcome',
+        shopName,
+        ownerName,
+        recipientName: ownerName,
+        actionUrl: `${baseUrl}/`,
+      }).catch(() => {});
+    }
 
     const session = createSession(acc.id);
     res.setHeader('Set-Cookie', sessionCookie(session.token));
@@ -237,6 +250,82 @@ export function registerAuthRoutes(app: Express): void {
     });
   });
 
+  // Kullanılmış Firebase sıfırlama/giriş jetonlarını tekrar kullanıma karşı tut (1 saat TTL)
+  const usedFirebaseResetTokens = new Map<string, number>();
+
+  // Telefon + Firebase Phone Auth SMS OTP ile Doğrudan Giriş
+  app.post('/api/auth/phone-login', rateLimit, firebaseAppCheckGuard, async (req: Request, res: Response) => {
+    const body = req.body || {};
+    const rawPhone = String(body.phone || '').trim();
+    const idToken = String(body.idToken || '').trim();
+
+    if (!idToken) {
+      return res.status(400).json({ error: 'Firebase SMS doğrulama jetonu (idToken) zorunludur.' });
+    }
+
+    const nowMs = Date.now();
+    for (const [k, exp] of usedFirebaseResetTokens.entries()) {
+      if (exp < nowMs) usedFirebaseResetTokens.delete(k);
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(idToken).digest('hex');
+    if (usedFirebaseResetTokens.has(tokenHash)) {
+      return res.status(401).json({ error: 'Bu SMS doğrulama oturumu daha önce kullanılmış. Lütfen yeniden kod isteyiniz.' });
+    }
+
+    const fbRes = await verifyFirebaseIdToken(idToken);
+    if (!fbRes.success || !fbRes.phoneNumber) {
+      return res.status(401).json({ error: fbRes.error || 'Firebase telefon doğrulaması geçersiz veya süresi dolmuş.' });
+    }
+
+    if (typeof fbRes.authTimeSec === 'number') {
+      const ageSec = Math.floor(nowMs / 1000) - fbRes.authTimeSec;
+      if (ageSec > 20 * 60) {
+        return res.status(401).json({ error: 'SMS doğrulama oturumunun süresi doldu. Lütfen yeniden SMS kodu alınız.' });
+      }
+    }
+
+    const verifiedPhone = normalizePhone(fbRes.phoneNumber);
+    if (!verifiedPhone) {
+      return res.status(401).json({ error: 'Doğrulanan telefon numarası geçerli Türkiye GSM formatında değil.' });
+    }
+
+    if (rawPhone) {
+      const requestedPhone = normalizePhone(rawPhone);
+      if (!requestedPhone || requestedPhone !== verifiedPhone) {
+        return res.status(403).json({ error: 'Doğrulanan telefon numarası formdaki numara ile uyuşmuyor.' });
+      }
+    }
+
+    const acc = findAccountByPhone(verifiedPhone);
+    if (!acc) {
+      return res.status(404).json({ error: 'Bu telefon numarasına ait kayıtlı bir dükkan hesabı bulunamadı.' });
+    }
+    if (acc.role && acc.role !== 'owner') {
+      logAuthEvent('login_fail', verifiedPhone, clientIp(req));
+      return res.status(403).json({
+        error: 'Personel girisi kapali. Panele sadece dukkan sahibi girer.',
+      });
+    }
+
+    usedFirebaseResetTokens.set(tokenHash, nowMs + 60 * 60 * 1000);
+    clearLoginAttempts(acc.phone);
+    recordLogin(acc, clientIp(req));
+    logAuthEvent('login_ok', acc.phone, clientIp(req));
+
+    const session = createSession(acc.id);
+    res.setHeader('Set-Cookie', sessionCookie(session.token));
+    const returnToken =
+      req.headers['x-client-platform'] === 'android-native' ||
+      body?.returnToken === true;
+
+    return res.json({
+      success: true,
+      account: publicAccount(acc),
+      ...(returnToken ? { sessionToken: session.token } : {}),
+    });
+  });
+
   app.post('/api/auth/logout', (req: Request, res: Response) => {
     const token = tokenFromRequest(req);
     if (token) {
@@ -254,8 +343,14 @@ export function registerAuthRoutes(app: Express): void {
   }
   const passwordResetOtpStore = new Map<string, PasswordResetOtp>();
 
+  // Tek kullanımlık özel kurumsal e-posta şifre sıfırlama jetonları (SHA-256 hash -> 15 dk TTL)
+  const customEmailResetTokens = new Map<
+    string,
+    { accountId: string; email: string; expiresAt: number }
+  >();
+
   // 1. Şifre Sıfırlama Ön Uygunluk ve Güvenlik Kontrolü (Devre Kesici, Limit ve Kayıt Sorgulama)
-  app.post('/api/auth/forgot-password/check-eligibility', rateLimit, (req: Request, res: Response) => {
+  app.post('/api/auth/forgot-password/check-eligibility', rateLimit, firebaseAppCheckGuard, (req: Request, res: Response) => {
     const body = req.body || {};
     const rawPhone = String(body.phone || body.username || '').trim();
     const phone = normalizePhone(rawPhone);
@@ -309,8 +404,8 @@ export function registerAuthRoutes(app: Express): void {
     });
   });
 
-  // 1b. E-posta ile Firebase Şifre Kurtarma Ön Kontrolü & Bağlantı Gönderimi
-  app.post('/api/auth/forgot-password/send-email-reset', rateLimit, async (req: Request, res: Response) => {
+  // 1b. E-posta ile Firebase / Kurumsal Şifre Kurtarma Ön Kontrolü & Bağlantı Gönderimi
+  app.post('/api/auth/forgot-password/send-email-reset', rateLimit, firebaseAppCheckGuard, async (req: Request, res: Response) => {
     const body = req.body || {};
     const rawPhone = String(body.phone || '').trim();
     const rawEmail = String(body.email || '').trim().toLowerCase();
@@ -329,10 +424,51 @@ export function registerAuthRoutes(app: Express): void {
       return res.status(400).json({ error: 'Bu hesaba tanımlı bir kurtarma e-posta adresi bulunmuyor. Lütfen Telefon SMS ile sıfırlamayı deneyiniz.' });
     }
 
-    // Sadece Firebase E-posta Doğrulama Linki (Email Link) akışına onay verir; mükerrer OOB şifre maili atılmaz.
     logAuthEvent('password_reset' as any, matched.phone, clientIp(req));
+
+    // Özel kurumsal e-posta sağlayıcısı (Resend / SendGrid / Cloud Function / Queue) hazırsa tek kullanımlık 15 dk link gönder
+    if (isCustomEmailConfigured()) {
+      const nowMs = Date.now();
+      for (const [k, v] of customEmailResetTokens.entries()) {
+        if (v.expiresAt < nowMs) customEmailResetTokens.delete(k);
+      }
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      customEmailResetTokens.set(tokenHash, {
+        accountId: matched.id,
+        email: targetEmail,
+        expiresAt: nowMs + 15 * 60 * 1000,
+      });
+
+      const baseUrl = (process.env.APP_BASE_URL || 'https://dukkanimyanimda.com.tr').replace(/\/+$/, '');
+      const resetUrl = `${baseUrl}/?emailResetToken=${rawToken}&recoveryEmail=${encodeURIComponent(targetEmail)}`;
+      const emailRes = await dispatchBrandedEmail({
+        to: targetEmail,
+        subject: 'Şifre Sıfırlama Bağlantınız — Dükkânım Yanımda',
+        type: 'password_reset',
+        shopName: matched.shopName,
+        ownerName: matched.ownerName,
+        recipientName: matched.ownerName,
+        resetUrl,
+      });
+
+      if (emailRes.sent || emailRes.queued) {
+        return res.json({
+          success: true,
+          customEmailSent: true,
+          email: targetEmail,
+          provider: emailRes.provider,
+          message: 'Özel kurumsal şifre sıfırlama bağlantısı e-posta adresinize gönderildi.',
+        });
+      }
+      // Gönderim başarısız olduysa token'ı iptal edip Firebase Email Link yoluna düş
+      customEmailResetTokens.delete(tokenHash);
+    }
+
+    // Yedek/varsayılan: Frontend Firebase E-posta Doğrulama Linki (Email Link) akışına onay verir
     return res.json({
       success: true,
+      customEmailSent: false,
       email: targetEmail,
       message: 'Hesap e-posta doğrulamaya hazır.',
     });
@@ -428,23 +564,65 @@ export function registerAuthRoutes(app: Express): void {
     });
   };
 
-  app.post('/api/auth/forgot-password/send-otp', rateLimit, handleForgotPasswordSendOtp);
-  app.post('/api/auth/forgot-password', rateLimit, handleForgotPasswordSendOtp);
+  app.post('/api/auth/forgot-password/send-otp', rateLimit, firebaseAppCheckGuard, handleForgotPasswordSendOtp);
+  app.post('/api/auth/forgot-password', rateLimit, firebaseAppCheckGuard, handleForgotPasswordSendOtp);
 
-  // Kullanılmış Firebase sıfırlama jetonlarını tekrar kullanıma karşı tut (1 saat TTL)
-  const usedFirebaseResetTokens = new Map<string, number>();
-
-  // 4. Şifre Sıfırlama OTP / Firebase Token Doğrulama ve Yeni Şifre Belirleme
-  app.post('/api/auth/forgot-password/verify-and-reset', rateLimit, async (req: Request, res: Response) => {
+  // 4. Şifre Sıfırlama OTP / Firebase Token / Özel E-posta Token Doğrulama ve Yeni Şifre Belirleme
+  app.post('/api/auth/forgot-password/verify-and-reset', rateLimit, firebaseAppCheckGuard, async (req: Request, res: Response) => {
     const body = req.body || {};
     const rawPhone = String(body.phone || '').trim();
     const phone = normalizePhone(rawPhone);
     const idToken = String(body.idToken || '').trim();
+    const emailResetToken = String(body.emailResetToken || '').trim();
     const otpCode = String(body.otpCode || '').trim();
     const newPassword = String(body.newPassword || '').trim();
 
     if (!newPassword || newPassword.length < 6) {
       return res.status(400).json({ error: 'Yeni şifreniz en az 6 karakter olmalıdır.' });
+    }
+
+    // C. Tek Kullanımlık Kurumsal E-posta Sıfırlama Bağlantısı (emailResetToken)
+    if (emailResetToken) {
+      const nowMs = Date.now();
+      for (const [k, v] of customEmailResetTokens.entries()) {
+        if (v.expiresAt < nowMs) customEmailResetTokens.delete(k);
+      }
+      const tokenHash = crypto.createHash('sha256').update(emailResetToken).digest('hex');
+      const entry = customEmailResetTokens.get(tokenHash);
+      if (!entry || entry.expiresAt < nowMs) {
+        return res.status(401).json({
+          error: 'Şifre sıfırlama bağlantınız geçersiz veya süresi dolmuş (15 dk). Lütfen yeni bağlantı isteyiniz.',
+        });
+      }
+
+      const acc = getAccounts().find((a) => a.id === entry.accountId);
+      if (!acc) {
+        customEmailResetTokens.delete(tokenHash);
+        return res.status(404).json({ error: 'Hesap bulunamadı.' });
+      }
+
+      customEmailResetTokens.delete(tokenHash);
+      acc.passwordHash = hashPassword(newPassword);
+      persistAccounts();
+      passwordResetOtpStore.delete(acc.phone);
+      clearLoginAttempts(acc.phone);
+
+      const ip = clientIp(req);
+      logAuthEvent('login_ok', acc.phone, ip);
+      writeFirestoreDocument('password_resets', `rst_${Date.now()}`, {
+        accountId: acc.id,
+        method: 'custom_email_reset_token',
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+
+      const session = createSession(acc.id);
+      res.setHeader('Set-Cookie', sessionCookie(session.token));
+
+      return res.json({
+        success: true,
+        message: 'Şifreniz e-posta doğrulamasıyla güvenle güncellendi! Panele yönlendiriliyorsunuz.',
+        account: publicAccount(acc),
+      });
     }
 
     // A. Firebase Auth idToken (Phone SMS OTP veya E-posta Doğrulama) ile Güvenli Doğrulama

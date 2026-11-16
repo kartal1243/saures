@@ -3,6 +3,7 @@ import { SHOPS_DIR } from './config';
 import { localDay } from './day';
 import { readJsonFile, writeJsonFile } from './fsdb';
 import { findAccountById, getAccounts } from './accounts';
+import { loadFirebaseServiceAccount, syncShopSnapshotToFirestore } from './services/firebaseService';
 import type { AppState, BarberSalonSettings, BarberStaff, BarberService, BarberReview } from '../shared/types';
 
 export function slugify(text: string): string {
@@ -328,9 +329,34 @@ export function loadShopState(accountId: string): AppState {
   return st;
 }
 
+const firestoreSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+export function scheduleFirestoreShopSync(accountId: string): void {
+  if (!accountId || process.env.NODE_ENV === 'test') return;
+  if (!loadFirebaseServiceAccount()) return;
+
+  const existing = firestoreSyncTimers.get(accountId);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(() => {
+    firestoreSyncTimers.delete(accountId);
+    const latestState = shopStateCache.get(accountId);
+    if (!latestState) return;
+    syncShopSnapshotToFirestore(accountId, latestState).catch((err) => {
+      console.warn(`[FirestoreSync] Dükkan (${accountId}) eşleme atlandı:`, err?.message || err);
+    });
+  }, 5000);
+
+  if (typeof timer.unref === 'function') {
+    timer.unref();
+  }
+  firestoreSyncTimers.set(accountId, timer);
+}
+
 export function persistShopState(accountId: string, st: AppState): void {
   st.lastUpdated = new Date().toISOString();
   writeJsonFile(shopStateFile(accountId), st);
+  scheduleFirestoreShopSync(accountId);
 }
 
 export function setShopState(accountId: string, st: AppState): void {

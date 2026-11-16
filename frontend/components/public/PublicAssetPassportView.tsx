@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { MaintenanceLogEntry } from '../../../shared/types';
+import { initFirebaseAppCheck, fetchWithAppCheck } from '../../firebase';
 
 interface PublicAssetData {
   code: string;
@@ -52,6 +53,7 @@ export const PublicAssetPassportView: React.FC<{ initialCode?: string }> = ({ in
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
+    initFirebaseAppCheck().catch(() => {});
     setLoading(true);
     setError(null);
     fetch(`/api/public/asset/${encodeURIComponent(code)}`)
@@ -78,7 +80,7 @@ export const PublicAssetPassportView: React.FC<{ initialCode?: string }> = ({ in
     }
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/public/asset/${encodeURIComponent(code)}/request-service`, {
+      const res = await fetchWithAppCheck(`/api/public/asset/${encodeURIComponent(code)}/request-service`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

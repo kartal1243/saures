@@ -33,6 +33,14 @@ import {
   TrendingUp,
   AlertTriangle,
   Download,
+  Flame,
+  Cloud,
+  Bell,
+  CheckCircle2,
+  Database,
+  Mail,
+  HardDrive,
+  Zap,
 } from 'lucide-react';
 import { AdminPanel } from './AdminPanel';
 import { VisitorsTab } from './VisitorsTab';
@@ -103,6 +111,35 @@ interface Overview {
   recentLogins: { shopName: string; phone: string; ip: string; at: string }[];
 }
 
+interface FirebaseAdminStatus {
+  firebase: {
+    projectId: string;
+    blazeMode: boolean;
+    phoneAuthReady: boolean;
+    emailResetReady: boolean;
+    serviceAccountConfigured: boolean;
+    fcmV1Ready: boolean;
+    fcmLegacyReady: boolean;
+    pushReady: boolean;
+    functionsSmsReady: boolean;
+    firestoreReady: boolean;
+    vapidKeyConfigured: boolean;
+    appCheckConfigured: boolean;
+    appCheckEnforced: boolean;
+    storageReady: boolean;
+    storageBucket: string;
+    customEmailReady: boolean;
+    realtimeDbReady: boolean;
+  };
+  smsGateway?: {
+    configured: boolean;
+    provider: string;
+    mode: string;
+  };
+  registeredDevicesCount: number;
+  ownersCount: number;
+}
+
 const EVENT_LABEL: Record<AuthEvent['type'], { text: string; cls: string }> = {
   register: { text: 'Kayıt', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' },
   login_ok: { text: 'Giriş', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300' },
@@ -169,12 +206,22 @@ function OverviewTab({
   liveActivities,
   onGoShops,
   onGoVisitors,
+  firebaseStatus,
+  firebaseBusy,
+  firebaseActionMsg,
+  onTriggerFirebaseSync,
+  onTriggerDaily09,
 }: {
   data: Overview | null;
   loading: boolean;
   liveActivities: LiveActivityItem[];
   onGoShops: (q: string) => void;
   onGoVisitors?: () => void;
+  firebaseStatus: FirebaseAdminStatus | null;
+  firebaseBusy: boolean;
+  firebaseActionMsg: string | null;
+  onTriggerFirebaseSync: () => void;
+  onTriggerDaily09: () => void;
 }) {
   if (loading && !data) {
     return (
@@ -327,6 +374,90 @@ function OverviewTab({
                 {data.funnel.patronVipCount} Patron · {data.funnel.ustaVipCount} Usta
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* FIREBASE BLAZE & APP CHECK DURUM KARTI */}
+      {firebaseStatus && (
+        <div className="rounded-2xl bg-[#12172b] border border-orange-500/20 p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/5 pb-3">
+            <div>
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <Flame className="w-4 h-4 text-orange-400" /> Firebase Blaze &amp; App Check Altyapısı
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 font-black">
+                  {firebaseStatus.firebase.projectId} · {firebaseStatus.firebase.blazeMode ? 'BLAZE AKTİF' : 'HAZIR'}
+                </span>
+              </h3>
+              <p className="text-[11px] font-semibold text-slate-400 mt-0.5">
+                {firebaseStatus.ownersCount} dükkan · {firebaseStatus.registeredDevicesCount} kayıtlı FCM push cihazı · SMS:{' '}
+                {firebaseStatus.smsGateway?.provider || 'fallback'}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={firebaseBusy}
+                onClick={onTriggerFirebaseSync}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Cloud className="w-3.5 h-3.5" />
+                {firebaseBusy ? 'İşleniyor...' : 'Bulut Senkronu Başlat'}
+              </button>
+              <button
+                type="button"
+                disabled={firebaseBusy}
+                onClick={onTriggerDaily09}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-black transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                09:00 Hatırlatma Döngüsünü Çalıştır
+              </button>
+            </div>
+          </div>
+
+          {firebaseActionMsg && (
+            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-2.5 text-xs font-bold text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{firebaseActionMsg}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5">
+            {[
+              { label: 'Phone Auth', ok: firebaseStatus.firebase.phoneAuthReady, detail: 'SMS OTP', Icon: ShieldCheck },
+              {
+                label: 'App Check',
+                ok: firebaseStatus.firebase.appCheckConfigured,
+                detail: firebaseStatus.firebase.appCheckEnforced ? 'Zorunlu' : firebaseStatus.firebase.appCheckConfigured ? 'Aktif' : 'SiteKey Bekliyor',
+                Icon: Lock,
+              },
+              {
+                label: 'FCM Push',
+                ok: firebaseStatus.firebase.pushReady,
+                detail: firebaseStatus.firebase.fcmV1Ready ? 'HTTP v1' : 'Legacy/Hazır',
+                Icon: Bell,
+              },
+              { label: 'Functions SMS', ok: firebaseStatus.firebase.functionsSmsReady, detail: 'Cloud Fn v2', Icon: MessageSquare },
+              { label: 'Özel E-posta', ok: firebaseStatus.firebase.customEmailReady, detail: 'HTML Mail', Icon: Mail },
+              { label: 'Firestore', ok: firebaseStatus.firebase.firestoreReady, detail: 'Senkron', Icon: Database },
+              { label: 'Cloud Storage', ok: firebaseStatus.firebase.storageReady, detail: 'Logo & Yedek', Icon: HardDrive },
+              { label: 'Realtime DB', ok: firebaseStatus.firebase.realtimeDbReady, detail: 'Canlı Sinyal', Icon: Radio },
+            ].map(({ label, ok, detail, Icon }) => (
+              <div
+                key={label}
+                className={`rounded-xl border p-2.5 text-center ${
+                  ok
+                    ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                    : 'bg-white/[0.02] border-white/10 text-slate-400'
+                }`}
+              >
+                <Icon className={`w-4 h-4 mx-auto ${ok ? 'text-emerald-400' : 'text-slate-500'}`} />
+                <p className="text-[11px] font-black mt-1 text-white">{label}</p>
+                <p className="text-[9px] font-bold mt-0.5 opacity-80">{ok ? `✓ ${detail}` : detail}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -857,6 +988,9 @@ export const AdminSite: React.FC = () => {
   const [ov, setOv] = useState<Overview | null>(null);
   const [ovLoading, setOvLoading] = useState(false);
   const [liveActivities, setLiveActivities] = useState<LiveActivityItem[]>([]);
+  const [firebaseStatus, setFirebaseStatus] = useState<FirebaseAdminStatus | null>(null);
+  const [firebaseBusy, setFirebaseBusy] = useState(false);
+  const [firebaseActionMsg, setFirebaseActionMsg] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -864,6 +998,54 @@ export const AdminSite: React.FC = () => {
       .then((r) => setStatus(r.ok ? 'in' : 'out'))
       .catch(() => setStatus('out'));
   }, []);
+
+  const fetchFirebaseStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/firebase/status');
+      if (res.ok) {
+        const json = await res.json();
+        setFirebaseStatus(json);
+      }
+    } catch {
+      // sessiz
+    }
+  };
+
+  const triggerFirebaseSync = async () => {
+    setFirebaseBusy(true);
+    setFirebaseActionMsg(null);
+    try {
+      const res = await fetch('/api/admin/firebase/sync', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      setFirebaseActionMsg(data.message || 'Bulut senkronizasyonu tamamlandı.');
+      fetchFirebaseStatus();
+    } catch {
+      setFirebaseActionMsg('Bulut senkronizasyonu sırasında bağlantı hatası.');
+    } finally {
+      setFirebaseBusy(false);
+    }
+  };
+
+  const triggerDaily09 = async () => {
+    setFirebaseBusy(true);
+    setFirebaseActionMsg(null);
+    try {
+      const res = await fetch('/api/admin/firebase/test-daily-09', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const s = data.stats || {};
+      setFirebaseActionMsg(
+        `09:00 Rutini çalıştırıldı (${s.checkedShops || 0} dükkan, ${s.appointmentsCount || 0} randevu, ${s.duesCount || 0} vade, ${s.maintenanceCount || 0} bakım, ${s.smsSent || 0} SMS).`
+      );
+    } catch {
+      setFirebaseActionMsg('09:00 hatırlatma döngüsü tetiklenemedi.');
+    } finally {
+      setFirebaseBusy(false);
+    }
+  };
 
   // Canlı Veri Polling & Overview
   const fetchOverview = async () => {
@@ -889,6 +1071,7 @@ export const AdminSite: React.FC = () => {
   useEffect(() => {
     if (status !== 'in') return;
     setOvLoading(true);
+    fetchFirebaseStatus();
     fetchOverview().finally(() => setOvLoading(false));
 
     // Her 15 saniyede bir otomatik senkronizasyon
@@ -1147,6 +1330,11 @@ export const AdminSite: React.FC = () => {
             liveActivities={liveActivities}
             onGoShops={goShops}
             onGoVisitors={() => setTab('visitors')}
+            firebaseStatus={firebaseStatus}
+            firebaseBusy={firebaseBusy}
+            firebaseActionMsg={firebaseActionMsg}
+            onTriggerFirebaseSync={triggerFirebaseSync}
+            onTriggerDaily09={triggerDaily09}
           />
         )}
         {tab === 'visitors' && <VisitorsTab />}

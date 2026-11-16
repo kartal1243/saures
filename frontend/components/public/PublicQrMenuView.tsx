@@ -21,6 +21,7 @@ import {
   Send,
 } from 'lucide-react';
 import { MenuItem } from '../../../shared/types.ts';
+import { initFirebaseAppCheck, fetchWithAppCheck } from '../../firebase';
 
 interface PublicMenuData {
   shopName: string;
@@ -81,7 +82,7 @@ export const PublicQrMenuView: React.FC = () => {
 
     setIsSendingOrder(true);
     try {
-      const res = await fetch(`/api/public/menu/${encodeURIComponent(data?.slug || getIdentifier())}/order`, {
+      const res = await fetchWithAppCheck(`/api/public/menu/${encodeURIComponent(data?.slug || getIdentifier())}/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -124,6 +125,7 @@ export const PublicQrMenuView: React.FC = () => {
   };
 
   useEffect(() => {
+    initFirebaseAppCheck().catch(() => {});
     const urlTable = getTableFromUrl();
     if (urlTable) setSelectedTable(urlTable);
 
@@ -164,7 +166,7 @@ export const PublicQrMenuView: React.FC = () => {
     showToast(`${activeTable} için ${actionText}`);
 
     try {
-      await fetch(`/api/public/menu/${encodeURIComponent(data?.slug || getIdentifier())}/table-action`, {
+      await fetchWithAppCheck(`/api/public/menu/${encodeURIComponent(data?.slug || getIdentifier())}/table-action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tableNo: activeTable, action }),

@@ -6,13 +6,14 @@ import type {
   RepairTicket,
   Transaction,
 } from '../../shared/types';
-import { S, saveState } from '../context';
+import { S, saveState, als } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast, broadcastToAccount } from '../realtime';
 import { localDay } from '../day';
 import { getAccounts } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
 import { sendPushToAccount } from './devices';
+import { dispatchFirebaseSms, syncPublicAssetToFirestore } from '../services/firebaseService';
 
 export interface PublicTicketLookupResult {
   code: string;
@@ -388,6 +389,22 @@ export async function requestServiceForPublicAsset(
       tag: `asset_alert_${asset.id}`,
     }).catch(() => {});
 
+    const shopPhone = st.shopProfile?.phone || acc.phone || '';
+    const shopTitle = st.shopProfile?.storeName || acc.shopName || 'Teknik Servis';
+    if (shopPhone) {
+      dispatchFirebaseSms({
+        phone: shopPhone,
+        message: `QR Arıza Talebi (${asset.code} - ${asset.deviceName}): ${reporterName} (${payload.urgency || 'Normal'}) - ${description.slice(0, 90)}`,
+        category: 'qr_asset_alert',
+        shopName: shopTitle,
+      }).catch(() => {});
+    }
+
+    syncPublicAssetToFirestore(acc.id, shopTitle, asset, {
+      shopSlug: st.shopProfile?.slug,
+      shopCityDistrict: st.shopProfile?.cityDistrict,
+    }).catch(() => {});
+
     return { ok: true, statusCode: 200, ticket: newTicket };
   }
 
@@ -581,6 +598,18 @@ export function registerRepairRoutes(app: Express): void {
 
     saveState();
     broadcast({ type: 'MAINTENANCE_ASSET_UPDATED', payload: asset });
+    const ctxAccId = als.getStore()?.accountId || '';
+    if (ctxAccId) {
+      syncPublicAssetToFirestore(
+        ctxAccId,
+        S().shopProfile?.storeName || S().storeName || 'Teknik Servis',
+        asset,
+        {
+          shopSlug: S().shopProfile?.slug,
+          shopCityDistrict: S().shopProfile?.cityDistrict,
+        }
+      ).catch(() => {});
+    }
     res.json({ success: true, asset });
   });
 
@@ -633,6 +662,18 @@ export function registerRepairRoutes(app: Express): void {
 
     saveState();
     broadcast({ type: 'MAINTENANCE_ASSET_UPDATED', payload: asset });
+    const ctxAccId = als.getStore()?.accountId || '';
+    if (ctxAccId) {
+      syncPublicAssetToFirestore(
+        ctxAccId,
+        S().shopProfile?.storeName || S().storeName || 'Teknik Servis',
+        asset,
+        {
+          shopSlug: S().shopProfile?.slug,
+          shopCityDistrict: S().shopProfile?.cityDistrict,
+        }
+      ).catch(() => {});
+    }
     if (incomeTx && cash) {
       broadcast({ type: 'TRANSACTION_CREATED', payload: { transaction: incomeTx, cash } });
     }

@@ -8,6 +8,12 @@ import { DEMO_ACCOUNT_ID } from '../demoSeed';
 import { isValidTurkishPhone, normalizePhone, getAccounts } from '../accounts';
 import { slugify, isReservedSlug, isSlugTaken, loadShopState } from '../shopState';
 import { SHOP_LOGOS_DIR } from '../config';
+import {
+  uploadToFirebaseStorage,
+  downloadFromFirebaseStorage,
+  deleteFromFirebaseStorage,
+  loadFirebaseServiceAccount,
+} from '../services/firebaseService';
 
 export type VipTier = 'cirak' | 'usta' | 'patron';
 
@@ -130,7 +136,7 @@ export function detectImageMimeAndExt(buffer: Buffer): { mime: string; ext: 'png
 // KAMUSAL MEDYA UCU: Dükkan Profil Fotoğrafı / Logo Sunumu
 // robots.txt ve apiGuard dışında /media/shop-logo/:filename olarak çalışır
 // ============================================================================
-export function serveShopLogo(req: Request, res: Response): void {
+export async function serveShopLogo(req: Request, res: Response): Promise<void> {
   const rawParam = req.params.filename;
   if (!rawParam || typeof rawParam !== 'string') {
     res.status(400).send('Dosya adı geçersiz.');
@@ -172,12 +178,14 @@ export function serveShopLogo(req: Request, res: Response): void {
   }
 
   // 2. Slug ile arama (<slug>.<ext> veya <accountId>.<ext>)
+  let matchedAccountId: string | null = null;
   if (!targetFilePath) {
     const accounts = getAccounts();
     for (const acc of accounts) {
       const st = loadShopState(acc.id);
       const accSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || acc.shopName);
       if (accSlug === namePart || acc.id === namePart) {
+        matchedAccountId = acc.id;
         // Bu hesaba ait mevcut logoyu bul
         for (const candidateExt of ['webp', 'png', 'jpg', 'jpeg']) {
           const accLogoPath = path.join(SHOP_LOGOS_DIR, `${acc.id}.${candidateExt}`);
@@ -187,6 +195,44 @@ export function serveShopLogo(req: Request, res: Response): void {
           }
         }
         if (targetFilePath) break;
+      }
+    }
+  }
+
+  // 3. Yerel diskte logo yoksa Firebase Storage üzerinden buluttan kurtarma fallback'i
+  if ((!targetFilePath || !fs.existsSync(targetFilePath)) && loadFirebaseServiceAccount()) {
+    const candidateNames: string[] = [];
+    if (matchedAccountId) {
+      for (const ext of ['webp', 'png', 'jpg']) {
+        candidateNames.push(`${matchedAccountId}.${ext}`);
+      }
+    }
+    for (const ext of validExts) {
+      candidateNames.push(`${namePart}.${ext}`);
+    }
+
+    for (const objName of candidateNames) {
+      const dl = await downloadFromFirebaseStorage(`shop-logos/${objName}`).catch(() => null);
+      if (dl && dl.ok && dl.buffer && dl.buffer.length > 0) {
+        try {
+          if (!fs.existsSync(SHOP_LOGOS_DIR)) fs.mkdirSync(SHOP_LOGOS_DIR, { recursive: true });
+          const cachePath = path.join(SHOP_LOGOS_DIR, objName);
+          fs.writeFileSync(cachePath, dl.buffer);
+          targetFilePath = cachePath;
+          break;
+        } catch {
+          const fallbackExt = path.extname(objName).replace('.', '').toLowerCase();
+          const mimeType =
+            dl.contentType ||
+            (fallbackExt === 'png' ? 'image/png' : fallbackExt === 'webp' ? 'image/webp' : 'image/jpeg');
+          res.setHeader('Content-Type', mimeType);
+          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('Content-Security-Policy', "default-src 'none'");
+          res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+          res.send(dl.buffer);
+          return;
+        }
       }
     }
   }
@@ -361,10 +407,20 @@ export function registerProfileRoutes(app: Express): void {
       }
     } catch {}
 
+    // Firebase Cloud Storage üzerindeki farklı uzantılı eski kopyaları temizle
+    for (const ext of ['png', 'jpg', 'webp']) {
+      if (ext !== detected.ext) {
+        deleteFromFirebaseStorage(`shop-logos/${ctx.accountId}.${ext}`).catch(() => {});
+      }
+    }
+
     // Yeni dosyayı kaydet (<accountId>.<ext>)
     const newFilename = `${ctx.accountId}.${detected.ext}`;
     const targetFilePath = path.join(SHOP_LOGOS_DIR, newFilename);
     fs.writeFileSync(targetFilePath, buffer);
+
+    // Firebase Cloud Storage'a arka planda yedekle (non-blocking)
+    uploadToFirebaseStorage(`shop-logos/${newFilename}`, buffer, detected.mime).catch(() => {});
 
     const currentProfile = S().shopProfile || ({} as ShopProfile);
     const slugOrId = currentProfile.slug || ctx.accountId;
@@ -408,6 +464,11 @@ export function registerProfileRoutes(app: Express): void {
         }
       }
     } catch {}
+
+    // Firebase Cloud Storage üzerindeki kopyaları da temizle
+    for (const ext of ['png', 'jpg', 'webp']) {
+      deleteFromFirebaseStorage(`shop-logos/${ctx.accountId}.${ext}`).catch(() => {});
+    }
 
     const currentProfile = S().shopProfile;
     if (currentProfile) {

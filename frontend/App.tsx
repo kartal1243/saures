@@ -21,7 +21,12 @@ import {
   CustodyTicket,
   MaintenanceAsset,
 } from '../shared/types.ts';
-import { initFirebaseAnalytics, registerFirebaseWebPush, unregisterFirebaseWebPush } from './firebase';
+import {
+  initFirebaseAnalytics,
+  initFirebaseAppCheck,
+  registerFirebaseWebPush,
+  unregisterFirebaseWebPush,
+} from './firebase';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { HomeDashboard } from './components/panel/HomeDashboard';
@@ -300,6 +305,7 @@ export default function App() {
   };
 
   const bootstrapSession = async () => {
+    initFirebaseAppCheck().catch(() => {});
     try {
       // /demo veya /demo/ rotası girildiyse doğrudan 14 günlük ücretsiz canlı kayıt sayfasına yönlendir
       if (window.location.pathname.toLowerCase().replace(/\/+$/, '') === '/demo') {
@@ -667,6 +673,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    initFirebaseAppCheck().catch(() => {});
     bootstrapSession();
 
     return () => {

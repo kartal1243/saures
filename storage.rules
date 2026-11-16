@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// Dükkanım Yanımda — Firebase Cloud Storage Security Rules
+// Fail-closed: Tüm istemci okuma/yazma istekleri kapalıdır.
+// Dükkan logoları ve günlük yedekler yalnızca backend Service Account üzerinden yönetilir.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

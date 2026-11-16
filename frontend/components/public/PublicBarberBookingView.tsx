@@ -39,6 +39,8 @@ import {
   confirmFirebasePhoneOtp,
   resetRecaptchaVerifier,
   translateFirebaseError,
+  initFirebaseAppCheck,
+  fetchWithAppCheck,
 } from '../../firebase';
 import type { ConfirmationResult } from 'firebase/auth';
 
@@ -244,6 +246,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
 
   // Veri Çekme
   useEffect(() => {
+    initFirebaseAppCheck().catch(() => {});
     let isMounted = true;
     const fetchData = async () => {
       setLoading(true);
@@ -604,7 +607,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
         }
       }
 
-      const res = await fetch('/api/public/barber/send-otp', {
+      const res = await fetchWithAppCheck('/api/public/barber/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cleanPhone, identifier }),
@@ -663,7 +666,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
         }
       }
 
-      const res = await fetch(`/api/public/barber/${encodeURIComponent(identifier)}/book`, {
+      const res = await fetchWithAppCheck(`/api/public/barber/${encodeURIComponent(identifier)}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

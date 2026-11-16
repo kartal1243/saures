@@ -18,11 +18,21 @@ import {
 } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
 import {
+  DATA_DIR,
   SHOPS_DIR,
   ADMIN_PASSWORD,
   ADMIN_SESSION_TTL_MS,
   ADMIN_SESSIONS_FILE,
 } from '../config';
+import {
+  getFirebaseIntegrationStatus,
+  syncShopSnapshotToFirestore,
+  syncPublicAssetToFirestore,
+  uploadToFirebaseStorage,
+  loadFirebaseServiceAccount,
+} from '../services/firebaseService';
+import { getSmsGatewayStatus } from '../services/smsProvider';
+import { runDailyMorningDispatch } from '../services/reminderScheduler';
 import { readJsonFile, writeJsonFile } from '../fsdb';
 import { rateLimit } from '../guards';
 import { getCustomPanelLeads, saveCustomPanelLeads } from './vip';
@@ -899,5 +909,82 @@ export function registerAdminRoutes(app: Express): void {
     }
     const success = unblockIp(ip);
     res.json({ success, blockedIps: getBlockedIps() });
+  });
+
+  // ---------------- Firebase Blaze & App Check Yönetim Uçları ----------------
+  app.get('/api/admin/firebase/status', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const status = getFirebaseIntegrationStatus();
+    const smsGateway = getSmsGatewayStatus();
+    const deviceTokens = readJsonFile<any[]>(path.join(DATA_DIR, 'device_tokens.json'), []);
+    const ownersCount = getAccounts().filter((a) => (a.role || 'owner') === 'owner').length;
+    res.json({
+      success: true,
+      firebase: status,
+      smsGateway,
+      registeredDevicesCount: Array.isArray(deviceTokens) ? deviceTokens.length : 0,
+      ownersCount,
+    });
+  });
+
+  app.post('/api/admin/firebase/sync', async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const hasSa = Boolean(loadFirebaseServiceAccount());
+    const owners = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
+    const date = new Date().toISOString().split('T')[0];
+
+    let shopsSynced = 0;
+    let publicAssetsSynced = 0;
+    let storageBackedUp = 0;
+    let failed = 0;
+
+    if (hasSa) {
+      for (const acc of owners) {
+        try {
+          const st = loadShopState(acc.id);
+          const syncRes = await syncShopSnapshotToFirestore(acc.id, st);
+          if (syncRes.ok) shopsSynced += 1;
+          else failed += 1;
+
+          const storRes = await uploadToFirebaseStorage(
+            `backups/${date}/${acc.id}.json`,
+            Buffer.from(JSON.stringify(st), 'utf-8'),
+            'application/json'
+          );
+          if (storRes.ok) storageBackedUp += 1;
+
+          const shopName = st.shopProfile?.storeName || acc.shopName || 'Teknik Servis';
+          for (const asset of st.maintenanceAssets || []) {
+            const pubRes = await syncPublicAssetToFirestore(acc.id, shopName, asset, {
+              shopSlug: st.shopProfile?.slug,
+              shopCityDistrict: st.shopProfile?.cityDistrict,
+            });
+            if (pubRes.ok) publicAssetsSynced += 1;
+          }
+        } catch {
+          failed += 1;
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      serviceAccountConfigured: hasSa,
+      totalShops: owners.length,
+      shopsSynced,
+      publicAssetsSynced,
+      storageBackedUp,
+      failed,
+      message: hasSa
+        ? `${shopsSynced}/${owners.length} dükkan Firestore & Storage ile senkronlandı.`
+        : 'Service Account JSON henüz tanımlanmadığı için bulut senkronizasyonu atlandı.',
+    });
+  });
+
+  app.post('/api/admin/firebase/test-daily-09', async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const force = req.body?.force !== false;
+    const stats = await runDailyMorningDispatch({ force });
+    return res.json({ success: true, stats });
   });
 }

@@ -38,7 +38,7 @@ import { registerShopierWebhook } from './routes/shopierWebhook';
 import { registerPublicShopsMapRoutes } from './routes/publicShopsMap';
 import { registerCommunityRoutes } from './routes/community';
 import { registerDeviceRoutes } from './routes/devices';
-import { runReminderCycleNow } from './services/reminderScheduler';
+import { runReminderCycleNow, runDailyMorningDispatch } from './services/reminderScheduler';
 import * as seoModule from './seo';
 import { renderSeoHtml, generateSitemapXml, getRobotsTxt, getBaseHtmlTemplate, findShopForSeo } from './seo';
 import { visitorTrackerMiddleware } from './visitorTracker';
@@ -121,8 +121,8 @@ export async function startServer(): Promise<void> {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseio.com https://*.firebaseapp.com https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://unpkg.com https://cdnjs.cloudflare.com https://www.googletagmanager.com https://static.cloudflareinsights.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://www.gstatic.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https: *.openstreetmap.org images.unsplash.com https://www.google-analytics.com https://www.gstatic.com",
-      "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.identitytoolkit.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://fcm.googleapis.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://firestore.googleapis.com https://*.cloudfunctions.net https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://api.telegram.org https://*.tile.openstreetmap.org https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://cloudflareinsights.com",
+      "img-src 'self' data: blob: https: *.openstreetmap.org images.unsplash.com https://www.google-analytics.com https://www.gstatic.com https://firebasestorage.googleapis.com https://storage.googleapis.com",
+      "connect-src 'self' ws: wss: wss://*.firebaseio.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.identitytoolkit.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://fcm.googleapis.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://firebasestorage.googleapis.com https://storage.googleapis.com https://firestore.googleapis.com https://*.cloudfunctions.net https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://api.telegram.org https://*.tile.openstreetmap.org https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://cloudflareinsights.com",
       "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://www.google.com https://recaptcha.google.com",
       "worker-src 'self' blob:",
       "object-src 'none'",
@@ -139,7 +139,7 @@ export async function startServer(): Promise<void> {
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
       res.setHeader(
         'Access-Control-Allow-Headers',
-        'Content-Type, Authorization, X-Client-Platform, X-Idempotency-Key'
+        'Content-Type, Authorization, X-Client-Platform, X-Idempotency-Key, X-Firebase-AppCheck'
       );
       if (req.method === 'OPTIONS') {
         return res.status(204).end();
@@ -300,7 +300,7 @@ export async function startServer(): Promise<void> {
   // ---------------- Kamusal Medya Ucu: Dükkan Profil Fotoğrafları / Logoları ----------------
   app.get('/media/shop-logo/:filename', serveShopLogo);
 
-  // ---------------- Firebase Cloud Scheduler Cron Tetikleyicisi ----------------
+  // ---------------- Firebase Cloud Scheduler Cron Tetikleyicileri ----------------
   app.post('/api/cron/firebase-reminders', async (req, res) => {
     const expectedSecret = (process.env.FIREBASE_FUNCTIONS_SECRET || process.env.WEBHOOK_SECRET || '').trim();
     const provided = String(req.headers['x-firebase-secret'] || req.headers['x-webhook-secret'] || '').trim();
@@ -308,6 +308,16 @@ export async function startServer(): Promise<void> {
       return res.status(403).json({ error: 'Yetkisiz cron tetiklemesi.' });
     }
     const stats = await runReminderCycleNow();
+    return res.json({ success: true, ...stats });
+  });
+
+  app.post('/api/cron/firebase-daily-09', async (req, res) => {
+    const expectedSecret = (process.env.FIREBASE_FUNCTIONS_SECRET || process.env.WEBHOOK_SECRET || '').trim();
+    const provided = String(req.headers['x-firebase-secret'] || req.headers['x-webhook-secret'] || '').trim();
+    if (!expectedSecret || provided !== expectedSecret) {
+      return res.status(403).json({ error: 'Yetkisiz günlük cron tetiklemesi.' });
+    }
+    const stats = await runDailyMorningDispatch({ force: Boolean(req.body?.force) });
     return res.json({ success: true, ...stats });
   });
 

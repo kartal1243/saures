@@ -2,12 +2,19 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { DATA_DIR } from '../config';
+import type { AppState, MaintenanceAsset } from '../../shared/types';
 
 export const FIREBASE_PROJECT_ID =
   (process.env.FIREBASE_PROJECT_ID || 'dukkanim-yanimda').trim();
 
+export const FIREBASE_PROJECT_NUMBER =
+  (process.env.FIREBASE_PROJECT_NUMBER || '403857948982').trim();
+
 export const FIREBASE_WEB_API_KEY =
   (process.env.FIREBASE_API_KEY || 'AIzaSyAU2Zx5J6Df1VSUEdbEvNSfpFxio1pULCQ').trim();
+
+export const APP_CHECK_JWKS_URL = 'https://firebaseappcheck.googleapis.com/v1/jwks';
+const APP_CHECK_JWKS_TTL_MS = 60 * 60 * 1000; // 1 saat
 
 export interface FirebaseServiceAccount {
   project_id?: string;
@@ -23,6 +30,14 @@ export interface FirebaseTokenVerifyResult {
   emailVerified?: boolean;
   authTimeSec?: number;
   providerIds?: string[];
+  error?: string;
+}
+
+export interface FirebaseAppCheckVerifyResult {
+  valid: boolean;
+  appId?: string;
+  exp?: number;
+  iss?: string;
   error?: string;
 }
 
@@ -46,9 +61,17 @@ export interface FirebaseIntegrationStatus {
   functionsSmsReady: boolean;
   firestoreReady: boolean;
   vapidKeyConfigured: boolean;
+  appCheckConfigured: boolean;
+  appCheckEnforced: boolean;
+  appCheckSiteKey: string;
+  storageReady: boolean;
+  storageBucket: string;
+  customEmailReady: boolean;
+  realtimeDbReady: boolean;
 }
 
 let cachedAccessToken: { token: string; expiresAtMs: number; projectId: string } | null = null;
+let cachedAppCheckJwks: { keys: Array<Record<string, any>>; fetchedAtMs: number } | null = null;
 
 function base64UrlEncode(input: string | Buffer): string {
   const buf = typeof input === 'string' ? Buffer.from(input, 'utf-8') : input;
@@ -57,6 +80,12 @@ function base64UrlEncode(input: string | Buffer): string {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/g, '');
+}
+
+function base64UrlDecode(input: string): Buffer {
+  const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padLen = (4 - (normalized.length % 4)) % 4;
+  return Buffer.from(normalized + '='.repeat(padLen), 'base64');
 }
 
 /**
@@ -138,6 +167,9 @@ export async function getFirebaseAccessToken(): Promise<{ token: string; project
       scope: [
         'https://www.googleapis.com/auth/firebase.messaging',
         'https://www.googleapis.com/auth/datastore',
+        'https://www.googleapis.com/auth/devstorage.read_write',
+        'https://www.googleapis.com/auth/firebase.database',
+        'https://www.googleapis.com/auth/userinfo.email',
       ].join(' '),
     })
   );
@@ -573,11 +605,734 @@ export async function dispatchFirebaseSms(payload: {
   };
 }
 
+// ==============================================================================
+// 1. FIREBASE APP CHECK (reCAPTCHA v3) — GERÇEK RS256 JWKS DOĞRULAMA
+// ==============================================================================
+
+async function getAppCheckJwks(forceRefresh = false): Promise<Array<Record<string, any>>> {
+  const now = Date.now();
+  if (
+    !forceRefresh &&
+    cachedAppCheckJwks &&
+    now - cachedAppCheckJwks.fetchedAtMs < APP_CHECK_JWKS_TTL_MS &&
+    cachedAppCheckJwks.keys.length > 0
+  ) {
+    return cachedAppCheckJwks.keys;
+  }
+
+  const resp = await fetch(APP_CHECK_JWKS_URL, {
+    method: 'GET',
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!resp.ok) {
+    throw new Error(`App Check JWKS HTTP ${resp.status}`);
+  }
+  const json = (await resp.json().catch(() => null)) as { keys?: Array<Record<string, any>> } | null;
+  const keys = Array.isArray(json?.keys) ? json!.keys : [];
+  if (keys.length === 0) {
+    throw new Error('App Check JWKS anahtar listesi boş.');
+  }
+  cachedAppCheckJwks = { keys, fetchedAtMs: now };
+  return keys;
+}
+
+/**
+ * Firebase App Check JWT jetonunu Google'ın resmi JWKS uç noktası üzerinden
+ * RS256 imza ve iss / aud / exp alanlarıyla doğrular.
+ */
+export async function verifyFirebaseAppCheckToken(
+  token: string,
+  options?: { jwksOverride?: Array<Record<string, any>>; nowSec?: number }
+): Promise<FirebaseAppCheckVerifyResult> {
+  const clean = String(token || '').trim();
+  if (!clean) {
+    return { valid: false, error: 'App Check jetonu boş.' };
+  }
+
+  const parts = clean.split('.');
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) {
+    return { valid: false, error: 'Geçersiz App Check JWT biçimi.' };
+  }
+
+  try {
+    const header = JSON.parse(base64UrlDecode(parts[0]).toString('utf-8')) as {
+      alg?: string;
+      kid?: string;
+      typ?: string;
+    };
+    if (header.alg !== 'RS256' || !header.kid) {
+      return { valid: false, error: 'Desteklenmeyen App Check imzalama algoritması veya eksik kid.' };
+    }
+
+    let keys = options?.jwksOverride;
+    if (!keys) {
+      keys = await getAppCheckJwks(false);
+    }
+    let jwk = keys.find((k) => k?.kid === header.kid);
+    if (!jwk && !options?.jwksOverride) {
+      keys = await getAppCheckJwks(true);
+      jwk = keys.find((k) => k?.kid === header.kid);
+    }
+    if (!jwk) {
+      return { valid: false, error: 'Eşleşen App Check genel anahtarı (JWK) bulunamadı.' };
+    }
+
+    const publicKey = crypto.createPublicKey({
+      key: jwk as unknown as crypto.JsonWebKey,
+      format: 'jwk',
+    });
+    const signedContent = Buffer.from(`${parts[0]}.${parts[1]}`, 'utf-8');
+    const signatureBytes = base64UrlDecode(parts[2]);
+    const sigOk = crypto.verify('RSA-SHA256', signedContent, publicKey, signatureBytes);
+    if (!sigOk) {
+      return { valid: false, error: 'App Check RS256 imzası doğrulanamadı.' };
+    }
+
+    const payload = JSON.parse(base64UrlDecode(parts[1]).toString('utf-8')) as {
+      iss?: string;
+      aud?: string | string[];
+      exp?: number;
+      sub?: string;
+      app_id?: string;
+    };
+
+    const expectedIss = `https://firebaseappcheck.googleapis.com/${FIREBASE_PROJECT_NUMBER}`;
+    if (payload.iss !== expectedIss) {
+      return { valid: false, error: 'App Check token yayıncısı (iss) bu proje ile eşleşmiyor.' };
+    }
+
+    const expectedAud = `projects/${FIREBASE_PROJECT_NUMBER}`;
+    const audList = Array.isArray(payload.aud) ? payload.aud : payload.aud ? [payload.aud] : [];
+    if (!audList.includes(expectedAud)) {
+      return { valid: false, error: 'App Check token hedef kitlesi (aud) geçersiz.' };
+    }
+
+    const nowSec = typeof options?.nowSec === 'number' ? options.nowSec : Math.floor(Date.now() / 1000);
+    if (typeof payload.exp !== 'number' || payload.exp <= nowSec) {
+      return { valid: false, error: 'App Check jetonunun süresi dolmuş.' };
+    }
+
+    return {
+      valid: true,
+      appId: payload.sub || payload.app_id,
+      exp: payload.exp,
+      iss: payload.iss,
+    };
+  } catch (err: any) {
+    return {
+      valid: false,
+      error: err?.message || 'App Check doğrulaması başarısız.',
+    };
+  }
+}
+
+// ==============================================================================
+// 2. FIREBASE CLOUD STORAGE & REALTIME DATABASE YARDIMCILARI
+// ==============================================================================
+
+export function getFirebaseStorageBucket(): string {
+  return (process.env.FIREBASE_STORAGE_BUCKET || `${FIREBASE_PROJECT_ID}.firebasestorage.app`).trim();
+}
+
+export async function uploadToFirebaseStorage(
+  objectPath: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<{ ok: boolean; skipped?: boolean; bucket?: string; objectPath?: string; error?: string }> {
+  try {
+    const auth = await getFirebaseAccessToken();
+    if (!auth) {
+      return { ok: false, skipped: true, error: 'Firebase Service Account yapılandırılmadı.' };
+    }
+
+    const bucket = getFirebaseStorageBucket();
+    const cleanPath = objectPath.replace(/^\/+/, '');
+    const url = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(
+      bucket
+    )}/o?uploadType=media&name=${encodeURIComponent(cleanPath)}`;
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': contentType || 'application/octet-stream',
+      },
+      body: new Uint8Array(buffer),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => '');
+      return { ok: false, error: `Storage upload HTTP ${resp.status}: ${txt.slice(0, 120)}` };
+    }
+    return { ok: true, bucket, objectPath: cleanPath };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Firebase Storage yükleme hatası.' };
+  }
+}
+
+export async function downloadFromFirebaseStorage(
+  objectPath: string
+): Promise<{ ok: boolean; skipped?: boolean; buffer?: Buffer; contentType?: string; error?: string }> {
+  try {
+    const auth = await getFirebaseAccessToken();
+    if (!auth) {
+      return { ok: false, skipped: true, error: 'Firebase Service Account yapılandırılmadı.' };
+    }
+
+    const bucket = getFirebaseStorageBucket();
+    const cleanPath = objectPath.replace(/^\/+/, '');
+    const url = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(
+      bucket
+    )}/o/${encodeURIComponent(cleanPath)}?alt=media`;
+
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+
+    if (!resp.ok) {
+      return { ok: false, error: `Storage download HTTP ${resp.status}` };
+    }
+
+    const arrayBuf = await resp.arrayBuffer();
+    return {
+      ok: true,
+      buffer: Buffer.from(arrayBuf),
+      contentType: resp.headers.get('content-type') || undefined,
+    };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Firebase Storage indirme hatası.' };
+  }
+}
+
+export async function deleteFromFirebaseStorage(
+  objectPath: string
+): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  try {
+    const auth = await getFirebaseAccessToken();
+    if (!auth) {
+      return { ok: false, skipped: true, error: 'Firebase Service Account yapılandırılmadı.' };
+    }
+
+    const bucket = getFirebaseStorageBucket();
+    const cleanPath = objectPath.replace(/^\/+/, '');
+    const url = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(
+      bucket
+    )}/o/${encodeURIComponent(cleanPath)}`;
+
+    const resp = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!resp.ok && resp.status !== 404) {
+      return { ok: false, error: `Storage delete HTTP ${resp.status}` };
+    }
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Firebase Storage silme hatası.' };
+  }
+}
+
+export async function writeRealtimeDbPulse(
+  rtdbPath: string,
+  payload: unknown
+): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  try {
+    const dbUrl = (process.env.FIREBASE_DATABASE_URL || '').trim().replace(/\/+$/, '');
+    if (!dbUrl) {
+      return { ok: false, skipped: true, error: 'FIREBASE_DATABASE_URL tanımlı değil.' };
+    }
+
+    const auth = await getFirebaseAccessToken();
+    if (!auth) {
+      return { ok: false, skipped: true, error: 'Firebase Service Account yapılandırılmadı.' };
+    }
+
+    const cleanPath = rtdbPath.replace(/^\/+|\/+$/g, '').replace(/\.json$/i, '');
+    const url = `${dbUrl}/${cleanPath}.json`;
+    const resp = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(6000),
+    });
+
+    if (!resp.ok) {
+      return { ok: false, error: `RTDB HTTP ${resp.status}` };
+    }
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Realtime Database yazma hatası.' };
+  }
+}
+
+// ==============================================================================
+// 3. YÜKSEK KAPASİTELİ FIRESTORE BULUT SENKRONU (SHOPS & SIFIR-PII PUBLIC ASSETS)
+// ==============================================================================
+
+function clampText(val: unknown, maxLen: number): string | undefined {
+  if (typeof val !== 'string') return undefined;
+  const trimmed = val.trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, maxLen);
+}
+
+function normalizeIsoDateOnly(val: unknown): string | undefined {
+  if (typeof val !== 'string') return undefined;
+  const trimmed = val.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) return trimmed.slice(0, 10);
+  return undefined;
+}
+
+export async function syncShopSnapshotToFirestore(
+  accountId: string,
+  shopState: AppState
+): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  if (!accountId || !loadFirebaseServiceAccount()) {
+    return { ok: false, skipped: true, error: 'Service Account tanımlı değil.' };
+  }
+
+  const profile = shopState.shopProfile;
+  const rawTier = profile?.vipTier;
+  const vipTier: 'cirak' | 'usta' | 'patron' =
+    rawTier === 'usta' ? 'usta' : rawTier === 'cirak' ? 'cirak' : profile?.isVip ? 'patron' : 'cirak';
+
+  const updatedAt = new Date().toISOString();
+  const summaryDoc: Record<string, unknown> = {
+    accountId: accountId.slice(0, 128),
+    storeName: clampText(profile?.storeName || shopState.storeName, 120) || 'Dükkanım İşletmesi',
+    vipTier,
+    isVip: Boolean(profile?.isVip),
+    updatedAt,
+  };
+
+  const bf = clampText(profile?.businessField, 80);
+  if (bf) summaryDoc.businessField = bf;
+  const sk = clampText(profile?.sectorKey, 60);
+  if (sk) summaryDoc.sectorKey = sk;
+  const cd = clampText(profile?.cityDistrict, 120);
+  if (cd) summaryDoc.cityDistrict = cd;
+
+  const summaryRes = await writeFirestoreDocument('shops', accountId, summaryDoc);
+  if (!summaryRes.ok) return summaryRes;
+
+  const serialized = JSON.stringify(shopState);
+  const backupDoc: Record<string, unknown> = {
+    accountId,
+    storeName: summaryDoc.storeName,
+    updatedAt,
+    customersCount: Array.isArray(shopState.customers) ? shopState.customers.length : 0,
+    transactionsCount: Array.isArray(shopState.transactions) ? shopState.transactions.length : 0,
+    appointmentsCount: Array.isArray(shopState.appointments) ? shopState.appointments.length : 0,
+    maintenanceAssetsCount: Array.isArray(shopState.maintenanceAssets) ? shopState.maintenanceAssets.length : 0,
+    ...(serialized.length <= 850_000 ? { snapshotJson: serialized } : { truncated: true }),
+  };
+
+  return writeFirestoreDocument(`shops/${accountId}/cloud_backups`, 'latest', backupDoc);
+}
+
+/**
+ * `public_assets/{code}` belgesini firestore.rules içindeki katı sıfır-PII beyaz listesiyle eşler.
+ * Müşteri adı, telefon numarası, seri numarası, adres, accountId veya notlar ASLA yazılmaz.
+ */
+export function buildSafePublicAssetFirestoreDoc(
+  shopName: string,
+  asset: MaintenanceAsset,
+  extras?: { shopSlug?: string; shopCityDistrict?: string }
+): { code: string; doc: Record<string, unknown> } | null {
+  const rawCode = String(asset.code || asset.id || '')
+    .trim()
+    .replace(/[^A-Za-z0-9._-]/g, '');
+  if (rawCode.length < 3 || rawCode.length > 64 || !/^[A-Za-z0-9]/.test(rawCode)) {
+    return null;
+  }
+
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Date());
+  const nextDate = normalizeIsoDateOnly(asset.nextMaintenanceDate);
+  let status: 'aktif' | 'bakim_yaklasiyor' | 'bakim_gecikti' = 'aktif';
+  if (nextDate) {
+    const todayMs = new Date(`${today}T00:00:00Z`).getTime();
+    const nextMs = new Date(`${nextDate}T00:00:00Z`).getTime();
+    const diffDays = Math.round((nextMs - todayMs) / 86400000);
+    if (diffDays < 0) status = 'bakim_gecikti';
+    else if (diffDays <= 15) status = 'bakim_yaklasiyor';
+  }
+
+  const intervalDays = Math.min(3650, Math.max(1, Math.round(Number(asset.intervalDays) || 90)));
+  const logsCount = Math.min(10000, Math.max(0, Array.isArray(asset.logs) ? asset.logs.length : 0));
+
+  const doc: Record<string, unknown> = {
+    code: rawCode,
+    shopName: clampText(shopName, 120) || 'Teknik Servis',
+    deviceName: clampText(asset.deviceName, 120) || 'Cihaz',
+    intervalDays,
+    status,
+    logsCount,
+    isPublic: true,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const shopSlug = clampText(extras?.shopSlug, 120);
+  if (shopSlug) doc.shopSlug = shopSlug;
+  const shopCityDistrict = clampText(extras?.shopCityDistrict, 120);
+  if (shopCityDistrict) doc.shopCityDistrict = shopCityDistrict;
+  const brandModel = clampText(asset.brandModel, 120);
+  if (brandModel) doc.brandModel = brandModel;
+
+  const lastDate = normalizeIsoDateOnly(asset.lastMaintenanceDate);
+  if (lastDate) doc.lastMaintenanceDate = lastDate;
+  if (nextDate) doc.nextMaintenanceDate = nextDate;
+  const warrantyUntil = normalizeIsoDateOnly(asset.warrantyUntil);
+  if (warrantyUntil) doc.warrantyUntil = warrantyUntil;
+
+  return { code: rawCode, doc };
+}
+
+export async function syncPublicAssetToFirestore(
+  _accountId: string,
+  shopName: string,
+  asset: MaintenanceAsset,
+  extras?: { shopSlug?: string; shopCityDistrict?: string }
+): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  if (!loadFirebaseServiceAccount()) {
+    return { ok: false, skipped: true, error: 'Service Account tanımlı değil.' };
+  }
+  const built = buildSafePublicAssetFirestoreDoc(shopName, asset, extras);
+  if (!built) {
+    return { ok: false, error: 'Cihaz kodu Firestore public_assets şemasına uygun değil.' };
+  }
+  return writeFirestoreDocument('public_assets', built.code, built.doc);
+}
+
+// ==============================================================================
+// 4. ÖZELLEŞTİRİLMİŞ KURUMSAL E-POSTA GÖNDERİMİ (RESEND / SENDGRID / CLOUD FN)
+// ==============================================================================
+
+export type BrandedEmailType =
+  | 'welcome'
+  | 'password_reset'
+  | 'appointment_confirmed'
+  | 'appointment_reminder'
+  | 'daily_summary';
+
+export interface BrandedEmailPayload {
+  to: string;
+  subject: string;
+  type: BrandedEmailType;
+  shopName?: string;
+  ownerName?: string;
+  recipientName?: string;
+  resetUrl?: string;
+  actionUrl?: string;
+  headline?: string;
+  bodyLines?: string[];
+  details?: Array<{ label: string; value: string }>;
+  ctaText?: string;
+}
+
+function escapeHtml(text: string): string {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export function renderBackendBrandedEmail(payload: BrandedEmailPayload): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const shopName = payload.shopName || 'Dükkânım Yanımda';
+  const recipient = payload.recipientName || payload.ownerName || 'Değerli Esnafımız';
+  const actionUrl = payload.resetUrl || payload.actionUrl || 'https://dukkanimyanimda.com.tr/';
+
+  let headline = payload.headline || '';
+  let lines = Array.isArray(payload.bodyLines) && payload.bodyLines.length > 0 ? payload.bodyLines : [];
+  let ctaText = payload.ctaText || 'Panele Git';
+
+  if (payload.type === 'welcome') {
+    headline = headline || `${shopName} Hesabınız Hazır!`;
+    if (lines.length === 0) {
+      lines = [
+        `Merhaba ${recipient}, Dükkânım Yanımda ailesine hoş geldiniz.`,
+        '14 günlük ücretsiz Patron VIP denemeniz aktif edildi. Kasa, veresiye, online randevu ve QR menü araçlarınızı hemen kullanmaya başlayabilirsiniz.',
+      ];
+    }
+    ctaText = payload.ctaText || 'Dükkan Panelini Aç';
+  } else if (payload.type === 'password_reset') {
+    headline = headline || 'Şifre Sıfırlama Talebiniz';
+    if (lines.length === 0) {
+      lines = [
+        `Merhaba ${recipient}, ${shopName} hesabınız için tek kullanımlık şifre sıfırlama bağlantısı oluşturuldu.`,
+        'Bu bağlantı güvenlik gereği 15 dakika geçerlidir. Eğer bu işlemi siz başlatmadıysanız bu e-postayı görmezden gelebilirsiniz.',
+      ];
+    }
+    ctaText = payload.ctaText || 'Şifremi Güvenle Yenile';
+  } else if (payload.type === 'appointment_confirmed') {
+    headline = headline || 'Randevunuz Onaylandı';
+    if (lines.length === 0) {
+      lines = [`Merhaba ${recipient}, ${shopName} işletmesindeki randevunuz onaylanmıştır.`];
+    }
+  } else if (payload.type === 'appointment_reminder') {
+    headline = headline || 'Randevu Hatırlatması';
+    if (lines.length === 0) {
+      lines = [`Merhaba ${recipient}, ${shopName} işletmesindeki randevunuzu hatırlatmak isteriz.`];
+    }
+  } else if (payload.type === 'daily_summary') {
+    headline = headline || `${shopName} — Sabah 09:00 İşletme Özeti`;
+    if (lines.length === 0) {
+      lines = [
+        `Günaydın ${recipient}! Bugünkü randevu, vade ve bakım hatırlatmalarınızın sabah özeti aşağıdadır.`,
+      ];
+    }
+    ctaText = payload.ctaText || 'Günlük Paneli Aç';
+  }
+
+  const detailsRowsHtml = (payload.details || [])
+    .map(
+      (d) =>
+        `<tr><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#64748b;font-weight:600;">${escapeHtml(
+          d.label
+        )}</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#0f172a;font-weight:700;text-align:right;">${escapeHtml(
+          d.value
+        )}</td></tr>`
+    )
+    .join('');
+
+  const html = `<!doctype html>
+<html lang="tr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#fafaf9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1c1917;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#fafaf9;padding:28px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background-color:#ffffff;border:1px solid #e7e5e4;border-radius:18px;overflow:hidden;">
+          <tr>
+            <td style="background-color:#FF6B00;padding:20px 24px;color:#ffffff;">
+              <div style="font-size:18px;font-weight:800;letter-spacing:-0.3px;">Dükkânım Yanımda</div>
+              <div style="font-size:12px;opacity:0.92;margin-top:2px;">${escapeHtml(shopName)}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px;">
+              <h1 style="margin:0 0 12px 0;font-size:20px;line-height:1.3;color:#1c1917;">${escapeHtml(headline)}</h1>
+              ${lines
+                .map(
+                  (line) =>
+                    `<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#44403c;">${escapeHtml(
+                      line
+                    )}</p>`
+                )
+                .join('')}
+              ${
+                detailsRowsHtml
+                  ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0;border:1px solid #e7e5e4;border-radius:10px;border-collapse:collapse;">${detailsRowsHtml}</table>`
+                  : ''
+              }
+              <div style="margin:22px 0 8px 0;">
+                <a href="${escapeHtml(
+                  actionUrl
+                )}" style="display:inline-block;background-color:#FF6B00;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:10px;">${escapeHtml(
+    ctaText
+  )}</a>
+              </div>
+              <p style="margin:14px 0 0 0;font-size:11px;color:#78716c;word-break:break-all;">
+                Bağlantı açılmazsa tarayıcınıza yapıştırın: ${escapeHtml(actionUrl)}
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#fafaf9;padding:14px 24px;border-top:1px solid #e7e5e4;font-size:11px;color:#78716c;">
+              Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> platformu tarafından işlem güvenliği ve işletme bildirimi amacıyla gönderilmiştir.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const detailsText = (payload.details || []).map((d) => `- ${d.label}: ${d.value}`).join('\n');
+  const text = [
+    `Dükkânım Yanımda — ${shopName}`,
+    '',
+    headline,
+    '',
+    ...lines,
+    ...(detailsText ? ['', detailsText] : []),
+    '',
+    `${ctaText}: ${actionUrl}`,
+  ].join('\n');
+
+  return { subject: payload.subject, html, text };
+}
+
+export function isCustomEmailConfigured(): boolean {
+  const sa = loadFirebaseServiceAccount();
+  return Boolean(
+    (process.env.FIREBASE_EMAIL_FUNCTION_URL || '').trim() ||
+      (process.env.RESEND_API_KEY || '').trim() ||
+      (process.env.SENDGRID_API_KEY || '').trim() ||
+      (Boolean(sa) && process.env.FIREBASE_EMAIL_QUEUE_ACTIVE === 'true')
+  );
+}
+
+export async function dispatchBrandedEmail(payload: BrandedEmailPayload): Promise<{
+  sent: boolean;
+  queued: boolean;
+  provider: string;
+  error?: string;
+}> {
+  const to = String(payload.to || '').trim().toLowerCase();
+  if (!to || !to.includes('@')) {
+    return { sent: false, queued: false, provider: 'invalid_email', error: 'Geçersiz e-posta adresi.' };
+  }
+
+  const fromEmail = (process.env.EMAIL_FROM || 'Dükkanım Yanımda <bilgi@dukkanimyanimda.com.tr>').trim();
+  const fnUrl = (process.env.FIREBASE_EMAIL_FUNCTION_URL || '').trim();
+  const fnSecret = (process.env.FIREBASE_FUNCTIONS_SECRET || process.env.WEBHOOK_SECRET || '').trim();
+
+  if (fnUrl) {
+    try {
+      const targetUrl = fnUrl.includes('sendBrandedEmail')
+        ? fnUrl
+        : `${fnUrl.replace(/\/+$/, '')}/sendBrandedEmail`;
+      const resp = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(fnSecret ? { 'x-firebase-secret': fnSecret } : {}),
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(9000),
+      });
+      const json: any = await resp.json().catch(() => ({}));
+      const ok = resp.ok && json?.sent !== false;
+      return {
+        sent: Boolean(ok),
+        queued: Boolean(json?.queued),
+        provider: json?.provider || 'firebase_email_function',
+        error: ok ? undefined : json?.error || `Email Function HTTP ${resp.status}`,
+      };
+    } catch (err: any) {
+      return {
+        sent: false,
+        queued: false,
+        provider: 'firebase_email_function',
+        error: err?.message || 'Firebase E-posta Function bağlantısı kurulamadı.',
+      };
+    }
+  }
+
+  const rendered = renderBackendBrandedEmail(payload);
+
+  const resendKey = (process.env.RESEND_API_KEY || '').trim();
+  if (resendKey) {
+    try {
+      const resp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [to],
+          subject: rendered.subject,
+          html: rendered.html,
+          text: rendered.text,
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (resp.ok) {
+        return { sent: true, queued: false, provider: 'resend' };
+      }
+      const errTxt = await resp.text().catch(() => '');
+      return { sent: false, queued: false, provider: 'resend', error: `Resend HTTP ${resp.status}: ${errTxt.slice(0, 120)}` };
+    } catch (err: any) {
+      return { sent: false, queued: false, provider: 'resend', error: err?.message || 'Resend bağlantı hatası' };
+    }
+  }
+
+  const sendgridKey = (process.env.SENDGRID_API_KEY || '').trim();
+  if (sendgridKey) {
+    try {
+      const cleanFromAddress = fromEmail.match(/<([^>]+)>/)?.[1] || fromEmail;
+      const resp = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${sendgridKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: to }] }],
+          from: { email: cleanFromAddress, name: 'Dükkânım Yanımda' },
+          subject: rendered.subject,
+          content: [
+            { type: 'text/plain', value: rendered.text },
+            { type: 'text/html', value: rendered.html },
+          ],
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (resp.ok) {
+        return { sent: true, queued: false, provider: 'sendgrid' };
+      }
+      return { sent: false, queued: false, provider: 'sendgrid', error: `SendGrid HTTP ${resp.status}` };
+    } catch (err: any) {
+      return { sent: false, queued: false, provider: 'sendgrid', error: err?.message || 'SendGrid bağlantı hatası' };
+    }
+  }
+
+  const sa = loadFirebaseServiceAccount();
+  if (sa && process.env.FIREBASE_EMAIL_QUEUE_ACTIVE === 'true') {
+    const docId = `mail_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const res = await writeFirestoreDocument('email_queue', docId, {
+      ...payload,
+      to,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    });
+    if (res.ok) {
+      return { sent: true, queued: true, provider: 'firebase_email_queue' };
+    }
+    return { sent: false, queued: false, provider: 'firebase_email_queue', error: res.error };
+  }
+
+  return {
+    sent: false,
+    queued: false,
+    provider: 'unconfigured',
+    error: 'Özel e-posta sağlayıcısı yapılandırılmadı.',
+  };
+}
+
 export function getFirebaseIntegrationStatus(): FirebaseIntegrationStatus {
   const sa = loadFirebaseServiceAccount();
   const fcmLegacyReady = Boolean((process.env.FCM_SERVER_KEY || '').trim());
   const fnUrl = Boolean((process.env.FIREBASE_SMS_FUNCTION_URL || process.env.FIREBASE_FUNCTIONS_URL || '').trim());
   const vapidConfigured = Boolean((process.env.VITE_FIREBASE_VAPID_KEY || process.env.FIREBASE_VAPID_KEY || '').trim());
+  const appCheckSiteKey = (
+    process.env.VITE_FIREBASE_APP_CHECK_SITE_KEY ||
+    process.env.FIREBASE_APP_CHECK_SITE_KEY ||
+    ''
+  ).trim();
+  const rtdbConfigured = Boolean((process.env.FIREBASE_DATABASE_URL || '').trim());
 
   return {
     projectId: FIREBASE_PROJECT_ID,
@@ -591,5 +1346,12 @@ export function getFirebaseIntegrationStatus(): FirebaseIntegrationStatus {
     functionsSmsReady: fnUrl || (Boolean(sa) && process.env.FIREBASE_SMS_QUEUE_ACTIVE === 'true'),
     firestoreReady: Boolean(sa),
     vapidKeyConfigured: vapidConfigured,
+    appCheckConfigured: Boolean(appCheckSiteKey),
+    appCheckEnforced: process.env.FIREBASE_APP_CHECK_ENFORCE === 'true',
+    appCheckSiteKey,
+    storageReady: Boolean(sa),
+    storageBucket: getFirebaseStorageBucket(),
+    customEmailReady: isCustomEmailConfigured(),
+    realtimeDbReady: Boolean(sa && rtdbConfigured),
   };
 }

@@ -1,5 +1,11 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  getToken,
+  type AppCheck,
+} from 'firebase/app-check';
+import {
   getAuth,
   RecaptchaVerifier,
   signInWithPhoneNumber,
@@ -25,6 +31,76 @@ export const auth = getAuth(app);
 
 // SMS ve e-posta onay mesajlarının Türkçe gitmesi için varsayılan dili ayarla
 auth.languageCode = 'tr';
+
+let appCheckInstance: AppCheck | null = null;
+let appCheckInitPromise: Promise<AppCheck | null> | null = null;
+
+/**
+ * Firebase App Check (reCAPTCHA v3) korumasını başlatır.
+ * Site key önce Vite env'den, yoksa backend `/api/auth/firebase-status` ucundan alınır.
+ * Site key tanımlı değilse uygulama çökmeden sessizce hazır modda bekler.
+ */
+export async function initFirebaseAppCheck(): Promise<AppCheck | null> {
+  if (typeof window === 'undefined') return null;
+  if (appCheckInstance) return appCheckInstance;
+  if (appCheckInitPromise) return appCheckInitPromise;
+
+  appCheckInitPromise = (async () => {
+    try {
+      let siteKey = String((import.meta as any).env?.VITE_FIREBASE_APP_CHECK_SITE_KEY || '').trim();
+      if (!siteKey) {
+        const res = await fetch('/api/auth/firebase-status').catch(() => null);
+        if (res && res.ok) {
+          const json = await res.json().catch(() => null);
+          siteKey = String(json?.appCheckSiteKey || '').trim();
+        }
+      }
+
+      if (!siteKey) {
+        appCheckInitPromise = null;
+        return null;
+      }
+
+      appCheckInstance = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+      return appCheckInstance;
+    } catch {
+      appCheckInitPromise = null;
+      return null;
+    }
+  })();
+
+  return appCheckInitPromise;
+}
+
+export async function getFirebaseAppCheckToken(forceRefresh = false): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  try {
+    const instance = appCheckInstance || (await initFirebaseAppCheck());
+    if (!instance) return null;
+    const res = await getToken(instance, forceRefresh);
+    return res?.token || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchWithAppCheck(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> {
+  const token = await getFirebaseAppCheckToken(false).catch(() => null);
+  const headers = new Headers(init?.headers || undefined);
+  if (token && !headers.has('X-Firebase-AppCheck')) {
+    headers.set('X-Firebase-AppCheck', token);
+  }
+  return fetch(input, {
+    ...init,
+    headers,
+  });
+}
 
 const recaptchaRegistry = new Map<string, RecaptchaVerifier>();
 
@@ -243,7 +319,7 @@ export async function registerFirebaseWebPush(options?: {
       return { ok: false, permission, reason: 'Bildirim izni henüz verilmedi.' };
     }
 
-    const { isSupported, getMessaging, getToken, onMessage } = await import('firebase/messaging');
+    const { isSupported, getMessaging, getToken: getFcmToken, onMessage } = await import('firebase/messaging');
     if (!(await isSupported())) {
       return { ok: false, permission, reason: 'Tarayıcı FCM Push API desteklemiyor.' };
     }
@@ -284,7 +360,7 @@ export async function registerFirebaseWebPush(options?: {
       });
     }
 
-    const fcmToken = await getToken(messaging, {
+    const fcmToken = await getFcmToken(messaging, {
       vapidKey,
       ...(swReg ? { serviceWorkerRegistration: swReg } : {}),
     });

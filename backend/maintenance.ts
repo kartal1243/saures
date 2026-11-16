@@ -5,15 +5,24 @@ import { writeJsonFile } from './fsdb';
 import { getAccounts, pruneExpiredSessions } from './accounts';
 import { loadShopState } from './shopState';
 import { startReminderScheduler, runReminderCycleNow } from './services/reminderScheduler';
+import { loadFirebaseServiceAccount, uploadToFirebaseStorage } from './services/firebaseService';
 
 function dailyBackupAll(): void {
   const date = new Date().toISOString().split('T')[0];
+  const hasCloudStorage = Boolean(loadFirebaseServiceAccount());
   for (const acc of getAccounts()) {
     try {
       const st = loadShopState(acc.id);
       const dir = path.join(BACKUPS_DIR, acc.id);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       writeJsonFile(path.join(dir, date + '.json'), st);
+      if (hasCloudStorage) {
+        uploadToFirebaseStorage(
+          `backups/${date}/${acc.id}.json`,
+          Buffer.from(JSON.stringify(st), 'utf-8'),
+          'application/json'
+        ).catch(() => {});
+      }
       // son 30 gun sakla
       const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
       for (const f of files.slice(0, Math.max(0, files.length - 30))) {

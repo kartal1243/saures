@@ -3,6 +3,7 @@ import { accountFromRequest, clientIp, touchActiveSession, type Account } from '
 import { loadShopState } from './shopState';
 import { als } from './context';
 import { AUTH_RATE_LIMIT } from './config';
+import { verifyFirebaseAppCheckToken } from './services/firebaseService';
 
 // Koruma: /api/* icin giris zorunlu (auth ve health haric) + rol kisitlari
 // NOT: Personel girisi kaldirildi — panelde sadece dukkan sahibi (owner) olur.
@@ -73,3 +74,56 @@ export function createRateLimiter(windowMs: number, max: number) {
 export const rateLimit = createRateLimiter(AUTH_RATE_LIMIT.windowMs, AUTH_RATE_LIMIT.max);
 export const publicActionRateLimit = createRateLimiter(60 * 1000, 12);
 export const aiRateLimit = createRateLimiter(60 * 1000, 8);
+
+/**
+ * Firebase App Check (reCAPTCHA v3) koruma katmanı.
+ * X-Firebase-AppCheck başlığı varsa Google App Check JWKS ile RS256 doğrular.
+ * FIREBASE_APP_CHECK_ENFORCE !== 'true' iken eksik veya hatalı token mevcut trafiği kilitlemez.
+ */
+export async function firebaseAppCheckGuard(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const enforce = process.env.FIREBASE_APP_CHECK_ENFORCE === 'true';
+  const rawHeader = req.headers['x-firebase-appcheck'];
+  const token = Array.isArray(rawHeader) ? rawHeader[0]?.trim() : String(rawHeader || '').trim();
+
+  if (!token) {
+    if (enforce) {
+      res.status(401).json({
+        error: 'Güvenlik doğrulaması (Firebase App Check) gereklidir. Lütfen sayfayı yenileyip tekrar deneyiniz.',
+        code: 'APP_CHECK_REQUIRED',
+      });
+      return;
+    }
+    return next();
+  }
+
+  try {
+    const result = await verifyFirebaseAppCheckToken(token);
+    if (result.valid) {
+      (req as Request & { appCheck?: typeof result }).appCheck = result;
+      return next();
+    }
+    if (enforce) {
+      res.status(401).json({
+        error: result.error || 'Firebase App Check doğrulaması başarısız oldu.',
+        code: 'APP_CHECK_INVALID',
+      });
+      return;
+    }
+    console.warn('[AppCheck] Token doğrulanamadı (enforce=false, geçişe izin verildi):', result.error);
+  } catch (err: any) {
+    if (enforce) {
+      res.status(401).json({
+        error: 'Firebase App Check doğrulama servisine erişilemedi.',
+        code: 'APP_CHECK_UNAVAILABLE',
+      });
+      return;
+    }
+    console.warn('[AppCheck] Doğrulama hatası (enforce=false):', err?.message || err);
+  }
+
+  return next();
+}
