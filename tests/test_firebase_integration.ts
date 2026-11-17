@@ -115,7 +115,10 @@ console.log('✅ PASS 2: backend/app.ts CSP/CORS/Cron, auth.ts emailReset/AppChe
 const fbClient = fs.readFileSync(path.join(projectRoot, 'frontend', 'firebase.ts'), 'utf-8');
 for (const sym of [
   'initializeAppCheck',
+  'ReCaptchaEnterpriseProvider',
   'ReCaptchaV3Provider',
+  'VITE_FIREBASE_APP_CHECK_PROVIDER',
+  'appCheckProvider',
   'initFirebaseAppCheck',
   'getFirebaseAppCheckToken',
   'fetchWithAppCheck',
@@ -166,6 +169,7 @@ assert.ok(adminSite.includes('/api/admin/firebase/status'), 'AdminSite firebase 
 assert.ok(adminSite.includes('/api/admin/firebase/sync'), 'AdminSite bulut senkron butonunu bağlamalı');
 assert.ok(adminSite.includes('/api/admin/firebase/test-daily-09'), 'AdminSite 09:00 rutin butonunu bağlamalı');
 assert.ok(adminSite.includes('Bulut Senkronu Başlat'), 'AdminSite Firebase Blaze kartı buton metnini içermeli');
+assert.ok(adminSite.includes('appCheckProvider'), 'AdminSite App Check provider (Enterprise / v3) detayını göstermeli');
 console.log('✅ PASS 3: Tüm frontend ekranlarında App Check, Phone Auth girişi ve Admin Blaze kartı doğrulandı.');
 
 // 4. SmsSecurity Blaze Ölçekleme & Varsayılan Spark Koruma Dengesi
@@ -244,16 +248,41 @@ async function runAsync() {
   const tamperedVerify = await verifyFirebaseAppCheckToken(tamperedJwt, { jwksOverride: [jwk], nowSec });
   assert.strictEqual(tamperedVerify.valid, false, 'Hatalı imzalı App Check token reddedilmeli');
 
-  // 5b. firebaseAppCheckGuard enforce=false / enforce=true davranışı
+  // 5b. firebaseAppCheckGuard enforce=false / enforce=true & appCheckProvider (enterprise / v3) davranışı
   const prevEnforce = process.env.FIREBASE_APP_CHECK_ENFORCE;
   const prevSiteKey = process.env.VITE_FIREBASE_APP_CHECK_SITE_KEY;
+  const prevViteProvider = process.env.VITE_FIREBASE_APP_CHECK_PROVIDER;
+  const prevServerProvider = process.env.FIREBASE_APP_CHECK_PROVIDER;
   process.env.VITE_FIREBASE_APP_CHECK_SITE_KEY = '6LeTestSiteKey123';
+  delete process.env.VITE_FIREBASE_APP_CHECK_PROVIDER;
+  delete process.env.FIREBASE_APP_CHECK_PROVIDER;
 
   delete process.env.FIREBASE_APP_CHECK_ENFORCE;
   const statusNoEnforce = getFirebaseIntegrationStatus();
   assert.strictEqual(statusNoEnforce.appCheckConfigured, true);
   assert.strictEqual(statusNoEnforce.appCheckSiteKey, '6LeTestSiteKey123');
   assert.strictEqual(statusNoEnforce.appCheckEnforced, false);
+  assert.strictEqual(statusNoEnforce.appCheckProvider, 'enterprise', 'Varsayılan App Check provider enterprise olmalı');
+
+  process.env.VITE_FIREBASE_APP_CHECK_PROVIDER = 'v3';
+  assert.strictEqual(
+    getFirebaseIntegrationStatus().appCheckProvider,
+    'v3',
+    'VITE_FIREBASE_APP_CHECK_PROVIDER=v3 iken appCheckProvider v3 dönmeli'
+  );
+  delete process.env.VITE_FIREBASE_APP_CHECK_PROVIDER;
+  process.env.FIREBASE_APP_CHECK_PROVIDER = 'v3';
+  assert.strictEqual(
+    getFirebaseIntegrationStatus().appCheckProvider,
+    'v3',
+    'FIREBASE_APP_CHECK_PROVIDER=v3 iken appCheckProvider v3 dönmeli'
+  );
+  process.env.FIREBASE_APP_CHECK_PROVIDER = 'enterprise';
+  assert.strictEqual(
+    getFirebaseIntegrationStatus().appCheckProvider,
+    'enterprise',
+    'FIREBASE_APP_CHECK_PROVIDER=enterprise iken appCheckProvider enterprise dönmeli'
+  );
 
   let nextCalled = false;
   await firebaseAppCheckGuard({ headers: {} } as any, { status: () => ({ json: () => {} }) } as any, () => {
@@ -287,6 +316,10 @@ async function runAsync() {
   else process.env.FIREBASE_APP_CHECK_ENFORCE = prevEnforce;
   if (prevSiteKey === undefined) delete process.env.VITE_FIREBASE_APP_CHECK_SITE_KEY;
   else process.env.VITE_FIREBASE_APP_CHECK_SITE_KEY = prevSiteKey;
+  if (prevViteProvider === undefined) delete process.env.VITE_FIREBASE_APP_CHECK_PROVIDER;
+  else process.env.VITE_FIREBASE_APP_CHECK_PROVIDER = prevViteProvider;
+  if (prevServerProvider === undefined) delete process.env.FIREBASE_APP_CHECK_PROVIDER;
+  else process.env.FIREBASE_APP_CHECK_PROVIDER = prevServerProvider;
 
   // 5c. Kurumsal HTML E-posta render doğrulaması & XSS kaçışı
   const emailRendered = renderBackendBrandedEmail({

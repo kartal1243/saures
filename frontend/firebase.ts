@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
   ReCaptchaV3Provider,
   getToken,
   type AppCheck,
@@ -36,8 +37,9 @@ let appCheckInstance: AppCheck | null = null;
 let appCheckInitPromise: Promise<AppCheck | null> | null = null;
 
 /**
- * Firebase App Check (reCAPTCHA v3) korumasını başlatır.
- * Site key önce Vite env'den, yoksa backend `/api/auth/firebase-status` ucundan alınır.
+ * Firebase App Check (Fraud Defense / reCAPTCHA Enterprise veya yedek reCAPTCHA v3) korumasını başlatır.
+ * Site key ve provider önce Vite env'den, yoksa backend `/api/auth/firebase-status` ucundan alınır.
+ * Varsayılan `'enterprise'` olup yalnızca `'v3'` açıkça seçildiğinde `ReCaptchaV3Provider` kullanılır.
  * Site key tanımlı değilse uygulama çökmeden sessizce hazır modda bekler.
  */
 export async function initFirebaseAppCheck(): Promise<AppCheck | null> {
@@ -48,11 +50,20 @@ export async function initFirebaseAppCheck(): Promise<AppCheck | null> {
   appCheckInitPromise = (async () => {
     try {
       let siteKey = String((import.meta as any).env?.VITE_FIREBASE_APP_CHECK_SITE_KEY || '').trim();
-      if (!siteKey) {
+      let rawProvider = String((import.meta as any).env?.VITE_FIREBASE_APP_CHECK_PROVIDER || '')
+        .trim()
+        .toLowerCase();
+
+      if (!siteKey || !rawProvider) {
         const res = await fetch('/api/auth/firebase-status').catch(() => null);
         if (res && res.ok) {
           const json = await res.json().catch(() => null);
-          siteKey = String(json?.appCheckSiteKey || '').trim();
+          if (!siteKey) {
+            siteKey = String(json?.appCheckSiteKey || '').trim();
+          }
+          if (!rawProvider) {
+            rawProvider = String(json?.appCheckProvider || '').trim().toLowerCase();
+          }
         }
       }
 
@@ -61,8 +72,14 @@ export async function initFirebaseAppCheck(): Promise<AppCheck | null> {
         return null;
       }
 
+      const providerMode: 'enterprise' | 'v3' = rawProvider === 'v3' ? 'v3' : 'enterprise';
+      const provider =
+        providerMode === 'v3'
+          ? new ReCaptchaV3Provider(siteKey)
+          : new ReCaptchaEnterpriseProvider(siteKey);
+
       appCheckInstance = initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(siteKey),
+        provider,
         isTokenAutoRefreshEnabled: true,
       });
       return appCheckInstance;

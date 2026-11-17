@@ -65,6 +65,7 @@ export interface FirebaseIntegrationStatus {
   appCheckConfigured: boolean;
   appCheckEnforced: boolean;
   appCheckSiteKey: string;
+  appCheckProvider: 'enterprise' | 'v3';
   storageReady: boolean;
   storageBucket: string;
   customEmailReady: boolean;
@@ -1338,6 +1339,15 @@ export function getFirebaseIntegrationStatus(): FirebaseIntegrationStatus {
     process.env.FIREBASE_APP_CHECK_SITE_KEY ||
     ''
   ).trim();
+  const rawAppCheckProvider = (
+    process.env.VITE_FIREBASE_APP_CHECK_PROVIDER ||
+    process.env.FIREBASE_APP_CHECK_PROVIDER ||
+    ''
+  )
+    .trim()
+    .toLowerCase();
+  const appCheckProvider: 'enterprise' | 'v3' =
+    rawAppCheckProvider === 'v3' ? 'v3' : 'enterprise';
   const rtdbConfigured = Boolean((process.env.FIREBASE_DATABASE_URL || '').trim());
 
   return {
@@ -1356,6 +1366,7 @@ export function getFirebaseIntegrationStatus(): FirebaseIntegrationStatus {
     appCheckConfigured: Boolean(appCheckSiteKey),
     appCheckEnforced: process.env.FIREBASE_APP_CHECK_ENFORCE === 'true',
     appCheckSiteKey,
+    appCheckProvider,
     storageReady: Boolean(sa),
     storageBucket: getFirebaseStorageBucket(),
     customEmailReady: isCustomEmailConfigured(),

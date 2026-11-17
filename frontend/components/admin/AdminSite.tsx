@@ -126,6 +126,7 @@ interface FirebaseAdminStatus {
     vapidKeyConfigured: boolean;
     appCheckConfigured: boolean;
     appCheckEnforced: boolean;
+    appCheckProvider?: 'enterprise' | 'v3';
     storageReady: boolean;
     storageBucket: string;
     customEmailReady: boolean;
@@ -430,7 +431,12 @@ function OverviewTab({
               {
                 label: 'App Check',
                 ok: firebaseStatus.firebase.appCheckConfigured,
-                detail: firebaseStatus.firebase.appCheckEnforced ? 'Zorunlu' : firebaseStatus.firebase.appCheckConfigured ? 'Aktif' : 'SiteKey Bekliyor',
+                detail: (() => {
+                  const providerLabel = firebaseStatus.firebase.appCheckProvider === 'v3' ? 'v3' : 'Enterprise';
+                  if (firebaseStatus.firebase.appCheckEnforced) return `Zorunlu · ${providerLabel}`;
+                  if (firebaseStatus.firebase.appCheckConfigured) return `Aktif · ${providerLabel}`;
+                  return `SiteKey Bekliyor (${providerLabel})`;
+                })(),
                 Icon: Lock,
               },
               {
