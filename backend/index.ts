@@ -5,6 +5,7 @@ export * from './seo';
 export * from './app';
 export * from './accounts';
 export * from './config';
+export { loadShopState, setShopState } from './shopState';
 
 // Sunucuyu başlat
 startServer().catch((err) => {

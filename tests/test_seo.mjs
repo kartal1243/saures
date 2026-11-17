@@ -1,4 +1,6 @@
 import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -11,9 +13,129 @@ const {
   getDynamicSeoFreshness,
   SEO_GUIDE_ARTICLES,
   isValidGuideRoute,
+  addAccount,
+  removeAccount,
+  setAccountClosed,
+  hashPassword,
+  loadShopState,
+  setShopState,
+  SHOPS_DIR,
 } = require('../dist/server.cjs');
 
 console.log('🧪 SEO ve Sosyal Paylaşım Önizleme Testleri Başlatılıyor...\n');
+
+const seoSuffix = Date.now();
+const barberSlug = `altin-makas-${seoSuffix}`;
+const cafeSlug = `liman-restoran-${seoSuffix}`;
+const closedSlug = `kapali-salon-${seoSuffix}`;
+const barberAccId = `acc_seo_barber_${seoSuffix}`;
+const cafeAccId = `acc_seo_cafe_${seoSuffix}`;
+const closedAccId = `acc_seo_closed_${seoSuffix}`;
+
+addAccount({
+  id: barberAccId,
+  shopName: 'Altın Makas Erkek Kuaförü',
+  ownerName: 'Ahmet Usta',
+  phone: '05324445566',
+  passwordHash: hashPassword('Test123456!'),
+  createdAt: new Date().toISOString(),
+});
+const bState = loadShopState(barberAccId);
+bState.shopProfile = {
+  storeName: 'Altın Makas Erkek Kuaförü',
+  ownerName: 'Ahmet Usta',
+  businessField: 'Berber / Kuaför / Güzellik',
+  sectorKey: 'berber_kuafor',
+  employeeCount: '3',
+  phone: '05324445566',
+  cityDistrict: 'İstanbul / Kadıköy',
+  dailyTarget: 4500,
+  slogan: 'Usta ellerde tarzına değer kat',
+  slug: barberSlug,
+  logoUrl: '/brand/phone_mockup_retina.png',
+  isConfigured: true,
+  isVip: true,
+};
+bState.barberServices = [
+  { id: 'srv_1', name: 'Saç Kesimi', price: 250, durationMinutes: 30, active: true },
+  { id: 'srv_2', name: 'Sakal Tıraşı', price: 150, durationMinutes: 20, active: true },
+];
+bState.barberReviews = [
+  {
+    id: 'rev_1',
+    customerName: 'Mehmet K.',
+    staffName: 'Ahmet Usta',
+    rating: 5,
+    comment: 'Çok temiz ve profesyonel hizmet, tam saatinde sıram geldi.',
+    approved: true,
+    createdAt: new Date().toISOString(),
+  },
+];
+setShopState(barberAccId, bState);
+
+addAccount({
+  id: cafeAccId,
+  shopName: 'Liman Restoran & Bistro',
+  ownerName: 'Hasan Şef',
+  phone: '05334445566',
+  passwordHash: hashPassword('Test123456!'),
+  createdAt: new Date().toISOString(),
+});
+const cState = loadShopState(cafeAccId);
+cState.shopProfile = {
+  storeName: 'Liman Restoran & Bistro',
+  ownerName: 'Hasan Şef',
+  businessField: 'Kafe & Restoran',
+  sectorKey: 'kafe_restoran',
+  employeeCount: '4',
+  phone: '05334445566',
+  cityDistrict: 'Karaköy, İstanbul',
+  dailyTarget: 6500,
+  slogan: 'Geleneksel lezzetler ve hızlı servis',
+  slug: cafeSlug,
+  logoUrl: '/brand/phone_mockup_retina.png',
+  isConfigured: true,
+  isVip: true,
+};
+cState.menuItems = [
+  { id: 'm_1', name: 'Izgara Köfte', price: 240, category: 'Ana Yemekler', description: 'Özel baharatlı ızgara köfte', isAvailable: true },
+  { id: 'm_2', name: 'Türk Kahvesi', price: 65, category: 'İçecekler', description: 'Közde Türk kahvesi', isAvailable: true },
+];
+setShopState(cafeAccId, cState);
+
+addAccount({
+  id: closedAccId,
+  shopName: 'Kapatılan Kuaför Salonu',
+  ownerName: 'Veli Usta',
+  phone: '05344445566',
+  passwordHash: hashPassword('Test123456!'),
+  createdAt: new Date().toISOString(),
+});
+const closedState = loadShopState(closedAccId);
+closedState.shopProfile = {
+  storeName: 'Kapatılan Kuaför Salonu',
+  ownerName: 'Veli Usta',
+  businessField: 'Berber / Kuaför',
+  sectorKey: 'berber_kuafor',
+  employeeCount: '1',
+  phone: '05344445566',
+  cityDistrict: 'Ankara / Çankaya',
+  dailyTarget: 2000,
+  slug: closedSlug,
+  isConfigured: true,
+  isVip: true,
+};
+setShopState(closedAccId, closedState);
+setAccountClosed(closedAccId, true, 'Test kapatma');
+
+function cleanupSeoFixtures() {
+  removeAccount(barberAccId);
+  removeAccount(cafeAccId);
+  removeAccount(closedAccId);
+  for (const id of [barberAccId, cafeAccId, closedAccId]) {
+    try { fs.unlinkSync(path.join(SHOPS_DIR, `${id}.json`)); } catch {}
+  }
+}
 
 let total = 0;
 let passed = 0;
@@ -31,11 +153,15 @@ function it(name, fn) {
 }
 
 // 1. Dükkan Çözümleme (findShopForSeo)
-it('findShopForSeo demo dükkanı doğru çözer', () => {
-  const shop = findShopForSeo('demo');
-  assert.ok(shop, 'Demo dükkan bulunmalı');
+it('findShopForSeo gerçek dükkanı çözer, demo ve kapalı dükkan için null döner', () => {
+  assert.strictEqual(findShopForSeo('demo'), null, 'Demo dükkan kaldırılmış olmalı');
+  assert.strictEqual(findShopForSeo('demo', 'menu'), null, 'Demo menü kaldırılmış olmalı');
+  assert.strictEqual(findShopForSeo(closedSlug), null, 'Kapalı dükkan gizlenmeli');
+
+  const shop = findShopForSeo(barberSlug);
+  assert.ok(shop, 'Gerçek dükkan bulunmalı');
   assert.strictEqual(shop.exists, true);
-  assert.ok(shop.name.length > 0, 'Dükkan adı olmalı');
+  assert.strictEqual(shop.name, 'Altın Makas Erkek Kuaförü');
 });
 
 it('findShopForSeo var olmayan dükkan için null döner', () => {
@@ -45,11 +171,11 @@ it('findShopForSeo var olmayan dükkan için null döner', () => {
 
 // 2. Randevu Rotaları Metadata (/r/:slug)
 it('/r/:slug rotası için dükkan adıyla dinamik title, HairSalon şeması ve ReserveAction üretir', () => {
-  const meta = getSeoMetadata('/r/demo');
+  const meta = getSeoMetadata(`/r/${barberSlug}`);
   assert.ok(meta.title.includes('Online Randevu Al | Dükkanım Yanımda'), 'Title randevu içermeli');
   assert.ok(meta.ogTitle.includes('Kolay Online Randevu'), 'og:title randevu içermeli');
   assert.ok(meta.ogDescription.includes('sıra beklemeden online randevunuzu hemen oluşturun'), 'og:description uygun olmalı');
-  assert.ok(meta.canonical.includes('/r/'), 'canonical URL randevu ucu olmalı');
+  assert.ok(meta.canonical.includes(`/r/${barberSlug}`), 'canonical URL gerçek randevu ucu olmalı');
   assert.ok(meta.ogImage.startsWith('https://'), 'og:image tam URL olmalı');
   assert.ok(meta.schemaJson, 'schema.org JSON-LD verisi olmalı');
   assert.ok(
@@ -63,11 +189,11 @@ it('/r/:slug rotası için dükkan adıyla dinamik title, HairSalon şeması ve 
 
 // 3. QR Menü Rotaları Metadata (/m/:slug)
 it('/m/:slug rotası için dükkan adıyla dinamik menü title ve og etiketleri üretir', () => {
-  const meta = getSeoMetadata('/m/demo');
+  const meta = getSeoMetadata(`/m/${cafeSlug}`);
   assert.ok(meta.title.includes('Dijital QR Menü & Fiyatlar | Dükkanım Yanımda'), 'Title menü içermeli');
   assert.ok(meta.ogTitle.includes('Dijital Menü'), 'og:title menü içermeli');
   assert.ok(meta.ogDescription.includes('masadan garson çağırma'), 'og:description garson çağırma içermeli');
-  assert.ok(meta.canonical.includes('/m/'), 'canonical URL menü ucu olmalı');
+  assert.ok(meta.canonical.includes(`/m/${cafeSlug}`), 'canonical URL menü ucu olmalı');
   assert.ok(meta.schemaJson, 'schema.org JSON-LD verisi olmalı');
   assert.strictEqual(meta.schemaJson['@type'], 'Restaurant');
 });
@@ -128,7 +254,7 @@ it('renderSeoHtml şablondaki <title>, og ve twitter etiketlerini eksiksiz deği
     <meta name="twitter:image" content="https://dukkanimyanimda.com.tr/eski.png" />
   </head><body><div id="root"></div></body></html>`;
 
-  const html = renderSeoHtml('/r/demo', 'dukkanimyanimda.com.tr', mockTemplate);
+  const html = renderSeoHtml(`/r/${barberSlug}`, 'dukkanimyanimda.com.tr', mockTemplate);
 
   assert.ok(html.includes('Online Randevu Al | Dükkanım Yanımda'), 'Yeni başlık enjekte edilmeli');
   assert.ok(!html.includes('Eski Başlık'), 'Eski başlık kalmamalı');
@@ -140,7 +266,7 @@ it('renderSeoHtml şablondaki <title>, og ve twitter etiketlerini eksiksiz deği
 it('renderSeoHtml disk yerine bellek önbelleğinden ultra hızlı çalışır (< 2ms)', () => {
   const t0 = performance.now();
   for (let i = 0; i < 100; i++) {
-    renderSeoHtml('/r/demo');
+    renderSeoHtml(`/r/${barberSlug}`);
   }
   const elapsed = performance.now() - t0;
   const avg = elapsed / 100;
@@ -148,7 +274,7 @@ it('renderSeoHtml disk yerine bellek önbelleğinden ultra hızlı çalışır (
 });
 
 // 6. Dinamik Sitemap.xml Testi
-it('generateSitemapXml geçerli ve zengin bir sitemap üretir', () => {
+it('generateSitemapXml geçerli, demosuz ve sadece açık gerçek dükkanları içeren sitemap üretir', () => {
   const xml = generateSitemapXml('dukkanimyanimda.com.tr');
   assert.ok(xml.startsWith('<?xml'), 'XML beyanı ile başlamalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/</loc>'), 'Ana sayfa loc olmalı');
@@ -157,10 +283,12 @@ it('generateSitemapXml geçerli ve zengin bir sitemap üretir', () => {
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/bakkal-market</loc>'), 'Bakkal rotası olmalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/guzellik-salonu</loc>'), 'Güzellik salonu rotası olmalı');
   assert.ok(xml.includes('sitemap-image'), 'Google image sitemap namespace olmalı');
-  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/r/demo</loc>'), 'Demo randevu loc olmalı');
-  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/m/demo</loc>'), 'Demo menü loc olmalı');
+  assert.ok(!xml.includes('/r/demo'), 'Demo randevu loc kaldırılmış olmalı');
+  assert.ok(!xml.includes('/m/demo'), 'Demo menü loc kaldırılmış olmalı');
+  assert.ok(xml.includes(`/r/${barberSlug}`), 'Gerçek açık kuaför sitemape girmeli');
+  assert.ok(xml.includes(`/m/${cafeSlug}`), 'Gerçek açık restoran sitemape girmeli');
+  assert.ok(!xml.includes(closedSlug), 'Kapalı dükkan sitemapte olmamalı');
 
-  // Alias ve başka sayfalara canonical veren linkler sitemap'te yer almamalı (Google Search Console uyarısı önleme)
   assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/kuafor-randevu</loc>'), 'Alias rotası sitemapte olmamalı');
   assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/adisyon</loc>'), 'Alias rotası sitemapte olmamalı');
   assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/veresiye-defteri</loc>'), 'Alias rotası sitemapte olmamalı');
@@ -262,55 +390,59 @@ it('renderSeoHtml <div id="root"> içine rotaya özel semantik SSR HTML (<header
 
 // 14. SERP Thumbnail & Shop Logo / Menu Rich Snippet Testi
 it('/r/:slug ve /m/:slug dükkan logosu SERP thumbnail ve Restaurant Menu schema içerir', () => {
-  const metaMenu = getSeoMetadata('/m/demo');
+  const metaMenu = getSeoMetadata(`/m/${cafeSlug}`);
   assert.ok(metaMenu.ogImage, 'ogImage bulunmalı');
   assert.ok(metaMenu.schemaJson.logo, 'Restaurant Schema logo içermeli');
   assert.ok(metaMenu.schemaJson.hasMenu, 'hasMenu bulunmalı');
   assert.strictEqual(metaMenu.schemaJson.hasMenu['@type'], 'Menu');
   assert.ok(Array.isArray(metaMenu.schemaJson.hasMenu.hasMenuSection), 'hasMenuSection array olmalı');
 
-  const html = renderSeoHtml('/m/demo');
+  const html = renderSeoHtml(`/m/${cafeSlug}`);
   assert.ok(html.includes('name="thumbnail"'), 'SERP thumbnail meta etiketi bulunmalı');
   assert.ok(html.includes('rel="image_src"'), 'image_src link etiketi bulunmalı');
   assert.ok(html.includes('Menü ve Lezzetler'), 'SSR gövdesinde menü ürünleri listelenmeli');
 });
 
 // 15. Sitemap Sektör Filtresi Testi
-it('generateSitemapXml sektör eşleşmelerini ve menüsüz marketleri doğru filtreler', () => {
+it('generateSitemapXml sektör eşleşmelerini, demosuz yapıyı ve kapalı dükkan hariç tutmayı doğrular', () => {
   const xml = generateSitemapXml('dukkanimyanimda.com.tr');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/berber</loc>'));
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/kuafor</loc>'));
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/randevu-sistemi</loc>'));
-  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/r/demo</loc>'));
-  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/m/demo</loc>'));
+  assert.ok(!xml.includes('/r/demo'));
+  assert.ok(!xml.includes('/m/demo'));
+  assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr/r/${barberSlug}</loc>`));
+  assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr/m/${cafeSlug}</loc>`));
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/rehber</loc>'));
 });
 
-// 16. /m/demo Kafe Demo Kimliği Ayrıştırması
-it('findShopForSeo ve /m/demo Karaköy Kahvecisi & Bistro kimliğini döner, /r/demo berber kalır', () => {
-  const cafeDemo = findShopForSeo('demo', 'menu');
-  assert.ok(cafeDemo);
-  assert.strictEqual(cafeDemo.name, 'Karaköy Kahvecisi & Bistro');
-  assert.strictEqual(cafeDemo.sectorKey, 'kafe_restoran');
-  assert.strictEqual(cafeDemo.cityDistrict, 'Karaköy, İstanbul');
-  assert.ok(cafeDemo.menuItems && cafeDemo.menuItems.length > 0);
+// 16. Demo Kimliğinin Kaldırılması & Gerçek Berber/Restoran Kimliği Ayrıştırması
+it('findShopForSeo demo rotalarını artık null döner, gerçek restoran ve kuaför kimliklerini ayırır', () => {
+  assert.strictEqual(findShopForSeo('demo', 'menu'), null);
+  assert.strictEqual(findShopForSeo('demo'), null);
 
-  const barberDemo = findShopForSeo('demo');
-  assert.ok(barberDemo);
-  assert.notStrictEqual(barberDemo.name, 'Karaköy Kahvecisi & Bistro');
+  const cafeShop = findShopForSeo(cafeSlug, 'menu');
+  assert.ok(cafeShop);
+  assert.strictEqual(cafeShop.name, 'Liman Restoran & Bistro');
+  assert.strictEqual(cafeShop.sectorKey, 'kafe_restoran');
+  assert.ok(cafeShop.menuItems && cafeShop.menuItems.length > 0);
 
-  const metaMenu = getSeoMetadata('/m/demo');
-  assert.ok(metaMenu.title.includes('Karaköy Kahvecisi & Bistro'));
-  const htmlMenu = renderSeoHtml('/m/demo');
-  assert.ok(htmlMenu.includes('Karaköy Kahvecisi &amp; Bistro') || htmlMenu.includes('Karaköy Kahvecisi & Bistro'));
+  const barberShop = findShopForSeo(barberSlug);
+  assert.ok(barberShop);
+  assert.strictEqual(barberShop.name, 'Altın Makas Erkek Kuaförü');
+
+  const metaMenu = getSeoMetadata(`/m/${cafeSlug}`);
+  assert.ok(metaMenu.title.includes('Liman Restoran & Bistro'));
+  const htmlMenu = renderSeoHtml(`/m/${cafeSlug}`);
+  assert.ok(htmlMenu.includes('Liman Restoran &amp; Bistro') || htmlMenu.includes('Liman Restoran & Bistro'));
 });
 
-// 17. /r/demo Onaylı Yorumlar & AggregateRating
-it('/r/demo HairSalon şeması onaylı yorumlar varsa dinamik aggregateRating ve review içerir', () => {
-  const meta = getSeoMetadata('/r/demo');
+// 17. Gerçek Salon Onaylı Yorumlar & AggregateRating
+it('/r/:slug HairSalon şeması onaylı yorumlar varsa dinamik aggregateRating ve review içerir', () => {
+  const meta = getSeoMetadata(`/r/${barberSlug}`);
   assert.ok(meta.schemaJson.aggregateRating, 'aggregateRating olmalı');
   assert.ok(Array.isArray(meta.schemaJson.review) && meta.schemaJson.review.length > 0, 'review dizisi olmalı');
-  const html = renderSeoHtml('/r/demo');
+  const html = renderSeoHtml(`/r/${barberSlug}`);
   assert.ok(html.includes('Doğrulanmış Müşteri Yorumları'), 'SSR gövdesinde görünür yorumlar olmalı');
 });
 
@@ -328,19 +460,19 @@ it('/fiyat ve /kayit AggregateOffer şeması, tüm sayfalar twitter:card ve /t/:
   const minimalHtml = renderSeoHtml('/berber', 'dukkanimyanimda.com.tr', '<!doctype html><html><head><title>x</title></head><body><div id="root"></div></body></html>');
   assert.ok(minimalHtml.includes('name="twitter:card" content="summary_large_image"'), 'twitter:card enjekte edilmeli');
 
-  const ticketMeta = getSeoMetadata('/t/demo');
+  const ticketMeta = getSeoMetadata('/t/rep_test_99');
   assert.strictEqual(ticketMeta.robots, 'noindex, follow');
   assert.ok(ticketMeta.title.includes('Servis'));
 });
 
-// 19. İnce SSR Sayfaları Zenginleştirme, Sektör Yorumları & Temiz Pilot Telefonları
-it('/teknik-servis, /hukuk, /terzi zengin SSR gövdesi sunar ve sahte 555 01xx telefonları temizdir', () => {
+// 19. İnce SSR Sayfaları Zenginleştirme, Demosuz CTA'lar & Temiz Şemalar
+it('/teknik-servis, /hukuk, /terzi zengin SSR gövdesi sunar ve sahte demo/telefon linkleri içermez', () => {
   const servisHtml = renderSeoHtml('/teknik-servis');
-  assert.ok(servisHtml.includes('/t/demo'), 'Teknik servis SSR içinde /t/demo linki olmalı');
+  assert.ok(!servisHtml.includes('/t/demo'), 'Teknik servis SSR içinde /t/demo linki olmamalı');
   assert.ok(servisHtml.includes('Esnaf Yorumları ve Kullanıcı Deneyimleri'), 'Görünür esnaf yorumları olmalı');
 
   const terziHtml = renderSeoHtml('/terzi');
-  assert.ok(terziHtml.includes('/t/demo'), 'Terzi SSR içinde /t/demo linki olmalı');
+  assert.ok(!terziHtml.includes('/t/demo'), 'Terzi SSR içinde /t/demo linki olmamalı');
 
   const hukukHtml = renderSeoHtml('/hukuk');
   assert.ok(hukukHtml.includes('Yaklaşan Duruşma Uyarıları'), 'Hukuk SSR kartları zengin olmalı');
@@ -348,6 +480,7 @@ it('/teknik-servis, /hukuk, /terzi zengin SSR gövdesi sunar ve sahte 555 01xx t
   const homeMeta = getSeoMetadata('/');
   const homeJson = JSON.stringify(homeMeta.schemaJson);
   assert.ok(!homeJson.includes('555 0101'), 'Sahte pilot telefon numarası temizlenmiş olmalı');
+  assert.ok(!homeJson.includes('Karaköy Kahvecisi'), 'Sahte Karaköy Kahvecisi şemadan kaldırılmış olmalı');
 });
 
 // 20. /rehber & /rehber/:slug İçerik Kümeleri + Sitemap
@@ -414,6 +547,8 @@ it('İzmit ve Zonguldak landing sayfaları doğru LocalBusiness Geo şeması, H1
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/izmit-berber-randevu</loc>'));
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/zonguldak-berber-randevu</loc>'));
 });
+
+cleanupSeoFixtures();
 
 console.log(`\n========================================`);
 console.log(`SEO TESTLERİ SONUCU: ${passed} / ${total} BAŞARILI`);

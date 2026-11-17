@@ -44,18 +44,22 @@ export const PublicTicketTrackerView: React.FC<PublicTicketTrackerViewProps> = (
     if (initialCode) return initialCode;
     const match = window.location.pathname.match(/^\/t\/(.+)/i);
     if (match && match[1]) return decodeURIComponent(match[1]).replace(/\/+$/, '');
-    return 'demo';
+    return '';
   };
 
   const [code, setCode] = useState<string>(getInitialCode);
   const [searchInput, setSearchInput] = useState<string>(getInitialCode);
   const [ticket, setTicket] = useState<PublicTicketData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTicket = async (targetCode: string) => {
     const clean = targetCode.trim();
-    if (!clean) return;
+    if (!clean) {
+      setTicket(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -129,7 +133,7 @@ export const PublicTicketTrackerView: React.FC<PublicTicketTrackerViewProps> = (
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Fiş / Takip Kodunuzu Giriniz (örn: demo veya rep_...)"
+              placeholder="Fiş / Takip Kodunuzu Giriniz (örn: rep_...)"
               className="w-full pl-10 pr-4 py-3 rounded-2xl bg-stone-900 border border-stone-800 text-xs sm:text-sm font-mono text-white placeholder:text-stone-500 focus:outline-hidden focus:border-orange-500"
             />
           </div>

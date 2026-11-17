@@ -307,12 +307,6 @@ export default function App() {
   const bootstrapSession = async () => {
     initFirebaseAppCheck().catch(() => {});
     try {
-      // /demo veya /demo/ rotası girildiyse doğrudan 14 günlük ücretsiz canlı kayıt sayfasına yönlendir
-      if (window.location.pathname.toLowerCase().replace(/\/+$/, '') === '/demo') {
-        window.location.replace('/kayit');
-        return;
-      }
-
       const me = await fetch('/api/auth/me');
       if (!me.ok) {
         authedRef.current = false;
@@ -1605,19 +1599,19 @@ export default function App() {
 
   // ---- Herkese açık berber online randevu sayfası (/r/:slug veya /randevu/:slug) ----
   if (pathname.startsWith('/r/') || pathname.startsWith('/randevu/') || pathname === '/randevu' || pathname === '/r') {
-    const rawSlug = pathname.replace(/^\/(r|randevu)\/?/, '') || 'demo';
+    const rawSlug = pathname.replace(/^\/(r|randevu)\/?/, '');
     return <PublicBarberBookingView identifier={rawSlug} />;
   }
 
   // ---- Herkese açık servis & emanet fişi takip ekranı (/t/:code) ----
   if (pathname.startsWith('/t/') || pathname === '/t') {
-    const ticketCode = decodeURIComponent(pathname.replace(/^\/t\/?/, '') || 'demo');
+    const ticketCode = decodeURIComponent(pathname.replace(/^\/t\/?/, ''));
     return <PublicTicketTrackerView initialCode={ticketCode} />;
   }
 
   // ---- Herkese açık fabrika/cihaz QR bakım pasaportu (/bakim/:code) ----
   if (pathname.startsWith('/bakim/') || pathname === '/bakim') {
-    const assetCode = decodeURIComponent(pathname.replace(/^\/bakim\/?/, '') || 'demo');
+    const assetCode = decodeURIComponent(pathname.replace(/^\/bakim\/?/, ''));
     return <PublicAssetPassportView initialCode={assetCode} />;
   }
   if (authStatus === 'checking') {
@@ -1972,7 +1966,7 @@ export default function App() {
           isVip={Boolean(shopProfile?.isVip)}
           vipTier={shopProfile?.vipTier || (shopProfile?.isVip ? 'patron' : 'cirak')}
           onOpenVip={() => setIsVipModalOpen(true)}
-          shopSlug={shopProfile?.slug || 'demo'}
+          shopSlug={shopProfile?.slug || ''}
           storeName={shopProfile?.storeName || storeName}
           shopLogoUrl={shopProfile?.logoUrl}
           receiptFooter={shopProfile?.receiptFooter}

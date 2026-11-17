@@ -138,7 +138,7 @@ function toLocalDateStr(d: Date): string {
 export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   appointments = [],
   customers = [],
-  shopSlug = 'demo',
+  shopSlug = '',
   storeName = 'Berber & Kuaför Salonu',
   shopLogoUrl = '',
   isVip = false,
@@ -902,7 +902,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
   // QR Stand Kartı Yazdırma (A4 Formatında Tezgâh / Ayna Standı)
   const handlePrintStand = () => {
-    const bookingUrl = `${window.location.origin}/r/${encodeURIComponent(shopSlug || 'demo')}`;
+    const bookingUrl = `${window.location.origin}/r/${encodeURIComponent(shopSlug)}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=H&data=${encodeURIComponent(
       bookingUrl
     )}`;
@@ -2324,7 +2324,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             <div className="relative w-48 h-48 bg-white p-3 rounded-3xl mx-auto shadow-xl flex items-center justify-center">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=H&data=${encodeURIComponent(
-                  `${typeof window !== 'undefined' ? window.location.origin : ''}/r/${encodeURIComponent(shopSlug || 'demo')}`
+                  `${typeof window !== 'undefined' ? window.location.origin : ''}/r/${encodeURIComponent(shopSlug)}`
                 )}`}
                 alt="Randevu QR Kodu"
                 className="w-full h-full object-contain"
@@ -2390,7 +2390,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                           return `• ${dayText} ${ds.startTime}-${ds.endTime}: %${ds.discountPercent} İndirim${ds.label ? ` (${ds.label})` : ''}`;
                         })
                         .join('\n');
-                      const bookingLink = `${window.location.origin}/r/${encodeURIComponent(settings.slug || shopSlug || 'demo')}`;
+                      const bookingLink = `${window.location.origin}/r/${encodeURIComponent(settings.slug || shopSlug)}`;
                       const msg = `🔥 *${storeName} — Flaş İndirimli Saatler!* 💈\n\nSakin saatlerimize özel indirim fırsatlarını kaçırmayın:\n${slotLines}\n\n👉 Hemen online randevu alın:\n${bookingLink}`;
                       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                     }}

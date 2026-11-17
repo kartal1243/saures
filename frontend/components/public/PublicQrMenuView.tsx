@@ -116,7 +116,7 @@ export const PublicQrMenuView: React.FC = () => {
     const match = path.match(/^\/m\/(.+)/i);
     if (match && match[1]) return decodeURIComponent(match[1]);
     const params = new URLSearchParams(window.location.search);
-    return params.get('slug') || params.get('shop') || 'demo';
+    return params.get('slug') || params.get('shop') || '';
   };
 
   const getTableFromUrl = (): string => {
@@ -130,6 +130,11 @@ export const PublicQrMenuView: React.FC = () => {
     if (urlTable) setSelectedTable(urlTable);
 
     const id = getIdentifier();
+    if (!id) {
+      setError('İşletme bağlantısı bulunamadı.');
+      setLoading(false);
+      return;
+    }
     fetch(`/api/public/menu/${encodeURIComponent(id)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error('Menü bulunamadı veya henüz eklenmedi.');

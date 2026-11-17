@@ -627,7 +627,8 @@ export type WSEvent =
   | { type: 'COMMUNITY_POST_UPDATED'; payload: CommunityPost }
   | { type: 'COMMUNITY_POST_DELETED'; payload: { id: string } }
   | { type: 'COMMUNITY_NEW_POST'; payload: CommunityPost }
-  | { type: 'COMMUNITY_NEW_MESSAGE'; payload: DirectMessage };
+  | { type: 'COMMUNITY_NEW_MESSAGE'; payload: DirectMessage }
+  | { type: 'ACCOUNT_CLOSED'; payload?: { reason?: string } };
 
 export type CommunityCategory =
   | 'malzeme'
@@ -725,4 +726,29 @@ export interface PublicShopMapItem {
 }
 
 export type PublicMapShop = PublicShopMapItem;
+
+export interface Account {
+  id: string;
+  shopName: string;
+  ownerName: string;
+  phone: string;
+  username?: string;
+  email?: string;
+  passwordHash: string;
+  createdAt: string;
+  role?: string; // 'owner' | 'cashier' (yok = owner)
+  parentAccountId?: string; // kasiyer icin hesap sahibi
+  position?: string; // personel görevi (örn: Kasiyer, Usta, Çırak)
+  salary?: number; // aylık maaş (TL)
+  staffNotes?: string; // personel notu
+  createdIp?: string; // kayit olunan IP
+  lastLoginIp?: string; // son giris IP'si
+  lastLoginAt?: string; // son giris zamani (ISO)
+  loginCount?: number; // toplam basarili giris sayisi
+  loginHistory?: { at: string; ip: string }[]; // son girisler (en fazla 20)
+  isClosed?: boolean;
+  closedAt?: string;
+  closedReason?: string;
+}
+
 

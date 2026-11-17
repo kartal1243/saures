@@ -15,12 +15,12 @@ import { S, saveState, als } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast, broadcastToAccount } from '../realtime';
 import { localDay } from '../day';
-import { getAccounts, clientIp, isValidTurkishPhone, normalizePhone } from '../accounts';
-import { loadShopState, persistShopState, defaultBarberSettings, defaultBarberStaff, defaultBarberServices, demoBarberReviews } from '../shopState';
+import { getAccounts, clientIp, isValidTurkishPhone, normalizePhone, isAccountClosed } from '../accounts';
+import { loadShopState, persistShopState, defaultBarberSettings, defaultBarberStaff, defaultBarberServices } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { FREE_ONLINE_BOOKING_QUOTA } from '../config';
 import { publicActionRateLimit, firebaseAppCheckGuard } from '../guards';
-import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
+import { DEMO_ACCOUNT_ID } from '../demoSeed';
 import { verifyFirebaseIdToken, writeFirestoreDocument } from '../services/firebaseService';
 import { sendSmsMessage } from '../services/smsProvider';
 import { sendPushToAccount } from './devices';
@@ -46,19 +46,25 @@ function slugify(text: string): string {
 
 function resolveBarberShop(identifier: string) {
   const rawId = identifier.toLowerCase().trim();
+  if (!rawId || rawId === 'demo') {
+    return { account: undefined, shopState: null };
+  }
   const accounts = getAccounts();
 
   let targetAcc = accounts.find(
     (a) =>
-      a.id.toLowerCase() === rawId ||
-      a.phone === rawId ||
-      slugify(a.shopName) === rawId
+      a.id !== DEMO_ACCOUNT_ID &&
+      !isAccountClosed(a) &&
+      (a.id.toLowerCase() === rawId ||
+        a.phone === rawId ||
+        slugify(a.shopName) === rawId)
   );
 
   let shopState = targetAcc ? loadShopState(targetAcc.id) : null;
 
   if (!shopState) {
     for (const a of accounts) {
+      if (a.id === DEMO_ACCOUNT_ID || isAccountClosed(a)) continue;
       const st = loadShopState(a.id);
       const shopSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
       if (shopSlug === rawId) {
@@ -66,17 +72,6 @@ function resolveBarberShop(identifier: string) {
         shopState = st;
         break;
       }
-    }
-  }
-
-  // Yalnızca rawId 'demo' ise demoya düş; var olmayan diğer sluglar 404 dönmelidir!
-  if (!shopState && rawId === 'demo') {
-    const fallbackAcc = accounts.find(
-      (a) => a.id === DEMO_ACCOUNT_ID || a.phone === DEMO_PHONE || a.phone === '05550000000'
-    );
-    if (fallbackAcc) {
-      targetAcc = fallbackAcc;
-      shopState = loadShopState(fallbackAcc.id);
     }
   }
 
@@ -278,20 +273,19 @@ export function registerPublicBarberRoutes(app: Express): void {
 
     const storeName = shopState.shopProfile?.storeName || account?.shopName || 'Berber & Kuaför Salonu';
     const slug = shopState.shopProfile?.slug || slugify(storeName);
-    const isDemo = Boolean(account?.id && account.id.includes('demo'));
     const limits = getTierLimits(shopState.shopProfile);
-    const isVip = Boolean(shopState.shopProfile?.isVip || isDemo);
+    const isVip = Boolean(shopState.shopProfile?.isVip);
 
     // Aylık randevu kotası kontrolü: Çırak (20), Usta (60), Patron VIP (Sınırsız)
     const currentMonth = new Date().toISOString().slice(0, 7);
     const monthlyOnlineApts = (shopState.appointments || []).filter(
       (a) => a.appointmentDate && a.appointmentDate.startsWith(currentMonth) && (a.isOnlineBooking || (a as any).isOnline)
     ).length;
-    const effectiveQuota = isDemo ? Infinity : limits.maxMonthlyOnlineBookings;
+    const effectiveQuota = limits.maxMonthlyOnlineBookings;
     const quotaExceeded = monthlyOnlineApts >= effectiveQuota;
 
     // Çırak ve Usta paketlerinde tek koltuk kuralı
-    const allowedStaff = isDemo || limits.maxStaffSeats === Infinity ? staff : staff.slice(0, limits.maxStaffSeats);
+    const allowedStaff = limits.maxStaffSeats === Infinity ? staff : staff.slice(0, limits.maxStaffSeats);
 
     res.json({
       shop: {
@@ -304,7 +298,7 @@ export function registerPublicBarberRoutes(app: Express): void {
         iban: shopState.shopProfile?.iban || '',
         isVip,
         vipTier: limits.tier,
-        brandingRequired: !isDemo && !limits.removeBranding,
+        brandingRequired: !limits.removeBranding,
       },
       isVip,
       vipTier: limits.tier,
@@ -323,7 +317,7 @@ export function registerPublicBarberRoutes(app: Express): void {
       timeBlocks,
       reviews: (shopState.barberReviews && shopState.barberReviews.length > 0)
         ? shopState.barberReviews.filter((r) => r.approved !== false)
-        : (isDemo ? demoBarberReviews : []),
+        : [],
     });
   });
 
@@ -397,15 +391,11 @@ export function registerPublicBarberRoutes(app: Express): void {
       // smsProvider henüz mevcut değilse güvenli fallback kullan
     }
 
-    const identifier = String(req.body?.identifier || '').toLowerCase().trim();
-    const isDemo = cleanPhone === '05900000011' || cleanPhone === '05550000000' || identifier === 'demo' || process.env.NODE_ENV !== 'production';
-
     res.json({
       success: true,
       message: smsResult && !smsResult.simulated
         ? 'Onay kodunuz SMS olarak telefonunuza gönderildi.'
         : 'Onay kodunuz hazırlandı (SMS ağ geçidi aktif değilse WhatsApp ile doğrulayabilirsiniz).',
-      demoCode: isDemo ? code : undefined,
       smsSent: Boolean(smsResult && smsResult.sent && !smsResult.simulated),
       simulated: smsResult ? smsResult.simulated : true,
       provider: smsResult?.provider || 'fallback_whatsapp',
@@ -420,7 +410,6 @@ export function registerPublicBarberRoutes(app: Express): void {
       return res.status(404).json({ error: 'İşletme bulunamadı.' });
     }
 
-    const isDemo = Boolean(account?.id && account.id.includes('demo'));
     const limits = getTierLimits(shopState.shopProfile);
     const {
       customerName,
@@ -480,7 +469,7 @@ export function registerPublicBarberRoutes(app: Express): void {
     const monthlyOnlineApts = (shopState.appointments || []).filter(
       (a) => a.appointmentDate && a.appointmentDate.startsWith(currentMonth) && (a.isOnlineBooking || (a as any).isOnline)
     ).length;
-    const effectiveQuota = isDemo ? Infinity : limits.maxMonthlyOnlineBookings;
+    const effectiveQuota = limits.maxMonthlyOnlineBookings;
 
     if (monthlyOnlineApts >= effectiveQuota) {
       return res.status(403).json({
@@ -807,16 +796,15 @@ export function registerPublicBarberRoutes(app: Express): void {
 
   // 5. Müşteri Yorumlarını Listeleme
   app.get('/api/public/barber/:identifier/reviews', (req: Request, res: Response) => {
-    const { shopState, account } = resolveBarberShop(req.params.identifier);
+    const { shopState } = resolveBarberShop(req.params.identifier);
     if (!shopState) {
       return res.status(404).json({ error: 'İşletme bulunamadı.' });
     }
 
-    const isDemo = Boolean(account?.id && account.id.includes('demo'));
     const reviews = (shopState.barberReviews && shopState.barberReviews.length > 0)
       ? shopState.barberReviews.filter((r) => r.approved !== false)
-      : (isDemo ? demoBarberReviews : []);
-    const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
+      : [];
+    const totalRating = reviews.reduce((sum: number, r: BarberReview) => sum + r.rating, 0);
     const avgRating = reviews.length > 0 ? Number((totalRating / reviews.length).toFixed(1)) : 5.0;
 
     res.json({

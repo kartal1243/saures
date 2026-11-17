@@ -8,27 +8,9 @@ import {
   AUTH_EVENTS_FILE,
 } from './config';
 import { readJsonFile, writeJsonFile } from './fsdb';
+import type { Account } from '../shared/types';
 
-export interface Account {
-  id: string;
-  shopName: string;
-  ownerName: string;
-  phone: string;
-  username?: string;
-  email?: string;
-  passwordHash: string;
-  createdAt: string;
-  role?: string; // 'owner' | 'cashier' (yok = owner)
-  parentAccountId?: string; // kasiyer icin hesap sahibi
-  position?: string; // personel görevi (örn: Kasiyer, Usta, Çırak)
-  salary?: number; // aylık maaş (TL)
-  staffNotes?: string; // personel notu
-  createdIp?: string; // kayit olunan IP
-  lastLoginIp?: string; // son giris IP'si
-  lastLoginAt?: string; // son giris zamani (ISO)
-  loginCount?: number; // toplam basarili giris sayisi
-  loginHistory?: { at: string; ip: string }[]; // son girisler (en fazla 20)
-}
+export type { Account };
 
 export interface Session {
   token: string;
@@ -81,12 +63,9 @@ export function isValidTurkishPhone(raw: string): boolean {
   // Kesinlikle 11 hane ve 05 ile başlamalı
   if (!/^05\d{9}$/.test(norm)) return false;
 
-  // Operatör kodu kontrolü (50X, 53X, 54X, 55X veya 59X demo)
+  // Operatör kodu kontrolü (50X, 53X, 54X, 55X, 59X)
   const op = norm.slice(1, 3);
   if (!['50', '53', '54', '55', '59'].includes(op)) return false;
-
-  // Demo numarası istisnası (05900000011)
-  if (norm === '05900000011') return true;
 
   // Sahte / Rastgele / Tekrarlayan Geçersiz Dizilim Kontrolleri:
   // 1. Son 8 hanede 6 veya daha fazla aynı rakamın ardışık tekrarı (örn. 05320000000, 05441111111)
@@ -128,10 +107,7 @@ export function findAccountByPhoneOrUsername(identifier: string): Account | unde
   return accounts.find((a) =>
     (a.username && a.username.toLowerCase() === lower) ||
     a.phone === clean ||
-    normalizePhone(a.phone) === norm ||
-    (lower === 'patron' && (a.username === 'patron' || a.id === 'acc_master_patron')) ||
-    (lower === 'omer' && (a.username === 'patron' || a.id === 'acc_master_patron')) ||
-    (lower === 'omeryaman' && (a.username === 'patron' || a.id === 'acc_master_patron'))
+    (norm && normalizePhone(a.phone) === norm)
   );
 }
 
@@ -142,6 +118,52 @@ export function addAccount(acc: Account): void {
 
 export function persistAccounts(): void {
   writeJsonFile(ACCOUNTS_FILE, accounts);
+}
+
+export function isAccountClosed(acc?: Account | null): boolean {
+  if (!acc) return false;
+  if (acc.isClosed === true) return true;
+  if (acc.parentAccountId) {
+    const parent = findAccountById(acc.parentAccountId);
+    if (parent?.isClosed === true) return true;
+  }
+  return false;
+}
+
+export function setAccountClosed(
+  accountId: string,
+  isClosed: boolean,
+  reason?: string
+): Account | null {
+  const acc = findAccountById(accountId);
+  if (!acc) return null;
+
+  if (isClosed) {
+    acc.isClosed = true;
+    acc.closedAt = new Date().toISOString();
+    const cleanReason = reason ? String(reason).trim().slice(0, 200) : '';
+    if (cleanReason) acc.closedReason = cleanReason;
+
+    removeSessionsForAccount(acc.id);
+    for (const staff of accounts.filter((a) => a.parentAccountId === acc.id)) {
+      staff.isClosed = true;
+      staff.closedAt = acc.closedAt;
+      if (cleanReason) staff.closedReason = cleanReason;
+      removeSessionsForAccount(staff.id);
+    }
+  } else {
+    acc.isClosed = false;
+    acc.closedAt = undefined;
+    acc.closedReason = undefined;
+    for (const staff of accounts.filter((a) => a.parentAccountId === acc.id)) {
+      staff.isClosed = false;
+      staff.closedAt = undefined;
+      staff.closedReason = undefined;
+    }
+  }
+
+  persistAccounts();
+  return acc;
 }
 
 export function removeAccount(id: string): void {
@@ -219,7 +241,8 @@ export function accountFromRequest(req: {
   if (!session) return null;
   if (new Date(session.expiresAt).getTime() < Date.now()) return null;
   const acc = accounts.find((a) => a.id === session.accountId);
-  return acc || null;
+  if (!acc || isAccountClosed(acc)) return null;
+  return acc;
 }
 
 export function sessionCookie(token: string): string {

@@ -38,7 +38,7 @@ interface PublicAssetData {
 }
 
 export const PublicAssetPassportView: React.FC<{ initialCode?: string }> = ({ initialCode }) => {
-  const code = (initialCode || 'demo').trim();
+  const code = (initialCode || '').trim();
   const [loading, setLoading] = useState(true);
   const [asset, setAsset] = useState<PublicAssetData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,10 +120,10 @@ export const PublicAssetPassportView: React.FC<{ initialCode?: string }> = ({ in
           <h1 className="text-xl font-black">Cihaz Pasaportu Bulunamadı</h1>
           <p className="text-sm text-stone-400">{error}</p>
           <a
-            href="/bakim/demo"
+            href="/"
             className="inline-block px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs"
           >
-            Örnek Fabrika Bakım Pasaportunu Gör (/bakim/demo)
+            Ana Sayfaya Dön
           </a>
         </div>
       </div>

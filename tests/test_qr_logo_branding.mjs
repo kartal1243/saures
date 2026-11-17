@@ -87,9 +87,13 @@ console.log('🧪 QR Menü & QR Randevu Dükkan Logosu (PP) Markalama Testleri B
     !modalSrc.includes('}/menu?masa='),
     'Eski bozuk /menu?masa= linki tamamen kaldırılmış olmalı'
   );
+  assert.ok(
+    !modalSrc.includes("shopSlug || 'demo'"),
+    'TableQrMenuModal içinde demo fallback bağlantısı olmamalı'
+  );
   assert.match(
     modalSrc,
-    /\/m\/\$\{encodeURIComponent\(shopSlug \|\| 'demo'\)\}\?masa=\$\{encodeURIComponent\(tableName\)\}/,
+    /\/m\/\$\{encodeURIComponent\(targetSlug\)\}\?masa=\$\{encodeURIComponent\(tableName\)\}/,
     'QR Menü URLsi gerçek dükkan slugına (/m/:slug?masa=...) gitmeli'
   );
   assert.match(modalSrc, /size=500x500&ecc=H/, 'QR kod URLsi &ecc=H içermeli');

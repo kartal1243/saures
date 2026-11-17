@@ -366,20 +366,63 @@ async function runAsync() {
     assert.strictEqual(safeAsset.doc[piiKey], undefined, `public_assets içine ${piiKey} yazılmamalı!`);
   }
 
-  // 5e. QR Pasaport & Mevcut Firebase yardımcıları
-  const demoAsset = lookupPublicAsset('demo');
-  assert.ok(demoAsset, 'Demo bakım pasaportu dönmeli');
-  assert.strictEqual(demoAsset.code, 'demo');
-  assert.ok(demoAsset.logs.length >= 2, 'Demo bakım geçmişi dolu olmalı');
-
-  const ticketReq = await requestServiceForPublicAsset('demo', {
-    reporterName: 'Vardiya Amiri Ali',
-    reporterPhone: '05321112233',
-    issueDescription: 'Spindle rulman sesi kontrolü',
-    urgency: 'Acil — Hat Durdu',
+  // 5e. QR Pasaport & Mevcut Firebase yardımcıları (demo devre dışı + gerçek cihaz doğrulaması)
+  assert.strictEqual(lookupPublicAsset('demo'), null, 'Demo bakım pasaportu tamamen kaldırılmış olmalı');
+  const demoTicketReq = await requestServiceForPublicAsset('demo', {
+    reporterName: 'Test',
+    issueDescription: 'Test',
   });
-  assert.strictEqual(ticketReq.ok, true, 'Demo QR arıza bildirimi başarılı olmalı');
-  assert.ok(ticketReq.ticket?.id);
+  assert.strictEqual(demoTicketReq.ok, false, 'Demo QR arıza bildirimi reddedilmeli');
+
+  const { addAccount, removeAccount, hashPassword } = await import('../backend/accounts.ts');
+  const { setShopState, loadShopState } = await import('../backend/shopState.ts');
+  const { SHOPS_DIR } = await import('../backend/config.ts');
+  const tempAccId = `acc_test_fb_asset_${Date.now()}`;
+  try {
+    addAccount({
+      id: tempAccId,
+      shopName: 'Test Endüstriyel Servis',
+      ownerName: 'Murat Usta',
+      phone: '05339998877',
+      passwordHash: hashPassword('Test123456!'),
+      createdAt: new Date().toISOString(),
+    });
+    const tempSt = loadShopState(tempAccId);
+    tempSt.maintenanceAssets = [
+      {
+        id: 'asset_real_1',
+        code: 'MKN-REAL-01',
+        clientName: 'Yılmaz Metal CNC',
+        locationArea: 'A Blok',
+        deviceName: 'Haas VF-2 CNC',
+        brandModel: 'Haas VF-2SS',
+        serialNumber: 'SN-REAL-4892',
+        intervalDays: 90,
+        lastMaintenanceDate: '2026-10-01',
+        nextMaintenanceDate: '2026-12-30',
+        logs: [{ id: 'ml_1', date: '2026-10-01', summary: 'Bakım tamamlandı', technician: 'Murat Usta' }],
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    setShopState(tempAccId, tempSt);
+
+    const realAsset = lookupPublicAsset('MKN-REAL-01');
+    assert.ok(realAsset, 'Gerçek bakım pasaportu dönmeli');
+    assert.strictEqual(realAsset.code, 'MKN-REAL-01');
+    assert.ok(realAsset.logs.length >= 1, 'Gerçek bakım geçmişi bulunmalı');
+
+    const ticketReq = await requestServiceForPublicAsset('MKN-REAL-01', {
+      reporterName: 'Vardiya Amiri Ali',
+      reporterPhone: '05321112233',
+      issueDescription: 'Spindle rulman sesi kontrolü',
+      urgency: 'Acil — Hat Durdu',
+    });
+    assert.strictEqual(ticketReq.ok, true, 'Gerçek QR arıza bildirimi başarılı olmalı');
+    assert.ok(ticketReq.ticket?.id);
+  } finally {
+    removeAccount(tempAccId);
+    try { fs.unlinkSync(path.join(SHOPS_DIR, `${tempAccId}.json`)); } catch {}
+  }
 
   const prevDbIdEnv = process.env.FIREBASE_FIRESTORE_DATABASE_ID;
   delete process.env.FIREBASE_FIRESTORE_DATABASE_ID;

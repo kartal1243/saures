@@ -121,7 +121,7 @@ export const RestaurantTablesView: React.FC<RestaurantTablesViewProps> = ({
   }, []);
 
   const effectiveStoreName = storeName || profileFallback.storeName || 'Dükkanım Kafe & Restoran';
-  const effectiveShopSlug = shopSlug || profileFallback.slug || 'demo';
+  const effectiveShopSlug = shopSlug || profileFallback.slug || '';
   const effectiveShopLogoUrl = shopLogoUrl || profileFallback.logoUrl || '';
 
   const maxTables = tier === 'patron' ? Infinity : tier === 'usta' ? 10 : 3;

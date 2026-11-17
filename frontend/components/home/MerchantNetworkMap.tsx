@@ -33,201 +33,6 @@ export interface MapMerchant {
   logoUrl?: string;
 }
 
-const INITIAL_PILOT_MERCHANTS: MapMerchant[] = [
-  {
-    id: 'demo-barber',
-    name: 'Berber & Kuaför Demo — Kadıköy Moda',
-    slug: 'demo',
-    sectorKey: 'berber_kuafor',
-    sectorName: 'Erkek Kuaförü & Berber',
-    city: 'İstanbul',
-    district: 'Kadıköy',
-    latitude: 40.9882,
-    longitude: 29.0267,
-    phone: '0555 000 0000',
-    actionUrl: '/r/demo',
-    actionLabel: 'Randevu Al',
-    badge: 'Canlı Randevu Demo',
-    isOpen: true,
-  },
-  {
-    id: 'demo-cafe',
-    name: 'Karaköy Kahvecisi & Bistro',
-    slug: 'demo',
-    sectorKey: 'kafe_restoran',
-    sectorName: 'Kafe & Bistro',
-    city: 'İstanbul',
-    district: 'Beyoğlu',
-    latitude: 41.0234,
-    longitude: 28.9774,
-    phone: '0555 000 0000',
-    actionUrl: '/m/demo',
-    actionLabel: 'QR Menüyü Gör',
-    badge: 'QR Menü Aktif',
-    isOpen: true,
-  },
-  {
-    id: 'nisantasi-beauty',
-    name: 'Nişantaşı Güzellik & Nail Studio',
-    slug: 'nisantasi-guzellik',
-    sectorKey: 'guzellik_salonu',
-    sectorName: 'Güzellik Salonu & Seans',
-    city: 'İstanbul',
-    district: 'Şişli',
-    latitude: 41.0504,
-    longitude: 28.9928,
-    phone: '0212 555 0101',
-    actionUrl: '/guzellik-salonu',
-    actionLabel: 'İncele',
-    badge: 'Paket & Seans Takibi',
-    isOpen: true,
-  },
-  {
-    id: 'cankaya-hair',
-    name: 'Çankaya Premium Kuaför & Saç Tasarım',
-    slug: 'cankaya-kuafor',
-    sectorKey: 'berber_kuafor',
-    sectorName: 'Kadın Kuaförü & Renklendirme',
-    city: 'Ankara',
-    district: 'Çankaya',
-    latitude: 39.8969,
-    longitude: 32.8644,
-    phone: '0312 555 0102',
-    actionUrl: '/kuafor',
-    actionLabel: 'Randevu Sistemi',
-    badge: 'Online Randevu',
-    isOpen: true,
-  },
-  {
-    id: 'alsancak-lounge',
-    name: 'Alsancak Kahve & Adisyon Lounge',
-    slug: 'alsancak-kahve',
-    sectorKey: 'kafe_restoran',
-    sectorName: 'Kafe & Adisyon',
-    city: 'İzmir',
-    district: 'Konak',
-    latitude: 38.4382,
-    longitude: 27.1428,
-    phone: '0232 555 0103',
-    actionUrl: '/kafe-restoran',
-    actionLabel: 'Adisyon İncele',
-    badge: 'Canlı Masa Takibi',
-    isOpen: true,
-  },
-  {
-    id: 'bursa-pos',
-    name: 'Nilüfer Mahalle Şarküteri & Bakkal',
-    slug: 'nilufer-sarkuteri',
-    sectorKey: 'bakkal_market',
-    sectorName: 'Bakkal & Hızlı POS',
-    city: 'Bursa',
-    district: 'Nilüfer',
-    latitude: 40.2133,
-    longitude: 28.9833,
-    phone: '0224 555 0104',
-    actionUrl: '/bakkal-market',
-    actionLabel: 'POS Sistemi',
-    badge: 'Veresiye Defteri',
-    isOpen: true,
-  },
-  {
-    id: 'antalya-tailor',
-    name: 'Muratpaşa Moda Evi & Usta Terzi',
-    slug: 'muratpasa-terzi',
-    sectorKey: 'terzi',
-    sectorName: 'Terzi & Kuru Temizleme',
-    city: 'Antalya',
-    district: 'Muratpaşa',
-    latitude: 36.8841,
-    longitude: 30.7056,
-    phone: '0242 555 0105',
-    actionUrl: '/terzi',
-    actionLabel: 'Emanet Takip',
-    badge: 'Tadilat Fişi',
-    isOpen: true,
-  },
-  {
-    id: 'uskudar-service',
-    name: 'Üsküdar Telefon & Teknik Servis',
-    slug: 'uskudar-teknik-servis',
-    sectorKey: 'teknik_servis',
-    sectorName: 'Teknik Servis & Cihaz Takip',
-    city: 'İstanbul',
-    district: 'Üsküdar',
-    latitude: 41.0267,
-    longitude: 29.0156,
-    phone: '0216 555 0106',
-    actionUrl: '/teknik-servis',
-    actionLabel: 'Servis Fişi',
-    badge: 'Cihaz Sorgula',
-    isOpen: true,
-  },
-  {
-    id: 'izmit-barber',
-    name: 'İzmit Fethiye Berber & Erkek Bakım',
-    slug: 'izmit-fethiye-berber',
-    sectorKey: 'berber_kuafor',
-    sectorName: 'Erkek Kuaförü & Berber',
-    city: 'Kocaeli',
-    district: 'İzmit',
-    latitude: 40.7654,
-    longitude: 29.9408,
-    phone: '0262 322 0000',
-    actionUrl: '/izmit-berber-randevu',
-    actionLabel: 'Randevu Al',
-    badge: 'İzmit Online Randevu',
-    isOpen: true,
-  },
-  {
-    id: 'gebze-hair',
-    name: 'Gebze Çarşı Kuaför & Saç Tasarım',
-    slug: 'gebze-carsi-kuafor',
-    sectorKey: 'berber_kuafor',
-    sectorName: 'Kuaför & Saç Tasarım',
-    city: 'Kocaeli',
-    district: 'Gebze',
-    latitude: 40.8028,
-    longitude: 29.4307,
-    phone: '0262 641 0000',
-    actionUrl: '/izmit-berber-randevu',
-    actionLabel: 'Randevu Sistemi',
-    badge: 'Kocaeli Berber',
-    isOpen: true,
-  },
-  {
-    id: 'zonguldak-barber',
-    name: 'Zonguldak Gazipaşa Berber Salonu',
-    slug: 'zonguldak-gazipasa-berber',
-    sectorKey: 'berber_kuafor',
-    sectorName: 'Erkek Kuaförü & Saç Kesim',
-    city: 'Zonguldak',
-    district: 'Merkez',
-    latitude: 41.4564,
-    longitude: 31.7987,
-    phone: '0372 251 0000',
-    actionUrl: '/zonguldak-berber-randevu',
-    actionLabel: 'Randevu Al',
-    badge: 'Zonguldak Randevu',
-    isOpen: true,
-  },
-  {
-    id: 'eregli-beauty',
-    name: 'Kdz. Ereğli Sahil Kuaför & Bakım',
-    slug: 'kdz-eregli-sahil-kuafor',
-    sectorKey: 'berber_kuafor',
-    sectorName: 'Kuaför & Güzellik',
-    city: 'Zonguldak',
-    district: 'Karadeniz Ereğli',
-    latitude: 41.2844,
-    longitude: 31.4150,
-    phone: '0372 316 0000',
-    actionUrl: '/zonguldak-berber-randevu',
-    actionLabel: 'Randevu Sistemi',
-    badge: 'Kdz. Ereğli',
-    isOpen: true,
-  },
-];
-
 const CITIES = ['Tüm Türkiye', 'Kocaeli', 'Zonguldak', 'İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya'];
 
 const SECTOR_PILLS = [
@@ -241,47 +46,50 @@ const SECTOR_PILLS = [
 ];
 
 export default function MerchantNetworkMap() {
-  const [merchants, setMerchants] = useState<MapMerchant[]>(INITIAL_PILOT_MERCHANTS);
+  const [merchants, setMerchants] = useState<MapMerchant[]>([]);
   const [selectedCity, setSelectedCity] = useState<string>('Tüm Türkiye');
   const [selectedSector, setSelectedSector] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeMerchantId, setActiveMerchantId] = useState<string>('demo-barber');
+  const [activeMerchantId, setActiveMerchantId] = useState<string>('');
 
-  // Backend canlı harita verisini asenkron çek (varsa yeni esnafları ekle)
+  // Backend canlı harita verisini çek (yalnızca gerçek ve açık dükkanlar)
   useEffect(() => {
     let isMounted = true;
-    fetch('/api/public/shops/map')
+    fetch('/api/public/shops-map')
       .then((res) => {
         if (!res.ok) throw new Error('Network error');
         return res.json();
       })
       .then((data) => {
         if (!isMounted || !data?.shops || !Array.isArray(data.shops)) return;
-        const liveShops: MapMerchant[] = data.shops.map((s: any) => ({
-          id: s.id,
-          name: s.shopName,
-          slug: s.slug || s.id,
-          sectorKey: s.sectorKey || 'genel_esnaf',
-          sectorName: s.slogan || (s.sectorKey === 'berber_kuafor' ? 'Berber & Kuaför' : 'Esnaf & İşletme'),
-          city: s.city || 'İstanbul',
-          district: s.district || '',
-          latitude: s.coordinates?.lat || 41.0082,
-          longitude: s.coordinates?.lng || 28.9784,
-          phone: s.phone,
-          actionUrl: s.bookingUrl || `/r/${s.slug || s.id}`,
-          actionLabel: s.sectorKey === 'kafe_restoran' ? 'Menüyü Gör' : 'Randevu Al',
-          badge: s.isVip ? 'VIP Üye' : 'Doğrulanmış Esnaf',
-          isOpen: Boolean(s.isOpen),
-        }));
+        const liveShops: MapMerchant[] = data.shops.map((s: any) => {
+          const slug = s.slug || s.id;
+          const isMenu = s.hasMenu || s.sectorKey === 'kafe_restoran';
+          return {
+            id: s.id,
+            name: s.name || s.shopName,
+            slug,
+            sectorKey: s.sectorKey || 'genel_esnaf',
+            sectorName: s.slogan || (isMenu ? 'Kafe & Restoran' : s.sectorKey === 'berber_kuafor' ? 'Berber & Kuaför' : 'Esnaf & İşletme'),
+            city: s.city || 'İstanbul',
+            district: s.district || '',
+            latitude: typeof s.lat === 'number' ? s.lat : (s.coordinates?.lat || 41.0082),
+            longitude: typeof s.lng === 'number' ? s.lng : (s.coordinates?.lng || 28.9784),
+            actionUrl: isMenu ? `/m/${slug}` : `/r/${slug}`,
+            actionLabel: isMenu ? 'Menüyü Gör' : 'Randevu Al',
+            badge: s.isVip ? 'VIP Üye' : 'Aktif İşletme',
+            isOpen: s.isOpen !== false,
+            logoUrl: s.logoUrl,
+          };
+        });
 
-        // Initial pilot dükkanlar ile canlı listeyi birleştir, id bazlı tekilleştir
-        const map = new Map<string, MapMerchant>();
-        INITIAL_PILOT_MERCHANTS.forEach((m) => map.set(m.id, m));
-        liveShops.forEach((s) => map.set(s.id, s));
-        setMerchants(Array.from(map.values()));
+        setMerchants(liveShops);
+        if (liveShops.length > 0) {
+          setActiveMerchantId((prev) => prev || liveShops[0].id);
+        }
       })
       .catch(() => {
-        // Hata durumunda INITIAL_PILOT_MERCHANTS ile sorunsuz devam edilir
+        if (isMounted) setMerchants([]);
       });
 
     return () => {

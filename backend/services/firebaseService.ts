@@ -1191,10 +1191,16 @@ export function renderBackendBrandedEmail(payload: BrandedEmailPayload): {
 
 export function isCustomEmailConfigured(): boolean {
   const sa = loadFirebaseServiceAccount();
+  const hasSmtp = Boolean(
+    (process.env.SMTP_HOST || '').trim() &&
+      (process.env.SMTP_USER || '').trim() &&
+      (process.env.SMTP_PASS || '').trim()
+  );
   return Boolean(
     (process.env.FIREBASE_EMAIL_FUNCTION_URL || '').trim() ||
       (process.env.RESEND_API_KEY || '').trim() ||
       (process.env.SENDGRID_API_KEY || '').trim() ||
+      hasSmtp ||
       (Boolean(sa) && process.env.FIREBASE_EMAIL_QUEUE_ACTIVE === 'true')
   );
 }

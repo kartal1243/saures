@@ -436,14 +436,6 @@ export const RepairTicketsView: React.FC<RepairTicketsViewProps> = ({
                 <p className="text-xs max-w-md mx-auto">
                   Fabrika CNC makineleri, kompresörler, kombi/klima veya medikal cihazlar ekleyip üzerlerine QR bakım etiketi basabilirsiniz.
                 </p>
-                <a
-                  href="/bakim/demo"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:underline"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> Örnek Fabrika Bakım Pasaportunu İncele (/bakim/demo)
-                </a>
               </div>
             ) : (
               <div className="divide-y divide-stone-100 dark:divide-stone-800">

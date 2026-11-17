@@ -17,21 +17,94 @@ console.log('✓ assetlinks.json formatı ve içeriği doğrulandı.\n');
 
 // 2. Dinamik SEO HTML Testleri
 console.log('TEST 2: Dinamik SEO HTML ve Open Graph Meta Etiketleri');
-const { renderSeoHtml, getSeoMetadata } = await import('../dist/server.cjs');
+const {
+  renderSeoHtml,
+  findShopForSeo,
+  addAccount,
+  removeAccount,
+  hashPassword,
+  loadShopState,
+  setShopState,
+  SHOPS_DIR,
+} = (await import('../dist/server.cjs')).default || (await import('../dist/server.cjs'));
 
-// 2a. Randevu: /r/demo
-const htmlRandevu = renderSeoHtml('/r/demo', 'dukkanimyanimda.com.tr');
-assert(htmlRandevu.includes('Makas &amp; Tarak Erkek Kuaförü - Online Randevu Al') || htmlRandevu.includes('Makas & Tarak Erkek Kuaförü - Online Randevu Al'), 'Randevu başlığında dükkan adı olmalı');
-assert(htmlRandevu.includes('Makas &amp; Tarak Erkek Kuaförü - Kolay Online Randevu') || htmlRandevu.includes('Makas & Tarak Erkek Kuaförü - Kolay Online Randevu'), 'og:title dükkan adını içermeli');
-assert(htmlRandevu.includes('Makas &amp; Tarak Erkek Kuaförü') || htmlRandevu.includes('Makas & Tarak Erkek Kuaförü'), 'og:description dükkan adını içermeli');
-console.log('✓ /r/demo: WhatsApp önizleme başlıklarında gerçek dükkan adı doğrulandı.');
+const barberAccId = `acc_test_twa_barber_${Date.now()}`;
+const cafeAccId = `acc_test_twa_cafe_${Date.now()}`;
 
-// 2b. Menü: /m/demo
-const htmlMenu = renderSeoHtml('/m/demo', 'dukkanimyanimda.com.tr');
-assert(htmlMenu.includes('Karaköy Kahvecisi') || htmlMenu.includes('Makas &amp; Tarak Erkek Kuaförü'), 'Menü sayfasında dükkan adı olmalı');
-assert(htmlMenu.includes('property="og:title"'), 'og:title bulunmalı');
-assert(htmlMenu.includes('property="og:description"'), 'og:description bulunmalı');
-console.log('✓ /m/demo: Dijital QR menü başlığı ve OG meta etiketleri doğrulandı.');
+try {
+  addAccount({
+    id: barberAccId,
+    shopName: 'Makas Sanatı Kuaför',
+    ownerName: 'Ahmet Usta',
+    phone: '05328887766',
+    passwordHash: hashPassword('Test123456!'),
+    createdAt: new Date().toISOString(),
+  });
+  const bst = loadShopState(barberAccId);
+  bst.shopProfile = {
+    storeName: 'Makas Sanatı Kuaför',
+    ownerName: 'Ahmet Usta',
+    businessField: 'Berber / Kuaför',
+    sectorKey: 'berber_kuafor',
+    employeeCount: '2',
+    phone: '05328887766',
+    cityDistrict: 'İstanbul / Kadıköy',
+    dailyTarget: 3000,
+    slug: 'makas-sanati-twa',
+    isConfigured: true,
+    isVip: true,
+  };
+  setShopState(barberAccId, bst);
+
+  addAccount({
+    id: cafeAccId,
+    shopName: 'Kordon Bistro Kafe',
+    ownerName: 'Mehmet Usta',
+    phone: '05337776655',
+    passwordHash: hashPassword('Test123456!'),
+    createdAt: new Date().toISOString(),
+  });
+  const cst = loadShopState(cafeAccId);
+  cst.shopProfile = {
+    storeName: 'Kordon Bistro Kafe',
+    ownerName: 'Mehmet Usta',
+    businessField: 'Kafe & Restoran',
+    sectorKey: 'kafe_restoran',
+    employeeCount: '3',
+    phone: '05337776655',
+    cityDistrict: 'İzmir / Konak',
+    dailyTarget: 5000,
+    slug: 'kordon-bistro-twa',
+    isConfigured: true,
+    isVip: true,
+  };
+  cst.menuItems = [
+    { id: 'm1', name: 'Türk Kahvesi', price: 60, category: 'İçecekler', isAvailable: true },
+  ];
+  setShopState(cafeAccId, cst);
+
+  // Demo rotaları artık sahte dükkan dönmemeli
+  assert.strictEqual(findShopForSeo('demo'), null, '/r/demo artık null dönmeli');
+  assert.strictEqual(findShopForSeo('demo', 'menu'), null, '/m/demo artık null dönmeli');
+
+  // 2a. Randevu: gerçek dükkan
+  const htmlRandevu = renderSeoHtml('/r/makas-sanati-twa', 'dukkanimyanimda.com.tr');
+  assert(htmlRandevu.includes('Makas Sanatı Kuaför - Online Randevu Al'), 'Randevu başlığında gerçek dükkan adı olmalı');
+  assert(htmlRandevu.includes('Makas Sanatı Kuaför - Kolay Online Randevu'), 'og:title dükkan adını içermeli');
+  console.log('✓ /r/:slug: WhatsApp önizleme başlıklarında gerçek dükkan adı doğrulandı.');
+
+  // 2b. Menü: gerçek restoran
+  const htmlMenu = renderSeoHtml('/m/kordon-bistro-twa', 'dukkanimyanimda.com.tr');
+  assert(htmlMenu.includes('Kordon Bistro Kafe'), 'Menü sayfasında gerçek restoran adı olmalı');
+  assert(htmlMenu.includes('property="og:title"'), 'og:title bulunmalı');
+  assert(htmlMenu.includes('property="og:description"'), 'og:description bulunmalı');
+  console.log('✓ /m/:slug: Dijital QR menü başlığı ve OG meta etiketleri doğrulandı.');
+} finally {
+  removeAccount(barberAccId);
+  removeAccount(cafeAccId);
+  try { fs.unlinkSync(path.join(SHOPS_DIR, `${barberAccId}.json`)); } catch {}
+  try { fs.unlinkSync(path.join(SHOPS_DIR, `${cafeAccId}.json`)); } catch {}
+}
 
 // 2c. Sektör Sayfaları: /berber, /kafe-restoran, /bakkal
 const htmlBerber = renderSeoHtml('/berber', 'dukkanimyanimda.com.tr');

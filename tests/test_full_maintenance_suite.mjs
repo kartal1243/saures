@@ -30,39 +30,140 @@ console.log('🧪 Dükkanım Yanımda — Kapsamlı Bakım & Faz (0–3 / P0–P
 const rootDir = process.cwd();
 const readSrc = (relPath) => fs.readFileSync(path.join(rootDir, relPath), 'utf8');
 
-// 1. SEO: /rehber, /rehber/:slug ve /m/demo Kafe Kimliği Ayrıştırması
+// 1. SEO: /rehber, /rehber/:slug, demosuz /m/demo engeli ve gerçek Kafe Kimliği Ayrıştırması
 {
+  const { addAccount, removeAccount, hashPassword } = await import('../backend/accounts.ts');
+  const { loadShopState, setShopState } = await import('../backend/shopState.ts');
+  const { SHOPS_DIR } = await import('../backend/config.ts');
+
   assert.ok(Array.isArray(SEO_GUIDE_ARTICLES) && SEO_GUIDE_ARTICLES.length >= 8, 'SEO_GUIDE_ARTICLES en az 8 makale içermeli');
   assert.equal(isValidGuideRoute('/rehber'), true, '/rehber geçerli bir rehber rotası olmalı');
   assert.equal(isValidGuideRoute('/rehber/berber-no-show-onleme'), true, '/rehber/berber-no-show-onleme geçerli olmalı');
   assert.equal(isValidGuideRoute('/rehber/istanbul-berber-kuafor'), true, '/rehber/istanbul-berber-kuafor geçerli olmalı');
   assert.equal(isValidGuideRoute('/rehber/olmayan-makale-404'), false, 'Geçersiz rehber rotası false dönmeli');
 
-  const menuDemoShop = findShopForSeo('demo', 'menu');
-  assert.ok(menuDemoShop, 'findShopForSeo("demo", "menu") sonuç dönmeli');
-  assert.match(menuDemoShop.name, /Karaköy Kahvecisi/i, '/m/demo dükkan adı Karaköy Kahvecisi & Bistro olmalı');
-  assert.equal(menuDemoShop.sectorKey, 'kafe_restoran', '/m/demo sectorKey kafe_restoran olmalı');
+  assert.equal(findShopForSeo('demo', 'menu'), null, 'Demo menü kaldırılmış olmalı');
+  assert.equal(findShopForSeo('demo', 'barber'), null, 'Demo randevu kaldırılmış olmalı');
 
-  const barberDemoShop = findShopForSeo('demo', 'barber');
-  assert.ok(barberDemoShop, 'findShopForSeo("demo", "barber") sonuç dönmeli');
-  assert.notEqual(barberDemoShop.name, menuDemoShop.name, '/r/demo ile /m/demo kimlikleri ayrışmış olmalı');
+  const suffix = Date.now();
+  const cafeId = `acc_test_maint_cafe_${suffix}`;
+  const barberId = `acc_test_maint_barber_${suffix}`;
+  try {
+    addAccount({
+      id: cafeId,
+      shopName: 'Boğaz Bistro & Kafe',
+      ownerName: 'Ahmet Usta',
+      phone: '05326665544',
+      passwordHash: hashPassword('Test123456!'),
+      createdAt: new Date().toISOString(),
+    });
+    const cst = loadShopState(cafeId);
+    cst.shopProfile = {
+      storeName: 'Boğaz Bistro & Kafe',
+      ownerName: 'Ahmet Usta',
+      businessField: 'Kafe & Restoran',
+      sectorKey: 'kafe_restoran',
+      employeeCount: '2',
+      phone: '05326665544',
+      cityDistrict: 'İstanbul / Beşiktaş',
+      dailyTarget: 4000,
+      slug: `bogaz-bistro-${suffix}`,
+      isConfigured: true,
+      isVip: true,
+    };
+    cst.menuItems = [{ id: 'm1', name: 'Türk Kahvesi', price: 65, category: 'İçecekler', isAvailable: true }];
+    setShopState(cafeId, cst);
 
-  const customBaseTpl = '<!DOCTYPE html><html><head><title>Base</title></head><body><div id="root"></div></body></html>';
-  const mDemoHtml = renderSeoHtml('/m/demo', 'dukkanimyanimda.com.tr', customBaseTpl);
-  assert.match(mDemoHtml, /Karaköy Kahvecisi/i, 'SSR /m/demo HTML içinde Karaköy Kahvecisi geçmeli');
-  assert.match(mDemoHtml, /twitter:card/i, 'renderSeoHtml içinde twitter:card meta etiketi bulunmalı');
+    addAccount({
+      id: barberId,
+      shopName: 'Makas Atölyesi Kuaför',
+      ownerName: 'Mehmet Usta',
+      phone: '05336665544',
+      passwordHash: hashPassword('Test123456!'),
+      createdAt: new Date().toISOString(),
+    });
+    const bst = loadShopState(barberId);
+    bst.shopProfile = {
+      storeName: 'Makas Atölyesi Kuaför',
+      ownerName: 'Mehmet Usta',
+      businessField: 'Berber / Kuaför',
+      sectorKey: 'berber_kuafor',
+      employeeCount: '2',
+      phone: '05336665544',
+      cityDistrict: 'İstanbul / Kadıköy',
+      dailyTarget: 3500,
+      slug: `makas-atolyesi-${suffix}`,
+      isConfigured: true,
+      isVip: true,
+    };
+    setShopState(barberId, bst);
 
-  const ticketMeta = getSeoMetadata('/t/demo');
-  assert.match(ticketMeta.robots || '', /noindex/i, '/t/:code rotası noindex içermeli');
+    const menuShop = findShopForSeo(`bogaz-bistro-${suffix}`, 'menu');
+    assert.ok(menuShop, 'findShopForSeo gerçek restoran sonucunu dönmeli');
+    assert.match(menuShop.name, /Boğaz Bistro/i, '/m/:slug gerçek restoran adını dönmeli');
+    assert.equal(menuShop.sectorKey, 'kafe_restoran', 'sectorKey kafe_restoran olmalı');
 
-  console.log('  ✅ PASS 1: /rehber içerik kümeleri, /m/demo kafe kimliği ve /t/:code SEO doğrulandı.');
+    const barberShop = findShopForSeo(`makas-atolyesi-${suffix}`, 'barber');
+    assert.ok(barberShop, 'findShopForSeo gerçek kuaför sonucunu dönmeli');
+    assert.notEqual(barberShop.name, menuShop.name, 'Berber ile restoran kimlikleri ayrışmalı');
+
+    const customBaseTpl = '<!DOCTYPE html><html><head><title>Base</title></head><body><div id="root"></div></body></html>';
+    const mHtml = renderSeoHtml(`/m/bogaz-bistro-${suffix}`, 'dukkanimyanimda.com.tr', customBaseTpl);
+    assert.match(mHtml, /Boğaz Bistro/i, 'SSR /m/:slug HTML içinde gerçek restoran adı geçmeli');
+    assert.match(mHtml, /twitter:card/i, 'renderSeoHtml içinde twitter:card meta etiketi bulunmalı');
+
+    const ticketMeta = getSeoMetadata('/t/rep_test_123');
+    assert.match(ticketMeta.robots || '', /noindex/i, '/t/:code rotası noindex içermeli');
+
+    console.log('  ✅ PASS 1: /rehber, demo kaldırma ve gerçek dükkan SEO ayrışması doğrulandı.');
+  } finally {
+    removeAccount(cafeId);
+    removeAccount(barberId);
+    try { fs.unlinkSync(path.join(SHOPS_DIR, `${cafeId}.json`)); } catch {}
+    try { fs.unlinkSync(path.join(SHOPS_DIR, `${barberId}.json`)); } catch {}
+  }
 }
 
 // 2. Kamusal Takip (/api/public/ticket/:code) ve PublicTicketTrackerView
 {
-  const demoTicket = lookupPublicTicket('demo');
-  assert.ok(demoTicket && demoTicket.code === 'demo', 'lookupPublicTicket("demo") demo fiş döndürmeli');
-  assert.match(demoTicket.shopName, /TeknoFix/i, 'Demo fiş shopName TeknoFix Teknik Servis olmalı');
+  const { addAccount, removeAccount, hashPassword } = await import('../backend/accounts.ts');
+  const { loadShopState, setShopState } = await import('../backend/shopState.ts');
+  const { SHOPS_DIR } = await import('../backend/config.ts');
+
+  assert.equal(lookupPublicTicket('demo'), null, 'lookupPublicTicket("demo") artık null dönmeli');
+  const accId = `acc_test_maint_tkt_${Date.now()}`;
+  try {
+    addAccount({
+      id: accId,
+      shopName: 'TeknoServis Gerçek İşletme',
+      ownerName: 'Can Usta',
+      phone: '05346665544',
+      passwordHash: hashPassword('Test123456!'),
+      createdAt: new Date().toISOString(),
+    });
+    const st = loadShopState(accId);
+    st.repairTickets = [
+      {
+        id: 'rep_real_ticket_1',
+        customerName: 'Ahmet Yılmaz',
+        phone: '05321112233',
+        deviceOrVehicle: 'iPhone 14 Pro',
+        complaint: 'Ekran değişimi',
+        estimatedCost: 4000,
+        partCost: 1500,
+        status: 'teslime_hazir',
+        createdAt: '2026-11-17 10:00',
+      },
+    ];
+    setShopState(accId, st);
+
+    const realTicket = lookupPublicTicket('rep_real_ticket_1');
+    assert.ok(realTicket && realTicket.code === 'rep_real_ticket_1', 'Gerçek fiş lookupPublicTicket ile dönmeli');
+    assert.match(realTicket.shopName, /TeknoServis Gerçek/i);
+  } finally {
+    removeAccount(accId);
+    try { fs.unlinkSync(path.join(SHOPS_DIR, `${accId}.json`)); } catch {}
+  }
 
   const menuRouteSrc = readSrc('backend/routes/menu.ts');
   assert.match(menuRouteSrc, /\/api\/public\/ticket\/:code/, 'backend/routes/menu.ts içinde /api/public/ticket/:code tanımlı olmalı');

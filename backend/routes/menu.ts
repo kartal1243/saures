@@ -3,11 +3,11 @@ import crypto from 'crypto';
 import type { MenuItem, TableOrderItem } from '../../shared/types';
 import { S, saveState, als } from '../context';
 import { broadcast, broadcastToAccount } from '../realtime';
-import { getAccounts } from '../accounts';
+import { getAccounts, isAccountClosed } from '../accounts';
 import { loadShopState, persistShopState, isReservedSlug } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { publicActionRateLimit, firebaseAppCheckGuard } from '../guards';
-import { DEMO_ACCOUNT_ID, DEMO_PHONE } from '../demoSeed';
+import { DEMO_ACCOUNT_ID } from '../demoSeed';
 import { lookupPublicTicket, lookupPublicAsset, requestServiceForPublicAsset } from './repair';
 import { writeRealtimeDbPulse } from '../services/firebaseService';
 
@@ -149,19 +149,25 @@ export function slugify(text: string): string {
 
 function resolveMenuShop(identifier: string) {
   const rawId = String(identifier || '').toLowerCase().trim();
+  if (!rawId || rawId === 'demo') {
+    return { rawId, targetAcc: undefined, shopState: null };
+  }
   const accounts = getAccounts();
 
   let targetAcc = accounts.find(
     (a) =>
-      a.id.toLowerCase() === rawId ||
-      a.phone === rawId ||
-      slugify(a.shopName) === rawId
+      a.id !== DEMO_ACCOUNT_ID &&
+      !isAccountClosed(a) &&
+      (a.id.toLowerCase() === rawId ||
+        a.phone === rawId ||
+        slugify(a.shopName) === rawId)
   );
 
   let shopState = targetAcc ? loadShopState(targetAcc.id) : null;
 
   if (!shopState) {
     for (const a of accounts) {
+      if (a.id === DEMO_ACCOUNT_ID || isAccountClosed(a)) continue;
       const st = loadShopState(a.id);
       const shopSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
       if (shopSlug === rawId) {
@@ -169,17 +175,6 @@ function resolveMenuShop(identifier: string) {
         shopState = st;
         break;
       }
-    }
-  }
-
-  // Yalnızca rawId 'demo' ise demo hesabına düş; var olmayan diğer sluglar 404 dönmelidir!
-  if (!shopState && rawId === 'demo') {
-    const fallbackAcc = accounts.find(
-      (a) => a.id === DEMO_ACCOUNT_ID || a.phone === DEMO_PHONE || a.phone === '05550000000'
-    );
-    if (fallbackAcc) {
-      targetAcc = fallbackAcc;
-      shopState = loadShopState(fallbackAcc.id);
     }
   }
 
@@ -232,8 +227,8 @@ export function registerPublicMenuRoutes(app: Express): void {
 
     const limits = getTierLimits(shopState.shopProfile);
 
-    // QR Menü yalnızca Patron VIP (veya aktif VIP) üyelere açıktır (demo hariç)
-    if (!shopState.shopProfile?.isVip && rawId !== 'demo') {
+    // QR Menü yalnızca Patron VIP (veya aktif VIP) üyelere açıktır
+    if (!shopState.shopProfile?.isVip) {
       return res.status(403).json({
         error: 'Bu işletmenin Dijital QR Menü servisi aktif değildir (Patron VIP paketi gereklidir).',
         code: 'VIP_REQUIRED',
@@ -241,30 +236,20 @@ export function registerPublicMenuRoutes(app: Express): void {
       });
     }
 
-    const isDemoCafe = rawId === 'demo';
-    const items =
-      Array.isArray(shopState.menuItems) && shopState.menuItems.length > 0
-        ? shopState.menuItems
-        : SAMPLE_MENU_ITEMS;
-
-    const slug = isDemoCafe
-      ? 'demo'
-      : shopState.shopProfile?.slug ||
-        slugify(shopState.shopProfile?.storeName || targetAcc?.shopName || 'restoran');
+    const items = Array.isArray(shopState.menuItems) ? shopState.menuItems : [];
+    const slug =
+      shopState.shopProfile?.slug ||
+      slugify(shopState.shopProfile?.storeName || targetAcc?.shopName || 'restoran');
 
     res.json({
       success: true,
-      shopName: isDemoCafe
-        ? 'Karaköy Kahvecisi & Bistro'
-        : shopState.shopProfile?.storeName || targetAcc?.shopName || 'Restoran & Kafe',
-      slogan: isDemoCafe
-        ? 'Geleneksel lezzetler, taze kahve ve hızlı servis'
-        : shopState.shopProfile?.slogan || 'Afiyet Olsun',
-      logoUrl: isDemoCafe ? undefined : shopState.shopProfile?.logoUrl,
-      phone: isDemoCafe ? '' : shopState.shopProfile?.phone || targetAcc?.phone || '',
-      cityDistrict: isDemoCafe ? 'Karaköy, İstanbul' : shopState.shopProfile?.cityDistrict || '',
+      shopName: shopState.shopProfile?.storeName || targetAcc?.shopName || 'Restoran & Kafe',
+      slogan: shopState.shopProfile?.slogan || 'Afiyet Olsun',
+      logoUrl: shopState.shopProfile?.logoUrl,
+      phone: shopState.shopProfile?.phone || targetAcc?.phone || '',
+      cityDistrict: shopState.shopProfile?.cityDistrict || '',
       slug,
-      brandingRequired: isDemoCafe ? true : !limits.removeBranding,
+      brandingRequired: !limits.removeBranding,
       menuItems: items,
       tables: (shopState.tables || []).map((t) => ({ id: t.id, name: t.name })),
     });
@@ -313,7 +298,7 @@ export function registerPublicMenuRoutes(app: Express): void {
 
   // Masadan QR Menü Canlı Sipariş Gönderimi (Şifresiz Public Uç)
   app.post('/api/public/menu/:identifier/order', publicActionRateLimit, firebaseAppCheckGuard, async (req: Request, res: Response) => {
-    const { rawId, targetAcc, shopState: st } = resolveMenuShop(req.params.identifier);
+    const { targetAcc, shopState: st } = resolveMenuShop(req.params.identifier);
     if (!targetAcc || !st) {
       return res.status(404).json({ error: 'İşletme bulunamadı.' });
     }
@@ -321,7 +306,7 @@ export function registerPublicMenuRoutes(app: Express): void {
     if (st.shopProfile) {
       checkAndUpdateVipStatus(st.shopProfile);
     }
-    if (!st.shopProfile?.isVip && rawId !== 'demo') {
+    if (!st.shopProfile?.isVip) {
       return res.status(403).json({
         error: 'Bu işletmenin Dijital QR Menü sipariş servisi aktif değildir.',
         code: 'VIP_REQUIRED',
@@ -336,8 +321,7 @@ export function registerPublicMenuRoutes(app: Express): void {
       return res.status(400).json({ error: 'Tek siparişte en fazla 30 kalem gönderilebilir.' });
     }
 
-    const menuCatalog =
-      Array.isArray(st.menuItems) && st.menuItems.length > 0 ? st.menuItems : SAMPLE_MENU_ITEMS;
+    const menuCatalog = Array.isArray(st.menuItems) ? st.menuItems : [];
 
     const nowTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     const builtOrders: TableOrderItem[] = [];
@@ -475,17 +459,14 @@ export function registerProtectedMenuRoutes(app: Express): void {
   // Menü Listele
   app.get('/api/menu', (_req: Request, res: Response) => {
     const st = S();
-    let items = st.menuItems;
-    if (!Array.isArray(items) || items.length === 0) {
-      items = [...SAMPLE_MENU_ITEMS];
-      st.menuItems = items;
-      saveState();
+    if (!Array.isArray(st.menuItems)) {
+      st.menuItems = [];
     }
 
     const slug = st.shopProfile?.slug || slugify(st.storeName || 'restoran');
     res.json({
       success: true,
-      menuItems: items,
+      menuItems: st.menuItems,
       slug,
       shopName: st.storeName,
     });
@@ -580,7 +561,7 @@ export function registerProtectedMenuRoutes(app: Express): void {
     const { id } = req.params;
     const st = S();
     if (!Array.isArray(st.menuItems)) {
-      st.menuItems = [...SAMPLE_MENU_ITEMS];
+      st.menuItems = [];
     }
 
     const item = st.menuItems.find((m) => m.id === id);

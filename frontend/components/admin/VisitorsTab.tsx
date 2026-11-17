@@ -137,7 +137,6 @@ function formatSayfaAdi(path: string): { baslik: string; altYol: string } {
     return { baslik: `🍽️ Menü (${slug})`, altYol: path };
   }
   if (path.startsWith('/fiyat')) return { baslik: 'Fiyatlandırma', altYol: path };
-  if (path.startsWith('/demo')) return { baslik: 'Canlı Demo', altYol: path };
   if (path.startsWith('/ozellikler')) return { baslik: 'Özellikler', altYol: path };
   if (path.startsWith('/giris') || path.startsWith('/login')) return { baslik: 'Giriş Sayfası', altYol: path };
   if (path.startsWith('/kayit') || path.startsWith('/register')) return { baslik: 'Kayıt Sayfası', altYol: path };

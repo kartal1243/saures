@@ -1,8 +1,9 @@
 import type { Express, Request, Response } from 'express';
 import type { PublicShopMapItem } from '../../shared/types';
-import { getAccounts } from '../accounts';
+import { getAccounts, isAccountClosed } from '../accounts';
 import { loadShopState } from '../shopState';
 import { publicActionRateLimit } from '../guards';
+import { DEMO_ACCOUNT_ID } from '../demoSeed';
 
 // ============================================================================
 // TÜRKİYE ŞEHİR & İLÇE MERKEZ KOORDİNATLARI (Yedek Harita Konumlayıcı)
@@ -118,10 +119,12 @@ export function registerPublicShopsMapRoutes(app: Express): void {
 
     const accounts = getAccounts();
     const mapShops: PublicShopMapItem[] = [];
+    const seenSlugs = new Set<string>();
 
     for (const acc of accounts) {
-      // 1. Sadece ana dükkan sahipleri haritada yer alabilir (Kasiyer/personel hesapları atlanır)
+      // 1. Sadece açık, demo olmayan ve ana dükkan sahibi hesaplar haritada yer alabilir
       if ((acc.role || 'owner') !== 'owner') continue;
+      if (acc.id === DEMO_ACCOUNT_ID || isAccountClosed(acc)) continue;
 
       const st = loadShopState(acc.id);
       const prof = st.shopProfile;
@@ -183,6 +186,8 @@ export function registerPublicShopsMapRoutes(app: Express): void {
       }
 
       const slug = prof?.slug || acc.id;
+      if (seenSlugs.has(slug)) continue;
+      seenSlugs.add(slug);
 
       // 7. Yönlendirme ve yetenek kontrolü (Randevu var mı? Menü var mı?)
       const hasBooking = sectorKey === 'berber_kuafor' || sectorKey === 'teknik_servis';
@@ -220,193 +225,6 @@ export function registerPublicShopsMapRoutes(app: Express): void {
       };
 
       mapShops.push(publicShopItem);
-    }
-
-    // Haritanın Türkiye geneli canlı ve zengin görünmesi için örnek vitrin dükkanları
-    const demoShops: PublicShopMapItem[] = [
-      {
-        id: 'seed_shop_1',
-        name: 'Ahmet Barber Club & Kuaför',
-        slug: 'demo',
-        sectorKey: 'berber_kuafor',
-        city: 'İstanbul',
-        district: 'Kadıköy',
-        address: 'Moda Cd. No: 42, Caferağa, Kadıköy',
-        lat: 40.9875,
-        lng: 29.0265,
-        isOpen: true,
-        rating: 4.9,
-        servicesCount: 9,
-        hasBooking: true,
-        hasMenu: false,
-        slogan: 'Kişiye Özel Tasarım Saç & Sakal Tıraşı',
-        isVip: true,
-      },
-      {
-        id: 'seed_shop_2',
-        name: 'Kalamış Gurme Fırın & Kafe',
-        slug: 'kalamis-gurme-kafe',
-        sectorKey: 'kafe_restoran',
-        city: 'İstanbul',
-        district: 'Kadıköy',
-        address: 'Fenerbahçe Mh., Münir Nurettin Selçuk Cd., Kadıköy',
-        lat: 40.9765,
-        lng: 29.0385,
-        isOpen: true,
-        rating: 4.8,
-        servicesCount: 24,
-        hasBooking: false,
-        hasMenu: true,
-        slogan: 'Ekşi Mayalı Ekmekler & Dijital QR Menü',
-        isVip: true,
-      },
-      {
-        id: 'seed_shop_3',
-        name: 'Beşiktaş Çarşı Bakkaliyesi',
-        slug: 'besiktas-carsi-bakkal',
-        sectorKey: 'bakkal_market',
-        city: 'İstanbul',
-        district: 'Beşiktaş',
-        address: 'Köyiçi Meydan Sk. No: 15, Beşiktaş',
-        lat: 41.0435,
-        lng: 29.0062,
-        isOpen: true,
-        rating: 4.7,
-        servicesCount: 150,
-        hasBooking: false,
-        hasMenu: false,
-        slogan: 'Mahallenin 30 Yıllık Güler Yüzlü Bakkalı',
-        isVip: false,
-      },
-      {
-        id: 'seed_shop_4',
-        name: 'Akaretler Saç Tasarım & Spa',
-        slug: 'akaretler-sac-tasarim',
-        sectorKey: 'berber_kuafor',
-        city: 'İstanbul',
-        district: 'Beşiktaş',
-        address: 'Süleyman Seba Cd. No: 64, Akaretler, Beşiktaş',
-        lat: 41.0392,
-        lng: 29.0005,
-        isOpen: true,
-        rating: 4.9,
-        servicesCount: 14,
-        hasBooking: true,
-        hasMenu: false,
-        slogan: 'VIP Salon Hizmeti & Keratin Bakımı',
-        isVip: true,
-      },
-      {
-        id: 'seed_shop_5',
-        name: 'Bomonti Kahvecisi & Bistro',
-        slug: 'bomonti-kahvecisi',
-        sectorKey: 'kafe_restoran',
-        city: 'İstanbul',
-        district: 'Şişli',
-        address: 'Cumhuriyet Mh., Silahşör Cd. No: 38, Şişli',
-        lat: 41.0588,
-        lng: 28.9835,
-        isOpen: true,
-        rating: 4.8,
-        servicesCount: 32,
-        hasBooking: false,
-        hasMenu: true,
-        slogan: '3. Nesil Nitelikli Kahve & Taş Fırın Kruvasan',
-        isVip: true,
-      },
-      {
-        id: 'seed_shop_7',
-        name: 'Tunalı Klas Kuaför & Bakım',
-        slug: 'tunali-klas-kuafor',
-        sectorKey: 'berber_kuafor',
-        city: 'Ankara',
-        district: 'Çankaya',
-        address: 'Tunalı Hilmi Cd. No: 88, Kavaklıdere, Çankaya',
-        lat: 39.9075,
-        lng: 32.8615,
-        isOpen: true,
-        rating: 4.9,
-        servicesCount: 11,
-        hasBooking: true,
-        hasMenu: false,
-        slogan: 'Başkentte Kusursuz İmaj & Profesyonel Saç Kesimi',
-        isVip: true,
-      },
-      {
-        id: 'seed_shop_9',
-        name: 'Alsancak Kordon Barber & Lounge',
-        slug: 'kordon-barber-lounge',
-        sectorKey: 'berber_kuafor',
-        city: 'İzmir',
-        district: 'Konak',
-        address: 'Atatürk Cd. (Kordon) No: 182, Alsancak, Konak',
-        lat: 38.4365,
-        lng: 27.1425,
-        isOpen: true,
-        rating: 4.9,
-        servicesCount: 12,
-        hasBooking: true,
-        hasMenu: false,
-        slogan: 'Deniz Manzaralı Tıraş & Damat Bakım Paketleri',
-        isVip: true,
-      },
-      {
-        id: 'seed_shop_11',
-        name: 'FSM Nilüfer Espresso & Bakery',
-        slug: 'nilufer-espresso-bakery',
-        sectorKey: 'kafe_restoran',
-        city: 'Bursa',
-        district: 'Nilüfer',
-        address: 'Fethiye Mh., Fatih Sultan Mehmet Blv. No: 112, Nilüfer',
-        lat: 40.2175,
-        lng: 28.9772,
-        isOpen: true,
-        rating: 4.8,
-        servicesCount: 22,
-        hasBooking: false,
-        hasMenu: true,
-        slogan: 'Taze Kahve, Tatlılar & Masaya QR Sipariş',
-        isVip: true,
-      },
-      {
-        id: 'seed_shop_12',
-        name: 'Kaleiçi Antik Kafe & Dondurma',
-        slug: 'kaleici-antik-kafe',
-        sectorKey: 'kafe_restoran',
-        city: 'Antalya',
-        district: 'Muratpaşa',
-        address: 'Kılınçarslan Mh., Hesapçı Sk. No: 28, Kaleiçi',
-        lat: 36.8835,
-        lng: 30.7065,
-        isOpen: true,
-        rating: 4.9,
-        servicesCount: 26,
-        hasBooking: false,
-        hasMenu: true,
-        slogan: 'Tarihi Konakta Kahve Molası & QR Adisyon',
-        isVip: true,
-      },
-    ];
-
-    const seenSlugs = new Set(mapShops.map((s) => s.slug));
-    for (const d of demoShops) {
-      if (!seenSlugs.has(d.slug)) {
-        if (sectorFilter && sectorFilter !== 'all' && sectorFilter !== 'tum') {
-          if (d.sectorKey !== sectorFilter) continue;
-        }
-        if (cityFilter && cityFilter !== 'all') {
-          if (d.city.toLowerCase() !== cityFilter.toLowerCase()) continue;
-        }
-        if (searchFilter) {
-          const match =
-            d.name.toLowerCase().includes(searchFilter) ||
-            d.city.toLowerCase().includes(searchFilter) ||
-            d.district.toLowerCase().includes(searchFilter);
-          if (!match) continue;
-        }
-        mapShops.push(d);
-        seenSlugs.add(d.slug);
-      }
     }
 
     res.json({

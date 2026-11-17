@@ -1,7 +1,12 @@
 import assert from 'assert';
 import express from 'express';
+import fs from 'fs';
 import http from 'http';
+import path from 'path';
 import { S, als, saveState } from '../backend/context';
+import { addAccount, hashPassword, removeAccount } from '../backend/accounts';
+import { setShopState } from '../backend/shopState';
+import { SHOPS_DIR } from '../backend/config';
 import { registerTableRoutes } from '../backend/routes/tables';
 import { registerProtectedMenuRoutes, registerPublicMenuRoutes } from '../backend/routes/menu';
 import type { AppState, RestaurantTable } from '../shared/types';
@@ -88,6 +93,16 @@ registerPublicMenuRoutes(app);
 const server = http.createServer(app);
 
 async function run() {
+  addAccount({
+    id: 'acc_test_restaurant',
+    shopName: mockState.storeName,
+    ownerName: mockState.shopProfile?.ownerName || 'Usta Esnaf',
+    phone: mockState.shopProfile?.phone || '05551112233',
+    passwordHash: hashPassword('Test123456!'),
+    createdAt: new Date().toISOString(),
+  });
+  setShopState('acc_test_restaurant', mockState);
+
   await new Promise<void>((resolve) => server.listen(0, resolve));
   const port = (server.address() as any).port;
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -246,8 +261,16 @@ async function run() {
       body: JSON.stringify({ name: 'Bazlama Tost', quantity: 1, unitPrice: 150 }),
     });
 
-    // Müşteri garson çağırıyor
+    // Demo menü çağrısı artık 404 dönmeli
     res = await fetch(`${baseUrl}/api/public/menu/demo/table-action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tableNo: 'Masa 1', action: 'waiter' }),
+    });
+    assert.strictEqual(res.status, 404, 'Demo menü uç noktası 404 dönmeli');
+
+    // Müşteri gerçek restoran slugı üzerinden garson çağırıyor
+    res = await fetch(`${baseUrl}/api/public/menu/seyir-terasi/table-action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tableNo: 'Masa 1', action: 'waiter' }),
@@ -374,6 +397,8 @@ async function run() {
     console.log('======================================================');
   } finally {
     server.close();
+    removeAccount('acc_test_restaurant');
+    try { fs.unlinkSync(path.join(SHOPS_DIR, 'acc_test_restaurant.json')); } catch {}
   }
 }
 

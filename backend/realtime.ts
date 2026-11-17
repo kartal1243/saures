@@ -206,6 +206,29 @@ export function broadcastToAccount(targetAccountId: string, event: WSEvent): voi
   }
 }
 
+export function closeAccountSockets(targetAccountId: string, reason = 'Hesap yönetici tarafından kapatıldı.'): number {
+  let closed = 0;
+  const notice = JSON.stringify({ type: 'ACCOUNT_CLOSED', payload: { reason } } satisfies WSEvent);
+  for (const [client, meta] of Array.from(clients.entries())) {
+    if (meta.accountId === targetAccountId && !meta.isAdmin) {
+      try {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(notice);
+        }
+        client.close(4003, 'account_closed');
+      } catch {
+        // ignore close errors
+      }
+      clients.delete(client);
+      closed += 1;
+    }
+  }
+  if (closed > 0) {
+    broadcastAdminStats();
+  }
+  return closed;
+}
+
 export function broadcastToAll(event: WSEvent): void {
   const payload = JSON.stringify(event);
   for (const [client, meta] of clients) {

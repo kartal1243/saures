@@ -61,6 +61,9 @@ interface ShopRow {
   vipTier?: string | null;
   vipPlan?: string | null;
   vipUntil?: string | null;
+  isClosed?: boolean;
+  closedAt?: string | null;
+  closedReason?: string | null;
   sector: string | null;
   cityDistrict: string | null;
   customers: number;
@@ -208,7 +211,7 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState(initialQuery || '');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'vip'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'vip' | 'closed'>('all');
   const [openId, setOpenId] = useState<string | null>(null);
 
   // Canlı Röntgen Modalı
@@ -310,6 +313,9 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
       if (statusFilter === 'vip') {
         return Boolean(s.isVip);
       }
+      if (statusFilter === 'closed') {
+        return Boolean(s.isClosed);
+      }
       return true;
     });
   }, [shops, query, statusFilter]);
@@ -318,11 +324,13 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
     const liveCount = shops.filter((s) => s.liveStatus !== 'offline').length;
     const wsCount = shops.filter((s) => s.liveStatus === 'live_ws').length;
     const vipCount = shops.filter((s) => s.isVip).length;
+    const closedCount = shops.filter((s) => s.isClosed).length;
     return {
       shops: shops.length,
       liveCount,
       wsCount,
       vipCount,
+      closedCount,
       customers: shops.reduce((t, s) => t + s.customers, 0),
       transactions: shops.reduce((t, s) => t + s.transactions, 0),
     };
@@ -408,6 +416,17 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
             <Crown className="w-3.5 h-3.5" />
             VIP ({totals.vipCount})
           </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('closed')}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+              statusFilter === 'closed'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+            }`}
+          >
+            Kapalı ({totals.closedCount})
+          </button>
         </div>
       </div>
 
@@ -461,6 +480,11 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
                       <h3 className="text-sm font-black text-stone-900 dark:text-white truncate">
                         {s.shopName}
                       </h3>
+                      {s.isClosed && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                          KAPALI
+                        </span>
+                      )}
                       {/* Paket Seviyesi Rozeti (Çırak / 14 Gün Deneme / Usta / Patron VIP) */}
                       {(() => {
                         const badge = getPackageBadge(s);
@@ -634,18 +658,45 @@ export const AdminPanel: React.FC<{ initialQuery?: string }> = ({ initialQuery }
 
                   {/* Diğer Güvenlik ve Silme İşlemleri */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-stone-200 dark:border-stone-800">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!confirm(`${s.shopName} oturumları sonlandırılsın mı? Dükkan tüm cihazlardan atılacak.`)) return;
-                        const res = await fetch(`/api/admin/shops/${s.id}/kick`, { method: 'POST' });
-                        if (!res.ok) { alert('Oturum kapatılamadı.'); return; }
-                        load();
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-black hover:bg-amber-500/25 transition-colors cursor-pointer"
-                    >
-                      Oturumları Kapat (Kick)
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!confirm(`${s.shopName} oturumları sonlandırılsın mı? Dükkan tüm cihazlardan atılacak.`)) return;
+                          const res = await fetch(`/api/admin/shops/${s.id}/kick`, { method: 'POST' });
+                          if (!res.ok) { alert('Oturum kapatılamadı.'); return; }
+                          load();
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-black hover:bg-amber-500/25 transition-colors cursor-pointer"
+                      >
+                        Oturumları Kapat (Kick)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const targetClosed = !s.isClosed;
+                          const msg = targetClosed
+                            ? `${s.shopName} tamamen kapatılsın mı? Dükkan giriş yapamayacak, harita ve randevu/menü sayfalarından gizlenecek.`
+                            : `${s.shopName} tekrar açılsın mı?`;
+                          if (!confirm(msg)) return;
+                          const res = await fetch(`/api/admin/shops/${s.id}/toggle-status`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ isClosed: targetClosed }),
+                          });
+                          if (!res.ok) { alert('Dükkan durumu güncellenemedi.'); return; }
+                          load();
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-colors cursor-pointer ${
+                          s.isClosed
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25'
+                            : 'bg-stone-500/15 text-stone-700 dark:text-stone-300 hover:bg-stone-500/25'
+                        }`}
+                      >
+                        {s.isClosed ? 'Dükkanı Tekrar Aç' : 'Dükkanı Kapat'}
+                      </button>
+                    </div>
 
                     <button
                       type="button"

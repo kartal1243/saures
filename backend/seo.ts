@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { getAccounts } from './accounts';
-import { loadShopState, slugify, demoBarberServices, demoBarberReviews } from './shopState';
-import { DEMO_ACCOUNT_ID, DEMO_PHONE } from './demoSeed';
+import { getAccounts, isAccountClosed } from './accounts';
+import { loadShopState, slugify } from './shopState';
+import { DEMO_ACCOUNT_ID } from './demoSeed';
 
 export interface SeoMetadata {
   title: string;
@@ -221,8 +221,8 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
     faq: [
       { q: 'İstanbul’daki çok şubeli veya çok koltuklu salonlar kullanabilir mi?', a: 'Evet, her usta ve koltuk için ayrı takvim ve prim oranı tanımlanabilir.' },
     ],
-    ctaHref: '/r/demo',
-    ctaLabel: 'Canlı Berber Randevu Demosunu Gör',
+    ctaHref: '/berber',
+    ctaLabel: 'Berber Randevu Sistemini İncele',
   },
   {
     slug: 'ankara-berber-kuafor',
@@ -275,8 +275,8 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
     faq: [
       { q: 'Sezonluk mekanlarda dondurma veya iptal var mı?', a: 'Taahhüt yoktur; istediğiniz ay paketinizi değiştirebilir veya iptal edebilirsiniz.' },
     ],
-    ctaHref: '/m/demo',
-    ctaLabel: 'Canlı QR Menü Demosunu Gör',
+    ctaHref: '/kafe-restoran',
+    ctaLabel: 'QR Menü & Adisyon Sistemini İncele',
   },
   {
     slug: 'izmit-berber-kuafor-randevu',
@@ -455,17 +455,6 @@ export function isValidGuideRoute(pathname: string): boolean {
   return SEO_GUIDE_ARTICLES.some((a) => `/rehber/${a.slug}` === clean);
 }
 
-export const demoCafeMenuItems = [
-  { id: 'm_1', name: 'Normal Çiğ Köfte Dürüm', price: 90, category: 'Dürümler', description: '100gr özel yoğrulmuş çiğ köfte, taze marul, nar ekşisi ve limon eşliğinde.', imageUrl: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?w=600&auto=format&fit=crop&q=80' },
-  { id: 'm_2', name: 'Mega Çiğ Köfte Dürüm', price: 130, category: 'Dürümler', description: '150gr çiğ köfte, çift lavaş, bol yeşillik ve özel acı sos.', imageUrl: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?w=600&auto=format&fit=crop&q=80' },
-  { id: 'm_3', name: 'Doritoslu Çıtır Dürüm', price: 120, category: 'Dürümler', description: 'Çıtır Doritos cipsi ve çiğ köfte uyumu, taze nane ve nar ekşisi ile.', imageUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=600&auto=format&fit=crop&q=80' },
-  { id: 'm_4', name: 'Yarım Porsiyon Çiğ Köfte (250gr)', price: 200, category: 'Porsiyonlar', description: '250gr çiğ köfte, 3 lavaş, yeşillik buketi, acı sos ve 2 nar ekşisi ile.', imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80' },
-  { id: 'm_5', name: 'Tam Porsiyon Çiğ Köfte (500gr)', price: 280, category: 'Porsiyonlar', description: '500gr çiğ köfte, 5 lavaş, zengin yeşillik tabağı ve özel soslar.', imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80' },
-  { id: 'm_6', name: 'Sıcak Köfte Ekmek', price: 200, category: 'Sıcak Lezzetler', description: '100gr ızgara kasap köfte, çıtır ekmek arası közlenmiş domates ve biber ile.', imageUrl: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600&auto=format&fit=crop&q=80' },
-  { id: 'm_7', name: 'Yayık Ayran (300ml)', price: 35, category: 'İçecekler', description: 'Köpüklü soğuk yayık ayranı.', imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80' },
-  { id: 'm_8', name: 'Taze Demleme Çay', price: 20, category: 'İçecekler', description: 'İnce belli bardakta taze Rize çayı.', imageUrl: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&auto=format&fit=crop&q=80' },
-];
-
 const DEFAULT_HOST = 'dukkanimyanimda.com.tr';
 const DEFAULT_ORIGIN = `https://${DEFAULT_HOST}`;
 
@@ -506,46 +495,20 @@ export function getDynamicSeoFreshness(customDate?: Date) {
 /**
  * Identifier (slug, telefon veya accountId) ile dükkanı accounts ve shopState'den bulur.
  */
-export function findShopForSeo(identifier: string, mode?: 'barber' | 'menu'): ResolvedShop | null {
+export function findShopForSeo(identifier: string, _mode?: 'barber' | 'menu'): ResolvedShop | null {
   const rawId = (identifier || '').toLowerCase().trim();
-  if (!rawId) return null;
-
-  if (rawId === 'demo' && mode === 'menu') {
-    return {
-      name: 'Karaköy Kahvecisi & Bistro',
-      slug: 'demo',
-      phone: '0555 000 0000',
-      cityDistrict: 'Karaköy, İstanbul',
-      slogan: 'Geleneksel lezzetler, taze kahve ve hızlı servis',
-      businessField: 'Kafe & Restoran',
-      sectorKey: 'kafe_restoran',
-      isVip: true,
-      exists: true,
-      openingTime: '08:30',
-      closingTime: '23:30',
-      closedDays: [],
-      services: [],
-      menuItems: demoCafeMenuItems.map((m) => ({
-        id: m.id,
-        name: m.name,
-        price: m.price,
-        category: m.category,
-        description: m.description,
-        imageUrl: m.imageUrl,
-      })),
-      reviews: [],
-      logoUrl: '/brand/phone_mockup_retina.png',
-    };
-  }
+  if (!rawId || rawId === 'demo') return null;
 
   const accounts = getAccounts();
 
-  // 1. Hesaplar içinde ID, telefon veya dükkan adı eşleşmesi
+  // 1. Hesaplar içinde ID, telefon veya dükkan adı eşleşmesi (kapalı/demo hesaplar hariç)
   let targetAcc = accounts.find(
     (a) =>
-      a.id.toLowerCase() === rawId ||
-      a.phone === rawId ||
-      slugify(a.shopName) === rawId
+      a.id !== DEMO_ACCOUNT_ID &&
+      !isAccountClosed(a) &&
+      (a.id.toLowerCase() === rawId ||
+        a.phone === rawId ||
+        slugify(a.shopName) === rawId)
   );
 
   let targetState = targetAcc ? loadShopState(targetAcc.id) : null;
@@ -553,6 +516,7 @@ export function findShopForSeo(identifier: string, mode?: 'barber' | 'menu'): Re
   // 2. State içinde slug veya storeName eşleşmesi
   if (!targetState) {
     for (const a of accounts) {
+      if (a.id === DEMO_ACCOUNT_ID || isAccountClosed(a)) continue;
       const st = loadShopState(a.id);
       const shopSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || a.shopName);
       if (shopSlug === rawId) {
@@ -563,40 +527,25 @@ export function findShopForSeo(identifier: string, mode?: 'barber' | 'menu'): Re
     }
   }
 
-  // 3. 'demo' fallback'i
-  if (!targetState && rawId === 'demo') {
-    const fallbackAcc = accounts.find(
-      (a) => a.id === DEMO_ACCOUNT_ID || a.phone === DEMO_PHONE || a.phone === '05550000000'
-    );
-    if (fallbackAcc) {
-      targetAcc = fallbackAcc;
-      targetState = loadShopState(fallbackAcc.id);
-    }
-  }
-
-  if (!targetAcc && !targetState) {
+  if (!targetAcc || !targetState) {
     return null;
   }
 
   const storeName = targetState?.shopProfile?.storeName || targetAcc?.shopName || 'İşletme';
   const computedSlug = targetState?.shopProfile?.slug || slugify(storeName) || rawId;
 
-  const rawServices = targetState?.barberServices && targetState.barberServices.length > 0
-    ? targetState.barberServices
-    : (targetAcc?.id === DEMO_ACCOUNT_ID || rawId === 'demo' ? demoBarberServices : []);
+  const rawServices = Array.isArray(targetState?.barberServices) ? targetState.barberServices : [];
 
-  const services = (rawServices || []).map((s) => ({
+  const services = rawServices.map((s) => ({
     id: s.id,
     name: s.name,
     price: s.price,
     durationMinutes: s.durationMinutes,
   }));
 
-  const rawMenuItems = (targetState as any)?.menuItems && (targetState as any).menuItems.length > 0
-    ? (targetState as any).menuItems
-    : (targetAcc?.id === DEMO_ACCOUNT_ID || rawId === 'demo' ? demoCafeMenuItems : []);
+  const rawMenuItems = Array.isArray((targetState as any)?.menuItems) ? (targetState as any).menuItems : [];
 
-  const menuItems = (rawMenuItems || []).map((m: any) => ({
+  const menuItems = rawMenuItems.map((m: any) => ({
     id: m.id,
     name: m.name,
     price: m.price,
@@ -605,11 +554,9 @@ export function findShopForSeo(identifier: string, mode?: 'barber' | 'menu'): Re
     imageUrl: m.imageUrl,
   }));
 
-  const rawReviews = targetState?.barberReviews && targetState.barberReviews.length > 0
-    ? targetState.barberReviews
-    : (targetAcc?.id === DEMO_ACCOUNT_ID || rawId === 'demo' ? demoBarberReviews : []);
+  const rawReviews = Array.isArray(targetState?.barberReviews) ? targetState.barberReviews : [];
 
-  const reviews = (rawReviews || [])
+  const reviews = rawReviews
     .filter((r) => r.approved !== false && typeof r.rating === 'number' && r.comment)
     .map((r) => ({
       id: r.id,
@@ -620,7 +567,7 @@ export function findShopForSeo(identifier: string, mode?: 'barber' | 'menu'): Re
       createdAt: r.createdAt,
     }));
 
-  const logoUrl = targetState?.shopProfile?.logoUrl || (rawId === 'demo' ? '/brand/phone_mockup_retina.png' : undefined);
+  const logoUrl = targetState?.shopProfile?.logoUrl;
 
   return {
     name: storeName,
@@ -659,196 +606,25 @@ export interface SeoMapShop {
 }
 
 /**
- * Haritada listelenecek anlaşmalı ve aktif pilot işletmeleri döner.
+ * Haritada listelenecek onaylı ve açık gerçek esnaf işletmelerini döner.
  * Google Haritalar & Yerel SEO (LocalBusiness / Place GeoCoordinates) için ana sayfada zenginleştirilir.
  */
 export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop[] {
-  const curated: SeoMapShop[] = [
-    {
-      id: 'demo-barber',
-      name: 'Berber & Kuaför Demo — Kadıköy Moda',
-      slug: 'demo',
-      type: 'HairSalon',
-      sectorName: 'Erkek Kuaförü & Berber',
-      cityDistrict: 'Kadıköy, İstanbul',
-      city: 'İstanbul',
-      district: 'Kadıköy',
-      latitude: 40.9882,
-      longitude: 29.0267,
-      phone: '0555 000 0000',
-      url: `${origin}/r/demo`,
-      badge: 'Canlı Randevu Demo',
-    },
-    {
-      id: 'demo-cafe',
-      name: 'Karaköy Kahvecisi & Bistro',
-      slug: 'demo',
-      type: 'Restaurant',
-      sectorName: 'Kafe & Restoran',
-      cityDistrict: 'Beyoğlu, İstanbul',
-      city: 'İstanbul',
-      district: 'Beyoğlu',
-      latitude: 41.0234,
-      longitude: 28.9774,
-      phone: '0555 000 0000',
-      url: `${origin}/m/demo`,
-      badge: 'QR Menü Aktif',
-    },
-    {
-      id: 'nisantasi-beauty',
-      name: 'Nişantaşı Güzellik & Nail Studio',
-      slug: 'nisantasi-guzellik',
-      type: 'BeautySalon',
-      sectorName: 'Güzellik Salonu & Seans',
-      cityDistrict: 'Şişli, İstanbul',
-      city: 'İstanbul',
-      district: 'Şişli',
-      latitude: 41.0504,
-      longitude: 28.9928,
-      url: `${origin}/guzellik-salonu`,
-      badge: 'Paket & Seans Takibi',
-    },
-    {
-      id: 'cankaya-hair',
-      name: 'Çankaya Premium Kuaför & Saç Tasarım',
-      slug: 'cankaya-kuafor',
-      type: 'HairSalon',
-      sectorName: 'Kadın Kuaförü & Renklendirme',
-      cityDistrict: 'Çankaya, Ankara',
-      city: 'Ankara',
-      district: 'Çankaya',
-      latitude: 39.8969,
-      longitude: 32.8644,
-      url: `${origin}/rehber/ankara-berber-kuafor`,
-      badge: 'Online Randevu',
-    },
-    {
-      id: 'alsancak-lounge',
-      name: 'Alsancak Kahve & Adisyon Lounge',
-      slug: 'alsancak-kahve',
-      type: 'Restaurant',
-      sectorName: 'Kafe, Adisyon & Masa',
-      cityDistrict: 'Konak, İzmir',
-      city: 'İzmir',
-      district: 'Konak',
-      latitude: 38.4382,
-      longitude: 27.1428,
-      url: `${origin}/rehber/izmir-kafe-restoran`,
-      badge: 'Canlı Masa Takibi',
-    },
-    {
-      id: 'bursa-pos',
-      name: 'Nilüfer Mahalle Şarküteri & Bakkal',
-      slug: 'nilufer-sarkuteri',
-      type: 'LocalBusiness',
-      sectorName: 'Bakkal, Market & Barkodlu POS',
-      cityDistrict: 'Nilüfer, Bursa',
-      city: 'Bursa',
-      district: 'Nilüfer',
-      latitude: 40.2133,
-      longitude: 28.9833,
-      url: `${origin}/bakkal-market`,
-      badge: 'Veresiye & Hızlı POS',
-    },
-    {
-      id: 'antalya-tailor',
-      name: 'Muratpaşa Moda Evi & Usta Terzi',
-      slug: 'muratpasa-terzi',
-      type: 'LocalBusiness',
-      sectorName: 'Terzi & Kuru Temizleme',
-      cityDistrict: 'Muratpaşa, Antalya',
-      city: 'Antalya',
-      district: 'Muratpaşa',
-      latitude: 36.8841,
-      longitude: 30.7056,
-      url: `${origin}/terzi`,
-      badge: 'Tadilat & Fiş Takibi',
-    },
-    {
-      id: 'uskudar-service',
-      name: 'Üsküdar Telefon & Teknik Servis',
-      slug: 'uskudar-teknik-servis',
-      type: 'LocalBusiness',
-      sectorName: 'Teknik Servis & Cihaz Takip',
-      cityDistrict: 'Üsküdar, İstanbul',
-      city: 'İstanbul',
-      district: 'Üsküdar',
-      latitude: 41.0267,
-      longitude: 29.0156,
-      url: `${origin}/teknik-servis`,
-      badge: 'Servis Fişi & Cihaz Sorgulama',
-    },
-    {
-      id: 'izmit-barber',
-      name: 'İzmit Fethiye Berber & Erkek Bakım',
-      slug: 'izmit-fethiye-berber',
-      type: 'HairSalon',
-      sectorName: 'Erkek Kuaförü & Berber',
-      cityDistrict: 'İzmit, Kocaeli',
-      city: 'Kocaeli',
-      district: 'İzmit',
-      latitude: 40.7654,
-      longitude: 29.9408,
-      phone: '0262 322 0000',
-      url: `${origin}/izmit-berber-randevu`,
-      badge: 'İzmit Online Randevu',
-    },
-    {
-      id: 'gebze-hair',
-      name: 'Gebze Çarşı Kuaför & Saç Tasarım',
-      slug: 'gebze-carsi-kuafor',
-      type: 'HairSalon',
-      sectorName: 'Kuaför & Saç Tasarım',
-      cityDistrict: 'Gebze, Kocaeli',
-      city: 'Kocaeli',
-      district: 'Gebze',
-      latitude: 40.8028,
-      longitude: 29.4307,
-      phone: '0262 641 0000',
-      url: `${origin}/izmit-berber-randevu`,
-      badge: 'Kocaeli Berber Sistemi',
-    },
-    {
-      id: 'zonguldak-barber',
-      name: 'Zonguldak Gazipaşa Berber Salonu',
-      slug: 'zonguldak-gazipasa-berber',
-      type: 'HairSalon',
-      sectorName: 'Erkek Kuaförü & Saç Kesim',
-      cityDistrict: 'Merkez, Zonguldak',
-      city: 'Zonguldak',
-      district: 'Merkez',
-      latitude: 41.4564,
-      longitude: 31.7987,
-      phone: '0372 251 0000',
-      url: `${origin}/zonguldak-berber-randevu`,
-      badge: 'Zonguldak Randevu Açık',
-    },
-    {
-      id: 'eregli-beauty',
-      name: 'Kdz. Ereğli Sahil Kuaför & Bakım',
-      slug: 'kdz-eregli-sahil-kuafor',
-      type: 'HairSalon',
-      sectorName: 'Kuaför & Güzellik',
-      cityDistrict: 'Karadeniz Ereğli, Zonguldak',
-      city: 'Zonguldak',
-      district: 'Karadeniz Ereğli',
-      latitude: 41.2844,
-      longitude: 31.4150,
-      phone: '0372 316 0000',
-      url: `${origin}/zonguldak-berber-randevu`,
-      badge: 'Kdz. Ereğli Randevu',
-    },
-  ];
+  const realShops: SeoMapShop[] = [];
 
   try {
     const accounts = getAccounts();
     for (const acc of accounts) {
-      if (acc.id === DEMO_ACCOUNT_ID) continue;
-      const lowerName = (acc.shopName || '').toLowerCase();
-      if (lowerName.includes('test') || lowerName.includes('guvenlik') || lowerName.includes('ws-')) continue;
+      if ((acc.role || 'owner') !== 'owner') continue;
+      if (acc.id === DEMO_ACCOUNT_ID || isAccountClosed(acc)) continue;
+      if (isExcludedAccount(acc)) continue;
 
       const st = loadShopState(acc.id);
+      if (st.shopProfile?.showOnPublicMap === false) continue;
+
       const storeName = st.shopProfile?.storeName || acc.shopName;
+      if (!storeName || storeName.trim().length < 2) continue;
+
       const cityDistrict = st.shopProfile?.cityDistrict || 'İstanbul';
       const sectorKey = st.shopProfile?.sectorKey || 'diger';
       const slug = st.shopProfile?.slug || slugify(storeName);
@@ -869,27 +645,27 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
         url = `${origin}/m/${slug}`;
       }
 
-      curated.push({
+      realShops.push({
         id: acc.id,
         name: storeName,
         slug,
         type,
         sectorName,
         cityDistrict,
-        city: cityDistrict.split(',')[1]?.trim() || 'İstanbul',
-        district: cityDistrict.split(',')[0]?.trim() || cityDistrict,
-        latitude: 41.0082 + (Math.sin(acc.id.length) * 0.05),
-        longitude: 28.9784 + (Math.cos(acc.id.length) * 0.05),
+        city: cityDistrict.split(/[\/,]/)[0]?.trim() || 'İstanbul',
+        district: cityDistrict.split(/[\/,]/)[1]?.trim() || '',
+        latitude: st.shopProfile?.coordinates?.lat ?? (41.0082 + (Math.sin(acc.id.length) * 0.05)),
+        longitude: st.shopProfile?.coordinates?.lng ?? (28.9784 + (Math.cos(acc.id.length) * 0.05)),
         phone: st.shopProfile?.phone || acc.phone,
         url,
         badge: 'Aktif Esnaf',
       });
     }
   } catch {
-    // accounts yüklenemezse curated listesiyle devam et
+    // accounts yüklenemezse boş dizi döner
   }
 
-  return curated;
+  return realShops;
 }
 
 /**
@@ -1040,15 +816,14 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs };
     }
 
-    const isDemoSlug = slug === 'demo';
     return {
       title: 'Online Randevu Sistemi | Dükkanım Yanımda',
       ogTitle: 'Online Randevu Sistemi — Dükkanım Yanımda',
       description: 'Berber, kuaför ve güzellik salonları için kolay online randevu ve dükkan yönetim sistemi.',
       ogDescription: 'Sıra beklemeden online randevu alın.',
       ogImage: `${origin}/brand/phone_mockup_retina.png`,
-      canonical: isDemoSlug ? `${origin}/r/demo` : `${origin}/randevu-sistemi`,
-      robots: isDemoSlug ? undefined : 'noindex, follow',
+      canonical: `${origin}/randevu-sistemi`,
+      robots: 'noindex, follow',
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
         { name: 'Online Randevu', url: `${origin}/randevu-sistemi` },
@@ -1058,7 +833,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
 
   // 2. QR Menü rotaları: /m/:slug veya /menu/:slug veya /menu
   if (clean.startsWith('/m/') || clean.startsWith('/menu/') || clean === '/menu') {
-    const slug = clean === '/menu' ? 'demo' : clean.replace(/^\/(m|menu)\/?/, '');
+    const slug = clean === '/menu' ? '' : clean.replace(/^\/(m|menu)\/?/, '');
     const shop = findShopForSeo(slug, 'menu');
     if (shop) {
       const title = `${shop.name} - Dijital QR Menü & Fiyatlar | Dükkanım Yanımda`;
@@ -1147,15 +922,14 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs };
     }
 
-    const isDemoSlug = slug === 'demo';
     return {
       title: 'Canlı Dijital QR Menü & Fiyatlar | Dükkanım Yanımda',
       ogTitle: 'Dijital QR Menü & Garson Çağırma',
       description: 'Kafe ve restoranlar için anlık fiyat güncellemeli, temassız garson çağırmalı canlı dijital QR menü.',
       ogDescription: 'Güncel menü, fiyatlar ve masadan garson çağırma.',
       ogImage: `${origin}/brand/phone_mockup_retina.png`,
-      canonical: isDemoSlug ? `${origin}/m/demo` : `${origin}/kafe-restoran`,
-      robots: isDemoSlug ? undefined : 'noindex, follow',
+      canonical: `${origin}/kafe-restoran`,
+      robots: 'noindex, follow',
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
         { name: 'QR Menü', url: `${origin}/kafe-restoran` },
@@ -2325,7 +2099,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
 
   // 2. QR Menü Rotaları: /m/:slug veya /menu/:slug veya /menu
   else if (clean.startsWith('/m/') || clean.startsWith('/menu/') || clean === '/menu') {
-    const slug = clean === '/menu' ? 'demo' : clean.replace(/^\/(m|menu)\/?/, '');
+    const slug = clean === '/menu' ? '' : clean.replace(/^\/(m|menu)\/?/, '');
     const shop = findShopForSeo(slug, 'menu');
     if (shop) {
       const shopLogo = shop.logoUrl
@@ -2451,21 +2225,21 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
       <p style="font-size:16px;color:#475569;line-height:1.65;margin-bottom:24px;">İzmit Fethiye Caddesi, Yürüyüş Yolu, Yahya Kaptan, Bekirdere ve Gebze bölgesindeki berber salonlarında sıra beklemeden usta, hizmet ve müsait saatinizi 15 saniyede seçin. Telefon araması yapmadan anında onaylı randevu alın.</p>
 
       <section style="margin-bottom:32px;">
-        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:14px;">İzmit &amp; Kocaeli Pilot Berber ve Kuaför Salonları</h2>
+        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:14px;">İzmit &amp; Kocaeli Salonları İçin Dijital Randevu Altyapısı</h2>
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
           <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Canlı Randevu Açık</span>
-            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">İzmit Fethiye Berber &amp; Erkek Bakım</h3>
-            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Fethiye Caddesi, İzmit, Kocaeli · 🕒 09:00 - 21:00</p>
-            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Saç kesimi, sakal tasarımı, cilt bakımı ve buhar kürü. Sıra beklemeden randevu alın.</p>
-            <a href="/r/demo" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Randevu Saatini Seç</a>
+            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">7/24 Online Takvim</span>
+            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">İzmit Merkez &amp; Çarşı Salonları</h3>
+            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 İzmit, Kocaeli · Sıfır Komisyon</p>
+            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Saç kesimi, sakal tasarımı, cilt bakımı ve koltuk prim takibi için dükkanınıza özel web linki alın.</p>
+            <a href="/kayit" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Salonunu Ücretsiz Kur</a>
           </div>
           <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Canlı Randevu Açık</span>
-            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Gebze Çarşı Kuaför &amp; Saç Tasarım</h3>
-            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Çarşı İçi, Gebze, Kocaeli · 🕒 08:30 - 21:30</p>
-            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Modern saç kesimi, çocuk tıraşı ve saç renklendirme. Online teyitli randevu.</p>
-            <a href="/r/demo" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Randevu Saatini Seç</a>
+            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Otomatik Hatırlatma</span>
+            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Gebze &amp; Körfez Kuaförleri</h3>
+            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Gebze, Kocaeli · WhatsApp Teyitli</p>
+            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Modern saç kesimi, çoklu usta randevuları ve kasa/prim yönetimi tek panelde.</p>
+            <a href="/kayit" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Hemen Başla</a>
           </div>
         </div>
       </section>
@@ -2502,21 +2276,21 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
       <p style="font-size:16px;color:#475569;line-height:1.65;margin-bottom:24px;">Zonguldak Gazipaşa Caddesi, Soğuksu, Kozlu ve Kdz. Ereğli sahil bölgesindeki berber ve kuaförlerde sıra beklemeden 7/24 online randevu alma kolaylığı. Tek tuşla usta seçin, randevunuzu oluşturun.</p>
 
       <section style="margin-bottom:32px;">
-        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:14px;">Zonguldak &amp; Ereğli Pilot Berber ve Kuaför Salonları</h2>
+        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:14px;">Zonguldak &amp; Ereğli Salonları İçin Dijital Randevu Altyapısı</h2>
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
           <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Canlı Randevu Açık</span>
-            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Zonguldak Gazipaşa Berber Salonu</h3>
-            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Gazipaşa Caddesi, Merkez, Zonguldak · 🕒 08:30 - 20:30</p>
-            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Klasik ve modern saç kesimi, sakal traşı ve sıcak havlu bakımı. Sıra beklemeden online randevu.</p>
-            <a href="/r/demo" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Randevu Saatini Seç</a>
+            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">7/24 Online Takvim</span>
+            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Zonguldak Merkez &amp; Gazipaşa Salonları</h3>
+            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Merkez, Zonguldak · Sıfır Komisyon</p>
+            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Klasik ve modern saç kesimi, sakal tıraşı ve randevulu koltuk yönetimi için kendi sayfanızı kurun.</p>
+            <a href="/kayit" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Salonunu Ücretsiz Kur</a>
           </div>
           <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Canlı Randevu Açık</span>
-            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Kdz. Ereğli Sahil Kuaför &amp; Bakım</h3>
-            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Sahil Şeridi, Karadeniz Ereğli, Zonguldak · 🕒 09:00 - 21:00</p>
-            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Erkek ve kadın kuaför hizmetleri, keratin saç bakımı ve randevulu özel hizmet.</p>
-            <a href="/r/demo" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Randevu Saatini Seç</a>
+            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Otomatik Hatırlatma</span>
+            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Kdz. Ereğli Sahil Kuaförleri</h3>
+            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Karadeniz Ereğli, Zonguldak · WhatsApp Teyitli</p>
+            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Erkek ve kadın kuaför hizmetleri, randevu hatırlatma ve kasa takibi tek panelde.</p>
+            <a href="/kayit" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Hemen Başla</a>
           </div>
         </div>
       </section>
@@ -2687,8 +2461,8 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
       </section>
 
       <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 20px;margin-bottom:28px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">
-        <span style="font-size:14px;font-weight:700;color:#9a3412;">Müşterinizin göreceği canlı tamir durumu ekranını test edin:</span>
-        <a href="/t/demo" style="color:#ea580c;font-weight:900;font-size:14px;text-decoration:none;">Canlı Fiş Takip Demosu (/t/demo) →</a>
+        <span style="font-size:14px;font-weight:700;color:#9a3412;">Müşterileriniz kendi tamir takip koduyla 7/24 online sorgulama yapabilir:</span>
+        <a href="/kayit" style="color:#ea580c;font-weight:900;font-size:14px;text-decoration:none;">Ücretsiz Teknik Servis Paneli Aç →</a>
       </div>
 
       <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
@@ -2752,8 +2526,8 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
       </section>
 
       <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 20px;margin-bottom:28px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">
-        <span style="font-size:14px;font-weight:700;color:#9a3412;">Müşterinizin fiş durumu sorgulayacağı ekranı inceleyin:</span>
-        <a href="/t/demo" style="color:#ea580c;font-weight:900;font-size:14px;text-decoration:none;">Canlı Emanet Fişi Takip Demosu (/t/demo) →</a>
+        <span style="font-size:14px;font-weight:700;color:#9a3412;">Müşterileriniz kendi fiş takip koduyla anlık durum sorgulayabilir:</span>
+        <a href="/kayit" style="color:#ea580c;font-weight:900;font-size:14px;text-decoration:none;">Ücretsiz Terzi Panelini Başlat →</a>
       </div>
 
       <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
@@ -2947,10 +2721,10 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
 
       <section style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;margin-bottom:40px;">
         <h2 style="font-size:20px;font-weight:900;color:#0f172a;margin:0 0 10px 0;">Türkiye Esnaf İletişim Ağı &amp; Canlı Esnaf Haritası</h2>
-        <p style="font-size:14px;color:#64748b;margin:0 0 16px 0;">Kadıköy, Nişantaşı, Çankaya, Alsancak ve Türkiye genelindeki yüzlerce işletme Dükkânım Yanımda ile çalışıyor.</p>
+        <p style="font-size:14px;color:#64748b;margin:0 0 16px 0;">Türkiye genelindeki berber, kuaför, restoran ve esnaf işletmeleri Dükkânım Yanımda ile çalışıyor.</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <a href="/r/demo" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Berber Demo Randevu →</a>
-          <a href="/m/demo" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Kafe Demo QR Menü →</a>
+          <a href="/berber" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Berber &amp; Kuaför Sistemi →</a>
+          <a href="/kafe-restoran" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Kafe &amp; Restoran QR Menü →</a>
         </div>
       </section>
     </article>`;
@@ -3179,7 +2953,10 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
   return html;
 }
 
-function isExcludedAccount(acc: { id: string; shopName?: string; phone?: string }): boolean {
+function isExcludedAccount(acc: { id: string; shopName?: string; phone?: string; isClosed?: boolean; parentAccountId?: string }): boolean {
+  if (acc.id === DEMO_ACCOUNT_ID || isAccountClosed(acc as any)) {
+    return true;
+  }
   const p = (acc.phone || '').replace(/\D/g, '');
   if (['0500', '0501', '0502', '0503', '0504', '0505', '0506', '0507', '0508', '0509', '0512'].some((prefix) => p.startsWith(prefix))) {
     return true;
@@ -3242,13 +3019,6 @@ export function generateSitemapXml(rawHost?: string): string {
   const shopUrls: { loc: string; priority: string; changefreq: string; title: string; img: string }[] = [];
   const accounts = getAccounts();
   const seenSlugs = new Set<string>();
-
-  // Demo hesap da eklensin
-  seenSlugs.add('demo');
-  shopUrls.push(
-    { loc: `${origin}/r/demo`, priority: '0.85', changefreq: 'daily', title: 'Demo Berber - Online Randevu Al', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/m/demo`, priority: '0.85', changefreq: 'daily', title: 'Demo Kafe - Dijital QR Menü & Fiyatlar', img: `${origin}/brand/phone_mockup_retina.png` }
-  );
 
   for (const acc of accounts) {
     if (isExcludedAccount(acc)) continue;

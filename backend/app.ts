@@ -14,7 +14,6 @@ import { als } from './context';
 import { addClient, removeClient, buildInitEvent } from './realtime';
 import { apiGuard, rateLimit } from './guards';
 import { startMaintenance } from './maintenance';
-import { ensureDemoAccount, ensureMasterAccount } from './demoSeed';
 import { registerAuthRoutes } from './routes/auth';
 import { registerCoreRoutes } from './routes/core';
 import { registerCustomerRoutes } from './routes/customers';
@@ -193,8 +192,6 @@ export async function startServer(): Promise<void> {
 
   // ---------------- Otomatik bakim: oturum temizligi + gunluk yedek ----------------
   startMaintenance();
-  ensureDemoAccount();
-  ensureMasterAccount();
 
   const server = http.createServer(app);
 
@@ -470,7 +467,7 @@ export async function startServer(): Promise<void> {
     const isShop = clean.startsWith('/r/') || clean.startsWith('/randevu/') || clean.startsWith('/m/') || clean.startsWith('/menu/');
     if (isShop) {
       const slug = clean.replace(/^\/(r|randevu|m|menu)\/?/, '').split('/')[0];
-      return slug === 'demo' || !!findShopForSeo(slug);
+      return !!findShopForSeo(slug);
     }
     return false;
   }

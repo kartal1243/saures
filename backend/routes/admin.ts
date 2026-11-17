@@ -7,6 +7,8 @@ import {
   findAccountById,
   removeAccount,
   removeSessionsForAccount,
+  setAccountClosed,
+  isAccountClosed,
   clientIp,
   countActiveSessions,
   getAuthEvents,
@@ -16,6 +18,8 @@ import {
   isAccountRecentlyActive,
   detectDeviceAndBrowser,
 } from '../accounts';
+import { closeAccountSockets } from '../realtime';
+import { DEMO_ACCOUNT_ID } from '../demoSeed';
 import { loadShopState, persistShopState } from '../shopState';
 import {
   DATA_DIR,
@@ -297,6 +301,10 @@ export function registerAdminRoutes(app: Express): void {
           vipTier: st.shopProfile?.vipTier || null,
           vipPlan: st.shopProfile?.vipPlan || null,
           vipUntil: st.shopProfile?.vipUntil || null,
+          isClosed: isAccountClosed(a),
+          closedAt: a.closedAt || null,
+          closedReason: a.closedReason || null,
+          isDemo: a.id === DEMO_ACCOUNT_ID,
           sector: st.shopProfile?.businessField || null,
           cityDistrict: st.shopProfile?.cityDistrict || null,
           customers: st.customers.length,
@@ -812,6 +820,99 @@ export function registerAdminRoutes(app: Express): void {
     } catch { /* dosya yoksa sorun değil */ }
     logAuthEvent('admin_delete', acc.phone, clientIp(req));
     res.json({ success: true, shopName: acc.shopName });
+  });
+
+  // Dükkanı geçici olarak kapat veya tekrar aç (tüm aktif oturumları + WebSocket bağlantılarını düşürür)
+  app.post('/api/admin/shops/:id/toggle-status', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const acc = findAccountById(req.params.id);
+    if (!acc) return res.status(404).json({ error: 'Dükkan bulunamadı.' });
+    if ((acc.role || 'owner') !== 'owner') {
+      return res.status(400).json({ error: 'Sadece ana dükkan hesabı kapatılıp açılabilir.' });
+    }
+
+    const nextClosed = typeof req.body?.isClosed === 'boolean'
+      ? req.body.isClosed
+      : !isAccountClosed(acc);
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
+    const updated = setAccountClosed(acc.id, nextClosed, reason);
+    if (!updated) return res.status(404).json({ error: 'Dükkan bulunamadı.' });
+
+    if (nextClosed) {
+      closeAccountSockets(acc.id, updated.closedReason || 'Bu dükkan hesabı yönetici tarafından kapatılmıştır.');
+      for (const staff of getAccounts().filter((x) => x.parentAccountId === acc.id)) {
+        closeAccountSockets(staff.id, updated.closedReason || 'Bu dükkan hesabı yönetici tarafından kapatılmıştır.');
+      }
+      logAuthEvent('admin_kick', acc.phone, clientIp(req));
+    }
+
+    res.json({
+      success: true,
+      id: updated.id,
+      shopName: updated.shopName,
+      isClosed: isAccountClosed(updated),
+      closedAt: updated.closedAt || null,
+      closedReason: updated.closedReason || null,
+    });
+  });
+
+  // Açık olan dükkanları toplu kapat (keepIds / keepSlugs hariç)
+  app.post('/api/admin/shops/bulk-close', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const keepIds = new Set<string>(
+      Array.isArray(req.body?.keepIds) ? req.body.keepIds.map((x: unknown) => String(x || '').trim()).filter(Boolean) : []
+    );
+    const keepSlugs = new Set<string>(
+      Array.isArray(req.body?.keepSlugs) ? req.body.keepSlugs.map((x: unknown) => String(x || '').trim().toLowerCase()).filter(Boolean) : []
+    );
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason : 'Yönetici tarafından kapatıldı.';
+
+    const closed: { id: string; shopName: string }[] = [];
+    const kept: { id: string; shopName: string }[] = [];
+
+    for (const acc of getAccounts().filter((a) => (a.role || 'owner') === 'owner')) {
+      const st = loadShopState(acc.id);
+      const slug = String(st.shopProfile?.slug || '').toLowerCase();
+      if (keepIds.has(acc.id) || (slug && keepSlugs.has(slug))) {
+        kept.push({ id: acc.id, shopName: acc.shopName });
+        continue;
+      }
+      setAccountClosed(acc.id, true, reason);
+      closeAccountSockets(acc.id, reason);
+      closed.push({ id: acc.id, shopName: acc.shopName });
+    }
+
+    res.json({ success: true, closedCount: closed.length, keptCount: kept.length, closed, kept });
+  });
+
+  // Mevcut tüm dükkanları (veya keepIds dışındakileri) tamamen sil (sıfırdan başlangıç için)
+  app.post('/api/admin/shops/purge', (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    if (req.body?.confirm !== 'PURGE_SHOPS') {
+      return res.status(400).json({ error: 'Onay için confirm="PURGE_SHOPS" gönderilmelidir.' });
+    }
+    const keepIds = new Set<string>(
+      Array.isArray(req.body?.keepIds) ? req.body.keepIds.map((x: unknown) => String(x || '').trim()).filter(Boolean) : []
+    );
+    const owners = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
+    const deleted: { id: string; shopName: string }[] = [];
+
+    for (const acc of owners) {
+      if (keepIds.has(acc.id)) continue;
+      closeAccountSockets(acc.id, 'Hesap yönetici tarafından silindi.');
+      for (const s of getAccounts().filter((x) => x.parentAccountId === acc.id)) {
+        closeAccountSockets(s.id, 'Hesap yönetici tarafından silindi.');
+        removeAccount(s.id);
+      }
+      removeAccount(acc.id);
+      try {
+        fs.unlinkSync(path.join(SHOPS_DIR, acc.id + '.json'));
+      } catch { /* dosya yoksa sorun değil */ }
+      logAuthEvent('admin_delete', acc.phone, clientIp(req));
+      deleted.push({ id: acc.id, shopName: acc.shopName });
+    }
+
+    res.json({ success: true, deletedCount: deleted.length, deleted });
   });
 
   // Sunucu loglari: nginx | app | app-error (son N satir)

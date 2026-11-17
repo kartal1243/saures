@@ -10,10 +10,11 @@ import { S, saveState, als } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast, broadcastToAccount } from '../realtime';
 import { localDay } from '../day';
-import { getAccounts } from '../accounts';
+import { getAccounts, isAccountClosed } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
 import { sendPushToAccount } from './devices';
 import { dispatchFirebaseSms, syncPublicAssetToFirestore } from '../services/firebaseService';
+import { DEMO_ACCOUNT_ID } from '../demoSeed';
 
 export interface PublicTicketLookupResult {
   code: string;
@@ -68,34 +69,13 @@ const CUSTODY_STEPS = [
  */
 export function lookupPublicTicket(rawCode: string): PublicTicketLookupResult | null {
   const code = String(rawCode || '').trim();
-  if (!code) return null;
-
-  if (code.toLowerCase() === 'demo') {
-    return {
-      code: 'demo',
-      kind: 'repair',
-      shopName: 'TeknoFix Teknik Servis',
-      shopPhone: '',
-      shopCityDistrict: 'Kadıköy, İstanbul',
-      customerMasked: 'Ahmet Y.',
-      itemTitle: 'iPhone 14 Pro — Ekran & Batarya Değişimi',
-      complaintOrDetails: 'Orijinal ekran yenileme, batarya sağlığı kontrolü ve kasa temizliği',
-      status: 'teslime_hazir',
-      statusLabel: 'Teslime Hazır',
-      stepIndex: 3,
-      steps: REPAIR_STEPS,
-      estimatedCost: 4250,
-      advance: 1000,
-      remainingAmount: 3250,
-      createdAt: new Date(Date.now() - 86400000).toISOString().slice(0, 10) + ' 11:20',
-      promisedOrCompletedAt: new Date().toISOString().slice(0, 10) + ' 16:00',
-    };
-  }
+  if (!code || code.toLowerCase() === 'demo') return null;
 
   const normalizedCode = code.toLowerCase();
   const accounts = getAccounts();
 
   for (const acc of accounts) {
+    if (acc.id === DEMO_ACCOUNT_ID || isAccountClosed(acc)) continue;
     const st = loadShopState(acc.id);
     const shopName = st.shopProfile?.storeName || acc.shopName || 'Esnaf İşletmesi';
     const shopPhone = st.shopProfile?.phone || acc.phone || '';
@@ -230,51 +210,13 @@ function computeAssetMaintenanceStatus(nextDate: string): {
  */
 export function lookupPublicAsset(rawCode: string): PublicAssetPassportResult | null {
   const code = String(rawCode || '').trim();
-  if (!code) return null;
-
-  if (code.toLowerCase() === 'demo') {
-    const nextDate = addDaysToIsoDate(localDay(), 12);
-    const status = computeAssetMaintenanceStatus(nextDate);
-    return {
-      code: 'demo',
-      shopName: 'TeknoFix Endüstriyel Servis',
-      shopPhone: '',
-      shopCityDistrict: 'İkitelli OSB, İstanbul',
-      clientName: 'Yılmaz Metal CNC Fabrika',
-      locationArea: 'A Blok — CNC İşleme Hattı 2',
-      deviceName: 'Haas VF-2 CNC Dik İşleme Merkezi',
-      brandModel: 'Haas VF-2SS / 2024',
-      serialNumberMasked: 'SN-***4892',
-      intervalDays: 90,
-      lastMaintenanceDate: addDaysToIsoDate(localDay(), -78),
-      nextMaintenanceDate: nextDate,
-      warrantyUntil: addDaysToIsoDate(localDay(), 290),
-      ...status,
-      logs: [
-        {
-          id: 'ml_demo_1',
-          date: addDaysToIsoDate(localDay(), -78),
-          summary: 'Spindle yağ kontrolü, kızak bakımı, filtre değişimi ve eksen kalibrasyonu',
-          technician: 'Murat Usta',
-          partsChanged: 'Hava Filtresi, Yağ Kartuşu',
-          meterReading: '4.280 saat',
-        },
-        {
-          id: 'ml_demo_2',
-          date: addDaysToIsoDate(localDay(), -168),
-          summary: 'Soğutma pompası revizyonu ve elektrik pano termal kontrolü',
-          technician: 'Murat Usta',
-          partsChanged: 'Soğutma Keçesi',
-          meterReading: '3.610 saat',
-        },
-      ],
-    };
-  }
+  if (!code || code.toLowerCase() === 'demo') return null;
 
   const normalizedCode = code.toLowerCase();
   const accounts = getAccounts();
 
   for (const acc of accounts) {
+    if (acc.id === DEMO_ACCOUNT_ID || isAccountClosed(acc)) continue;
     const st = loadShopState(acc.id);
     const asset = (st.maintenanceAssets || []).find(
       (a: MaintenanceAsset) =>
@@ -319,7 +261,9 @@ export async function requestServiceForPublicAsset(
   payload: { reporterName?: string; reporterPhone?: string; issueDescription?: string; urgency?: string }
 ): Promise<{ ok: boolean; statusCode: number; error?: string; ticket?: RepairTicket }> {
   const code = String(rawCode || '').trim();
-  if (!code) return { ok: false, statusCode: 400, error: 'Geçersiz cihaz kodu.' };
+  if (!code || code.toLowerCase() === 'demo') {
+    return { ok: false, statusCode: 404, error: 'Geçersiz cihaz kodu veya demo kaydı kaldırıldı.' };
+  }
 
   const description = String(payload.issueDescription || '').trim();
   const reporterName = String(payload.reporterName || '').trim();
@@ -328,29 +272,10 @@ export async function requestServiceForPublicAsset(
     return { ok: false, statusCode: 400, error: 'Bildiren kişi adı ve arıza/bakım açıklaması zorunludur.' };
   }
 
-  if (code.toLowerCase() === 'demo') {
-    const now = new Date();
-    return {
-      ok: true,
-      statusCode: 200,
-      ticket: {
-        id: `rep_demo_${Date.now()}`,
-        customerName: `${reporterName} (Yılmaz Metal Demo)`,
-        phone: reporterPhone,
-        deviceOrVehicle: 'Haas VF-2 CNC Dik İşleme Merkezi [QR Demo]',
-        complaint: description,
-        estimatedCost: 0,
-        partCost: 0,
-        status: 'kabul_edildi',
-        notes: `Aciliyet: ${payload.urgency || 'Normal'}`,
-        createdAt: `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`,
-      },
-    };
-  }
-
   const normalizedCode = code.toLowerCase();
   const accounts = getAccounts();
   for (const acc of accounts) {
+    if (acc.id === DEMO_ACCOUNT_ID || isAccountClosed(acc)) continue;
     const st = loadShopState(acc.id);
     const asset = (st.maintenanceAssets || []).find(
       (a: MaintenanceAsset) =>

@@ -500,7 +500,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 </div>
               </div>
 
-              {/* Hızlı Demo Giriş Butonu */}
+              {/* Hızlı Başlangıç Butonu */}
               <button
                 type="button"
                 onClick={onRegister}

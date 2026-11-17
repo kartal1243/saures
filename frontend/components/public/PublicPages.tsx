@@ -925,8 +925,8 @@ const REHBER_ARTICLES: RehberArticleItem[] = [
       'Yoğun saatlerde telefon trafiğini azaltmak için WhatsApp ve Instagram randevu linki paylaşın.',
       'Çoklu koltuk ve personel takvimini tek ekranda çakışmasız yönetin.',
     ],
-    ctaHref: '/r/demo',
-    ctaLabel: 'Canlı Berber Demosunu Gör',
+    ctaHref: '/berber',
+    ctaLabel: 'Berber Sistemini İncele',
   },
   {
     slug: 'ankara-berber-kuafor',
@@ -951,8 +951,8 @@ const REHBER_ARTICLES: RehberArticleItem[] = [
       'Masa QR standlarını dükkan logonuzla yazdırıp masalara yerleştirin.',
       'Müşteri siparişleri ve garson çağrılarını kasa/mutfak ekranında anında görün.',
     ],
-    ctaHref: '/m/demo',
-    ctaLabel: 'Canlı QR Menü Demosunu Gör',
+    ctaHref: '/kafe-restoran',
+    ctaLabel: 'QR Menü Sistemini İncele',
   },
 ];
 
@@ -993,7 +993,7 @@ function slugifyTurkishText(val: string): string {
     .replace(/ö/g, 'o')
     .replace(/ç/g, 'c')
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'demo';
+    .replace(/^-+|-+$/g, '') || 'dukkanim';
 }
 
 function RehberPage(props: PageProps) {
@@ -1012,7 +1012,7 @@ function RehberPage(props: PageProps) {
 
   // QR kod oluşturucu state
   const [qrMode, setQrMode] = useState<'m' | 'r'>('m');
-  const [qrShopName, setQrShopName] = useState<string>('Karaköy Kahvecisi');
+  const [qrShopName, setQrShopName] = useState<string>('İşletmem');
   const [qrCopied, setQrCopied] = useState(false);
 
   // Şablon kopyalama state
@@ -1244,7 +1244,7 @@ function RehberPage(props: PageProps) {
             type="text"
             value={qrShopName}
             onChange={(e) => setQrShopName(e.target.value)}
-            placeholder="Dükkan adınız (örn. Usta Eller Berber)"
+            placeholder="Dükkan adınız (örn. Altın Makas Berber)"
             className="mt-3 w-full rounded-xl border border-stone-300 px-3 py-2 text-sm font-bold text-stone-900"
           />
 

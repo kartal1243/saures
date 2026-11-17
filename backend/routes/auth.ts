@@ -33,7 +33,7 @@ import {
   type Account,
 } from '../accounts';
 import { loadShopState, persistShopState } from '../shopState';
-import { ensureDemoAccount, DEMO_PHONE } from '../demoSeed';
+import { DEMO_ACCOUNT_ID } from '../demoSeed';
 import { getTierLimits } from './profile';
 import {
   checkSmsEligibility,
@@ -55,7 +55,9 @@ export function registerAuthRoutes(app: Express): void {
   });
   // Herkese açık platform metrikleri
   app.get('/api/public/stats', (_req: Request, res: Response) => {
-    const accounts = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
+    const accounts = getAccounts().filter(
+      (a) => (a.role || 'owner') === 'owner' && !a.isClosed && a.id !== DEMO_ACCOUNT_ID
+    );
     const realShops = accounts.length;
     const displayShops = Math.max(25, 20 + realShops);
 
@@ -207,11 +209,6 @@ export function registerAuthRoutes(app: Express): void {
       }
     }
 
-    if (lookupKey === DEMO_PHONE) {
-      ensureDemoAccount();
-      clearLoginAttempts(lookupKey);
-    }
-
     const lockedMs = isLoginLocked(lookupKey);
     if (lockedMs > 0) {
       logAuthEvent('locked', lookupKey, clientIp(req));
@@ -226,6 +223,18 @@ export function registerAuthRoutes(app: Express): void {
       const left = loginAttemptsLeft(lookupKey);
       return res.status(401).json({
         error: 'Kullanıcı adı/telefon veya şifre hatalı.' + (left > 0 && left <= 2 ? ` (${left} deneme hakkınız kaldı)` : ''),
+      });
+    }
+    if (acc.id === DEMO_ACCOUNT_ID) {
+      logAuthEvent('login_fail', lookupKey, clientIp(req));
+      return res.status(410).json({
+        error: 'Demo modu kaldırılmıştır.',
+      });
+    }
+    if (acc.isClosed) {
+      logAuthEvent('login_fail', lookupKey, clientIp(req));
+      return res.status(403).json({
+        error: 'Bu dükkan hesabı yönetici tarafından kapatılmıştır.',
       });
     }
     // Personel artik giris yapamaz — sadece dukkan sahibi (owner) girer.
@@ -296,6 +305,12 @@ export function registerAuthRoutes(app: Express): void {
         error: 'Bu telefon numarasına ait kayıtlı bir dükkan hesabı bulunamadı. Lütfen numaranızı kontrol ediniz.'
       });
     }
+    if (matched.isClosed) {
+      return res.status(403).json({
+        allowed: false,
+        error: 'Bu dükkan hesabı yönetici tarafından kapatılmıştır.'
+      });
+    }
 
     const ip = clientIp(req);
     const eligibility = checkSmsEligibility(phone, ip);
@@ -345,6 +360,9 @@ export function registerAuthRoutes(app: Express): void {
 
     if (!matched) {
       return res.status(404).json({ error: 'Bu bilgiye ait kayıtlı dükkan hesabı bulunamadı.' });
+    }
+    if (matched.isClosed) {
+      return res.status(403).json({ error: 'Bu dükkan hesabı yönetici tarafından kapatılmıştır.' });
     }
     const targetEmail = String(matched.email || rawEmail || '').trim().toLowerCase();
     if (!targetEmail || !targetEmail.includes('@')) {
@@ -437,6 +455,11 @@ export function registerAuthRoutes(app: Express): void {
         error: 'Bu telefon numarasına ait kayıtlı bir dükkan hesabı bulunamadı. Lütfen numaranızı kontrol ediniz.'
       });
     }
+    if (matched.isClosed) {
+      return res.status(403).json({
+        error: 'Bu dükkan hesabı yönetici tarafından kapatılmıştır.'
+      });
+    }
 
     const ip = clientIp(req);
 
@@ -527,6 +550,10 @@ export function registerAuthRoutes(app: Express): void {
         customEmailResetTokens.delete(tokenHash);
         return res.status(404).json({ error: 'Hesap bulunamadı.' });
       }
+      if (acc.isClosed) {
+        customEmailResetTokens.delete(tokenHash);
+        return res.status(403).json({ error: 'Bu dükkan hesabı yönetici tarafından kapatılmıştır.' });
+      }
 
       customEmailResetTokens.delete(tokenHash);
       acc.passwordHash = hashPassword(newPassword);
@@ -607,6 +634,9 @@ export function registerAuthRoutes(app: Express): void {
       if (!acc) {
         return res.status(404).json({ error: 'Hesap bulunamadı.' });
       }
+      if (acc.isClosed) {
+        return res.status(403).json({ error: 'Bu dükkan hesabı yönetici tarafından kapatılmıştır.' });
+      }
 
       usedFirebaseResetTokens.set(tokenHash, nowMs + 60 * 60 * 1000);
       acc.passwordHash = hashPassword(newPassword);
@@ -636,7 +666,7 @@ export function registerAuthRoutes(app: Express): void {
       return res.status(400).json({ error: 'Geçersiz telefon numarası.' });
     }
 
-    // B. Klasik In-Memory OTP Doğrulama (Geriye Dönük WhatsApp / Demo Uyumluluğu)
+    // B. Klasik In-Memory OTP Doğrulama (Geriye Dönük WhatsApp Uyumluluğu)
     if (!otpCode || otpCode.length < 4) {
       return res.status(400).json({ error: 'Lütfen SMS doğrulama kodunu veya Firebase tokenını iletiniz.' });
     }
@@ -667,6 +697,9 @@ export function registerAuthRoutes(app: Express): void {
     const acc = findAccountByPhone(phone);
     if (!acc) {
       return res.status(404).json({ error: 'Hesap bulunamadı.' });
+    }
+    if (acc.isClosed) {
+      return res.status(403).json({ error: 'Bu dükkan hesabı yönetici tarafından kapatılmıştır.' });
     }
 
     acc.passwordHash = hashPassword(newPassword);

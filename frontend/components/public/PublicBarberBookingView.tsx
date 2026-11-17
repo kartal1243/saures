@@ -143,7 +143,6 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
-  const [otpDemoHint, setOtpDemoHint] = useState<string | null>(null);
   const [otpWhatsappLink, setOtpWhatsappLink] = useState<string | null>(null);
   const [firebaseConfirmResult, setFirebaseConfirmResult] = useState<ConfirmationResult | null>(null);
   const [otpChannel, setOtpChannel] = useState<'firebase' | 'backend' | null>(null);
@@ -249,6 +248,11 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
     initFirebaseAppCheck().catch(() => {});
     let isMounted = true;
     const fetchData = async () => {
+      if (!identifier || !identifier.trim()) {
+        setError('Randevu bağlantısı bulunamadı.');
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -583,27 +587,23 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       return;
     }
     setOtpSending(true);
-    setOtpDemoHint(null);
     setOtpWhatsappLink(null);
     setFirebaseConfirmResult(null);
 
     try {
-      const isDemoPhone = cleanPhone === '05900000011' || cleanPhone === '05550000000' || identifier === 'demo';
-      if (!isDemoPhone) {
-        try {
-          const fbRes = await sendFirebasePhoneOtp(cleanPhone, 'barber-recaptcha-container');
-          setFirebaseConfirmResult(fbRes.confirmationResult);
-          setOtpChannel('firebase');
-          setOtpSent(true);
-          setOtpResendSec(60);
+      try {
+        const fbRes = await sendFirebasePhoneOtp(cleanPhone, 'barber-recaptcha-container');
+        setFirebaseConfirmResult(fbRes.confirmationResult);
+        setOtpChannel('firebase');
+        setOtpSent(true);
+        setOtpResendSec(60);
+        return;
+      } catch (fbErr: any) {
+        console.warn('Firebase Randevu OTP fallback:', fbErr?.code || fbErr?.message);
+        // Blaze henüz açılmadıysa veya domain yetkili değilse backend/WhatsApp yoluna düş
+        if (fbErr?.code === 'auth/invalid-phone-number') {
+          alert(translateFirebaseError(fbErr));
           return;
-        } catch (fbErr: any) {
-          console.warn('Firebase Randevu OTP fallback:', fbErr?.code || fbErr?.message);
-          // Blaze henüz açılmadıysa veya domain yetkili değilse backend/WhatsApp yoluna düş
-          if (fbErr?.code === 'auth/invalid-phone-number') {
-            alert(translateFirebaseError(fbErr));
-            return;
-          }
         }
       }
 
@@ -619,10 +619,6 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
         setOtpResendSec(60);
         if (resJson.whatsappLink) {
           setOtpWhatsappLink(resJson.whatsappLink);
-        }
-        if (resJson.demoCode) {
-          setOtpDemoHint(resJson.demoCode);
-          setOtpCode(resJson.demoCode);
         }
       } else {
         alert(resJson.error || 'SMS kodu gönderilemedi.');
@@ -1607,8 +1603,6 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
                           <span>
                             {otpChannel === 'firebase'
                               ? 'Onay kodunuz Firebase üzerinden SMS olarak gönderildi.'
-                              : otpDemoHint
-                              ? `Demo doğrulama kodu otomatik dolduruldu (${otpDemoHint}).`
                               : 'Onay kodu telefonunuza iletildi.'}
                           </span>
                         </div>

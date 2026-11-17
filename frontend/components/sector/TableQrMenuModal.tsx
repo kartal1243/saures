@@ -102,10 +102,11 @@ export const TableQrMenuModal: React.FC<TableQrMenuModalProps> = ({
   const effectiveLogoUrl = resolveSafeMediaUrl(shopLogoUrl);
   const initials = getShopInitials(restaurantName);
 
+  const targetSlug = (shopSlug || '').trim();
   const menuUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/m/${encodeURIComponent(shopSlug || 'demo')}?masa=${encodeURIComponent(tableName)}`
-      : `/m/${encodeURIComponent(shopSlug || 'demo')}?masa=${encodeURIComponent(tableName)}`;
+      ? `${window.location.origin}/m/${encodeURIComponent(targetSlug)}?masa=${encodeURIComponent(tableName)}`
+      : `/m/${encodeURIComponent(targetSlug)}?masa=${encodeURIComponent(tableName)}`;
 
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=H&margin=8&data=${encodeURIComponent(
     menuUrl
