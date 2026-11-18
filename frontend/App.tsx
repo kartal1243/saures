@@ -27,7 +27,7 @@ import {
   registerFirebaseWebPush,
   unregisterFirebaseWebPush,
 } from './firebase';
-import { Header } from './components/layout/Header';
+import { Header, type AppNotificationItem } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { HomeDashboard } from './components/panel/HomeDashboard';
 import { SECTORS } from './components/sector/SectorSwitcherBar';
@@ -270,7 +270,7 @@ export default function App() {
   const [whatsAppReminderType, setWhatsAppReminderType] = useState<'veresiye' | 'aidat' | 'bakim'>('veresiye');
   const [barberSubTab, setBarberSubTab] = useState<'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'>('timeline');
 
-  // Canlı Online Randevu & Masa Garson Çağrısı Bildirim State'i
+  // Canlı Online Randevu & Masa Garson Çağrısı Bildirim State'i + Kalıcı Bildirim Geçmişi
   const [liveBookingAlert, setLiveBookingAlert] = useState<Appointment | null>(null);
   const [liveTableCallAlert, setLiveTableCallAlert] = useState<{
     tableNo: string;
@@ -278,6 +278,69 @@ export default function App() {
     action: string;
     time: string;
   } | null>(null);
+  const [notifications, setNotifications] = useState<AppNotificationItem[]>([]);
+
+  const notifStorageKey = shopProfile?.slug
+    ? `dukkanim_notifications_${shopProfile.slug}`
+    : 'dukkanim_notifications_default';
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(notifStorageKey);
+      if (!raw) return;
+      const saved: AppNotificationItem[] = JSON.parse(raw);
+      if (!Array.isArray(saved)) return;
+      setNotifications((prev) => {
+        const seen = new Set(prev.map((n) => n.id));
+        const merged = [...prev, ...saved.filter((n) => n && n.id && !seen.has(n.id))];
+        return merged.slice(0, 50);
+      });
+    } catch {}
+  }, [notifStorageKey]);
+
+  const pushAppNotification = useCallback(
+    (entry: Omit<AppNotificationItem, 'read'>) => {
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === entry.id)) return prev;
+        const next: AppNotificationItem[] = [{ ...entry, read: false }, ...prev].slice(0, 50);
+        try {
+          localStorage.setItem(notifStorageKey, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    },
+    [notifStorageKey]
+  );
+
+  const handleMarkNotificationRead = useCallback(
+    (id: string) => {
+      setNotifications((prev) => {
+        const next = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+        try {
+          localStorage.setItem(notifStorageKey, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    },
+    [notifStorageKey]
+  );
+
+  const handleMarkAllNotificationsRead = useCallback(() => {
+    setNotifications((prev) => {
+      const next = prev.map((n) => ({ ...n, read: true }));
+      try {
+        localStorage.setItem(notifStorageKey, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [notifStorageKey]);
+
+  const handleClearNotifications = useCallback(() => {
+    setNotifications([]);
+    try {
+      localStorage.removeItem(notifStorageKey);
+    } catch {}
+  }, [notifStorageKey]);
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -368,6 +431,14 @@ export default function App() {
       notifiedAppointmentIdsRef.current.add(apt.id);
       playBookingNotificationSound(apt);
       setLiveBookingAlert(apt);
+      pushAppNotification({
+        id: `notif_apt_${apt.id}`,
+        kind: 'booking',
+        title: `Yeni Randevu: ${apt.customerName}`,
+        body: `${apt.appointmentDate} • ${apt.timeSlot} — ${apt.serviceName}${apt.staffName ? ` (${apt.staffName})` : ''}`,
+        createdAt: apt.createdAt || new Date().toISOString(),
+        targetTab: 'sector_view',
+      });
       if (liveBookingAlertTimeoutRef.current) {
         clearTimeout(liveBookingAlertTimeoutRef.current);
       }
@@ -376,7 +447,7 @@ export default function App() {
         liveBookingAlertTimeoutRef.current = null;
       }, 8000);
     },
-    [playBookingNotificationSound]
+    [playBookingNotificationSound, pushAppNotification]
   );
 
   // Auth durumu: kontrol ediliyor / kapalı / açık
@@ -564,10 +635,20 @@ export default function App() {
             }
           } else if (wsEvent.type === 'APPOINTMENT_UPDATED') {
             const apt = wsEvent.payload;
-            const exists = appointmentsRef.current.some((a) => a.id === apt.id);
+            const prevApt = appointmentsRef.current.find((a) => a.id === apt.id);
+            const exists = Boolean(prevApt);
             const alreadyNotified = notifiedAppointmentIdsRef.current.has(apt.id);
             if (!exists && !alreadyNotified) {
               triggerLiveBookingAlert(apt);
+            } else if (prevApt && prevApt.status !== 'iptal' && apt.status === 'iptal') {
+              pushAppNotification({
+                id: `notif_cancel_${apt.id}`,
+                kind: 'booking_cancelled',
+                title: `Randevu İptali: ${apt.customerName}`,
+                body: `${apt.appointmentDate} • ${apt.timeSlot} (${apt.serviceName}) iptal edildi.`,
+                createdAt: new Date().toISOString(),
+                targetTab: 'sector_view',
+              });
             }
             const nextList = exists
               ? appointmentsRef.current.map((a) => (a.id === apt.id ? apt : a))
@@ -611,11 +692,23 @@ export default function App() {
               }
             } catch {}
 
+            const tableNoText = callPayload.tableNo || callPayload.tableName || 'Masa';
+            const tableActionText = callPayload.action || 'Garson Çağırıyor 🔔';
+            const tableTimeText =
+              callPayload.time || new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
             setLiveTableCallAlert({
-              tableNo: callPayload.tableNo || callPayload.tableName || 'Masa',
+              tableNo: tableNoText,
               tableId: callPayload.tableId,
-              action: callPayload.action || 'Garson Çağırıyor 🔔',
-              time: callPayload.time || new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+              action: tableActionText,
+              time: tableTimeText,
+            });
+            pushAppNotification({
+              id: `notif_tbl_${callPayload.tableId || tableNoText}_${Date.now()}`,
+              kind: 'table_call',
+              title: `${tableNoText} — Masa Çağrısı`,
+              body: `${tableActionText} (${tableTimeText})`,
+              createdAt: new Date().toISOString(),
+              targetTab: 'sector_view',
             });
             setTimeout(() => setLiveTableCallAlert(null), 10000);
           } else if (wsEvent.type === 'REPAIR_TICKET_UPDATED') {
@@ -663,6 +756,16 @@ export default function App() {
             setCash(wsEvent.payload.cash);
           } else if (wsEvent.type === 'REMINDER_SENT') {
             setReminderLogs((prev) => [wsEvent.payload, ...prev]);
+            if (wsEvent.payload?.id) {
+              pushAppNotification({
+                id: `notif_rem_${wsEvent.payload.id}`,
+                kind: 'reminder',
+                title: `Hatırlatma: ${wsEvent.payload.customerName}`,
+                body: wsEvent.payload.message || 'Otomatik randevu hatırlatması gönderildi.',
+                createdAt: new Date().toISOString(),
+                targetTab: 'sector_view',
+              });
+            }
           } else if (wsEvent.type === 'CASH_UPDATED') {
             setCash(wsEvent.payload);
           } else if (wsEvent.type === 'SHOP_PROFILE_UPDATED') {
@@ -1948,7 +2051,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 1. Header with Store Profile Badge, Dark Mode Switch & VIP Button */}
+      {/* 1. Header with Store Profile Badge, Notification Bell, Dark Mode Switch & VIP Button */}
       {!(activeTab === 'sector_view' && isCafe) && (
         <Header
           storeName={storeName}
@@ -1960,6 +2063,11 @@ export default function App() {
           onOpenVip={() => setIsVipModalOpen(true)}
           onLogout={handleLogout}
           onExportCsv={handleExportCsv}
+          notifications={notifications}
+          onMarkNotificationRead={handleMarkNotificationRead}
+          onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+          onClearNotifications={handleClearNotifications}
+          onNavigateTab={(tab) => setActiveTab(tab)}
         />
       )}
 
