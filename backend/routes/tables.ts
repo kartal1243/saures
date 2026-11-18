@@ -113,15 +113,20 @@ export function registerTableRoutes(app: Express): void {
     res.json({ success: true, table });
   });
 
-  // Masa Notu Ekleme / Güncelleme
+  // Masa Notu & Müşteri Bilgisi Ekleme / Güncelleme
   app.post('/api/tables/:id/note', (req: Request, res: Response) => {
     const { id } = req.params;
-    const { note } = req.body;
+    const { note, customerName } = req.body || {};
     if (!S().tables) S().tables = [];
     const table = S().tables.find((t) => t.id === id);
     if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
 
-    table.note = typeof note === 'string' ? note.trim() : undefined;
+    if (note !== undefined) {
+      table.note = typeof note === 'string' && note.trim() ? note.trim() : undefined;
+    }
+    if (customerName !== undefined) {
+      table.customerName = typeof customerName === 'string' && customerName.trim() ? customerName.trim() : undefined;
+    }
     saveState();
     broadcast({ type: 'TABLE_UPDATED', payload: table });
     res.json({ success: true, table });
@@ -187,10 +192,10 @@ export function registerTableRoutes(app: Express): void {
     res.json({ success: true, sourceTable, targetTable });
   });
 
-  // Hızlı & Parçalı Hesap Kapatma (Nakit / Kredi Kartı / Veresiye)
+  // Hızlı & Parçalı Hesap Kapatma (Nakit / Kredi Kartı / IBAN Havale / Veresiye)
   app.post('/api/tables/:id/checkout', (req: Request, res: Response) => {
     const { id } = req.params;
-    const { paymentMethod, amount, customerId, payments, closeTable } = req.body;
+    const { paymentMethod, amount, customerId, payments, closeTable, discountAmount } = req.body || {};
     if (!S().tables) S().tables = [];
     const table = S().tables.find((t) => t.id === id);
     if (!table) return res.status(404).json({ error: 'Masa bulunamadı.' });
@@ -199,32 +204,42 @@ export function registerTableRoutes(app: Express): void {
       return res.status(400).json({ error: 'Masada açık hesap bulunmuyor.' });
     }
 
+    const appliedDiscount = Math.min(table.totalAmount, Math.max(0, Number(discountAmount) || 0));
+    const payableTotal = Math.max(0, table.totalAmount - appliedDiscount);
+
     const orderSummary = table.orders.map((o) => `${o.quantity}x ${o.name}${o.isGift ? ' (İkram)' : ''}`).join(', ');
+    const discountTag = appliedDiscount > 0 ? ` [-₺${appliedDiscount} İndirim]` : '';
     const now = new Date();
     const todayStr = S().businessDate || localDay();
     const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
     // Ödeme parçalarını derle
+    type SupportedMethod = 'nakit' | 'kart' | 'havale' | 'veresiye';
     type PaymentItem = {
-      method: 'nakit' | 'kart' | 'veresiye';
+      method: SupportedMethod;
       amount: number;
       customerId?: string;
       customerName?: string;
+    };
+
+    const normalizePayMethod = (raw: unknown): SupportedMethod => {
+      if (raw === 'kart' || raw === 'veresiye' || raw === 'havale') return raw;
+      return 'nakit';
     };
 
     let paymentList: PaymentItem[] = [];
     if (Array.isArray(payments) && payments.length > 0) {
       paymentList = payments
         .map((p) => ({
-          method: (p.method === 'kart' || p.method === 'veresiye' ? p.method : 'nakit') as 'nakit' | 'kart' | 'veresiye',
+          method: normalizePayMethod(p.method),
           amount: Number(p.amount) || 0,
           customerId: p.customerId,
           customerName: p.customerName,
         }))
         .filter((p) => p.amount > 0);
     } else {
-      const pMethod = (paymentMethod === 'kart' || paymentMethod === 'veresiye' ? paymentMethod : 'nakit') as 'nakit' | 'kart' | 'veresiye';
-      const pAmount = Number(amount) > 0 ? Number(amount) : table.totalAmount;
+      const pMethod = normalizePayMethod(paymentMethod);
+      const pAmount = Number(amount) > 0 ? Number(amount) : payableTotal;
       paymentList = [{
         method: pMethod,
         amount: pAmount,
@@ -232,7 +247,7 @@ export function registerTableRoutes(app: Express): void {
       }];
     }
 
-    if (paymentList.length === 0) {
+    if (paymentList.length === 0 && payableTotal > 0) {
       return res.status(400).json({ error: 'Geçerli bir ödeme tutarı belirtilmedi.' });
     }
 
@@ -250,7 +265,7 @@ export function registerTableRoutes(app: Express): void {
           cust = S().customers.find((c) => c.name.toLowerCase() === p.customerName!.trim().toLowerCase());
         }
 
-        const custName = cust ? cust.name : (p.customerName || `Masa Müşterisi (${table.name})`);
+        const custName = cust ? cust.name : (p.customerName || table.customerName || `Masa Müşterisi (${table.name})`);
         if (cust) {
           cust.balance += p.amount;
           cust.updatedAt = now.toISOString();
@@ -264,7 +279,7 @@ export function registerTableRoutes(app: Express): void {
           type: 'veresiye',
           amount: p.amount,
           paymentMethod: 'veresiye',
-          description: `Masa Hesabı (Veresiye): ${table.name} (${orderSummary})`,
+          description: `Masa Hesabı (Veresiye): ${table.name} (${orderSummary})${discountTag}`,
           date: `${todayStr} ${timeStr}`,
           createdAt: now.toISOString(),
         };
@@ -274,11 +289,11 @@ export function registerTableRoutes(app: Express): void {
         const tx: Transaction = {
           id: `tx_tbl_${Date.now()}_${Math.random().toString(36).substr(2, 3)}`,
           customerId: '',
-          customerName: table.name,
+          customerName: table.customerName ? `${table.name} · ${table.customerName}` : table.name,
           type: 'tahsilat',
           amount: p.amount,
-          paymentMethod: p.method === 'kart' ? 'kart' : 'nakit',
-          description: `Masa Hesabı: ${table.name} (${orderSummary})`,
+          paymentMethod: p.method === 'kart' ? 'kart' : p.method === 'havale' ? 'havale' : 'nakit',
+          description: `Masa Hesabı: ${table.name} (${orderSummary})${discountTag}`,
           date: `${todayStr} ${timeStr}`,
           createdAt: now.toISOString(),
         };
@@ -288,7 +303,7 @@ export function registerTableRoutes(app: Express): void {
     }
 
     // Masa hesabı tamamen kapatılıyor mu, yoksa kalan bakiye mi var?
-    const isFullClose = closeTable === true || totalPaid >= table.totalAmount;
+    const isFullClose = closeTable === true || totalPaid >= payableTotal;
 
     if (isFullClose) {
       table.isOccupied = false;
@@ -297,10 +312,11 @@ export function registerTableRoutes(app: Express): void {
       table.openedAt = undefined;
       table.guestCount = undefined;
       table.note = undefined;
+      table.customerName = undefined;
       table.activeCall = null;
     } else {
-      // Parçalı tahsilat: kalan tutarı düş
-      table.totalAmount = Math.max(0, table.totalAmount - totalPaid);
+      // Parçalı tahsilat (ve varsa tek seferlik indirim) sonrası kalan tutarı düş
+      table.totalAmount = Math.max(0, payableTotal - totalPaid);
     }
 
     saveState();
@@ -345,6 +361,7 @@ export function registerTableRoutes(app: Express): void {
     table.openedAt = undefined;
     table.guestCount = undefined;
     table.note = undefined;
+    table.customerName = undefined;
     table.activeCall = null;
 
     saveState();
@@ -379,8 +396,8 @@ export function registerTableRoutes(app: Express): void {
   });
 
   app.post('/api/tables', (req: Request, res: Response) => {
-    const { name } = req.body;
-    if (!name || !name.trim()) return res.status(400).json({ error: 'Masa adı zorunludur.' });
+    const { name, section } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Masa adı zorunludur.' });
     if (!S().tables) S().tables = [];
 
     const limits = getTierLimits(S().shopProfile);
@@ -393,7 +410,8 @@ export function registerTableRoutes(app: Express): void {
 
     const newTable: RestaurantTable = {
       id: `tbl_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      name: name.trim(),
+      name: String(name).trim(),
+      ...(typeof section === 'string' && section.trim() ? { section: section.trim() } : {}),
       isOccupied: false,
       orders: [],
       totalAmount: 0,
@@ -402,6 +420,59 @@ export function registerTableRoutes(app: Express): void {
     saveState();
     broadcast({ type: 'TABLE_UPDATED', payload: newTable });
     res.json({ success: true, table: newTable });
+  });
+
+  app.post('/api/tables/setup-seyir-preset', (_req: Request, res: Response) => {
+    if (!S().tables) S().tables = [];
+    const limits = getTierLimits(S().shopProfile);
+
+    const presetDefinitions: Array<{ name: string; section: string }> = [
+      { name: 'Tezgah (Hızlı Satış)', section: 'Paket & Gel-Al' },
+      { name: 'Gel-Al 1', section: 'Paket & Gel-Al' },
+      { name: 'Gel-Al 2', section: 'Paket & Gel-Al' },
+      { name: 'Paket Servis 1', section: 'Paket & Gel-Al' },
+      { name: 'Paket Servis 2', section: 'Paket & Gel-Al' },
+      { name: 'Paket Servis 3', section: 'Paket & Gel-Al' },
+      { name: 'Teras 1', section: 'Teras' },
+      { name: 'Teras 2', section: 'Teras' },
+      { name: 'Teras 3', section: 'Teras' },
+      { name: 'Bahçe 1', section: 'Bahçe / Seyir' },
+      { name: 'Bahçe 2', section: 'Bahçe / Seyir' },
+      { name: 'Salon 1', section: 'Salon' },
+      { name: 'Salon 2', section: 'Salon' },
+      { name: 'Salon 3', section: 'Salon' },
+      { name: 'Salon 4', section: 'Salon' },
+    ];
+
+    const existingNames = new Set(S().tables.map((t) => t.name.trim().toLowerCase()));
+    const created: RestaurantTable[] = [];
+
+    for (const def of presetDefinitions) {
+      if (S().tables.length >= limits.maxTables) break;
+      if (existingNames.has(def.name.toLowerCase())) continue;
+      const tbl: RestaurantTable = {
+        id: `tbl_${Date.now()}_${Math.random().toString(36).substr(2, 4)}_${created.length}`,
+        name: def.name,
+        section: def.section,
+        isOccupied: false,
+        orders: [],
+        totalAmount: 0,
+      };
+      S().tables.push(tbl);
+      existingNames.add(def.name.toLowerCase());
+      created.push(tbl);
+      broadcast({ type: 'TABLE_UPDATED', payload: tbl });
+    }
+
+    if (created.length > 0) {
+      saveState();
+    }
+
+    res.json({
+      success: true,
+      createdCount: created.length,
+      tables: S().tables,
+    });
   });
 }
 

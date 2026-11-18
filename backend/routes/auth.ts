@@ -32,7 +32,7 @@ import {
   isValidTurkishPhone,
   type Account,
 } from '../accounts';
-import { loadShopState, persistShopState } from '../shopState';
+import { loadShopState, persistShopState, allocateUniqueSlug, sanitizeGoogleMapsUrl } from '../shopState';
 import { DEMO_ACCOUNT_ID } from '../demoSeed';
 import { getTierLimits } from './profile';
 import {
@@ -78,6 +78,7 @@ export function registerAuthRoutes(app: Express): void {
     const phone = normalizePhone(String(body.phone || ''));
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
+    const rawGoogleMapsUrl = sanitizeGoogleMapsUrl(body.googleMapsUrl);
     const firebaseIdToken = String(body.firebaseIdToken || '').trim();
 
     if (!shopName || !ownerName || !phone) {
@@ -127,6 +128,17 @@ export function registerAuthRoutes(app: Express): void {
     recordLogin(acc, clientIp(req));
     logAuthEvent('register', phone, clientIp(req));
     const st = loadShopState(acc.id);
+    st.storeName = shopName;
+    st.shopProfile.storeName = shopName;
+    st.shopProfile.ownerName = ownerName;
+    st.shopProfile.phone = phone;
+    st.shopProfile.slug = allocateUniqueSlug(shopName, acc.id);
+    if (rawGoogleMapsUrl) {
+      st.shopProfile.googleMapsUrl = rawGoogleMapsUrl;
+    }
+    if (st.barberSettings) {
+      st.barberSettings.slug = st.shopProfile.slug;
+    }
 
     // 14 Günlük Ücretsiz VIP Kampanyası
     if (!st.shopProfile.isVip || !st.shopProfile.vipUntil) {
@@ -137,12 +149,14 @@ export function registerAuthRoutes(app: Express): void {
       st.shopProfile.vipPlan = '14_gun_deneme';
       st.shopProfile.vipUntil = trialExpiry;
       st.shopProfile.vipExpiresAt = trialExpiry;
-      persistShopState(acc.id, st);
     }
+    persistShopState(acc.id, st);
 
     writeFirestoreDocument('shops', acc.id, {
       accountId: acc.id,
       storeName: acc.shopName,
+      slug: st.shopProfile.slug,
+      ...(st.shopProfile.googleMapsUrl ? { googleMapsUrl: st.shopProfile.googleMapsUrl } : {}),
       businessField: st.shopProfile.businessField || 'Genel Esnaf',
       sectorKey: st.shopProfile.sectorKey || 'bakkal_market',
       ...(st.shopProfile.cityDistrict ? { cityDistrict: st.shopProfile.cityDistrict } : {}),

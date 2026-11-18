@@ -4,6 +4,7 @@ import type {
   Appointment,
   BusinessSector,
   CaseFile,
+  CashRegister,
   CustodyTicket,
   Customer,
   MaintenanceAsset,
@@ -11,6 +12,7 @@ import type {
   RepairTicket,
   RestaurantTable,
   ServiceItem,
+  Transaction,
 } from '../../../shared/types.ts';
 import { BarberAppointmentsView } from './BarberAppointmentsView';
 import { RestaurantTablesView } from './RestaurantTablesView';
@@ -45,15 +47,26 @@ interface SectorModuleSwitchProps {
   onFastWalkinCash: (serviceName: string, price: number, staffName: string) => Promise<void>;
   // Kafe / Restoran
   tables: RestaurantTable[];
+  cash?: CashRegister;
+  transactions?: Transaction[];
   onAddOrderToTable: (
     tableId: string,
-    item: { name: string; quantity: number; unitPrice: number }
+    item: { name: string; quantity: number; unitPrice: number; isGift?: boolean; note?: string }
   ) => Promise<void>;
   onCheckoutTable: (tableId: string, paymentMethod: 'nakit' | 'kart') => Promise<void>;
   onResetTable: (tableId: string) => Promise<void>;
   onAddQuickExpense: (description: string, amount: number) => Promise<void>;
   onAddTable: (name: string) => Promise<void>;
   onDeleteTable: (id: string) => Promise<void>;
+  onTableStateChange?: (table: RestaurantTable) => void;
+  onCheckoutComplete?: (payload: {
+    table?: RestaurantTable;
+    cash?: CashRegister;
+    transaction?: Transaction;
+    transactions?: Transaction[];
+    customer?: Customer;
+  }) => void;
+  onRefreshData?: () => Promise<void> | void;
   // Bakkal / Market (POS)
   products: Product[];
   customers: Customer[];
@@ -130,6 +143,8 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
         shopLogoUrl={props.shopLogoUrl}
         isVip={props.isVip}
         vipTier={props.vipTier}
+        cash={props.cash}
+        transactions={props.transactions}
         onOpenVip={props.onOpenVip}
         onAddOrderToTable={props.onAddOrderToTable}
         onCheckoutTable={props.onCheckoutTable}
@@ -137,6 +152,9 @@ export const SectorModuleSwitch: React.FC<SectorModuleSwitchProps> = (props) => 
         onAddQuickExpense={props.onAddQuickExpense}
         onAddTable={props.onAddTable}
         onDeleteTable={props.onDeleteTable}
+        onTableStateChange={props.onTableStateChange}
+        onCheckoutComplete={props.onCheckoutComplete}
+        onRefreshData={props.onRefreshData}
       />
     );
   }

@@ -51,17 +51,31 @@ function resolveBarberShop(identifier: string) {
   }
   const accounts = getAccounts();
 
+  // 1. Öncelik: Tam ID veya telefon eşleşmesi
   let targetAcc = accounts.find(
     (a) =>
       a.id !== DEMO_ACCOUNT_ID &&
       !isAccountClosed(a) &&
-      (a.id.toLowerCase() === rawId ||
-        a.phone === rawId ||
-        slugify(a.shopName) === rawId)
+      (a.id.toLowerCase() === rawId || a.phone === rawId)
   );
 
   let shopState = targetAcc ? loadShopState(targetAcc.id) : null;
 
+  // 2. Öncelik: İşletme profilindeki benzersiz slug eşleşmesi
+  if (!shopState) {
+    for (const a of accounts) {
+      if (a.id === DEMO_ACCOUNT_ID || isAccountClosed(a)) continue;
+      const st = loadShopState(a.id);
+      const profileSlug = (st.shopProfile?.slug || '').toLowerCase();
+      if (profileSlug && profileSlug === rawId) {
+        targetAcc = a;
+        shopState = st;
+        break;
+      }
+    }
+  }
+
+  // 3. Yedek: Dükkan isminden slugify eşleşmesi
   if (!shopState) {
     for (const a of accounts) {
       if (a.id === DEMO_ACCOUNT_ID || isAccountClosed(a)) continue;
@@ -295,6 +309,7 @@ export function registerPublicBarberRoutes(app: Express): void {
         slogan: shopState.shopProfile?.slogan || 'Profesyonel Saç & Sakal Bakımı',
         slug,
         logoUrl: shopState.shopProfile?.logoUrl,
+        googleMapsUrl: shopState.shopProfile?.googleMapsUrl || '',
         iban: shopState.shopProfile?.iban || '',
         isVip,
         vipTier: limits.tier,

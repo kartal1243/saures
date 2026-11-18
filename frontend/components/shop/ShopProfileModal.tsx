@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Loader2,
   Quote,
+  ExternalLink,
 } from 'lucide-react';
 import { ShopProfile } from '../../../shared/types.ts';
 import { deriveSector } from '../../utils/sector';
@@ -60,6 +61,7 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
   const [employeeCount, setEmployeeCount] = useState(currentProfile?.employeeCount || '1');
   const [phone, setPhone] = useState(currentProfile?.phone || '');
   const [cityDistrict, setCityDistrict] = useState(currentProfile?.cityDistrict || '');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(currentProfile?.googleMapsUrl || '');
   const [dailyTarget, setDailyTarget] = useState(currentProfile?.dailyTarget || 2500);
   const [slogan, setSlogan] = useState(currentProfile?.slogan || '');
   const [logoUrl, setLogoUrl] = useState<string | undefined>(currentProfile?.logoUrl);
@@ -74,6 +76,7 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
       setEmployeeCount(currentProfile.employeeCount || '1');
       setPhone(currentProfile.phone || '');
       setCityDistrict(currentProfile.cityDistrict || '');
+      setGoogleMapsUrl(currentProfile.googleMapsUrl || '');
       setDailyTarget(currentProfile.dailyTarget || 2500);
       setSlogan(currentProfile.slogan || '');
       setLogoUrl(currentProfile.logoUrl);
@@ -100,6 +103,7 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
         employeeCount: employeeCount,
         phone: phone.trim(),
         cityDistrict: cityDistrict.trim(),
+        googleMapsUrl: googleMapsUrl.trim() || '',
         dailyTarget: Number(dailyTarget) || 2500,
         slogan: slogan.trim() || 'Mahallenin Güvenilir Esnafı',
         logoUrl: logoUrl !== undefined ? logoUrl : currentProfile?.logoUrl,
@@ -321,6 +325,27 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
                   </select>
                 </div>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
+                Google Maps Linki <span className="text-stone-400 font-normal lowercase">(isteğe bağlı)</span>
+              </label>
+              <div className="relative">
+                <ExternalLink className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  id="input-google-maps-url"
+                  type="text"
+                  inputMode="url"
+                  value={googleMapsUrl}
+                  onChange={(e) => setGoogleMapsUrl(e.target.value)}
+                  placeholder="https://maps.app.goo.gl/... (İsteğe bağlı)"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-sm shadow-xs bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
+                Randevu onaylandıktan sonra müşterilere haritada yol tarifi göstermek için kullanılır.
+              </p>
             </div>
           </div>
 

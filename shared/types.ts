@@ -285,6 +285,7 @@ export interface ShopProfile {
   iban?: string;
   receiptFooter?: string;
   slug?: string;
+  googleMapsUrl?: string;
   aiOcrScansUsed?: number;
   showOnPublicMap?: boolean;
   coordinates?: { lat: number; lng: number };

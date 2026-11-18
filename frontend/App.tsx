@@ -281,6 +281,103 @@ export default function App() {
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const appointmentsRef = useRef<Appointment[]>([]);
+  const hasInitializedAppointmentsRef = useRef(false);
+  const notifiedAppointmentIdsRef = useRef<Set<string>>(new Set());
+  const liveBookingAlertTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    appointmentsRef.current = appointments;
+  }, [appointments]);
+
+  // Tarayıcı ses kilidini ilk kullanıcı etkileşiminde aç
+  useEffect(() => {
+    const unlockAudio = () => {
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new AudioCtx();
+        }
+        if (audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume().catch(() => {});
+        }
+      } catch {}
+    };
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('keydown', unlockAudio, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
+  const playBookingNotificationSound = useCallback(async (apt?: Appointment) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new AudioCtx();
+        }
+        const ctx = audioCtxRef.current;
+        if (ctx.state === 'suspended') {
+          await ctx.resume().catch(() => {});
+        }
+        const now = ctx.currentTime;
+
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(880, now);
+        gain1.gain.setValueAtTime(0.001, now);
+        gain1.gain.exponentialRampToValueAtTime(0.32, now + 0.02);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.36);
+
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1174.66, now + 0.18);
+        gain2.gain.setValueAtTime(0.001, now + 0.18);
+        gain2.gain.exponentialRampToValueAtTime(0.35, now + 0.21);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + 0.18);
+        osc2.stop(now + 0.86);
+      }
+    } catch {}
+
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && apt) {
+        new Notification(`Yeni Randevu: ${apt.customerName}`, {
+          body: `${apt.appointmentDate} • ${apt.timeSlot} (${apt.serviceName})`,
+          icon: '/icon-192.png',
+        });
+      }
+    } catch {}
+  }, []);
+
+  const triggerLiveBookingAlert = useCallback(
+    (apt: Appointment) => {
+      if (!apt?.id) return;
+      notifiedAppointmentIdsRef.current.add(apt.id);
+      playBookingNotificationSound(apt);
+      setLiveBookingAlert(apt);
+      if (liveBookingAlertTimeoutRef.current) {
+        clearTimeout(liveBookingAlertTimeoutRef.current);
+      }
+      liveBookingAlertTimeoutRef.current = window.setTimeout(() => {
+        setLiveBookingAlert(null);
+        liveBookingAlertTimeoutRef.current = null;
+      }, 8000);
+    },
+    [playBookingNotificationSound]
+  );
 
   // Auth durumu: kontrol ediliyor / kapalı / açık
   const [authStatus, setAuthStatus] = useState<'checking' | 'out' | 'in'>('checking');
@@ -378,7 +475,12 @@ export default function App() {
         if (data.dailyClosings) setDailyClosings(data.dailyClosings);
         if (data.products) setProducts(data.products);
         if (data.stockMovements) setStockMovements(data.stockMovements);
-        if (data.appointments) setAppointments(data.appointments);
+        if (data.appointments) {
+          data.appointments.forEach((a: Appointment) => notifiedAppointmentIdsRef.current.add(a.id));
+          hasInitializedAppointmentsRef.current = true;
+          appointmentsRef.current = data.appointments;
+          setAppointments(data.appointments);
+        }
         if (data.tables) setTables(dedupeById(data.tables));
         if (data.repairTickets) setRepairTickets(data.repairTickets);
         if (data.maintenanceAssets) setMaintenanceAssets(data.maintenanceAssets);
@@ -434,6 +536,9 @@ export default function App() {
               setDailyClosings(wsEvent.payload.dailyClosings);
             }
             if (wsEvent.payload.appointments) {
+              wsEvent.payload.appointments.forEach((a: Appointment) => notifiedAppointmentIdsRef.current.add(a.id));
+              hasInitializedAppointmentsRef.current = true;
+              appointmentsRef.current = wsEvent.payload.appointments;
               setAppointments(wsEvent.payload.appointments);
             }
             if (wsEvent.payload.tables) {
@@ -459,38 +564,21 @@ export default function App() {
             }
           } else if (wsEvent.type === 'APPOINTMENT_UPDATED') {
             const apt = wsEvent.payload;
-            setAppointments((prev) => {
-              const exists = prev.some((a) => a.id === apt.id);
-              if (!exists || apt.isOnlineBooking) {
-                // Yeni randevu geldiğinde çan sesi çal ve ekranda toast göster
-                try {
-                  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-                  if (AudioCtx) {
-                    const ctx = new AudioCtx();
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(880, ctx.currentTime);
-                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start();
-                    osc.stop(ctx.currentTime + 0.8);
-                  }
-                } catch {}
-
-                setLiveBookingAlert(apt);
-                setTimeout(() => setLiveBookingAlert(null), 8000);
-              }
-
-              if (exists) {
-                return prev.map((a) => (a.id === apt.id ? apt : a));
-              }
-              return [apt, ...prev];
-            });
+            const exists = appointmentsRef.current.some((a) => a.id === apt.id);
+            const alreadyNotified = notifiedAppointmentIdsRef.current.has(apt.id);
+            if (!exists && !alreadyNotified) {
+              triggerLiveBookingAlert(apt);
+            }
+            const nextList = exists
+              ? appointmentsRef.current.map((a) => (a.id === apt.id ? apt : a))
+              : [apt, ...appointmentsRef.current];
+            appointmentsRef.current = nextList;
+            hasInitializedAppointmentsRef.current = true;
+            setAppointments(nextList);
           } else if (wsEvent.type === 'APPOINTMENT_DELETED') {
-            setAppointments((prev) => prev.filter((a) => a.id !== wsEvent.payload.id));
+            const nextList = appointmentsRef.current.filter((a) => a.id !== wsEvent.payload.id);
+            appointmentsRef.current = nextList;
+            setAppointments(nextList);
           } else if (wsEvent.type === 'BARBER_TIMEBLOCKS_UPDATED') {
             window.dispatchEvent(new CustomEvent('barber_timeblocks_updated', { detail: wsEvent.payload }));
           } else if (wsEvent.type === 'TABLE_UPDATED') {
@@ -664,7 +752,7 @@ export default function App() {
         connectWebSocket();
       }, 3000);
     }
-  }, []);
+  }, [triggerLiveBookingAlert]);
 
   useEffect(() => {
     initFirebaseAppCheck().catch(() => {});
@@ -674,12 +762,83 @@ export default function App() {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
+      if (liveBookingAlertTimeoutRef.current) {
+        clearTimeout(liveBookingAlertTimeoutRef.current);
+      }
       if (socketRef.current) {
         socketRef.current.close();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectWebSocket]);
+
+  // Yedek canlı randevu senkronizasyonu (7 sn aralık + sekme odaklanması / görünürlüğü)
+  useEffect(() => {
+    if (authStatus !== 'in') return;
+    let active = true;
+
+    const syncAppointments = async () => {
+      if (!active || !authedRef.current) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      try {
+        const res = await fetch('/api/appointments', { cache: 'no-store' });
+        if (!res.ok || !active) return;
+        const json = await res.json();
+        const serverList: Appointment[] = Array.isArray(json?.appointments) ? json.appointments : [];
+        if (!active) return;
+
+        const prevList = appointmentsRef.current;
+        if (!hasInitializedAppointmentsRef.current) {
+          serverList.forEach((a) => notifiedAppointmentIdsRef.current.add(a.id));
+          hasInitializedAppointmentsRef.current = true;
+          appointmentsRef.current = serverList;
+          setAppointments(serverList);
+          return;
+        }
+
+        const prevIds = new Set(prevList.map((a) => a.id));
+        const brandNewApts = serverList.filter(
+          (a) => a.id && !prevIds.has(a.id) && !notifiedAppointmentIdsRef.current.has(a.id)
+        );
+
+        const serializeSummary = (list: Appointment[]) =>
+          list
+            .map(
+              (a) =>
+                `${a.id}|${a.status}|${a.appointmentDate}|${a.timeSlot}|${a.staffId || ''}|${a.staffName || ''}|${a.price}|${a.notes || ''}`
+            )
+            .join(';;');
+
+        if (serializeSummary(prevList) !== serializeSummary(serverList)) {
+          appointmentsRef.current = serverList;
+          setAppointments(serverList);
+        }
+
+        if (brandNewApts.length > 0) {
+          brandNewApts.forEach((a) => notifiedAppointmentIdsRef.current.add(a.id));
+          triggerLiveBookingAlert(brandNewApts[0]);
+        }
+      } catch {
+        // Arka plan yoklama hatasını sessizce yoksay
+      }
+    };
+
+    const intervalId = window.setInterval(syncAppointments, 7000);
+    const handleFocusOrVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncAppointments();
+      }
+    };
+    document.addEventListener('visibilitychange', handleFocusOrVisibility);
+    window.addEventListener('focus', handleFocusOrVisibility);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleFocusOrVisibility);
+      window.removeEventListener('focus', handleFocusOrVisibility);
+    };
+  }, [authStatus, triggerLiveBookingAlert]);
 
   // Handler: Save Shop Profile
   const handleSaveShopProfile = async (newProfile: ShopProfile) => {
@@ -1133,7 +1292,16 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        setAppointments((prev) => [data.appointment, ...prev.filter((a) => a.id !== data.appointment.id)]);
+        if (data.appointment) {
+          notifiedAppointmentIdsRef.current.add(data.appointment.id);
+          const nextList = [
+            data.appointment,
+            ...appointmentsRef.current.filter((a) => a.id !== data.appointment.id),
+          ];
+          appointmentsRef.current = nextList;
+          hasInitializedAppointmentsRef.current = true;
+          setAppointments(nextList);
+        }
       }
     } catch (err) {
       console.error('Error adding appointment:', err);
@@ -1597,10 +1765,21 @@ export default function App() {
     return <PublicQrMenuView />;
   }
 
-  // ---- Herkese açık berber online randevu sayfası (/r/:slug veya /randevu/:slug) ----
+  // ---- Herkese açık berber online randevu sayfası (/r/:slug, /randevu/:slug veya /:slug/randevu) ----
   if (pathname.startsWith('/r/') || pathname.startsWith('/randevu/') || pathname === '/randevu' || pathname === '/r') {
     const rawSlug = pathname.replace(/^\/(r|randevu)\/?/, '');
     return <PublicBarberBookingView identifier={rawSlug} />;
+  }
+  const cleanBarberMatch = pathname.match(/^\/([^/]+)\/randevu$/i);
+  if (
+    cleanBarberMatch &&
+    !['api', 'admin', 'assets', 'rehber', 'media', 'r', 'm', 't', 'bakim'].includes(cleanBarberMatch[1].toLowerCase())
+  ) {
+    let decodedIdentifier = cleanBarberMatch[1];
+    try {
+      decodedIdentifier = decodeURIComponent(cleanBarberMatch[1]);
+    } catch {}
+    return <PublicBarberBookingView identifier={decodedIdentifier} />;
   }
 
   // ---- Herkese açık servis & emanet fişi takip ekranı (/t/:code) ----
@@ -1769,17 +1948,19 @@ export default function App() {
       )}
 
       {/* 1. Header with Store Profile Badge, Dark Mode Switch & VIP Button */}
-      <Header
-        storeName={storeName}
-        shopProfile={shopProfile}
-        connected={connected}
-        darkMode={darkMode}
-        onToggleDarkMode={toggleDarkMode}
-        onOpenMenu={() => setMobileMenuOpen((v) => !v)}
-        onOpenVip={() => setIsVipModalOpen(true)}
-        onLogout={handleLogout}
-        onExportCsv={handleExportCsv}
-      />
+      {!(activeTab === 'sector_view' && isCafe) && (
+        <Header
+          storeName={storeName}
+          shopProfile={shopProfile}
+          connected={connected}
+          darkMode={darkMode}
+          onToggleDarkMode={toggleDarkMode}
+          onOpenMenu={() => setMobileMenuOpen((v) => !v)}
+          onOpenVip={() => setIsVipModalOpen(true)}
+          onLogout={handleLogout}
+          onExportCsv={handleExportCsv}
+        />
+      )}
 
 
       {/* Mobil ayar menüsü (telefonda tek ayar noktası) */}
@@ -1818,7 +1999,13 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 flex-1 w-full animate-fade-in">
+      <main
+        className={
+          activeTab === 'sector_view' && isCafe
+            ? 'w-full max-w-none p-0 flex-1 animate-fade-in'
+            : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 flex-1 w-full animate-fade-in'
+        }
+      >
         {activeTab === 'panel' && (
         <>
         {/* PANEL — SADE KASA MODU: hizli islemler, bugunku ciro, son islemler */}
@@ -1860,7 +2047,7 @@ export default function App() {
         )}
 
         {/* 6. Bölüm başlığı + bağlamsal aksiyonlar */}
-        {activeTab !== 'panel' && (
+        {activeTab !== 'panel' && !(activeTab === 'sector_view' && isCafe) && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-2 gap-2">
           <div>
             <h2 className="text-base sm:text-lg font-black text-stone-900 dark:text-white flex items-center gap-2">
@@ -1979,12 +2166,38 @@ export default function App() {
           onDeleteAppointment={handleDeleteAppointment}
           onFastWalkinCash={handleFastWalkinCash}
           tables={tables}
+          cash={cash}
+          transactions={transactions}
           onAddOrderToTable={handleAddOrderToTable}
           onCheckoutTable={handleCheckoutTable}
           onResetTable={handleResetTable}
           onAddQuickExpense={handleAddQuickExpense}
           onAddTable={handleAddTable}
           onDeleteTable={handleDeleteTable}
+          onTableStateChange={(tbl) =>
+            setTables((prev) =>
+              dedupeById(
+                prev.some((t) => t.id === tbl.id)
+                  ? prev.map((t) => (t.id === tbl.id ? tbl : t))
+                  : [...prev, tbl]
+              )
+            )
+          }
+          onCheckoutComplete={(data) => {
+            if (data.table) {
+              setTables((prev) => prev.map((t) => (t.id === data.table!.id ? data.table! : t)));
+            }
+            if (data.cash) setCash(data.cash);
+            if (data.transactions) {
+              data.transactions.forEach((tx) => addTransactionDeduplicated(tx));
+            } else if (data.transaction) {
+              addTransactionDeduplicated(data.transaction);
+            }
+            if (data.customer) {
+              setCustomers((prev) => prev.map((c) => (c.id === data.customer!.id ? data.customer! : c)));
+            }
+          }}
+          onRefreshData={fetchInitialData}
           products={products}
           customers={customers}
           onQuickPosSale={handleQuickPosSale}

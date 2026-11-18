@@ -142,12 +142,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </>
       )}
-      {isCafe && (
-        <button id="nav-tab-tables" type="button" onClick={() => onNavigate('sector_view')} className={tabBtn(activeTab === 'sector_view')}>
-          <UtensilsCrossed className="w-4 h-4 shrink-0" />
-          <span>Masalar & Adisyon</span>
-        </button>
-      )}
       {isService && (
         <button id="nav-tab-tickets" type="button" onClick={() => onNavigate('sector_view')} className={tabBtn(activeTab === 'sector_view')}>
           <Wrench className="w-4 h-4 shrink-0" />
@@ -273,6 +267,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         <nav className="px-3 py-2 space-y-1">{mainTabs}</nav>
+
+        {/* Adisyon Sistemi — Sol Menüde Ayrı Özel Bölüm */}
+        {isCafe && (
+          <div className="mx-3 my-1.5 pt-3 border-t border-stone-800/90 space-y-1.5">
+            <p className="px-2 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+              Adisyon Sistemi
+            </p>
+            <button
+              id="nav-tab-tables"
+              type="button"
+              onClick={() => onNavigate('sector_view')}
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-black transition-all cursor-pointer whitespace-nowrap border ${
+                activeTab === 'sector_view'
+                  ? 'bg-emerald-700 text-white border-emerald-500 shadow-md shadow-emerald-950/50'
+                  : 'bg-emerald-950/40 text-emerald-200 border-emerald-800/60 hover:bg-emerald-900/60 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5 min-w-0">
+                <UtensilsCrossed className="w-4 h-4 shrink-0" />
+                <span className="truncate">Adisyon &amp; Kasa</span>
+              </span>
+              <span className="px-1.5 py-0.5 rounded-md bg-amber-400 text-stone-950 text-[9px] font-black uppercase shrink-0">
+                Tam Ekran
+              </span>
+            </button>
+          </div>
+        )}
+
         <nav className="px-3 pb-3">{menuItems}</nav>
 
         <div className="mt-auto p-3 border-t border-stone-800/80">
@@ -351,7 +373,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ]
                 : []),
               ...(isCafe
-                ? [{ id: 'nav-tab-tables', label: 'Masalar', Icon: UtensilsCrossed, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') }]
+                ? [{ id: 'nav-tab-tables', label: 'Adisyon', Icon: UtensilsCrossed, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') }]
                 : []),
               ...(isService
                 ? [{ id: 'nav-tab-tickets', label: 'Servis', Icon: Wrench, badge: 0, active: activeTab === 'sector_view', onClick: () => onNavigate('sector_view') }]

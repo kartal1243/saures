@@ -931,6 +931,10 @@ export async function syncShopSnapshotToFirestore(
   if (sk) summaryDoc.sectorKey = sk;
   const cd = clampText(profile?.cityDistrict, 120);
   if (cd) summaryDoc.cityDistrict = cd;
+  const slug = clampText(profile?.slug, 80);
+  if (slug) summaryDoc.slug = slug;
+  const googleMapsUrl = clampText(profile?.googleMapsUrl, 500);
+  if (googleMapsUrl) summaryDoc.googleMapsUrl = googleMapsUrl;
 
   const summaryRes = await writeFirestoreDocument('shops', accountId, summaryDoc);
   if (!summaryRes.ok) return summaryRes;

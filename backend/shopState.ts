@@ -144,8 +144,13 @@ export function loadShopState(accountId: string): AppState {
   
   // Her işletme için benzersiz slug garantisi
   if (!st.shopProfile.slug) {
-    const rawSlug = slugify(st.shopProfile.storeName || acc?.shopName || 'dukkan');
-    st.shopProfile.slug = rawSlug ? `${rawSlug}-${accountId.slice(0, 4)}` : accountId;
+    st.shopProfile.slug = allocateUniqueSlug(
+      st.shopProfile.storeName || acc?.shopName || 'dukkan',
+      accountId
+    );
+    if (st.barberSettings) {
+      st.barberSettings.slug = st.shopProfile.slug;
+    }
   }
 
   if (!Array.isArray(st.dailyClosings)) st.dailyClosings = [];
@@ -255,9 +260,53 @@ export function isSlugTaken(slug: string, excludeAccountId?: string): boolean {
   const owners = getAccounts().filter((a) => (a.role || 'owner') === 'owner');
   for (const acc of owners) {
     if (excludeAccountId && acc.id === excludeAccountId) continue;
-    const st = loadShopState(acc.id);
-    const existingSlug = st.shopProfile?.slug || slugify(st.shopProfile?.storeName || acc.shopName);
+    const st = shopStateCache.get(acc.id) ?? readJsonFile<AppState | null>(shopStateFile(acc.id), null);
+    const existingSlug = st?.shopProfile?.slug || slugify(st?.shopProfile?.storeName || acc.shopName);
     if (existingSlug === clean) return true;
   }
   return false;
+}
+
+/**
+ * İstenilen işletme/dükkan adından benzersiz bir URL slug üretir.
+ * Çakışma veya ayrılmış kelime varsa sırayla `-salon`, `-2`, `-3`... soneklerini dener.
+ */
+export function allocateUniqueSlug(desiredText: string, excludeAccountId?: string): string {
+  const base = slugify(desiredText || '') || 'dukkan';
+  if (!isReservedSlug(base) && !isSlugTaken(base, excludeAccountId)) {
+    return base;
+  }
+
+  const prefix = base.slice(0, 42).replace(/-+$/, '') || 'dukkan';
+  const salonCandidate = `${prefix}-salon`;
+  if (!isReservedSlug(salonCandidate) && !isSlugTaken(salonCandidate, excludeAccountId)) {
+    return salonCandidate;
+  }
+
+  let counter = 2;
+  while (counter < 10000) {
+    const candidate = `${prefix}-${counter}`;
+    if (!isReservedSlug(candidate) && !isSlugTaken(candidate, excludeAccountId)) {
+      return candidate;
+    }
+    counter++;
+  }
+  return `${prefix}-${Date.now().toString(36)}`;
+}
+
+/**
+ * İsteğe bağlı Google Maps konum bağlantısını doğrular ve güvenli http(s) URL döndürür.
+ */
+export function sanitizeGoogleMapsUrl(raw: unknown): string {
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  if (!trimmed) return '';
+  if (/^(javascript|data|vbscript):/i.test(trimmed)) return '';
+  const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(withProto);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return withProto.slice(0, 500);
+  } catch {
+    return '';
+  }
 }

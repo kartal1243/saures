@@ -5,14 +5,15 @@ import type { ShopProfile } from '../../shared/types';
 import { S, saveState, als } from '../context';
 import { broadcast } from '../realtime';
 import { DEMO_ACCOUNT_ID } from '../demoSeed';
-import { isValidTurkishPhone, normalizePhone, getAccounts } from '../accounts';
-import { slugify, isReservedSlug, isSlugTaken, loadShopState } from '../shopState';
+import { isValidTurkishPhone, normalizePhone, getAccounts, persistAccounts } from '../accounts';
+import { slugify, isReservedSlug, isSlugTaken, loadShopState, allocateUniqueSlug, sanitizeGoogleMapsUrl } from '../shopState';
 import { SHOP_LOGOS_DIR } from '../config';
 import {
   uploadToFirebaseStorage,
   downloadFromFirebaseStorage,
   deleteFromFirebaseStorage,
   loadFirebaseServiceAccount,
+  writeFirestoreDocument,
 } from '../services/firebaseService';
 
 export type VipTier = 'cirak' | 'usta' | 'patron';
@@ -303,22 +304,43 @@ export function registerProfileRoutes(app: Express): void {
       shopPhone = currentProfile.phone;
     }
 
+    const nextStoreName = data.storeName.trim();
+    const storeNameChanged = nextStoreName !== (currentProfile?.storeName || '').trim();
     let finalSlug = currentProfile?.slug;
-    if (data.slug && typeof data.slug === 'string') {
-      const cleanSlug = slugify(data.slug);
-      if (cleanSlug && cleanSlug !== currentProfile?.slug) {
-        if (isReservedSlug(cleanSlug)) {
-          return res.status(400).json({ error: 'Bu bağlantı adı sistem tarafından ayrılmıştır. Lütfen işletmenize özel farklı bir isim seçin.' });
-        }
-        if (isSlugTaken(cleanSlug, ctx?.accountId)) {
-          return res.status(409).json({ error: 'Bu bağlantı adı başka bir işletme tarafından kullanılıyor.' });
-        }
-        finalSlug = cleanSlug;
+    const rawExplicitSlug = typeof data.slug === 'string' ? slugify(data.slug) : '';
+    if (rawExplicitSlug && rawExplicitSlug !== currentProfile?.slug) {
+      if (isReservedSlug(rawExplicitSlug)) {
+        return res.status(400).json({ error: 'Bu bağlantı adı sistem tarafından ayrılmıştır. Lütfen işletmenize özel farklı bir isim seçin.' });
       }
+      if (isSlugTaken(rawExplicitSlug, ctx?.accountId)) {
+        return res.status(409).json({ error: 'Bu bağlantı adı başka bir işletme tarafından kullanılıyor.' });
+      }
+      finalSlug = rawExplicitSlug;
+    } else if (storeNameChanged || !finalSlug) {
+      finalSlug = allocateUniqueSlug(nextStoreName, ctx?.accountId);
+    }
+
+    const resolvedGoogleMapsUrl =
+      typeof data.googleMapsUrl === 'string'
+        ? (sanitizeGoogleMapsUrl(data.googleMapsUrl) || undefined)
+        : currentProfile?.googleMapsUrl;
+
+    let resolvedLogoUrl = data.logoUrl !== undefined ? data.logoUrl : currentProfile?.logoUrl;
+    if (
+      typeof resolvedLogoUrl === 'string' &&
+      currentProfile?.slug &&
+      finalSlug &&
+      finalSlug !== currentProfile.slug &&
+      resolvedLogoUrl.startsWith(`/media/shop-logo/${currentProfile.slug}.`)
+    ) {
+      resolvedLogoUrl = resolvedLogoUrl.replace(
+        `/media/shop-logo/${currentProfile.slug}.`,
+        `/media/shop-logo/${finalSlug}.`
+      );
     }
 
     const updatedProfile: ShopProfile = {
-      storeName: data.storeName.trim(),
+      storeName: nextStoreName,
       ownerName: (data.ownerName || currentProfile?.ownerName || 'Esnaf').trim(),
       businessField: data.businessField || currentProfile?.businessField || 'Berber / Kuaför',
       sectorKey: data.sectorKey === 'kuafor_berber' ? 'berber_kuafor' : (data.sectorKey || currentProfile?.sectorKey || 'berber_kuafor'),
@@ -327,9 +349,12 @@ export function registerProfileRoutes(app: Express): void {
       cityDistrict: (data.cityDistrict !== undefined ? data.cityDistrict : (currentProfile?.cityDistrict || '')).trim(),
       dailyTarget: Number(data.dailyTarget) || currentProfile?.dailyTarget || 2500,
       slogan: (data.slogan !== undefined ? data.slogan : (currentProfile?.slogan || '')).trim(),
-      logoUrl: data.logoUrl !== undefined ? data.logoUrl : currentProfile?.logoUrl,
+      logoUrl: resolvedLogoUrl,
       logoUpdatedAt: data.logoUpdatedAt !== undefined ? data.logoUpdatedAt : currentProfile?.logoUpdatedAt,
       slug: finalSlug,
+      googleMapsUrl: resolvedGoogleMapsUrl,
+      iban: typeof data.iban === 'string' ? data.iban.trim() : currentProfile?.iban,
+      receiptFooter: typeof data.receiptFooter === 'string' ? data.receiptFooter.trim() : currentProfile?.receiptFooter,
       isConfigured: true,
       isVip: currentProfile?.isVip ?? true,
       vipTier: currentProfile?.vipTier,
@@ -345,7 +370,34 @@ export function registerProfileRoutes(app: Express): void {
 
     S().shopProfile = updatedProfile;
     S().storeName = updatedProfile.storeName;
+    if (S().barberSettings && finalSlug) {
+      S().barberSettings!.slug = finalSlug;
+    }
+
+    if (ctx?.accountId) {
+      const acc = getAccounts().find((a) => a.id === ctx.accountId);
+      if (acc && acc.shopName !== updatedProfile.storeName) {
+        acc.shopName = updatedProfile.storeName;
+        persistAccounts();
+      }
+    }
+
     saveState();
+
+    if (ctx?.accountId) {
+      writeFirestoreDocument('shops', ctx.accountId, {
+        accountId: ctx.accountId,
+        storeName: updatedProfile.storeName,
+        slug: finalSlug || '',
+        ...(updatedProfile.googleMapsUrl ? { googleMapsUrl: updatedProfile.googleMapsUrl } : {}),
+        businessField: updatedProfile.businessField || 'Genel Esnaf',
+        sectorKey: updatedProfile.sectorKey || 'berber_kuafor',
+        ...(updatedProfile.cityDistrict ? { cityDistrict: updatedProfile.cityDistrict } : {}),
+        vipTier: updatedProfile.vipTier || (updatedProfile.isVip ? 'patron' : 'cirak'),
+        isVip: Boolean(updatedProfile.isVip),
+        updatedAt: new Date().toISOString(),
+      }).catch(() => {});
+    }
 
     broadcast({ type: 'SHOP_PROFILE_UPDATED', payload: updatedProfile });
     res.json({ success: true, profile: updatedProfile });

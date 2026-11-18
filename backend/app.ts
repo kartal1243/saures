@@ -52,6 +52,109 @@ export const TRUSTED_MOBILE_ORIGINS = new Set([
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 const IDEMPOTENCY_PATH_REGEX = /^\/api\/(quick-pos-sale|transactions|tables\/[^/]+\/orders)\/?$/;
 
+const VALID_PUBLIC_ROUTES = new Set([
+  '/',
+  '/admin',
+  '/berber',
+  '/kuafor',
+  '/kuafor-randevu',
+  '/kadin-kuafor',
+  '/berber-randevu-programi',
+  '/randevu-sistemi',
+  '/online-randevu',
+  '/izmit-berber-randevu',
+  '/izmit-berber',
+  '/kocaeli-berber',
+  '/kocaeli-berber-randevu',
+  '/zonguldak-berber-randevu',
+  '/zonguldak-berber',
+  '/eregli-berber',
+  '/kdz-eregli-berber',
+  '/guzellik-salonu',
+  '/guzellik-merkezi',
+  '/guzellik',
+  '/lazer-epilasyon',
+  '/kafe-restoran',
+  '/kafe',
+  '/restoran',
+  '/adisyon',
+  '/qr-menu',
+  '/bakkal',
+  '/market',
+  '/bakkal-market',
+  '/veresiye-defteri',
+  '/pos-sistemi',
+  '/fiyat',
+  '/fiyatlandirma',
+  '/kayit',
+  '/teknik-servis',
+  '/servis',
+  '/hukuk',
+  '/avukat',
+  '/terzi',
+  '/iletisim',
+  '/gizlilik',
+  '/gizlilik-politikasi',
+  '/rehber',
+]);
+
+const GUIDE_FALLBACK_ROUTES = new Set([
+  '/rehber',
+  '/rehber/berber-no-show-onleme',
+  '/rehber/kuafor-prim-hesaplama',
+  '/rehber/ucretsiz-qr-menu-olusturma',
+  '/rehber/dijital-veresiye-defteri-gecis',
+  '/rehber/komisyonsuz-randevu-programi',
+  '/rehber/istanbul-berber-kuafor',
+  '/rehber/ankara-berber-kuafor',
+  '/rehber/izmir-kafe-restoran',
+  '/rehber/izmit-berber-kuafor-randevu',
+  '/rehber/zonguldak-berber-kuafor-randevu',
+  '/rehber/kocaeli-esnaf-online-randevu',
+  '/rehber/instagram-biyografi-randevu-linki',
+  '/rehber/pazar-gunu-acik-berber-randevu',
+]);
+
+const RESERVED_CLEAN_BOOKING_PREFIXES = new Set([
+  'api',
+  'admin',
+  'assets',
+  'rehber',
+  'media',
+  'r',
+  'm',
+  't',
+  'bakim',
+]);
+
+export function isPublicRouteValid(pathname: string): boolean {
+  const clean = (pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+  if (VALID_PUBLIC_ROUTES.has(clean)) return true;
+  if (clean === '/rehber' || clean.startsWith('/rehber/')) {
+    const seoGuideValidator = (seoModule as { isValidGuideRoute?: (p: string) => boolean }).isValidGuideRoute;
+    return typeof seoGuideValidator === 'function' ? seoGuideValidator(clean) : GUIDE_FALLBACK_ROUTES.has(clean);
+  }
+  if (clean.startsWith('/t/') || clean.startsWith('/bakim/')) {
+    const prefixLen = clean.startsWith('/bakim/') ? 7 : 3;
+    const code = clean.slice(prefixLen).split('/')[0];
+    return Boolean(code);
+  }
+  const isShop = clean.startsWith('/r/') || clean.startsWith('/randevu/') || clean.startsWith('/m/') || clean.startsWith('/menu/');
+  if (isShop) {
+    const slug = clean.replace(/^\/(r|randevu|m|menu)\/?/, '').split('/')[0];
+    return !!findShopForSeo(slug);
+  }
+  const cleanBarberMatch = clean.match(/^\/([^/]+)\/randevu$/i);
+  if (cleanBarberMatch && !RESERVED_CLEAN_BOOKING_PREFIXES.has(cleanBarberMatch[1].toLowerCase())) {
+    let decoded = cleanBarberMatch[1];
+    try {
+      decoded = decodeURIComponent(cleanBarberMatch[1]);
+    } catch {}
+    return !!findShopForSeo(decoded, 'barber');
+  }
+  return false;
+}
+
 export function createIdempotencyMiddleware() {
   const cache = new Map<string, { statusCode: number; body: any; expiresAt: number }>();
 
@@ -389,89 +492,6 @@ export async function startServer(): Promise<void> {
   });
 
   // Vite geliştirme sunucusu yalnızca açıkça development modunda ve dist/index.html yokken çalışır
-  const VALID_PUBLIC_ROUTES = new Set([
-    '/',
-    '/admin',
-    '/berber',
-    '/kuafor',
-    '/kuafor-randevu',
-    '/kadin-kuafor',
-    '/berber-randevu-programi',
-    '/randevu-sistemi',
-    '/online-randevu',
-    '/izmit-berber-randevu',
-    '/izmit-berber',
-    '/kocaeli-berber',
-    '/kocaeli-berber-randevu',
-    '/zonguldak-berber-randevu',
-    '/zonguldak-berber',
-    '/eregli-berber',
-    '/kdz-eregli-berber',
-    '/guzellik-salonu',
-    '/guzellik-merkezi',
-    '/guzellik',
-    '/lazer-epilasyon',
-    '/kafe-restoran',
-    '/kafe',
-    '/restoran',
-    '/adisyon',
-    '/qr-menu',
-    '/bakkal',
-    '/market',
-    '/bakkal-market',
-    '/veresiye-defteri',
-    '/pos-sistemi',
-    '/fiyat',
-    '/fiyatlandirma',
-    '/kayit',
-    '/teknik-servis',
-    '/servis',
-    '/hukuk',
-    '/avukat',
-    '/terzi',
-    '/iletisim',
-    '/gizlilik',
-    '/gizlilik-politikasi',
-    '/rehber',
-  ]);
-
-  const GUIDE_FALLBACK_ROUTES = new Set([
-    '/rehber',
-    '/rehber/berber-no-show-onleme',
-    '/rehber/kuafor-prim-hesaplama',
-    '/rehber/ucretsiz-qr-menu-olusturma',
-    '/rehber/dijital-veresiye-defteri-gecis',
-    '/rehber/komisyonsuz-randevu-programi',
-    '/rehber/istanbul-berber-kuafor',
-    '/rehber/ankara-berber-kuafor',
-    '/rehber/izmir-kafe-restoran',
-    '/rehber/izmit-berber-kuafor-randevu',
-    '/rehber/zonguldak-berber-kuafor-randevu',
-    '/rehber/kocaeli-esnaf-online-randevu',
-    '/rehber/instagram-biyografi-randevu-linki',
-    '/rehber/pazar-gunu-acik-berber-randevu',
-  ]);
-
-  function isPublicRouteValid(pathname: string): boolean {
-    const clean = (pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
-    if (VALID_PUBLIC_ROUTES.has(clean)) return true;
-    if (clean === '/rehber' || clean.startsWith('/rehber/')) {
-      const seoGuideValidator = (seoModule as { isValidGuideRoute?: (p: string) => boolean }).isValidGuideRoute;
-      return typeof seoGuideValidator === 'function' ? seoGuideValidator(clean) : GUIDE_FALLBACK_ROUTES.has(clean);
-    }
-    if (clean.startsWith('/t/') || clean.startsWith('/bakim/')) {
-      const prefixLen = clean.startsWith('/bakim/') ? 7 : 3;
-      const code = clean.slice(prefixLen).split('/')[0];
-      return Boolean(code);
-    }
-    const isShop = clean.startsWith('/r/') || clean.startsWith('/randevu/') || clean.startsWith('/m/') || clean.startsWith('/menu/');
-    if (isShop) {
-      const slug = clean.replace(/^\/(r|randevu|m|menu)\/?/, '').split('/')[0];
-      return !!findShopForSeo(slug);
-    }
-    return false;
-  }
-
   const isDev = process.env.NODE_ENV === 'development' || (!process.env.NODE_ENV && !fs.existsSync(path.join(process.cwd(), 'dist', 'index.html')));
   if (isDev) {
     const vite = await createViteServer({

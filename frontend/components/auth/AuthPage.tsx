@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing, Mail, CheckCircle2 } from 'lucide-react';
+import { Phone, Lock, Store, User, ArrowRight, LogIn, UserPlus, Loader2, ShieldCheck, Wallet, Smartphone, BellRing, Mail, CheckCircle2, MapPin } from 'lucide-react';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
 import { PhoneMockupHero } from './PhoneMockupHero';
 import {
@@ -34,6 +34,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
   const [ownerName, setOwnerName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState('');
   const [password, setPassword] = useState('');
   const [kvkkAccepted, setKvkkAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +89,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
               email,
               password,
               kvkkAccepted: true,
+              ...(googleMapsUrl.trim() ? { googleMapsUrl: googleMapsUrl.trim() } : {}),
               ...(regFirebaseIdToken ? { firebaseIdToken: regFirebaseIdToken } : {}),
             };
       const res = await fetchWithAppCheck(url, {
@@ -641,6 +643,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                 </div>
               )}
 
+              {mode === 'register' && (
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1">
+                    Google Maps Konum Linki <span className="text-stone-400 font-normal lowercase tracking-normal">(isteğe bağlı)</span>
+                  </label>
+                  <div className="relative">
+                    <MapPin className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      inputMode="url"
+                      value={googleMapsUrl}
+                      onChange={(e) => setGoogleMapsUrl(e.target.value)}
+                      placeholder="https://maps.app.goo.gl/... (İsteğe bağlı)"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                    />
+                  </div>
+                  <p className="text-[11px] text-stone-500 mt-1">
+                    Randevu onaylandıktan sonra müşterilere haritada yol tarifi göstermek için.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700">
@@ -751,7 +775,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-stone-900 flex items-center gap-2">
                 <Lock className="w-4 h-4 text-orange-600" />
-                {forgotStep === 1 ? 'Şifremi Unuttum (Firebase)' : 'Yeni Şifre Belirleme'}
+                {forgotStep === 1 ? 'Şifremi Unuttum' : 'Yeni Şifre Belirleme'}
               </h3>
               <button
                 type="button"

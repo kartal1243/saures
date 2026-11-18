@@ -501,19 +501,31 @@ export function findShopForSeo(identifier: string, _mode?: 'barber' | 'menu'): R
 
   const accounts = getAccounts();
 
-  // 1. Hesaplar içinde ID, telefon veya dükkan adı eşleşmesi (kapalı/demo hesaplar hariç)
+  // 1. Öncelik: Hesap ID veya telefon eşleşmesi (kapalı/demo hesaplar hariç)
   let targetAcc = accounts.find(
     (a) =>
       a.id !== DEMO_ACCOUNT_ID &&
       !isAccountClosed(a) &&
-      (a.id.toLowerCase() === rawId ||
-        a.phone === rawId ||
-        slugify(a.shopName) === rawId)
+      (a.id.toLowerCase() === rawId || a.phone === rawId)
   );
 
   let targetState = targetAcc ? loadShopState(targetAcc.id) : null;
 
-  // 2. State içinde slug veya storeName eşleşmesi
+  // 2. Öncelik: State içindeki benzersiz slug eşleşmesi
+  if (!targetState) {
+    for (const a of accounts) {
+      if (a.id === DEMO_ACCOUNT_ID || isAccountClosed(a)) continue;
+      const st = loadShopState(a.id);
+      const profileSlug = (st.shopProfile?.slug || '').toLowerCase();
+      if (profileSlug && profileSlug === rawId) {
+        targetAcc = a;
+        targetState = st;
+        break;
+      }
+    }
+  }
+
+  // 3. Yedek: Dükkan adından türetilen slugify eşleşmesi
   if (!targetState) {
     for (const a of accounts) {
       if (a.id === DEMO_ACCOUNT_ID || isAccountClosed(a)) continue;
@@ -668,6 +680,38 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
   return realShops;
 }
 
+const RESERVED_BARBER_PATH_PREFIXES = new Set([
+  'api',
+  'admin',
+  'assets',
+  'rehber',
+  'media',
+  'r',
+  'm',
+  't',
+  'bakim',
+]);
+
+export function extractBarberSlugFromPath(cleanPath: string): { slug: string; isCleanFormat: boolean } | null {
+  const clean = (cleanPath || '').toLowerCase().replace(/\/+$/, '') || '/';
+  const safeDecode = (val: string) => {
+    try {
+      return decodeURIComponent(val);
+    } catch {
+      return val;
+    }
+  };
+  if (clean.startsWith('/r/') || clean.startsWith('/randevu/')) {
+    const slug = clean.replace(/^\/(r|randevu)\/?/, '').split('/')[0];
+    return slug ? { slug: safeDecode(slug), isCleanFormat: false } : null;
+  }
+  const m = clean.match(/^\/([^/]+)\/randevu$/i);
+  if (m && !RESERVED_BARBER_PATH_PREFIXES.has(m[1].toLowerCase())) {
+    return { slug: safeDecode(m[1]), isCleanFormat: true };
+  }
+  return null;
+}
+
 /**
  * Verilen rota ve host bilgisine göre en zengin SEO ve Open Graph başlıklarını üretir.
  */
@@ -680,16 +724,18 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
   const clean = pathname.toLowerCase().replace(/\/+$/, '') || '/';
   const fresh = getDynamicSeoFreshness();
 
-  // 1. Randevu rotaları: /r/:slug veya /randevu/:slug
-  if (clean.startsWith('/r/') || clean.startsWith('/randevu/')) {
-    const slug = clean.replace(/^\/(r|randevu)\/?/, '');
-    const shop = findShopForSeo(slug, 'barber');
+  // 1. Randevu rotaları: /r/:slug, /randevu/:slug veya /:slug/randevu
+  const barberPath = extractBarberSlugFromPath(clean);
+  if (barberPath) {
+    const shop = findShopForSeo(barberPath.slug, 'barber');
     if (shop) {
       const title = `${shop.name} - Online Randevu Al | Dükkanım Yanımda`;
       const ogTitle = `${shop.name} - Kolay Online Randevu`;
       const description = `${shop.name} için sıra beklemeden online randevunuzu hemen oluşturun. Güncel hizmetler, müsait saatler ve anında onay.`;
       const ogDescription = `${shop.name} için sıra beklemeden online randevunuzu hemen oluşturun.`;
-      const canonical = `${origin}/r/${shop.slug}`;
+      const canonical = barberPath.isCleanFormat
+        ? `${origin}/${shop.slug}/randevu`
+        : `${origin}/r/${shop.slug}`;
       const shopLogo = shop.logoUrl
         ? (shop.logoUrl.startsWith('http') ? shop.logoUrl : `${origin}${shop.logoUrl}`)
         : `${origin}/brand/phone_mockup_retina.png`;
@@ -2031,10 +2077,10 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
 
   let mainBodyContent = '';
 
-  // 1. Randevu Rotaları: /r/:slug veya /randevu/:slug
-  if (clean.startsWith('/r/') || clean.startsWith('/randevu/')) {
-    const slug = clean.replace(/^\/(r|randevu)\/?/, '');
-    const shop = findShopForSeo(slug, 'barber');
+  // 1. Randevu Rotaları: /r/:slug, /randevu/:slug veya /:slug/randevu
+  const barberPath = extractBarberSlugFromPath(clean);
+  if (barberPath) {
+    const shop = findShopForSeo(barberPath.slug, 'barber');
     if (shop) {
       const shopLogo = shop.logoUrl
         ? (shop.logoUrl.startsWith('http') ? shop.logoUrl : `${origin}${shop.logoUrl}`)
@@ -2091,7 +2137,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
         <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:20px;text-align:center;">
           <h3 style="font-size:17px;font-weight:800;color:#9a3412;margin:0 0 6px 0;">Sıra Beklemeden Rezervasyon Yapın</h3>
           <p style="font-size:13px;color:#7c2d12;margin:0 0 14px 0;">İstediğiniz ustayı, hizmeti ve müsait saati seçerek randevunuzu hemen oluşturabilirsiniz.</p>
-          <a href="/r/${escapeHtml(shop.slug)}" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;box-shadow:0 4px 12px rgba(234,88,12,0.25);">Randevu Saatini Seç</a>
+          <a href="${barberPath.isCleanFormat ? `/${escapeHtml(shop.slug)}/randevu` : `/r/${escapeHtml(shop.slug)}`}" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;box-shadow:0 4px 12px rgba(234,88,12,0.25);">Randevu Saatini Seç</a>
         </div>
       </article>`;
     }
@@ -2946,9 +2992,10 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
     html = html.replace('</head>', `${imageSrcTag}\n</head>`);
   }
 
-  // Semantik SSR HTML Gövdesi Enjeksiyonu (Boş <div id="root"> Sorununu Kökten Çözer)
+  // Semantik SSR HTML Gövdesi Enjeksiyonu (Boş <div id="root"> Sorununu Kökten Çözer, Görünür Flaş Oluşturmaz)
   const ssrBodyHtml = generateSsrBodyHtml(pathname, meta, host);
-  html = html.replace(/<div\s+id=["']root["']>\s*<\/div>/i, `<div id="root">${ssrBodyHtml}</div>`);
+  const hiddenSsrWrapper = `<div id="ssr-seo-fallback" aria-hidden="true" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;pointer-events:none;">${ssrBodyHtml}</div>`;
+  html = html.replace(/<div\s+id=["']root["']>\s*<\/div>/i, `<div id="root">${hiddenSsrWrapper}</div>`);
 
   return html;
 }
@@ -3042,6 +3089,13 @@ export function generateSitemapXml(rawHost?: string): string {
 
       // Randevu sayfası: Yalnızca berber/kuaför/güzellik veya randevu servisi tanımlanmış dükkanlar
       if ((isBarberSector && isConfigured) || hasBarberServices) {
+        shopUrls.push({
+          loc: `${origin}/${slug}/randevu`,
+          priority: '0.85',
+          changefreq: 'daily',
+          title: `${storeName} - Online Randevu Al`,
+          img: shopLogo,
+        });
         shopUrls.push({
           loc: `${origin}/r/${slug}`,
           priority: '0.8',

@@ -135,6 +135,25 @@ function toLocalDateStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function slugifyTr(text: string): string {
+  const trMap: Record<string, string> = {
+    ç: 'c', Ç: 'c',
+    ğ: 'g', Ğ: 'g',
+    ı: 'i', İ: 'i',
+    ö: 'o', Ö: 'o',
+    ş: 's', Ş: 's',
+    ü: 'u', Ü: 'u',
+  };
+  return String(text || '')
+    .split('')
+    .map((char) => trMap[char] || char)
+    .join('')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 50);
+}
+
 export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   appointments = [],
   customers = [],
@@ -153,6 +172,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   // Aktif Sekme: 'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'
   const [activeTab, setActiveTab] = useState<'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'>(initialTab || 'timeline');
   const [fallbackLogoUrl, setFallbackLogoUrl] = useState<string>(shopLogoUrl || '');
+  const [fetchedProfileSlug, setFetchedProfileSlug] = useState<string>('');
 
   useEffect(() => {
     if (initialTab) {
@@ -171,15 +191,20 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     fetch('/api/shop-profile')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (active && data?.shopProfile?.logoUrl && !shopLogoUrl) {
-          setFallbackLogoUrl(data.shopProfile.logoUrl);
+        if (!active || !data) return;
+        const prof = data?.profile || data?.shopProfile;
+        if (prof?.logoUrl && !shopLogoUrl) {
+          setFallbackLogoUrl(prof.logoUrl);
+        }
+        if (prof?.slug) {
+          setFetchedProfileSlug(String(prof.slug));
         }
       })
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, [shopLogoUrl]);
+  }, [shopLogoUrl, shopSlug, storeName]);
 
   const effectiveLogoUrl = resolveSafeMediaUrl(shopLogoUrl || fallbackLogoUrl);
 
@@ -209,6 +234,16 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     autoConfirm: true,
     discountSlots: [],
   });
+
+  const effectiveSlug = useMemo(() => {
+    return (
+      (shopSlug && shopSlug.trim()) ||
+      (fetchedProfileSlug && fetchedProfileSlug.trim()) ||
+      (settings.slug && settings.slug.trim()) ||
+      slugifyTr(storeName) ||
+      'randevu'
+    );
+  }, [shopSlug, fetchedProfileSlug, settings.slug, storeName]);
 
   // Veri yükleme
   const reloadFullData = async () => {
@@ -839,7 +874,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
       return;
     }
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const reviewUrl = `${origin}/r/${shopSlug}?review=true&staffId=${encodeURIComponent(apt.staffId || '')}&staffName=${encodeURIComponent(apt.staffName || '')}&aptId=${apt.id}&customer=${encodeURIComponent(apt.customerName)}`;
+    const reviewUrl = `${origin}/${encodeURIComponent(effectiveSlug)}/randevu?review=true&staffId=${encodeURIComponent(apt.staffId || '')}&staffName=${encodeURIComponent(apt.staffName || '')}&aptId=${apt.id}&customer=${encodeURIComponent(apt.customerName)}`;
     const text = encodeURIComponent(
       `Merhaba Sayın ${apt.customerName}, ${storeName} salonumuzda ${apt.staffName} tarafından aldığınız "${apt.serviceName}" hizmetimizden memnun kaldınız mı? ⭐ 1 dakikanızı ayırıp 1-5 yıldızla puanlayıp yorum yapmak için tıklayın: ${reviewUrl}`
     );
@@ -902,7 +937,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
   // QR Stand Kartı Yazdırma (A4 Formatında Tezgâh / Ayna Standı)
   const handlePrintStand = () => {
-    const bookingUrl = `${window.location.origin}/r/${encodeURIComponent(shopSlug)}`;
+    const bookingUrl = `${window.location.origin}/${encodeURIComponent(effectiveSlug)}/randevu`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=H&data=${encodeURIComponent(
       bookingUrl
     )}`;
@@ -2206,12 +2241,14 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
 
             <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
               <span className="text-xs font-mono text-stone-700 dark:text-stone-300 px-2 line-clamp-1 flex-1">
-                {typeof window !== 'undefined' ? `${window.location.origin}/r/${shopSlug}` : `/r/${shopSlug}`}
+                {typeof window !== 'undefined'
+                  ? `${window.location.origin}/${encodeURIComponent(effectiveSlug)}/randevu`
+                  : `/${encodeURIComponent(effectiveSlug)}/randevu`}
               </span>
               <button
                 type="button"
                 onClick={() => {
-                  const url = `${window.location.origin}/r/${shopSlug}`;
+                  const url = `${window.location.origin}/${encodeURIComponent(effectiveSlug)}/randevu`;
                   navigator.clipboard.writeText(url);
                   alert('Randevu linki panoya kopyalandı!');
                 }}
@@ -2221,7 +2258,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 <span>Kopyala</span>
               </button>
               <a
-                href={`/r/${shopSlug}`}
+                href={`/${encodeURIComponent(effectiveSlug)}/randevu`}
                 target="_blank"
                 rel="noreferrer"
                 className="p-2 rounded-xl bg-amber-500 text-stone-950 hover:bg-amber-400 cursor-pointer shrink-0"
@@ -2242,7 +2279,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 {/* 1. WhatsApp Toplu Duyuru */}
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
-                    `Değerli müşterimiz, sıra beklemeden dilediğiniz gün ve saate randevunuzu 7/24 online olarak oluşturabilirsiniz:\n${typeof window !== 'undefined' ? window.location.origin : ''}/r/${shopSlug}`
+                    `Değerli müşterimiz, sıra beklemeden dilediğiniz gün ve saate randevunuzu 7/24 online olarak oluşturabilirsiniz:\n${typeof window !== 'undefined' ? window.location.origin : ''}/${encodeURIComponent(effectiveSlug)}/randevu`
                   )}`}
                   target="_blank"
                   rel="noreferrer"
@@ -2260,7 +2297,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/r/${shopSlug}`);
+                    navigator.clipboard.writeText(`${window.location.origin}/${encodeURIComponent(effectiveSlug)}/randevu`);
                     alert('Instagram biyografi linki panoya kopyalandı!\n\nInstagram uygulamasında "Profili Düzenle > Bağlantılar > Bağlantı Ekle" kısmına bu linki yapıştırabilirsiniz.');
                   }}
                   className="p-2.5 rounded-2xl bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-600 dark:text-pink-400 text-xs font-black flex items-center gap-2 cursor-pointer transition-all text-left"
@@ -2277,7 +2314,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const smsText = `Değerli müşterimiz, ${storeName} salonumuzda sıra beklemeden online randevu alabilirsiniz: ${window.location.origin}/r/${shopSlug}`;
+                    const smsText = `Değerli müşterimiz, ${storeName} salonumuzda sıra beklemeden online randevu alabilirsiniz: ${window.location.origin}/${encodeURIComponent(effectiveSlug)}/randevu`;
                     navigator.clipboard.writeText(smsText);
                     alert('SMS ve durum paylaşım metni panoya kopyalandı!');
                   }}
@@ -2324,7 +2361,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             <div className="relative w-48 h-48 bg-white p-3 rounded-3xl mx-auto shadow-xl flex items-center justify-center">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=H&data=${encodeURIComponent(
-                  `${typeof window !== 'undefined' ? window.location.origin : ''}/r/${encodeURIComponent(shopSlug)}`
+                  `${typeof window !== 'undefined' ? window.location.origin : ''}/${encodeURIComponent(effectiveSlug)}/randevu`
                 )}`}
                 alt="Randevu QR Kodu"
                 className="w-full h-full object-contain"
@@ -2390,7 +2427,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                           return `• ${dayText} ${ds.startTime}-${ds.endTime}: %${ds.discountPercent} İndirim${ds.label ? ` (${ds.label})` : ''}`;
                         })
                         .join('\n');
-                      const bookingLink = `${window.location.origin}/r/${encodeURIComponent(settings.slug || shopSlug)}`;
+                      const bookingLink = `${window.location.origin}/${encodeURIComponent(effectiveSlug)}/randevu`;
                       const msg = `🔥 *${storeName} — Flaş İndirimli Saatler!* 💈\n\nSakin saatlerimize özel indirim fırsatlarını kaçırmayın:\n${slotLines}\n\n👉 Hemen online randevu alın:\n${bookingLink}`;
                       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                     }}

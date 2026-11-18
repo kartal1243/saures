@@ -68,6 +68,7 @@ interface PublicBarberData {
     slogan: string;
     slug: string;
     logoUrl?: string;
+    googleMapsUrl?: string;
     iban?: string;
     brandingRequired?: boolean;
   };
@@ -297,6 +298,55 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       isMounted = false;
     };
   }, [identifier]);
+
+  // Müşteri beklerken dolu saatleri ve mola bloklarını 10 saniyede bir arka planda sessizce tazele
+  useEffect(() => {
+    if (bookingSuccess || loading || error || !identifier?.trim()) return;
+    let active = true;
+
+    const refreshAvailability = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      try {
+        const res = await fetch(`/api/public/barber/${encodeURIComponent(identifier)}`, {
+          cache: 'no-store',
+        });
+        if (!res.ok || !active) return;
+        const json = await res.json();
+        if (!active || !json) return;
+        setData((prev) => {
+          if (!prev) return json;
+          return {
+            ...prev,
+            shop: json.shop || prev.shop,
+            staff: json.staff || prev.staff,
+            services: json.services || prev.services,
+            settings: json.settings || prev.settings,
+            occupiedSlots: Array.isArray(json.occupiedSlots) ? json.occupiedSlots : prev.occupiedSlots,
+            timeBlocks: Array.isArray(json.timeBlocks) ? json.timeBlocks : prev.timeBlocks,
+            reviews: Array.isArray(json.reviews) ? json.reviews : prev.reviews,
+          };
+        });
+      } catch {
+        // Sessiz arka plan yenileme hatasını yoksay
+      }
+    };
+
+    const intervalId = window.setInterval(refreshAvailability, 10000);
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAvailability();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [identifier, bookingSuccess, loading, error]);
 
   // Seçilen Personel
   const selectedStaff = useMemo(() => {
@@ -948,12 +998,18 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       `Hizmetler: ${apt.serviceName}\nPersonel: ${apt.staffName}\nÜcret: ₺${apt.price}`
     )}&location=${encodeURIComponent(shopLocation)}`;
 
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      shopLocation || data?.shop.storeName || 'Kuaför'
-    )}`;
+    const rawMapsUrl = (data?.shop.googleMapsUrl || '').trim();
+    const customMapsUrl = rawMapsUrl
+      ? rawMapsUrl.startsWith('http://') || rawMapsUrl.startsWith('https://')
+        ? rawMapsUrl
+        : `https://${rawMapsUrl}`
+      : '';
+    const isSafeCustomMapsUrl = Boolean(
+      customMapsUrl && !/^(javascript|data|vbscript):/i.test(customMapsUrl)
+    );
 
     const friendShareUrl = `https://wa.me/?text=${encodeURIComponent(
-      `Selam! Ben ${data?.shop.storeName} salonundan sıra beklemeden online randevumu aldım, sen de buradan gün ve saatini seçip kolayca randevu alabilirsin: ${window.location.origin}/r/${data?.shop.slug}`
+      `Selam! Ben ${data?.shop.storeName} salonundan sıra beklemeden online randevumu aldım, sen de buradan gün ve saatini seçip kolayca randevu alabilirsin: ${window.location.origin}/${encodeURIComponent(data?.shop.slug || identifier)}/randevu`
     )}`;
 
     return (
@@ -1031,23 +1087,25 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
               </a>
             )}
 
-            {/* 3. Haritada Gör & Arkadaşına Tavsiye Et */}
+            {/* 3. Haritada Gör (sadece özel Google Maps linki varsa) & Arkadaşına Tavsiye Et */}
             <div className="grid grid-cols-2 gap-2">
-              <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="py-2.5 px-3 rounded-2xl bg-stone-900 border border-stone-800 hover:border-stone-700 text-stone-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-              >
-                <MapPin className="w-3.5 h-3.5 text-amber-400" />
-                <span>Haritada Konum</span>
-              </a>
+              {isSafeCustomMapsUrl && (
+                <a
+                  href={customMapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2.5 px-3 rounded-2xl bg-stone-900 border border-stone-800 hover:border-stone-700 text-stone-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Haritada Konum</span>
+                </a>
+              )}
 
               <a
                 href={friendShareUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="py-2.5 px-3 rounded-2xl bg-stone-900 border border-stone-800 hover:border-stone-700 text-stone-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                className={`${isSafeCustomMapsUrl ? '' : 'col-span-2 '}py-2.5 px-3 rounded-2xl bg-stone-900 border border-stone-800 hover:border-stone-700 text-stone-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all`}
               >
                 <Users className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Arkadaşa Öner</span>

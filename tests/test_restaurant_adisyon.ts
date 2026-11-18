@@ -387,13 +387,59 @@ async function run() {
     res = await fetch(`${baseUrl}/api/tables`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Masa 5 (Patron VIP)' }),
+      body: JSON.stringify({ name: 'Masa 5 (Patron VIP)', section: 'Bahçe / Seyir' }),
     });
     assert.strictEqual(res.status, 200, 'Patron VIP pakette sınırsız masa eklenebilmeli');
-    console.log('  ✓ Patron VIP paketinde sınırsız masa oluşturma doğrulandı.');
+    data = await res.json();
+    assert.strictEqual(data.table.section, 'Bahçe / Seyir', 'Masa bölgesi kaydedilmeli');
+    console.log('  ✓ Patron VIP paketinde sınırsız masa ve bölge oluşturma doğrulandı.');
+
+    // ----------------------------------------------------
+    // TEST 11: Seyir Terası Hazır Masa Düzeni, İndirim ve IBAN / Havale Kapatma
+    // ----------------------------------------------------
+    console.log('\n[TEST 11] Seyir Terası hazır masa düzeni, müşteri notu, indirim ve IBAN/Havale tahsilatı test ediliyor...');
+    res = await fetch(`${baseUrl}/api/tables/setup-seyir-preset`, { method: 'POST' });
+    assert.strictEqual(res.status, 200);
+    data = await res.json();
+    assert(data.createdCount >= 10, 'Seyir Terası hazır masaları oluşturulmalı');
+    const tezgahTable = data.tables.find((t: any) => t.name === 'Tezgah (Hızlı Satış)');
+    assert(tezgahTable, 'Tezgah (Hızlı Satış) masası bulunmalı');
+
+    await fetch(`${baseUrl}/api/tables/${tezgahTable.id}/order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Mega Dürüm', quantity: 2, unitPrice: 130 }),
+    });
+
+    res = await fetch(`${baseUrl}/api/tables/${tezgahTable.id}/note`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerName: 'Mehmet Bey · 0532 000 11 22', note: 'Kapıda teslim' }),
+    });
+    assert.strictEqual(res.status, 200);
+    data = await res.json();
+    assert.strictEqual(data.table.customerName, 'Mehmet Bey · 0532 000 11 22');
+
+    // 260 TL toplam - 60 TL indirim = 200 TL IBAN/Havale ile kapat
+    res = await fetch(`${baseUrl}/api/tables/${tezgahTable.id}/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        paymentMethod: 'havale',
+        amount: 200,
+        discountAmount: 60,
+        closeTable: true,
+      }),
+    });
+    assert.strictEqual(res.status, 200);
+    data = await res.json();
+    assert.strictEqual(data.isFullClose, true, 'İndirimli IBAN tahsilatıyla masa kapanmalı');
+    assert.strictEqual(data.transaction.paymentMethod, 'havale', 'Havale / IBAN ödeme yöntemi işlenmeli');
+    assert.strictEqual(data.transaction.amount, 200, 'İndirim düşülmüş net tutar 200 TL olmalı');
+    console.log('  ✓ Seyir Terası hazır düzeni, müşteri notu, indirim ve IBAN/Havale kapanışı doğrulandı.');
 
     console.log('\n======================================================');
-    console.log('🎉 TÜM RESTORAN & SEYİR TERASİ ADİSYON TESTLERİ (10/10) BAŞARIYLA GEÇTİ!');
+    console.log('🎉 TÜM RESTORAN & SEYİR TERASİ ADİSYON TESTLERİ (11/11) BAŞARIYLA GEÇTİ!');
     console.log('======================================================');
   } finally {
     server.close();
