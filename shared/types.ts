@@ -244,7 +244,7 @@ export interface ReminderLog {
   customerId: string;
   customerName: string;
   phone: string;
-  channel: 'whatsapp' | 'sms';
+  channel: 'whatsapp' | 'sms' | 'email';
   message: string;
   status: 'gonderildi' | 'hazirlandi' | 'teslim_edildi';
   sentAt: string;

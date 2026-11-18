@@ -546,6 +546,42 @@ async function runAsync() {
   assert.strictEqual(remRes.maintenanceReminded, 1, 'Bugün bakımı gelen cihaz için 1 hatırlatma oluşturulmalı');
   assert.strictEqual(mockState.reminderLogs[0].type, 'bakim');
 
+  // 2 saat kala müşteri e-posta hatırlatması (allowWhatsApp false olsa bile email varsa çalışmalı)
+  const prevSkipAutostart = process.env.SKIP_SERVER_AUTOSTART;
+  process.env.SKIP_SERVER_AUTOSTART = 'true';
+  try {
+    const noonTrMs = Date.parse(`${todayStr}T09:00:00Z`); // 12:00 TRT
+    const twoHourState: AppState = {
+      ...mockState,
+      reminderLogs: [],
+      customers: [],
+      maintenanceAssets: [],
+      appointments: [
+        {
+          id: 'apt_2h_email_test',
+          customerName: 'Caner Demir',
+          phone: '05449998877',
+          email: 'caner@example.com',
+          staffName: 'Ahmet Usta',
+          serviceName: 'Saç Kesimi',
+          price: 300,
+          appointmentDate: todayStr,
+          timeSlot: '13:00',
+          status: 'onayli',
+          allowWhatsApp: false,
+          createdAt: new Date(noonTrMs).toISOString(),
+        },
+      ],
+    };
+    const rem2h = await processShopReminders('acc_test_2h', twoHourState, noonTrMs);
+    assert.strictEqual(rem2h.appointmentsReminded, 1, '2 saat içindeki randevu için hatırlatma tetiklenmeli');
+    assert.strictEqual((twoHourState.appointments[0] as any).autoReminderSent, true, '2 saat hatırlatma bayrağı işaretlenmeli');
+    assert.strictEqual(twoHourState.reminderLogs[0].type, 'ozel');
+  } finally {
+    if (prevSkipAutostart === undefined) delete process.env.SKIP_SERVER_AUTOSTART;
+    else process.env.SKIP_SERVER_AUTOSTART = prevSkipAutostart;
+  }
+
   const morning1 = await processDailyMorningForShop('acc_test_firebase', mockState, {
     nowMs,
     ownerName: 'Ahmet Usta',

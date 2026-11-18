@@ -14,6 +14,7 @@ export interface ReminderCycleStats {
   subscriptionsReminded: number;
   maintenanceReminded?: number;
   smsSent: number;
+  emailsSent?: number;
   simulated: number;
 }
 
@@ -126,49 +127,93 @@ export async function processShopReminders(
   subscriptionsReminded: number;
   maintenanceReminded: number;
   smsSent: number;
+  emailsSent: number;
   simulated: number;
 }> {
   const { dateStr: today, monthStr, minutesOfDay: nowMinutes } = getIstanbulDateAndMinutes(nowMs);
   const monthlyLimit = getMonthlyAutoReminderLimit(state.shopProfile);
   if (monthlyLimit <= 0) {
-    return { changed: false, appointmentsReminded: 0, subscriptionsReminded: 0, maintenanceReminded: 0, smsSent: 0, simulated: 0 };
+    return { changed: false, appointmentsReminded: 0, subscriptionsReminded: 0, maintenanceReminded: 0, smsSent: 0, emailsSent: 0, simulated: 0 };
   }
 
   if (!Array.isArray(state.reminderLogs)) state.reminderLogs = [];
   let usedThisMonth = countUsedAutoRemindersThisMonth(state.reminderLogs, monthStr);
 
   const shopName = state.shopProfile?.storeName || state.storeName || 'İşletmemiz';
+  const baseUrl = (process.env.APP_BASE_URL || 'https://dukkanimyanimda.com.tr').replace(/\/+$/, '');
+  const slugForLink = encodeURIComponent(state.shopProfile?.slug || state.barberSettings?.slug || accountId);
+  const bookingQueryUrl = `${baseUrl}/${slugForLink}/randevu?sorgula=true`;
+
   let changed = false;
   let appointmentsReminded = 0;
   let subscriptionsReminded = 0;
   let maintenanceReminded = 0;
   let smsSent = 0;
+  let emailsSent = 0;
   let simulated = 0;
 
-  // 1. Bugünkü 2 saat içindeki onaylı/bekleyen randevular
+  // 1. Bugünkü 2 saat içindeki onaylı/bekleyen randevular (Müşteriye 2 saat kala E-Posta + SMS/WA)
   for (const apt of state.appointments || []) {
     if (usedThisMonth >= monthlyLimit) break;
     if (!apt || apt.appointmentDate !== today) continue;
     if (apt.status !== 'onayli' && apt.status !== 'bekliyor') continue;
     if ((apt as any).autoReminderSent) continue;
-    if (apt.allowWhatsApp === false) continue;
-    if (!apt.phone) continue;
+
+    const aptEmail = String(apt.email || '').trim().toLowerCase();
+    const hasValidEmail = Boolean(aptEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(aptEmail));
+    const canSendSmsOrWa = Boolean(apt.phone && apt.allowWhatsApp !== false);
+    if (!hasValidEmail && !canSendSmsOrWa) continue;
 
     const aptMinutes = parseTimeSlotMinutes(apt.timeSlot);
     if (aptMinutes === null) continue;
     if (aptMinutes < nowMinutes || aptMinutes > nowMinutes + 120) continue;
 
+    const diffMinutes = Math.max(1, aptMinutes - nowMinutes);
+    const remainingText =
+      diffMinutes >= 60
+        ? `${Math.floor(diffMinutes / 60)} saat${diffMinutes % 60 > 0 ? ` ${diffMinutes % 60} dk` : ''}`
+        : `${diffMinutes} dakika`;
+
     const message = `Merhaba ${apt.customerName}, ${shopName} işletmesindeki bugün saat ${apt.timeSlot} (${apt.serviceName}) randevunuzu hatırlatırız. Görüşmek üzere!`;
-    const result = await sendSmsMessage(apt.phone, message, { category: 'appointment_reminder', shopName });
+
+    const [result, emailRes] = await Promise.all([
+      canSendSmsOrWa
+        ? sendSmsMessage(apt.phone, message, { category: 'appointment_reminder', shopName })
+        : Promise.resolve({ sent: false, simulated: true, provider: 'skipped', whatsappLink: '' }),
+      hasValidEmail
+        ? dispatchBrandedEmail({
+            to: aptEmail,
+            type: 'appointment_reminder',
+            shopName,
+            recipientName: apt.customerName,
+            subject: `${shopName} — Randevunuza ${remainingText} Kaldı! (${apt.timeSlot})`,
+            headline: 'Randevunuz Yaklaşıyor!',
+            bodyLines: [
+              `Merhaba ${apt.customerName}, ${shopName} işletmesindeki bugün saat ${apt.timeSlot} randevunuza yaklaşık ${remainingText} kaldı.`,
+              'Randevu bilgilerinizi aşağıda bulabilir, değişiklik gerekirse alttaki bağlantıdan randevunuzu görüntüleyebilirsiniz.',
+            ],
+            details: [
+              { label: 'İşletme', value: shopName },
+              { label: 'Tarih & Saat', value: `${apt.appointmentDate} • ${apt.timeSlot}` },
+              { label: 'Hizmet', value: apt.serviceName },
+              { label: 'Usta / Personel', value: apt.staffName || 'Usta' },
+              ...(state.shopProfile?.phone ? [{ label: 'İşletme Telefonu', value: String(state.shopProfile.phone) }] : []),
+              ...(state.shopProfile?.googleMapsUrl ? [{ label: 'Konum / Yol Tarifi', value: state.shopProfile.googleMapsUrl }] : []),
+            ],
+            ctaText: 'Randevumu Görüntüle',
+            actionUrl: bookingQueryUrl,
+          }).catch(() => ({ sent: false, queued: false, provider: 'error' }))
+        : Promise.resolve({ sent: false, queued: false, provider: 'skipped' }),
+    ]);
 
     const reminderLog: ReminderLog = {
       id: `rem_auto_${nowMs}_${Math.random().toString(36).slice(2, 6)}`,
       customerId: '',
       customerName: apt.customerName,
-      phone: apt.phone,
-      channel: result.sent ? 'sms' : 'whatsapp',
+      phone: apt.phone || aptEmail,
+      channel: result.sent ? 'sms' : emailRes.sent ? 'email' : 'whatsapp',
       message,
-      status: result.sent ? 'gonderildi' : 'hazirlandi',
+      status: result.sent || emailRes.sent ? 'gonderildi' : 'hazirlandi',
       sentAt: new Date(nowMs).toLocaleString('tr-TR'),
       type: 'ozel',
     };
@@ -178,7 +223,8 @@ export async function processShopReminders(
     usedThisMonth += 1;
     appointmentsReminded += 1;
     if (result.sent) smsSent += 1;
-    else simulated += 1;
+    if (emailRes.sent) emailsSent += 1;
+    if (!result.sent && !emailRes.sent) simulated += 1;
     changed = true;
 
     try {
@@ -187,13 +233,14 @@ export async function processShopReminders(
       // ignore broadcast errors outside server
     }
     sendPushToAccount(accountId, {
-      title: `Otomatik Randevu Hatırlatması (${apt.timeSlot})`,
-      body: `${apt.customerName} için ${result.sent ? 'SMS gönderildi' : 'hatırlatma hazırlandı'}.`,
+      title: `2 Saat Kala Hatırlatma (${apt.timeSlot})`,
+      body: `${apt.customerName} için ${emailRes.sent ? 'E-posta gönderildi' : result.sent ? 'SMS gönderildi' : 'hatırlatma hazırlandı'}.`,
       url: '/',
       tag: `rem_apt_${apt.id}`,
     }).catch(() => {});
     writeFirestoreDocument(`shops/${accountId}/reminder_logs`, reminderLog.id, {
       ...reminderLog,
+      emailSent: Boolean(emailRes.sent),
       accountId,
       createdAtIso: new Date(nowMs).toISOString(),
     }).catch(() => {});
@@ -309,7 +356,7 @@ export async function processShopReminders(
     state.reminderLogs = state.reminderLogs.slice(0, 500);
   }
 
-  return { changed, appointmentsReminded, subscriptionsReminded, maintenanceReminded, smsSent, simulated };
+  return { changed, appointmentsReminded, subscriptionsReminded, maintenanceReminded, smsSent, emailsSent, simulated };
 }
 
 export async function runReminderCycleNow(options?: { nowMs?: number }): Promise<ReminderCycleStats> {
@@ -322,6 +369,7 @@ export async function runReminderCycleNow(options?: { nowMs?: number }): Promise
         appointmentsReminded: 0,
         subscriptionsReminded: 0,
         smsSent: 0,
+        emailsSent: 0,
         simulated: 0,
       }
     );
@@ -333,6 +381,7 @@ export async function runReminderCycleNow(options?: { nowMs?: number }): Promise
   let subscriptionsReminded = 0;
   let maintenanceReminded = 0;
   let smsSent = 0;
+  let emailsSent = 0;
   let simulated = 0;
 
   try {
@@ -346,6 +395,7 @@ export async function runReminderCycleNow(options?: { nowMs?: number }): Promise
         subscriptionsReminded += res.subscriptionsReminded;
         maintenanceReminded += res.maintenanceReminded;
         smsSent += res.smsSent;
+        emailsSent += res.emailsSent;
         simulated += res.simulated;
         if (res.changed) {
           persistShopState(acc.id, state);
@@ -362,6 +412,7 @@ export async function runReminderCycleNow(options?: { nowMs?: number }): Promise
       subscriptionsReminded,
       maintenanceReminded,
       smsSent,
+      emailsSent,
       simulated,
     };
     return lastCycleStats;
