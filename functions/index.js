@@ -295,7 +295,7 @@ function renderBrandedEmailHtml(payload) {
           </tr>
           <tr>
             <td style="background-color:#fafaf9;padding:14px 24px;border-top:1px solid #e7e5e4;font-size:11px;color:#78716c;">
-              Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> tarafından işlem güvenliği ve günlük işletme bildirimi amacıyla gönderilmiştir.
+              Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> tarafından işlem güvenliği ve günlük işletme bildirimi amacıyla gönderilmiştir. Destek: <a href="mailto:support@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">support@dukkanimyanimda.com.tr</a>
             </td>
           </tr>
         </table>
@@ -341,7 +341,7 @@ async function dispatchOutboundEmail(payload) {
   const fromEmail = (
     process.env.EMAIL_FROM ||
     process.env.SMTP_FROM ||
-    'Dükkanım Yanımda <bilgi@dukkanimyanimda.com.tr>'
+    'Dükkanım Yanımda <support@dukkanimyanimda.com.tr>'
   ).trim();
 
   // 1. Resend API

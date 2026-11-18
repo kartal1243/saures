@@ -1168,7 +1168,7 @@ export function renderBackendBrandedEmail(payload: BrandedEmailPayload): {
           </tr>
           <tr>
             <td style="background-color:#fafaf9;padding:14px 24px;border-top:1px solid #e7e5e4;font-size:11px;color:#78716c;">
-              Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> platformu tarafından işlem güvenliği ve işletme bildirimi amacıyla gönderilmiştir.
+              Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> platformu tarafından işlem güvenliği ve işletme bildirimi amacıyla gönderilmiştir. Destek: <a href="mailto:support@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">support@dukkanimyanimda.com.tr</a>
             </td>
           </tr>
         </table>
@@ -1220,7 +1220,7 @@ export async function dispatchBrandedEmail(payload: BrandedEmailPayload): Promis
     return { sent: false, queued: false, provider: 'invalid_email', error: 'Geçersiz e-posta adresi.' };
   }
 
-  const fromEmail = (process.env.EMAIL_FROM || 'Dükkanım Yanımda <bilgi@dukkanimyanimda.com.tr>').trim();
+  const fromEmail = (process.env.EMAIL_FROM || 'Dükkanım Yanımda <support@dukkanimyanimda.com.tr>').trim();
   const fnUrl = (process.env.FIREBASE_EMAIL_FUNCTION_URL || '').trim();
   const fnSecret = (process.env.FIREBASE_FUNCTIONS_SECRET || process.env.WEBHOOK_SECRET || '').trim();
 

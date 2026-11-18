@@ -25,8 +25,8 @@ import {
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 
 // İletişim e-postası tek noktada. Değişirse sadece burası güncellenir.
-export const CONTACT_EMAIL = 'omeryaman6@hotmail.com';
-const CONTACT_MAILTO = 'mailto:omeryaman6@hotmail.com';
+export const CONTACT_EMAIL = 'support@dukkanimyanimda.com.tr';
+const CONTACT_MAILTO = 'mailto:support@dukkanimyanimda.com.tr';
 
 export type PublicRouteKey =
   | 'gizlilik'

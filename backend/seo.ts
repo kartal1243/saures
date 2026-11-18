@@ -1891,6 +1891,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
           name: 'Dükkanım Yanımda',
           url: `${origin}/`,
           logo: `${origin}/icon-512.png`,
+          email: 'support@dukkanimyanimda.com.tr',
           description: 'Esnaf için kasa, veresiye defteri, stok ve gün sonu yönetim paneli.',
         },
         {
