@@ -532,6 +532,28 @@ export async function startServer(): Promise<void> {
     // Statik varlıklar (JS/CSS/görseller) sunulur; ancak HTML rotalarını dinamik SEO motoru karşılar
     app.use(express.static(distPath, { index: false }));
 
+    // Tarayıcı ve e-posta önizleyicileri için favicon.ico & apple-touch-icon.png (404 Not Found dönmesin)
+    app.get(['/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'], (req, res) => {
+      const iconCandidates =
+        req.path === '/favicon.ico'
+          ? [
+              path.join(distPath, 'brand', 'logo-icon.png'),
+              path.join(distPath, 'icon-192.png'),
+              path.join(process.cwd(), 'frontend', 'public', 'brand', 'logo-icon.png'),
+            ]
+          : [
+              path.join(distPath, 'icon-192.png'),
+              path.join(distPath, 'brand', 'logo-icon.png'),
+              path.join(process.cwd(), 'frontend', 'public', 'icon-192.png'),
+            ];
+      const hit = iconCandidates.find((p) => fs.existsSync(p));
+      if (hit) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.sendFile(hit);
+      }
+      return res.status(204).end();
+    });
+
     // Production HTML sunumunda (/r/:slug, /m/:slug, /berber, /kafe-restoran, /bakkal vb.)
     // dist/index.html içindeki <title> ve og:title / og:description meta etiketlerini dinamik değiştirerek gönder
     app.get('*', (req, res, next) => {

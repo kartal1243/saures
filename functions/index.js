@@ -281,24 +281,21 @@ function renderBrandedEmailHtml(payload) {
                   ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0;border:1px solid #e7e5e4;border-radius:10px;border-collapse:collapse;">${detailsRows}</table>`
                   : ''
               }
-              <div style="margin:22px 0 8px 0;">
+              <div style="margin:24px 0 4px 0;">
                 <a href="${escapeHtml(
                   actionUrl
-                )}" style="display:inline-block;background-color:#FF6B00;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:10px;">${escapeHtml(
+                )}" style="display:inline-block;background-color:#FF6B00;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:10px;">${escapeHtml(
     ctaText
   )}</a>
               </div>
-              <p style="margin:14px 0 0 0;font-size:11px;color:#78716c;word-break:break-all;">
-                Bağlantı çalışmazsa kopyalayın: ${escapeHtml(actionUrl)}
-              </p>
             </td>
           </tr>
           <tr>
-            <td style="background-color:#fafaf9;padding:14px 24px;border-top:1px solid #e7e5e4;font-size:11px;color:#78716c;">
+            <td style="background-color:#fafaf9;padding:14px 24px;border-top:1px solid #e7e5e4;font-size:11px;line-height:1.5;color:#78716c;">
               ${
                 type === 'appointment_confirmed' || type === 'appointment_reminder'
-                  ? 'Bu randevu bilgilendirmesi <strong>Dükkânım Yanımda</strong> üzerinden gönderilmiştir. İletişim: <a href="mailto:randevu@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">randevu@dukkanimyanimda.com.tr</a>'
-                  : 'Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> tarafından işlem güvenliği ve günlük işletme bildirimi amacıyla gönderilmiştir. Destek: <a href="mailto:support@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">support@dukkanimyanimda.com.tr</a>'
+                  ? 'Bu randevu bilgilendirmesi <strong>Dükkânım Yanımda</strong> randevu sistemi tarafından otomatik gönderilmiştir.<br/>İletişim: <a href="mailto:randevu@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">randevu@dukkanimyanimda.com.tr</a>'
+                  : 'Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> tarafından işlem güvenliği ve günlük işletme bildirimi amacıyla gönderilmiştir.<br/>Destek: <a href="mailto:support@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">support@dukkanimyanimda.com.tr</a>'
               }
             </td>
           </tr>
