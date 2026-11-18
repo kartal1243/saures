@@ -1384,8 +1384,12 @@ export async function dispatchBrandedEmail(payload: BrandedEmailPayload): Promis
           greetingTimeout: 8000,
           socketTimeout: 10000,
         });
+        const replyToEmail =
+          fromEmail.match(/<([^>]+)>/)?.[1] ||
+          (isAppointmentMail ? 'randevu@dukkanimyanimda.com.tr' : 'support@dukkanimyanimda.com.tr');
         await transporter.sendMail({
           from: fromEmail,
+          replyTo: replyToEmail,
           to,
           subject: rendered.subject,
           text: rendered.text,

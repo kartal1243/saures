@@ -812,9 +812,38 @@ export function registerPublicBarberRoutes(app: Express): void {
       }).catch(() => {});
     }
 
-    const whatsappMessage = encodeURIComponent(
-      `Merhaba ${storeTitle}, ${date} saat ${timeSlot} için "${newAppointment.serviceName}" randevumu oluşturdum. Bilgilerinize sunarım. Ad Soyad: ${newAppointment.customerName}`
-    );
+    let formattedTrDate = date;
+    try {
+      const parsedDate = new Date(`${date}T12:00:00Z`);
+      if (!Number.isNaN(parsedDate.getTime())) {
+        formattedTrDate = new Intl.DateTimeFormat('tr-TR', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          weekday: 'long',
+          timeZone: 'UTC',
+        }).format(parsedDate);
+      }
+    } catch {}
+
+    const waLines = [
+      `Merhaba *${storeTitle}* ekibi 👋`,
+      '',
+      'Online randevu sisteminiz üzerinden yeni bir randevu oluşturdum. Randevu bilgilerim aşağıdadır:',
+      '',
+      `📅 *Tarih:* ${formattedTrDate}`,
+      `🕒 *Saat:* ${timeSlot} - ${endTime} (${calculatedTotalDuration} dk)`,
+      `✂️ *Hizmet:* ${newAppointment.serviceName}`,
+      `👨‍🔧 *Usta / Personel:* ${primaryStaffName}`,
+      `💳 *Toplam Tutar:* ${finalPrice} ₺${discountAmount > 0 && discountNote ? ` (${discountNote} uygulandı)` : ''}`,
+      `👤 *Ad Soyad:* ${newAppointment.customerName}`,
+      `📞 *Telefon:* ${cleanPhone}`,
+      `📧 *E-Posta:* ${cleanEmail}`,
+      ...(newAppointment.notes ? [`📝 *Notum:* ${newAppointment.notes}`] : []),
+      '',
+      'Bilgilerinize sunarım, randevu saatinde görüşmek üzere. 🙏',
+    ];
+    const whatsappMessage = encodeURIComponent(waLines.join('\n'));
     const shopPhone = normalizePhone(shopState.shopProfile?.phone || account.phone);
     const cleanShopPhone = shopPhone ? shopPhone.replace(/^0/, '') : '';
     const whatsappUrl = cleanShopPhone ? `https://wa.me/90${cleanShopPhone}?text=${whatsappMessage}` : undefined;
