@@ -295,7 +295,11 @@ function renderBrandedEmailHtml(payload) {
           </tr>
           <tr>
             <td style="background-color:#fafaf9;padding:14px 24px;border-top:1px solid #e7e5e4;font-size:11px;color:#78716c;">
-              Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> tarafından işlem güvenliği ve günlük işletme bildirimi amacıyla gönderilmiştir. Destek: <a href="mailto:support@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">support@dukkanimyanimda.com.tr</a>
+              ${
+                type === 'appointment_confirmed' || type === 'appointment_reminder'
+                  ? 'Bu randevu bilgilendirmesi <strong>Dükkânım Yanımda</strong> üzerinden gönderilmiştir. İletişim: <a href="mailto:randevu@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">randevu@dukkanimyanimda.com.tr</a>'
+                  : 'Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> tarafından işlem güvenliği ve günlük işletme bildirimi amacıyla gönderilmiştir. Destek: <a href="mailto:support@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">support@dukkanimyanimda.com.tr</a>'
+              }
             </td>
           </tr>
         </table>
@@ -338,10 +342,18 @@ async function dispatchOutboundEmail(payload) {
   }
 
   const { subject, html, text } = renderBrandedEmailHtml(effectivePayload);
+  const isAppointmentMail =
+    effectivePayload.type === 'appointment_confirmed' || effectivePayload.type === 'appointment_reminder';
   const fromEmail = (
-    process.env.EMAIL_FROM ||
-    process.env.SMTP_FROM ||
-    'Dükkanım Yanımda <support@dukkanimyanimda.com.tr>'
+    effectivePayload.fromEmail ||
+    (isAppointmentMail
+      ? process.env.APPOINTMENT_EMAIL_FROM ||
+        process.env.EMAIL_FROM ||
+        process.env.SMTP_FROM ||
+        'Dükkanım Yanımda Randevu <randevu@dukkanimyanimda.com.tr>'
+      : process.env.EMAIL_FROM ||
+        process.env.SMTP_FROM ||
+        'Dükkanım Yanımda Randevu <randevu@dukkanimyanimda.com.tr>')
   ).trim();
 
   // 1. Resend API
@@ -400,13 +412,20 @@ async function dispatchOutboundEmail(payload) {
     const nodemailer = getNodemailer();
     if (nodemailer) {
       const port = Number(process.env.SMTP_PORT || 587);
+      const host = process.env.SMTP_HOST.trim();
+      const user = process.env.SMTP_USER.trim();
+      const rawPass = String(process.env.SMTP_PASS || '');
+      const pass =
+        host.toLowerCase().includes('gmail.com') || host.toLowerCase().includes('googlemail.com')
+          ? rawPass.replace(/\s+/g, '')
+          : rawPass;
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST.trim(),
+        host,
         port,
         secure: port === 465,
         auth: {
-          user: process.env.SMTP_USER.trim(),
-          pass: process.env.SMTP_PASS,
+          user,
+          pass,
         },
         connectionTimeout: 8000,
         greetingTimeout: 8000,

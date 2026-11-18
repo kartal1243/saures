@@ -21,7 +21,7 @@ import { checkAndUpdateVipStatus, getTierLimits } from './profile';
 import { FREE_ONLINE_BOOKING_QUOTA } from '../config';
 import { publicActionRateLimit, firebaseAppCheckGuard } from '../guards';
 import { DEMO_ACCOUNT_ID } from '../demoSeed';
-import { verifyFirebaseIdToken, writeFirestoreDocument } from '../services/firebaseService';
+import { verifyFirebaseIdToken, writeFirestoreDocument, dispatchBrandedEmail } from '../services/firebaseService';
 import { sendSmsMessage } from '../services/smsProvider';
 import { sendPushToAccount } from './devices';
 
@@ -449,6 +449,10 @@ export function registerPublicBarberRoutes(app: Express): void {
     if (!isValidTurkishPhone(rawPhone)) {
       return res.status(400).json({ error: 'Lütfen geçerli bir telefon numarası giriniz (05XX XXX XX XX formatında, 11 hane).' });
     }
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Lütfen randevu bildirimi için geçerli bir e-posta adresi giriniz.' });
+    }
     if (!kvkkApproved) {
       return res.status(400).json({ error: 'Lütfen KVKK aydınlatma metnini onaylayınız.' });
     }
@@ -692,7 +696,7 @@ export function registerPublicBarberRoutes(app: Express): void {
       id: `apt_pub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       customerName: customerName.trim(),
       phone: cleanPhone,
-      email: email?.trim() || '',
+      email: cleanEmail,
       staffId: primaryStaffId,
       staffName: primaryStaffName,
       serviceName: selectedServices.map((s) => s.name).join(' + '),
@@ -729,6 +733,85 @@ export function registerPublicBarberRoutes(app: Express): void {
     }).catch(() => {});
 
     const storeTitle = shopState.shopProfile?.storeName || account.shopName;
+    const baseUrl = (process.env.APP_BASE_URL || 'https://dukkanimyanimda.com.tr').replace(/\/+$/, '');
+    const shopSlugForLink = encodeURIComponent(shopState.shopProfile?.slug || req.params.identifier);
+    const bookingQueryUrl = `${baseUrl}/${shopSlugForLink}/randevu?sorgula=true`;
+
+    // 1) Müşteriye Randevu Oluşturuldu E-Postası (Gmail SMTP / Firebase Email)
+    const customerEmailDetails: Array<{ label: string; value: string }> = [
+      { label: 'İşletme', value: storeTitle },
+      { label: 'Tarih & Saat', value: `${date} • ${timeSlot} (${endTime})` },
+      { label: 'Hizmetler', value: newAppointment.serviceName },
+      { label: 'Usta / Personel', value: primaryStaffName },
+      { label: 'Toplam Tutar', value: `${finalPrice} ₺` },
+    ];
+    if (shopState.shopProfile?.phone || account.phone) {
+      customerEmailDetails.push({
+        label: 'İşletme Telefonu',
+        value: String(shopState.shopProfile?.phone || account.phone),
+      });
+    }
+    if (shopState.shopProfile?.googleMapsUrl) {
+      customerEmailDetails.push({
+        label: 'Konum / Yol Tarifi',
+        value: shopState.shopProfile.googleMapsUrl,
+      });
+    }
+
+    dispatchBrandedEmail({
+      to: cleanEmail,
+      type: 'appointment_confirmed',
+      shopName: storeTitle,
+      recipientName: newAppointment.customerName,
+      subject: `${storeTitle} — Randevunuz Oluşturuldu (${date} • ${timeSlot})`,
+      headline: 'Randevunuz Oluşturuldu!',
+      bodyLines: [
+        `Merhaba ${newAppointment.customerName}, ${storeTitle} işletmesinde ${date} tarihli saat ${timeSlot} randevunuz başarıyla oluşturuldu.`,
+        'Randevu durumunuzu sorgulamak veya gerektiğinde iptal etmek için aşağıdaki bağlantıyı kullanabilirsiniz.',
+      ],
+      details: customerEmailDetails,
+      ctaText: 'Randevumu Görüntüle',
+      actionUrl: bookingQueryUrl,
+    }).catch(() => {});
+
+    // 2) Müşteriye SMS Bilgilendirmesi (ağ geçidi aktifse gider)
+    sendSmsMessage(
+      cleanPhone,
+      `Merhaba ${newAppointment.customerName}, ${storeTitle} işletmesinde ${date} saat ${timeSlot} (${newAppointment.serviceName}) için randevunuz oluşturulmuştur.`,
+      { category: 'appointment_created', shopName: storeTitle }
+    ).catch(() => {});
+
+    // 3) Berbere / İşletme Sahibine Yeni Randevu E-Postası
+    const ownerEmail = String(account.email || '').trim().toLowerCase();
+    if (ownerEmail && ownerEmail.includes('@')) {
+      const barberEmailDetails: Array<{ label: string; value: string }> = [
+        { label: 'Müşteri Ad Soyad', value: newAppointment.customerName },
+        { label: 'Müşteri Telefon', value: cleanPhone },
+        { label: 'Müşteri E-Posta', value: cleanEmail },
+        { label: 'Tarih & Saat', value: `${date} • ${timeSlot} (${endTime})` },
+        { label: 'Hizmetler', value: newAppointment.serviceName },
+        { label: 'Atanan Usta', value: primaryStaffName },
+        { label: 'Tutar', value: `${finalPrice} ₺` },
+      ];
+      if (newAppointment.notes) {
+        barberEmailDetails.push({ label: 'Müşteri Notu', value: newAppointment.notes });
+      }
+      dispatchBrandedEmail({
+        to: ownerEmail,
+        type: 'appointment_confirmed',
+        shopName: storeTitle,
+        recipientName: shopState.shopProfile?.ownerName || account.ownerName || 'Ustam',
+        subject: `Yeni Online Randevu: ${newAppointment.customerName} (${date} • ${timeSlot})`,
+        headline: 'Yeni Online Randevu Alındı!',
+        bodyLines: [
+          `${storeTitle} işletmenize ${newAppointment.customerName} tarafından yeni bir online randevu oluşturuldu.`,
+        ],
+        details: barberEmailDetails,
+        ctaText: 'Randevu Takvimini Aç',
+        actionUrl: `${baseUrl}/`,
+      }).catch(() => {});
+    }
+
     const whatsappMessage = encodeURIComponent(
       `Merhaba ${storeTitle}, ${date} saat ${timeSlot} için "${newAppointment.serviceName}" randevumu oluşturdum. Bilgilerinize sunarım. Ad Soyad: ${newAppointment.customerName}`
     );
@@ -940,6 +1023,60 @@ export function registerPublicBarberRoutes(app: Express): void {
     try {
       broadcastToAccount(account.id, { type: 'APPOINTMENT_UPDATED', payload: apt });
     } catch {}
+
+    const cancelStoreTitle = shopState.shopProfile?.storeName || account.shopName;
+    const baseUrl = (process.env.APP_BASE_URL || 'https://dukkanimyanimda.com.tr').replace(/\/+$/, '');
+    sendPushToAccount(account.id, {
+      title: `Randevu İptal Edildi: ${apt.customerName}`,
+      body: `${apt.appointmentDate} ${apt.timeSlot} — ${apt.serviceName}${reason ? ` (${reason})` : ''}`,
+      url: '/',
+      tag: `apt_cancel_${apt.id}`,
+    }).catch(() => {});
+
+    const ownerCancelEmail = String(account.email || '').trim().toLowerCase();
+    if (ownerCancelEmail && ownerCancelEmail.includes('@')) {
+      dispatchBrandedEmail({
+        to: ownerCancelEmail,
+        type: 'appointment_confirmed',
+        shopName: cancelStoreTitle,
+        recipientName: shopState.shopProfile?.ownerName || account.ownerName || 'Ustam',
+        subject: `Randevu İptali: ${apt.customerName} (${apt.appointmentDate} • ${apt.timeSlot})`,
+        headline: 'Bir Randevu Müşteri Tarafından İptal Edildi',
+        bodyLines: [
+          `${apt.customerName}, ${apt.appointmentDate} saat ${apt.timeSlot} tarihli randevusunu iptal etti.`,
+        ],
+        details: [
+          { label: 'Müşteri', value: apt.customerName },
+          { label: 'Tarih & Saat', value: `${apt.appointmentDate} • ${apt.timeSlot}` },
+          { label: 'Hizmet', value: apt.serviceName },
+          ...(reason ? [{ label: 'İptal Nedeni', value: String(reason) }] : []),
+        ],
+        ctaText: 'Takvimi Görüntüle',
+        actionUrl: `${baseUrl}/`,
+      }).catch(() => {});
+    }
+
+    const custCancelEmail = String(apt.email || '').trim().toLowerCase();
+    if (custCancelEmail && custCancelEmail.includes('@')) {
+      dispatchBrandedEmail({
+        to: custCancelEmail,
+        type: 'appointment_confirmed',
+        shopName: cancelStoreTitle,
+        recipientName: apt.customerName,
+        subject: `${cancelStoreTitle} — Randevu İptal Onayı (${apt.appointmentDate} • ${apt.timeSlot})`,
+        headline: 'Randevunuz İptal Edildi',
+        bodyLines: [
+          `Merhaba ${apt.customerName}, ${cancelStoreTitle} işletmesindeki ${apt.appointmentDate} saat ${apt.timeSlot} randevunuz talebiniz üzerine iptal edilmiştir.`,
+        ],
+        details: [
+          { label: 'İşletme', value: cancelStoreTitle },
+          { label: 'Tarih & Saat', value: `${apt.appointmentDate} • ${apt.timeSlot}` },
+          { label: 'Hizmet', value: apt.serviceName },
+        ],
+        ctaText: 'Yeni Randevu Al',
+        actionUrl: `${baseUrl}/${encodeURIComponent(shopState.shopProfile?.slug || req.params.identifier)}/randevu`,
+      }).catch(() => {});
+    }
 
     res.json({
       success: true,
@@ -1175,30 +1312,64 @@ export function registerAppointmentRoutes(app: Express): void {
     if (!apt) return res.status(404).json({ error: 'Randevu bulunamadı.' });
 
     const shouldSendConfirmSms = status === 'onayli' && Boolean(apt.phone) && !(apt as any).confirmSmsSent;
+    const shouldSendConfirmEmail =
+      status === 'onayli' &&
+      Boolean(apt.email && String(apt.email).includes('@')) &&
+      !(apt as any).confirmEmailSent;
     apt.status = status;
     if (shouldSendConfirmSms) {
       (apt as any).confirmSmsSent = true;
+    }
+    if (shouldSendConfirmEmail) {
+      (apt as any).confirmEmailSent = true;
     }
 
     saveState();
     broadcast({ type: 'APPOINTMENT_UPDATED', payload: apt });
 
-    if (shouldSendConfirmSms) {
+    if (shouldSendConfirmSms || shouldSendConfirmEmail) {
       const shopName = S().shopProfile?.storeName || S().storeName || 'İşletmemiz';
       const accountId = als.getStore()?.accountId || '';
-      const confirmMsg = `Merhaba ${apt.customerName}, ${shopName} işletmesindeki ${apt.appointmentDate} saat ${apt.timeSlot} (${apt.serviceName}) randevunuz ONAYLANMIŞTIR. Görüşmek üzere!`;
-      sendSmsMessage(apt.phone, confirmMsg, {
-        category: 'appointment_confirmed',
-        shopName,
-      }).catch(() => {});
-      writeFirestoreDocument('notification_logs', `apt_conf_${Date.now()}_${apt.id}`, {
-        accountId,
-        type: 'appointment_confirmed',
-        appointmentId: apt.id,
-        phone: apt.phone,
-        shopName,
-        createdAt: new Date().toISOString(),
-      }).catch(() => {});
+      const baseUrl = (process.env.APP_BASE_URL || 'https://dukkanimyanimda.com.tr').replace(/\/+$/, '');
+      const slugForLink = encodeURIComponent(S().shopProfile?.slug || S().barberSettings?.slug || accountId);
+
+      if (shouldSendConfirmSms) {
+        const confirmMsg = `Merhaba ${apt.customerName}, ${shopName} işletmesindeki ${apt.appointmentDate} saat ${apt.timeSlot} (${apt.serviceName}) randevunuz ONAYLANMIŞTIR. Görüşmek üzere!`;
+        sendSmsMessage(apt.phone, confirmMsg, {
+          category: 'appointment_confirmed',
+          shopName,
+        }).catch(() => {});
+        writeFirestoreDocument('notification_logs', `apt_conf_${Date.now()}_${apt.id}`, {
+          accountId,
+          type: 'appointment_confirmed',
+          appointmentId: apt.id,
+          phone: apt.phone,
+          shopName,
+          createdAt: new Date().toISOString(),
+        }).catch(() => {});
+      }
+
+      if (shouldSendConfirmEmail && apt.email) {
+        dispatchBrandedEmail({
+          to: String(apt.email).trim().toLowerCase(),
+          type: 'appointment_confirmed',
+          shopName,
+          recipientName: apt.customerName,
+          subject: `${shopName} — Randevunuz Onaylandı! (${apt.appointmentDate} • ${apt.timeSlot})`,
+          headline: 'Randevunuz Onaylandı!',
+          bodyLines: [
+            `Merhaba ${apt.customerName}, ${shopName} işletmesindeki ${apt.appointmentDate} saat ${apt.timeSlot} randevunuz işletme tarafından onaylanmıştır.`,
+          ],
+          details: [
+            { label: 'İşletme', value: shopName },
+            { label: 'Tarih & Saat', value: `${apt.appointmentDate} • ${apt.timeSlot}` },
+            { label: 'Hizmet', value: apt.serviceName },
+            { label: 'Usta / Personel', value: apt.staffName || 'Usta' },
+          ],
+          ctaText: 'Randevumu Görüntüle',
+          actionUrl: `${baseUrl}/${slugForLink}/randevu?sorgula=true`,
+        }).catch(() => {});
+      }
     }
 
     res.json({ success: true, appointment: apt });

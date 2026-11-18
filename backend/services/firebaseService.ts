@@ -1,8 +1,26 @@
 import crypto from 'crypto';
 import fs from 'fs';
+import { createRequire } from 'module';
 import path from 'path';
 import { DATA_DIR } from '../config';
 import type { AppState, MaintenanceAsset } from '../../shared/types';
+
+function loadNodemailer(): any {
+  try {
+    const req = createRequire(path.join(process.cwd(), 'package.json'));
+    try {
+      return req('nodemailer');
+    } catch {
+      const fnNodemailer = path.resolve(process.cwd(), 'functions', 'node_modules', 'nodemailer');
+      if (fs.existsSync(fnNodemailer)) {
+        return req(fnNodemailer);
+      }
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
 
 export const FIREBASE_PROJECT_ID =
   (process.env.FIREBASE_PROJECT_ID || 'dukkanim-yanimda').trim();
@@ -1042,6 +1060,7 @@ export interface BrandedEmailPayload {
   to: string;
   subject: string;
   type: BrandedEmailType;
+  fromEmail?: string;
   shopName?: string;
   ownerName?: string;
   recipientName?: string;
@@ -1168,7 +1187,11 @@ export function renderBackendBrandedEmail(payload: BrandedEmailPayload): {
           </tr>
           <tr>
             <td style="background-color:#fafaf9;padding:14px 24px;border-top:1px solid #e7e5e4;font-size:11px;color:#78716c;">
-              Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> platformu tarafından işlem güvenliği ve işletme bildirimi amacıyla gönderilmiştir. Destek: <a href="mailto:support@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">support@dukkanimyanimda.com.tr</a>
+              ${
+                payload.type === 'appointment_confirmed' || payload.type === 'appointment_reminder'
+                  ? 'Bu randevu bilgilendirmesi <strong>Dükkânım Yanımda</strong> üzerinden gönderilmiştir. İletişim: <a href="mailto:randevu@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">randevu@dukkanimyanimda.com.tr</a>'
+                  : 'Bu bilgilendirme e-postası <strong>Dükkânım Yanımda</strong> platformu tarafından işlem güvenliği ve işletme bildirimi amacıyla gönderilmiştir. Destek: <a href="mailto:support@dukkanimyanimda.com.tr" style="color:#ea580c;text-decoration:none;font-weight:600;">support@dukkanimyanimda.com.tr</a>'
+              }
             </td>
           </tr>
         </table>
@@ -1220,7 +1243,27 @@ export async function dispatchBrandedEmail(payload: BrandedEmailPayload): Promis
     return { sent: false, queued: false, provider: 'invalid_email', error: 'Geçersiz e-posta adresi.' };
   }
 
-  const fromEmail = (process.env.EMAIL_FROM || 'Dükkanım Yanımda <support@dukkanimyanimda.com.tr>').trim();
+  if (
+    process.env.SKIP_SERVER_AUTOSTART === 'true' &&
+    process.env.FORCE_TEST_EMAIL !== 'true' &&
+    /@example\.(com|org|net)$/i.test(to)
+  ) {
+    return { sent: false, queued: false, provider: 'test_skipped' };
+  }
+
+  const isAppointmentMail =
+    payload.type === 'appointment_confirmed' || payload.type === 'appointment_reminder';
+  const fromEmail = (
+    payload.fromEmail ||
+    (isAppointmentMail
+      ? process.env.APPOINTMENT_EMAIL_FROM ||
+        process.env.EMAIL_FROM ||
+        process.env.SMTP_FROM ||
+        'Dükkanım Yanımda Randevu <randevu@dukkanimyanimda.com.tr>'
+      : process.env.EMAIL_FROM ||
+        process.env.SMTP_FROM ||
+        'Dükkanım Yanımda Randevu <randevu@dukkanimyanimda.com.tr>')
+  ).trim();
   const fnUrl = (process.env.FIREBASE_EMAIL_FUNCTION_URL || '').trim();
   const fnSecret = (process.env.FIREBASE_FUNCTIONS_SECRET || process.env.WEBHOOK_SECRET || '').trim();
 
@@ -1313,6 +1356,45 @@ export async function dispatchBrandedEmail(payload: BrandedEmailPayload): Promis
       return { sent: false, queued: false, provider: 'sendgrid', error: `SendGrid HTTP ${resp.status}` };
     } catch (err: any) {
       return { sent: false, queued: false, provider: 'sendgrid', error: err?.message || 'SendGrid bağlantı hatası' };
+    }
+  }
+
+  const smtpHost = (process.env.SMTP_HOST || '').trim();
+  const smtpUser = (process.env.SMTP_USER || '').trim();
+  const smtpRawPass = String(process.env.SMTP_PASS || '');
+  if (smtpHost && smtpUser && smtpRawPass) {
+    const nodemailer = loadNodemailer();
+    if (nodemailer) {
+      try {
+        const port = Number(process.env.SMTP_PORT || 587);
+        const pass =
+          smtpHost.toLowerCase().includes('gmail.com') ||
+          smtpHost.toLowerCase().includes('googlemail.com')
+            ? smtpRawPass.replace(/\s+/g, '')
+            : smtpRawPass;
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port,
+          secure: port === 465,
+          auth: {
+            user: smtpUser,
+            pass,
+          },
+          connectionTimeout: 8000,
+          greetingTimeout: 8000,
+          socketTimeout: 10000,
+        });
+        await transporter.sendMail({
+          from: fromEmail,
+          to,
+          subject: rendered.subject,
+          text: rendered.text,
+          html: rendered.html,
+        });
+        return { sent: true, queued: false, provider: 'smtp' };
+      } catch (err: any) {
+        return { sent: false, queued: false, provider: 'smtp', error: err?.message || 'SMTP bağlantı hatası' };
+      }
     }
   }
 

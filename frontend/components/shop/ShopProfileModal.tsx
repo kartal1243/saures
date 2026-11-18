@@ -67,6 +67,7 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
   const [logoUrl, setLogoUrl] = useState<string | undefined>(currentProfile?.logoUrl);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isSectorLocked = !isFirstTime && Boolean(currentProfile?.isConfigured);
 
   useEffect(() => {
     if (currentProfile) {
@@ -95,11 +96,17 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
     setError(null);
     setIsSaving(true);
     try {
+      const lockedBusinessField = isSectorLocked
+        ? (currentProfile?.businessField || businessField)
+        : businessField;
+      const lockedSectorKey = isSectorLocked
+        ? (currentProfile?.sectorKey || deriveSector(lockedBusinessField))
+        : deriveSector(lockedBusinessField);
       await onSaveProfile({
         storeName: storeName.trim(),
         ownerName: ownerName.trim() || 'Esnaf',
-        businessField: businessField,
-        sectorKey: deriveSector(businessField),
+        businessField: lockedBusinessField,
+        sectorKey: lockedSectorKey,
         employeeCount: employeeCount,
         phone: phone.trim(),
         cityDistrict: cityDistrict.trim(),
@@ -135,7 +142,7 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
               <p className="text-xs text-amber-100 mt-0.5 font-medium">
                 {isFirstTime
                   ? 'Temel bilgilerinizi girin, paneliniz dükkanınıza göre anında uyarlansın'
-                  : 'Dükkan ismi, meslek/sektör ve iletişim bilgilerinizi dilediğiniz zaman güncelleyebilirsiniz'}
+                  : 'Dükkan ismi ve iletişim bilgilerinizi dilediğiniz zaman güncelleyebilirsiniz'}
               </p>
             </div>
           </div>
@@ -204,14 +211,30 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
                 <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
                   Faaliyet Alanı (Sektör) *
                 </label>
+                {isSectorLocked ? (
+                  <span className="text-[10px] font-bold text-stone-600 dark:text-stone-300 bg-stone-200/80 dark:bg-stone-800 px-2 py-0.5 rounded-full border border-stone-300 dark:border-stone-700">
+                    Sabit (Değiştirilemez)
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800/50">
+                    İlk Kurulumda Seçilir
+                  </span>
+                )}
               </div>
               <div className="relative">
                 <Briefcase className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <select
                   id="select-business-field"
+                  disabled={isSectorLocked}
                   value={businessField}
-                  onChange={(e) => setBusinessField(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-colors shadow-xs bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-900 dark:text-white cursor-pointer focus:ring-2 focus:ring-amber-500"
+                  onChange={(e) => {
+                    if (!isSectorLocked) setBusinessField(e.target.value);
+                  }}
+                  className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-colors shadow-xs border-stone-300 dark:border-stone-700 focus:ring-2 focus:ring-amber-500 ${
+                    isSectorLocked
+                      ? 'bg-stone-100 dark:bg-stone-900 text-stone-500 dark:text-stone-400 cursor-not-allowed opacity-75'
+                      : 'bg-white dark:bg-stone-800 text-stone-900 dark:text-white cursor-pointer'
+                  }`}
                 >
                   {BUSINESS_FIELDS.map((field) => (
                     <option key={field} value={field}>
@@ -220,6 +243,11 @@ export const ShopProfileModal: React.FC<ShopProfileModalProps> = ({
                   ))}
                 </select>
               </div>
+              {isSectorLocked && (
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
+                  Dükkan türü açılışta belirlenir ve sonradan değiştirilemez.
+                </p>
+              )}
             </div>
 
             <div>

@@ -862,6 +862,7 @@ export default function App() {
 
   // Handler: Hızlı Sektör / Meslek Değiştir
   const handleSwitchSector = async (newSector: BusinessSector) => {
+    if (shopProfile?.isConfigured) return;
     const secObj = SECTORS.find((s) => s.key === newSector);
     const updated: ShopProfile = {
       ...shopProfile,

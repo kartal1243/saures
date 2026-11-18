@@ -15,6 +15,7 @@ const require = createRequire(import.meta.url);
 const {
   allocateUniqueSlug,
   loadShopState,
+  persistShopState,
   registerAuthRoutes,
   registerProfileRoutes,
   registerPublicBarberRoutes,
@@ -170,17 +171,97 @@ try {
     },
     body: JSON.stringify({
       storeName: 'Altın Makas Kuaför',
+      businessField: 'Kafe / Çay Ocağı / Restoran',
+      sectorKey: 'kafe_restoran',
       googleMapsUrl: '',
     }),
   });
   assert.strictEqual(clearRes.status, 200);
+  const clearJson = await clearRes.json();
+  assert.strictEqual(
+    clearJson.profile.businessField,
+    'Kuaför / Berber / Güzellik Salonu',
+    'Kurulum sonrası dükkan türü (businessField) değiştirilememeli'
+  );
+  assert.strictEqual(
+    clearJson.profile.sectorKey,
+    'berber_kuafor',
+    'Kurulum sonrası sektör anahtarı (sectorKey) kilitli kalmalı'
+  );
   const pubRes2 = await fetch(`${baseUrl}/api/public/barber/altin-makas-kuafor`);
   const pubJson2 = await pubRes2.json();
   assert.strictEqual(pubJson2.shop.googleMapsUrl, '', 'Boş gönderildiğinde googleMapsUrl temizlenmeli');
-  console.log('  ✅ PASS 4: ShopProfile.googleMapsUrl kayıt, okuma ve temizleme davranışı doğrulandı.');
+  console.log('  ✅ PASS 4: ShopProfile.googleMapsUrl temizleme ve kurulum sonrası dükkan türü kilidi doğrulandı.');
+
+  // 4b. Randevu oluşturmada zorunlu e-posta kontrolü
+  console.log('TEST 4b: Online randevu oluşturmada zorunlu e-posta doğrulaması');
+  const bookingState = loadShopState(acc1Id);
+  bookingState.barberSettings = {
+    ...(bookingState.barberSettings || {}),
+    requireOtp: false,
+    closedDays: [],
+    openHour: '09:00',
+    closeHour: '21:00',
+  };
+  bookingState.barberStaff = [
+    {
+      id: 'st_test_1',
+      name: 'Ahmet Usta',
+      active: true,
+      specialty: 'Saç Kesimi',
+      commissionPercent: 50,
+      workingHours: { start: '09:00', end: '21:00' },
+      offDays: [],
+    },
+  ];
+  bookingState.barberServices = [
+    {
+      id: 'srv_test_1',
+      name: 'Saç Kesimi',
+      price: 300,
+      durationMinutes: 30,
+    },
+  ];
+  persistShopState(acc1Id, bookingState);
+
+  const tomorrowDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const bookNoEmailRes = await fetch(`${baseUrl}/api/public/barber/altin-makas-kuafor/book`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customerName: 'Deneme Müşteri',
+      phone: '05351112233',
+      email: '',
+      kvkkApproved: true,
+      date: tomorrowDate,
+      timeSlot: '11:00',
+      serviceIds: ['srv_test_1'],
+      staffId: 'st_test_1',
+    }),
+  });
+  assert.strictEqual(bookNoEmailRes.status, 400, 'E-posta olmadan randevu isteği 400 ile reddedilmeli');
+
+  const bookValidRes = await fetch(`${baseUrl}/api/public/barber/altin-makas-kuafor/book`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customerName: 'Deneme Müşteri',
+      phone: '05351112233',
+      email: 'Musteri@Example.com',
+      kvkkApproved: true,
+      date: tomorrowDate,
+      timeSlot: '11:00',
+      serviceIds: ['srv_test_1'],
+      staffId: 'st_test_1',
+    }),
+  });
+  assert.strictEqual(bookValidRes.status, 200, 'Geçerli e-posta ile randevu 200 dönmeli');
+  const bookValidJson = await bookValidRes.json();
+  assert.strictEqual(bookValidJson.appointment.email, 'musteri@example.com');
+  console.log('  ✅ PASS 4b: Online randevuda zorunlu e-posta kontrolü ve kaydı doğrulandı.');
 
   // 5. Frontend dosya kontrolleri
-  console.log('TEST 5: Frontend bileşen doğrulamaları (BarberAppointmentsView, AuthPage, PublicBarberBookingView, App)');
+  console.log('TEST 5: Frontend bileşen doğrulamaları (BarberAppointmentsView, AuthPage, PublicBarberBookingView, ShopProfileModal, App)');
   const rootDir = process.cwd();
   const barberViewSrc = fs.readFileSync(
     path.join(rootDir, 'frontend/components/sector/BarberAppointmentsView.tsx'),
@@ -203,6 +284,18 @@ try {
     !authPageSrc.includes('Şifremi Unuttum (Firebase)'),
     'AuthPage.tsx içinde "Şifremi Unuttum (Firebase)" metni bulunmamalı'
   );
+  assert.ok(
+    !authPageSrc.includes('Telefonu Firebase SMS ile Doğrula (İsteğe Bağlı)'),
+    'AuthPage.tsx içinde SMS doğrulamanın isteğe bağlı olduğunu söyleyen eski metin bulunmamalı'
+  );
+  assert.ok(
+    authPageSrc.includes('Telefonu SMS ile Doğrula (Zorunlu)'),
+    'AuthPage.tsx içinde zorunlu SMS doğrulama metni olmalı'
+  );
+  assert.ok(
+    authPageSrc.includes('effectiveRegToken'),
+    'AuthPage.tsx kayıt gönderiminde SMS doğrulama tokenını zorunlu kontrol etmeli'
+  );
   assert.ok(authPageSrc.includes('googleMapsUrl'), 'AuthPage.tsx kayıt formunda googleMapsUrl alanı olmalı');
 
   const bookingViewSrc = fs.readFileSync(
@@ -211,6 +304,21 @@ try {
   );
   assert.ok(bookingViewSrc.includes('isSafeCustomMapsUrl'), 'PublicBarberBookingView özel googleMapsUrl kontrolü içermeli');
   assert.ok(bookingViewSrc.includes('10000'), 'PublicBarberBookingView 10 saniyelik arka plan yenileme içermeli');
+  assert.ok(
+    !bookingViewSrc.includes('E-Posta Adresi (İsteğe Bağlı)'),
+    'PublicBarberBookingView içinde E-Posta Adresi artık isteğe bağlı olmamalı'
+  );
+  assert.ok(
+    bookingViewSrc.includes('E-Posta Adresi *'),
+    'PublicBarberBookingView içinde E-Posta Adresi * zorunlu etiketi bulunmalı'
+  );
+
+  const shopProfileModalSrc = fs.readFileSync(
+    path.join(rootDir, 'frontend/components/shop/ShopProfileModal.tsx'),
+    'utf8'
+  );
+  assert.ok(shopProfileModalSrc.includes('isSectorLocked'), 'ShopProfileModal isSectorLocked kilidini içermeli');
+  assert.ok(shopProfileModalSrc.includes('disabled={isSectorLocked}'), 'ShopProfileModal sektör seçimini kurulum sonrası kilitlemeli');
 
   const appTsxSrc = fs.readFileSync(path.join(rootDir, 'frontend/App.tsx'), 'utf8');
   assert.ok(appTsxSrc.includes('playBookingNotificationSound'), 'App.tsx playBookingNotificationSound yardımcısını içermeli');

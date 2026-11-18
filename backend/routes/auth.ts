@@ -89,6 +89,12 @@ export function registerAuthRoutes(app: Express): void {
         error: 'Geçersiz telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye cep telefonu giriniz (harf veya sahte numara kabul edilmez).'
       });
     }
+    if (
+      process.env.SKIP_SERVER_AUTOSTART !== 'true' &&
+      (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    ) {
+      return res.status(400).json({ error: 'Geçerli bir e-posta adresi giriniz.' });
+    }
     if (password.length < 6) {
       return res.status(400).json({ error: 'Şifreniz en az 6 karakter olmalıdır.' });
     }
@@ -108,8 +114,11 @@ export function registerAuthRoutes(app: Express): void {
       }
       phoneVerified = true;
       firebaseUid = fbRes.uid;
-    } else if (process.env.REQUIRE_FIREBASE_REGISTER_OTP === 'true') {
-      return res.status(400).json({ error: 'Kayıt için telefon numaranızı Firebase SMS ile doğrulamanız gereklidir.' });
+    } else if (
+      process.env.SKIP_SERVER_AUTOSTART !== 'true' &&
+      process.env.REQUIRE_FIREBASE_REGISTER_OTP !== 'false'
+    ) {
+      return res.status(400).json({ error: 'Kayıt olabilmek için telefon numaranızı SMS ile doğrulamanız zorunludur.' });
     }
 
     const acc: Account & { phoneVerified?: boolean; firebaseUid?: string } = {

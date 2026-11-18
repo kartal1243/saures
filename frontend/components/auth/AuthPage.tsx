@@ -58,6 +58,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
     }
 
     let identifier = phone.trim();
+    let effectiveRegToken = regFirebaseIdToken;
     if (mode === 'register') {
       const cleanPhone = phone.replace(/\D/g, '');
       if (!cleanPhone.startsWith('05') || cleanPhone.length !== 11) {
@@ -65,6 +66,32 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
         return;
       }
       identifier = cleanPhone;
+
+      const cleanEmail = email.trim();
+      if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        setError('Lütfen bildirimler ve şifre kurtarma için geçerli bir e-posta adresi giriniz.');
+        return;
+      }
+
+      if (!effectiveRegToken) {
+        if (regOtpSent && regConfirmResult && regOtpCode.trim().length === 6) {
+          setRegOtpBusy(true);
+          try {
+            const verified = await confirmFirebasePhoneOtp(regConfirmResult, regOtpCode.trim());
+            effectiveRegToken = verified.idToken;
+            setRegFirebaseIdToken(verified.idToken);
+            setRegOtpMsg('Telefon numarası SMS ile doğrulandı!');
+          } catch (fbErr: any) {
+            setError(translateFirebaseError(fbErr));
+            return;
+          } finally {
+            setRegOtpBusy(false);
+          }
+        } else {
+          setError('Kayıt olabilmek için lütfen önce telefon numaranızı SMS kodu ile doğrulayınız.');
+          return;
+        }
+      }
     } else {
       if (!identifier) {
         setError('Lütfen telefon numaranızı veya kullanıcı adınızı giriniz.');
@@ -86,11 +113,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
               shopName,
               ownerName,
               phone: identifier,
-              email,
+              email: email.trim(),
               password,
               kvkkAccepted: true,
               ...(googleMapsUrl.trim() ? { googleMapsUrl: googleMapsUrl.trim() } : {}),
-              ...(regFirebaseIdToken ? { firebaseIdToken: regFirebaseIdToken } : {}),
+              ...(effectiveRegToken ? { firebaseIdToken: effectiveRegToken } : {}),
             };
       const res = await fetchWithAppCheck(url, {
         method: 'POST',
@@ -537,6 +564,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                         setPhone(e.target.value.trim());
                       } else {
                         const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
+                        if (clean !== phone) {
+                          setRegFirebaseIdToken(null);
+                          setRegConfirmResult(null);
+                          setRegOtpSent(false);
+                          setRegOtpCode('');
+                          setRegOtpMsg(null);
+                        }
                         setPhone(clean);
                       }
                     }}
@@ -557,7 +591,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                     <div id="register-recaptcha-container" />
                     {regFirebaseIdToken ? (
                       <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Telefon Firebase SMS ile doğrulandı
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Telefon numarası SMS ile doğrulandı
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -579,9 +613,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                                 setRegOtpBusy(false);
                               }
                             }}
-                            className="text-[11px] font-bold text-orange-600 hover:text-orange-700 disabled:opacity-45 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1.5 rounded-lg disabled:opacity-45 cursor-pointer transition-colors"
                           >
-                            {regOtpBusy ? 'Firebase SMS gönderiliyor...' : '📱 Telefonu Firebase SMS ile Doğrula (İsteğe Bağlı)'}
+                            {regOtpBusy
+                              ? 'SMS doğrulama kodu gönderiliyor...'
+                              : regOtpSent
+                              ? '📱 SMS Doğrulama Kodunu Tekrar Gönder'
+                              : '📱 Telefonu SMS ile Doğrula (Zorunlu) *'}
                           </button>
                         </div>
                         {regOtpSent && regConfirmResult && (
@@ -603,7 +641,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
                                 try {
                                   const verified = await confirmFirebasePhoneOtp(regConfirmResult, regOtpCode);
                                   setRegFirebaseIdToken(verified.idToken);
-                                  setRegOtpMsg('Telefon doğrulandı!');
+                                  setRegOtpMsg('Telefon numarası SMS ile doğrulandı!');
                                 } catch (err: any) {
                                   setRegOtpMsg(translateFirebaseError(err));
                                 } finally {
@@ -626,7 +664,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
               {mode === 'register' && (
                 <div>
                   <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 mb-1">
-                    E-posta Adresi * <span className="text-stone-400 font-normal lowercase tracking-normal">(kurtarma için)</span>
+                    E-posta Adresi * <span className="text-stone-400 font-normal lowercase tracking-normal">(randevu bildirimleri ve kurtarma için)</span>
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />

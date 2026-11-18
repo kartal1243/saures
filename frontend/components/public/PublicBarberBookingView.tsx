@@ -691,6 +691,11 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
       alert('Lütfen telefon numaranızı giriniz.');
       return;
     }
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      alert('Lütfen randevu bilgilerinizin gönderilmesi için geçerli bir e-posta adresi giriniz.');
+      return;
+    }
     if (!kvkkApproved) {
       alert('Lütfen KVKK onay kutusunu işaretleyiniz.');
       return;
@@ -1594,15 +1599,16 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-stone-300 mb-1.5">
-                  E-Posta Adresi (İsteğe Bağlı)
+                  E-Posta Adresi *
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="email"
+                    required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="ornek@mail.com"
+                    placeholder="ornek@gmail.com (Randevu onayı gönderilir)"
                     className="w-full pl-10 pr-3.5 py-3 rounded-xl border border-stone-700 bg-stone-950 text-white text-sm focus:outline-hidden focus:border-amber-500"
                   />
                 </div>
