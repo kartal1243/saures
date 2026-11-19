@@ -13,6 +13,9 @@ const {
   getDynamicSeoFreshness,
   SEO_GUIDE_ARTICLES,
   isValidGuideRoute,
+  BLOG_ARTICLES,
+  isValidBlogRoute,
+  SEO_LANDING_PAGES,
   addAccount,
   removeAccount,
   setAccountClosed,
@@ -291,7 +294,11 @@ it('generateSitemapXml geçerli, demosuz ve sadece açık gerçek dükkanları i
 
   assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/kuafor-randevu</loc>'), 'Alias rotası sitemapte olmamalı');
   assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/adisyon</loc>'), 'Alias rotası sitemapte olmamalı');
-  assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/veresiye-defteri</loc>'), 'Alias rotası sitemapte olmamalı');
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/veresiye-defteri</loc>'), 'Bağımsız /veresiye-defteri canonical rotası sitemapte olmalı');
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/kasa-programi</loc>'), 'Bağımsız /kasa-programi rotası sitemapte olmalı');
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/gun-sonu-raporu</loc>'), 'Bağımsız /gun-sonu-raporu rotası sitemapte olmalı');
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/qr-menu</loc>'), 'Bağımsız /qr-menu rotası sitemapte olmalı');
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/blog</loc>'), 'Blog hub rotası sitemapte olmalı');
 });
 
 // 7. Robots.txt Testi
@@ -517,19 +524,23 @@ it('SEO_GUIDE_ARTICLES, isValidGuideRoute ve 9 rehber rotası SSR/Schema/Sitemap
   }
 });
 
-// 21. İzmit ve Zonguldak Yerel SEO Landing Sayfaları (LocalBusiness & SSR & GeoCoordinates)
-it('İzmit ve Zonguldak landing sayfaları doğru LocalBusiness Geo şeması, H1 ve sitemap içerir', () => {
+// 21. İzmit ve Zonguldak Yerel SEO Landing Sayfaları (LocalBusiness + Service & SSR & GeoCoordinates)
+it('İzmit ve Zonguldak landing sayfaları doğru LocalBusiness/Service Geo şeması, H1 ve sitemap içerir', () => {
   const izmitMeta = getSeoMetadata('/izmit-berber-randevu');
   assert.ok(izmitMeta.title.includes('İzmit Berber Randevu'));
   assert.ok(izmitMeta.description.includes('Kocaeli'));
   assert.strictEqual(izmitMeta.schemaJson['@type'], 'LocalBusiness');
   assert.strictEqual(izmitMeta.schemaJson.geo.latitude, 40.7654);
   assert.strictEqual(izmitMeta.schemaJson.geo.longitude, 29.9408);
-  assert.ok(izmitMeta.faqJson && izmitMeta.faqJson.length >= 3);
+  assert.ok(Array.isArray(izmitMeta.extraSchemas) && izmitMeta.extraSchemas.some((s) => s['@type'] === 'Service' && Array.isArray(s.areaServed) && s.areaServed.length > 0), 'İzmit için Service + areaServed şeması olmalı');
+  assert.ok(izmitMeta.faqJson && izmitMeta.faqJson.length >= 8, 'İzmit sayfasında en az 8 SSS olmalı');
 
   const izmitHtml = renderSeoHtml('/izmit-berber-randevu');
   assert.ok(izmitHtml.includes('İzmit ve Kocaeli Berber Randevu Sistemi'));
   assert.ok(izmitHtml.includes('Fethiye Caddesi'));
+  assert.ok(izmitHtml.includes('"@type": "Service"'), 'İzmit HTML içine Service JSON-LD enjekte edilmeli');
+  assert.ok(izmitHtml.includes('areaServed'), 'İzmit HTML içinde areaServed olmalı');
+  assert.ok(!izmitHtml.includes('850-000-0000'), 'Sahte 0850-000-0000 numarası olmamalı');
 
   const zonguldakMeta = getSeoMetadata('/zonguldak-berber-randevu');
   assert.ok(zonguldakMeta.title.includes('Zonguldak Berber'));
@@ -537,15 +548,96 @@ it('İzmit ve Zonguldak landing sayfaları doğru LocalBusiness Geo şeması, H1
   assert.strictEqual(zonguldakMeta.schemaJson['@type'], 'LocalBusiness');
   assert.strictEqual(zonguldakMeta.schemaJson.geo.latitude, 41.4564);
   assert.strictEqual(zonguldakMeta.schemaJson.geo.longitude, 31.7987);
-  assert.ok(zonguldakMeta.faqJson && zonguldakMeta.faqJson.length >= 3);
+  assert.ok(Array.isArray(zonguldakMeta.extraSchemas) && zonguldakMeta.extraSchemas.some((s) => s['@type'] === 'Service' && Array.isArray(s.areaServed) && s.areaServed.length > 0), 'Zonguldak için Service + areaServed şeması olmalı');
+  assert.ok(zonguldakMeta.faqJson && zonguldakMeta.faqJson.length >= 8, 'Zonguldak sayfasında en az 8 SSS olmalı');
 
   const zonguldakHtml = renderSeoHtml('/zonguldak-berber-randevu');
   assert.ok(zonguldakHtml.includes('Zonguldak ve Karadeniz Ereğli Berber Randevu'));
   assert.ok(zonguldakHtml.includes('Gazipaşa'));
+  assert.ok(zonguldakHtml.includes('"@type": "Service"'), 'Zonguldak HTML içine Service JSON-LD enjekte edilmeli');
+  assert.ok(zonguldakHtml.includes('areaServed'), 'Zonguldak HTML içinde areaServed olmalı');
+  assert.ok(!zonguldakHtml.includes('850-000-0000'), 'Sahte 0850-000-0000 numarası olmamalı');
 
   const xml = generateSitemapXml('dukkanimyanimda.com.tr');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/izmit-berber-randevu</loc>'));
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/zonguldak-berber-randevu</loc>'));
+});
+
+// 22. Bağımsız Özellik Açılış Sayfaları (/veresiye-defteri, /kasa-programi, /gun-sonu-raporu, /qr-menu)
+it('Yeni bağımsız özellik sayfaları özgün canonical, OG görseli, SoftwareApplication/AggregateOffer ve >=8 SSS içerir', () => {
+  const xml = generateSitemapXml('dukkanimyanimda.com.tr');
+  const featurePages = [
+    { path: '/veresiye-defteri', og: '/og/veresiye-defteri.png' },
+    { path: '/kasa-programi', og: '/og/kasa-programi.png' },
+    { path: '/gun-sonu-raporu', og: '/og/gun-sonu-raporu.png' },
+    { path: '/qr-menu', og: '/og/qr-menu.png' },
+  ];
+
+  const seenOg = new Set();
+  for (const fp of featurePages) {
+    const meta = getSeoMetadata(fp.path);
+    assert.strictEqual(meta.canonical, `https://dukkanimyanimda.com.tr${fp.path}`, `${fp.path} bağımsız canonical olmalı`);
+    assert.ok(meta.ogImage.endsWith(fp.og), `${fp.path} için özgün OG görseli (${fp.og}) atanmalı, gelen: ${meta.ogImage}`);
+    seenOg.add(meta.ogImage);
+    assert.strictEqual(meta.schemaJson['@type'], 'SoftwareApplication', `${fp.path} SoftwareApplication şemasına sahip olmalı`);
+    assert.strictEqual(meta.schemaJson.offers['@type'], 'AggregateOffer', `${fp.path} AggregateOffer fiyatlandırmasına sahip olmalı`);
+    assert.ok(Array.isArray(meta.faqJson) && meta.faqJson.length >= 8, `${fp.path} için en az 8 SSS olmalı`);
+    assert.ok(SEO_LANDING_PAGES[fp.path], `${fp.path} derin landing içeriği tanımlı olmalı`);
+
+    const html = renderSeoHtml(fp.path);
+    assert.ok(html.includes('<h1'), `${fp.path} SSR HTML içinde <h1> bulunmalı`);
+    assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr${fp.path}</loc>`), `${fp.path} sitemapte yer almalı`);
+  }
+  assert.strictEqual(seenOg.size, 4, 'Tüm özellik sayfalarının OG görselleri birbirinden benzersiz olmalı');
+});
+
+// 23. Blog Hub ve 12 Blog Yazısı SSR / Schema / Sitemap
+it('/blog hub ve 12 makale sayfası Article + FAQPage + BreadcrumbList + sitemap entegrasyonuna sahiptir', () => {
+  assert.strictEqual(BLOG_ARTICLES.length, 12, '12 adet blog makalesi tanımlı olmalı');
+  const xml = generateSitemapXml('dukkanimyanimda.com.tr');
+
+  const hubMeta = getSeoMetadata('/blog');
+  assert.strictEqual(hubMeta.canonical, 'https://dukkanimyanimda.com.tr/blog');
+  assert.strictEqual(hubMeta.schemaJson['@type'], 'Blog');
+  assert.ok(hubMeta.ogImage.endsWith('/og/blog.png'));
+  const hubHtml = renderSeoHtml('/blog');
+  assert.ok(hubHtml.includes('<h1'), '/blog SSR H1 içermeli');
+
+  for (const art of BLOG_ARTICLES) {
+    const route = `/blog/${art.slug}`;
+    assert.strictEqual(isValidBlogRoute(route), true, `${route} geçerli blog rotası olmalı`);
+    const meta = getSeoMetadata(route);
+    assert.strictEqual(meta.canonical, `https://dukkanimyanimda.com.tr${route}`);
+    assert.strictEqual(meta.schemaJson['@type'], 'Article', `${route} Article şeması vermeli`);
+    assert.ok(meta.ogImage.includes('/og/'), `${route} /og/ görseli kullanmalı`);
+    assert.ok(Array.isArray(meta.faqJson) && meta.faqJson.length >= 3, `${route} FAQ şeması içermeli`);
+    assert.ok(Array.isArray(meta.breadcrumbs) && meta.breadcrumbs.length >= 3, `${route} BreadcrumbList içermeli`);
+
+    const html = renderSeoHtml(route);
+    assert.ok(html.includes('<h1'), `${route} SSR H1 içermeli`);
+    assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr${route}</loc>`), `${route} sitemapte bulunmalı`);
+  }
+
+  const missingMeta = getSeoMetadata('/blog/var-olmayan-yazi-slug');
+  assert.strictEqual(missingMeta.robots, 'noindex, follow', 'Bilinmeyen blog slug noindex, follow vermeli');
+});
+
+// 24. Sitemap Realistic Lastmod ve Changefreq Çeşitliliği
+it('Sitemap tüm sayfalara aynı lastmod basmaz ve gerçekçi changefreq/og görseli üretir', () => {
+  const xml = generateSitemapXml('dukkanimyanimda.com.tr');
+  const lastmodMatches = [...xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]);
+  const distinctLastmods = new Set(lastmodMatches);
+  assert.ok(distinctLastmods.size >= 4, `Sitemapte en az 4 farklı lastmod tarihi olmalı, bulunan: ${distinctLastmods.size}`);
+
+  const changefreqMatches = [...xml.matchAll(/<changefreq>([^<]+)<\/changefreq>/g)].map((m) => m[1]);
+  assert.ok(changefreqMatches.includes('weekly'), 'Sitemap weekly changefreq içermeli');
+  assert.ok(changefreqMatches.includes('monthly'), 'Sitemap monthly changefreq içermeli');
+  assert.ok(changefreqMatches.includes('yearly'), 'Sitemap yearly changefreq içermeli');
+  assert.ok(!changefreqMatches.every((c) => c === 'daily'), 'Tüm sayfalar daily olmamalı');
+
+  const imageLocs = [...xml.matchAll(/<image:loc>([^<]+)<\/image:loc>/g)].map((m) => m[1]);
+  assert.ok(imageLocs.some((loc) => loc.includes('/og/veresiye-defteri.png')), 'Sitemap /og/veresiye-defteri.png içermeli');
+  assert.ok(imageLocs.some((loc) => loc.includes('/og/blog.png')), 'Sitemap /og/blog.png içermeli');
 });
 
 cleanupSeoFixtures();

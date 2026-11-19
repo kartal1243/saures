@@ -43,6 +43,7 @@ import {
   fetchWithAppCheck,
 } from '../../firebase';
 import type { ConfirmationResult } from 'firebase/auth';
+import { trackBookingCompleted } from '../../utils/analytics';
 
 interface OccupiedSlot {
   date: string;
@@ -741,6 +742,8 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
         throw new Error(resJson.error || 'Randevu oluşturulamadı.');
       }
 
+      const selectedServicesText = selectedServices.map((s) => s.name).join(', ') || undefined;
+      trackBookingCompleted(data?.shop.slug || identifier, totalPrice, selectedServicesText);
       setBookingSuccess(resJson);
     } catch (err: any) {
       alert(err.message || 'Randevu oluşturulurken bir hata oluştu.');
@@ -1117,6 +1120,18 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
               </a>
             </div>
 
+            {isSafeCustomMapsUrl && (
+              <a
+                href={customMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+              >
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span>Google Haritalar&apos;da Yorum Yap ⭐</span>
+              </a>
+            )}
+
             <button
               onClick={() => {
                 setBookingSuccess(null);
@@ -1129,6 +1144,19 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
             </button>
           </div>
         </div>
+
+        {(data.shop as any)?.brandingRequired !== false && (
+          <div className="mt-6 text-center">
+            <a
+              href="https://dukkanimyanimda.com.tr/berber"
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-amber-400 text-[11px] font-bold border border-white/10 transition-colors"
+            >
+              <span>⚡ Powered by Dükkanım Yanımda — Berber Online Randevu Sistemi</span>
+            </a>
+          </div>
+        )}
       </div>
     );
   }
@@ -1141,7 +1169,7 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-md shadow-amber-500/20 overflow-hidden shrink-0 border border-amber-500/30">
               {data.shop.logoUrl ? (
-                <img src={data.shop.logoUrl} alt={data.shop.storeName} className="w-full h-full object-cover" />
+                <img src={data.shop.logoUrl} alt={`${data.shop.storeName} salon logosu`} decoding="async" className="w-full h-full object-cover" />
               ) : (
                 <Scissors className="w-5 h-5 text-white" />
               )}
@@ -1967,12 +1995,12 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
         {(data.shop as any)?.brandingRequired !== false && (
           <div className="py-6 text-center">
             <a
-              href="https://dukkanimyanimda.com.tr/?utm_source=barber_booking&utm_medium=viral_footer"
+              href="https://dukkanimyanimda.com.tr/berber"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener"
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-amber-400 text-[11px] font-bold border border-white/10 transition-colors"
             >
-              <span>⚡ Dükkânım Yanımda ile oluşturuldu — Ücretsiz Randevu &amp; Kasa Sistemi</span>
+              <span>⚡ Powered by Dükkanım Yanımda — Berber Online Randevu Sistemi</span>
             </a>
           </div>
         )}

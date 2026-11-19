@@ -9,12 +9,13 @@ import type {
   BarberStaff,
   BarberTimeBlock,
   CustomerPackage,
+  StaffCommissionPayout,
   Transaction,
 } from '../../shared/types';
 import { S, saveState, als } from '../context';
 import { calculateCashRegister } from '../cash';
 import { broadcast, broadcastToAccount } from '../realtime';
-import { localDay } from '../day';
+import { addDaysStr, localDay } from '../day';
 import { getAccounts, clientIp, isValidTurkishPhone, normalizePhone, isAccountClosed } from '../accounts';
 import { loadShopState, persistShopState, defaultBarberSettings, defaultBarberStaff, defaultBarberServices } from '../shopState';
 import { checkAndUpdateVipStatus, getTierLimits } from './profile';
@@ -110,6 +111,120 @@ function minutesToTime(totalMinutes: number): string {
   const hh = Math.floor(totalMinutes / 60);
   const mm = totalMinutes % 60;
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+const roundMoney = (n: number): number => Math.round((Number(n) || 0) * 100) / 100;
+
+function clampRate(rawRate: unknown, fallback = 30): number {
+  const num = Number(rawRate);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(100, Math.max(0, num));
+}
+
+function findStaffForCommission(
+  staffId: string | undefined,
+  staffName: string | undefined,
+  staffList: BarberStaff[]
+): BarberStaff | undefined {
+  if (staffId && staffId !== 'auto' && staffId !== 'fark_etmez' && staffId !== 'all') {
+    const byId = staffList.find((st) => st.id === staffId);
+    if (byId) return byId;
+  }
+  const norm = (staffName || '').trim().toLowerCase();
+  if (!norm) return undefined;
+  return staffList.find((st) => st.name.trim().toLowerCase() === norm);
+}
+
+type CommissionBreakdownItem = NonNullable<Appointment['commissionBreakdown']>[number];
+
+function calculateAppointmentCommission(
+  apt: Appointment,
+  staffList: BarberStaff[],
+  commissionBase: number
+): {
+  commissionRate: number;
+  commissionAmount: number;
+  commissionBreakdown: CommissionBreakdownItem[];
+} {
+  const base = Math.max(0, roundMoney(commissionBase));
+
+  if (Array.isArray(apt.steps) && apt.steps.length > 0) {
+    const stepsTotal = apt.steps.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+    const factor = stepsTotal > 0 ? base / stepsTotal : 0;
+
+    const mergedMap = new Map<string, CommissionBreakdownItem>();
+    for (const s of apt.steps) {
+      const matched = findStaffForCommission(s.staffId, s.staffName, staffList);
+      const resolvedStaffId = matched?.id || s.staffId || '';
+      const resolvedStaffName = matched?.name || (s.staffName || '').trim() || 'Usta';
+      const rate = clampRate(matched?.commissionRate ?? 30);
+      const rawStepRevenue =
+        stepsTotal > 0
+          ? (Number(s.price) || 0) * factor
+          : base > 0
+            ? base / apt.steps.length
+            : Number(s.price) || 0;
+      const stepRevenue = roundMoney(rawStepRevenue);
+      const key = resolvedStaffId
+        ? `id:${resolvedStaffId}`
+        : `name:${resolvedStaffName.trim().toLowerCase()}`;
+
+      const existing = mergedMap.get(key);
+      if (existing) {
+        existing.revenue = roundMoney(existing.revenue + stepRevenue);
+        existing.amount = roundMoney((existing.revenue * existing.rate) / 100);
+      } else {
+        mergedMap.set(key, {
+          staffId: resolvedStaffId,
+          staffName: resolvedStaffName,
+          rate,
+          revenue: stepRevenue,
+          amount: roundMoney((stepRevenue * rate) / 100),
+        });
+      }
+    }
+
+    const commissionBreakdown = Array.from(mergedMap.values());
+    const commissionAmount = roundMoney(
+      commissionBreakdown.reduce((sum, item) => sum + item.amount, 0)
+    );
+    const commissionRate =
+      base > 0
+        ? roundMoney((commissionAmount / base) * 100)
+        : commissionBreakdown.length > 0
+          ? roundMoney(
+              commissionBreakdown.reduce((sum, item) => sum + item.rate, 0) /
+                commissionBreakdown.length
+            )
+          : 30;
+
+    return {
+      commissionRate,
+      commissionAmount,
+      commissionBreakdown,
+    };
+  }
+
+  const matched = findStaffForCommission(apt.staffId, apt.staffName, staffList);
+  const resolvedStaffId = matched?.id || apt.staffId || '';
+  const resolvedStaffName = matched?.name || (apt.staffName || '').trim() || 'Usta';
+  const rate = clampRate(matched?.commissionRate ?? 30);
+  const revenue = roundMoney(base);
+  const amount = roundMoney((revenue * rate) / 100);
+
+  return {
+    commissionRate: rate,
+    commissionAmount: amount,
+    commissionBreakdown: [
+      {
+        staffId: resolvedStaffId,
+        staffName: resolvedStaffName,
+        rate,
+        revenue,
+        amount,
+      },
+    ],
+  };
 }
 
 // Ustanın belirli bir tarih ve zaman aralığında müsait olup olmadığını kontrol eden yardımcı
@@ -1135,6 +1250,7 @@ export function registerAppointmentRoutes(app: Express): void {
       settings: st.barberSettings || defaultBarberSettings,
       appointments: st.appointments || [],
       reviews: st.barberReviews || [],
+      commissionPayouts: st.staffCommissionPayouts || [],
     });
   });
 
@@ -1466,12 +1582,16 @@ export function registerAppointmentRoutes(app: Express): void {
   // 7. Randevudan Adisyona / Tahsilata Dönüştür + Paket Seansı Düş
   app.post('/api/appointments/:id/complete', (req: Request, res: Response) => {
     const { id } = req.params;
-    const { paymentMethod, packageId } = req.body;
+    const { paymentMethod, packageId } = req.body || {};
     if (!S().appointments) S().appointments = [];
     const apt = S().appointments.find((a) => a.id === id);
     if (!apt) return res.status(404).json({ error: 'Randevu bulunamadı.' });
 
-    apt.status = 'tamamlandi';
+    // Çift tahsilat koruması
+    if (apt.status === 'tamamlandi') {
+      const cash = calculateCashRegister();
+      return res.json({ success: true, alreadyCompleted: true, appointment: apt, cash });
+    }
 
     // Paket seansı düşme
     let remainingSessionsText = '';
@@ -1494,7 +1614,21 @@ export function registerAppointmentRoutes(app: Express): void {
     const todayStr = S().businessDate || localDay();
     const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
-    const finalAmount = apt.packageSession ? 0 : apt.price;
+    const finalAmount = apt.packageSession ? 0 : Math.max(0, Number(apt.price) || 0);
+    const resolvedMethod: 'nakit' | 'kart' | 'havale' = ['nakit', 'kart', 'havale'].includes(paymentMethod)
+      ? paymentMethod
+      : 'nakit';
+
+    apt.status = 'tamamlandi';
+    apt.completedAt = now.toISOString();
+    apt.paymentMethod = apt.packageSession ? 'paket' : resolvedMethod;
+
+    // Prim hesapla (paket seansında da ustanın emeğinin primi apt.price üzerinden hesaplanır)
+    const commissionBase = finalAmount > 0 ? finalAmount : (Number(apt.price) || 0);
+    const commissionResult = calculateAppointmentCommission(apt, S().barberStaff || [], commissionBase);
+    apt.commissionRate = commissionResult.commissionRate;
+    apt.commissionAmount = commissionResult.commissionAmount;
+    apt.commissionBreakdown = commissionResult.commissionBreakdown;
 
     const transaction: Transaction = {
       id: `tx_apt_${Date.now()}`,
@@ -1502,7 +1636,7 @@ export function registerAppointmentRoutes(app: Express): void {
       customerName: apt.customerName,
       type: 'tahsilat',
       amount: finalAmount,
-      paymentMethod: paymentMethod || 'nakit',
+      paymentMethod: resolvedMethod,
       description: `Kuaför/Berber Tahsilatı: ${apt.serviceName} (${apt.staffName})${remainingSessionsText}`,
       date: `${todayStr} ${timeStr}`,
       createdAt: now.toISOString(),
@@ -1525,7 +1659,7 @@ export function registerAppointmentRoutes(app: Express): void {
 
     const shopSlug = S().shopProfile?.slug || slugify(S().shopProfile?.storeName || 'berber');
     const storeName = S().shopProfile?.storeName || 'Berber Salonumuz';
-    const reviewUrl = `/berber/${shopSlug}?review=true&staffId=${encodeURIComponent(apt.staffId || '')}&staffName=${encodeURIComponent(apt.staffName || '')}&aptId=${apt.id}&customer=${encodeURIComponent(apt.customerName)}`;
+    const reviewUrl = `/${encodeURIComponent(shopSlug)}/randevu?review=true&staffId=${encodeURIComponent(apt.staffId || '')}&staffName=${encodeURIComponent(apt.staffName || '')}&aptId=${apt.id}&customer=${encodeURIComponent(apt.customerName)}`;
     const reviewText = encodeURIComponent(
       `Merhaba ${apt.customerName}, ${storeName}'nda ${apt.staffName} tarafından aldığınız "${apt.serviceName}" hizmetimizi nasıl buldunuz? 1-5 arası yıldızla puanlayıp yorum yapmak için tıklayın: ${reviewUrl}`
     );
@@ -1566,6 +1700,7 @@ export function registerAppointmentRoutes(app: Express): void {
     }
     S().barberStaff = staff;
     saveState();
+    broadcast({ type: 'BARBER_STAFF_UPDATED', payload: S().barberStaff || [] });
     res.json({ success: true, staff: S().barberStaff });
   });
 
@@ -1678,5 +1813,510 @@ export function registerAppointmentRoutes(app: Express): void {
     S().barberSettings!.discountSlots = slots;
     saveState();
     res.json({ success: true, discountSlots: S().barberSettings!.discountSlots });
+  });
+
+  // 16. Personel Prim Raporu & Hakediş Özeti
+  app.get('/api/barber/commissions', (req: Request, res: Response) => {
+    const st = S();
+    const rawPeriod = String(req.query.period || 'month').trim();
+    const period: 'today' | 'week' | 'month' | 'all' =
+      rawPeriod === 'today' || rawPeriod === 'week' || rawPeriod === 'month' || rawPeriod === 'all'
+        ? rawPeriod
+        : 'month';
+
+    const today = localDay();
+    let defaultFrom = '';
+    let defaultTo = '';
+    if (period === 'today') {
+      defaultFrom = today;
+      defaultTo = today;
+    } else if (period === 'week') {
+      defaultFrom = addDaysStr(today, -6);
+      defaultTo = today;
+    } else if (period === 'month') {
+      defaultFrom = `${today.slice(0, 7)}-01`;
+      defaultTo = today;
+    }
+
+    const qFrom =
+      typeof req.query.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.from.trim())
+        ? req.query.from.trim()
+        : '';
+    const qTo =
+      typeof req.query.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.to.trim())
+        ? req.query.to.trim()
+        : '';
+    const from = qFrom || defaultFrom;
+    const to = qTo || defaultTo;
+
+    const inRange = (dateStr?: string): boolean => {
+      if (!from && !to) return true;
+      const d = String(dateStr || '').slice(0, 10);
+      if (!d) return false;
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    };
+
+    interface RecentCommissionItem {
+      id: string;
+      date: string;
+      timeSlot: string;
+      customerName: string;
+      serviceName: string;
+      revenue: number;
+      rate: number;
+      commissionAmount: number;
+      source: 'appointment' | 'walkin';
+    }
+
+    interface StaffAccumulator {
+      id: string;
+      staffId: string;
+      name: string;
+      staffName: string;
+      title?: string;
+      role?: string;
+      color?: string;
+      commissionRate: number;
+      active: boolean;
+      archived: boolean;
+      completedCount: number;
+      noShowCount: number;
+      upcomingCount: number;
+      totalRevenue: number;
+      earnedCommission: number;
+      paidCommission: number;
+      periodRemaining: number;
+      allTimeEarnedCommission: number;
+      allTimePaidCommission: number;
+      payableBalance: number;
+      recentItems: RecentCommissionItem[];
+      seenCompletedAptIds: Set<string>;
+    }
+
+    const currentStaff: BarberStaff[] = st.barberStaff || [];
+    const staffEntries: StaffAccumulator[] = [];
+
+    const createEntry = (
+      id: string,
+      name: string,
+      opts: {
+        title?: string;
+        role?: string;
+        color?: string;
+        commissionRate?: number;
+        active?: boolean;
+        archived: boolean;
+      }
+    ): StaffAccumulator => ({
+      id,
+      staffId: id,
+      name,
+      staffName: name,
+      title: opts.title,
+      role: opts.role,
+      color: opts.color,
+      commissionRate: clampRate(opts.commissionRate ?? 30),
+      active: opts.archived ? false : opts.active !== false,
+      archived: opts.archived,
+      completedCount: 0,
+      noShowCount: 0,
+      upcomingCount: 0,
+      totalRevenue: 0,
+      earnedCommission: 0,
+      paidCommission: 0,
+      periodRemaining: 0,
+      allTimeEarnedCommission: 0,
+      allTimePaidCommission: 0,
+      payableBalance: 0,
+      recentItems: [],
+      seenCompletedAptIds: new Set<string>(),
+    });
+
+    for (const s of currentStaff) {
+      staffEntries.push(
+        createEntry(s.id, s.name, {
+          title: s.title,
+          role: s.role,
+          color: s.color,
+          commissionRate: s.commissionRate,
+          active: s.active,
+          archived: false,
+        })
+      );
+    }
+
+    const resolveStaffEntry = (
+      rawId?: string,
+      rawName?: string,
+      allowCreateArchived = true
+    ): StaffAccumulator | undefined => {
+      const cleanId = (rawId || '').trim();
+      const cleanName = (rawName || '').trim();
+      const normName = cleanName.toLowerCase();
+      const isPlaceholderId = !cleanId || cleanId === 'auto' || cleanId === 'fark_etmez' || cleanId === 'all';
+
+      if (!isPlaceholderId) {
+        const byId = staffEntries.find((e) => e.id === cleanId);
+        if (byId) return byId;
+      }
+      if (normName && normName !== 'otomatik atanacak') {
+        const byName = staffEntries.find((e) => e.name.trim().toLowerCase() === normName);
+        if (byName) return byName;
+      }
+
+      if (!allowCreateArchived) return undefined;
+      if (isPlaceholderId && (!normName || normName === 'otomatik atanacak')) return undefined;
+
+      const archivedId = !isPlaceholderId ? cleanId : `archived_${normName}`;
+      const archivedName = cleanName || 'Eski Personel';
+      const entry = createEntry(archivedId, archivedName, {
+        commissionRate: 30,
+        active: false,
+        archived: true,
+      });
+      staffEntries.push(entry);
+      return entry;
+    };
+
+    const appointments = st.appointments || [];
+    for (const apt of appointments) {
+      if (apt.status === 'tamamlandi') {
+        const hasBreakdown = Array.isArray(apt.commissionBreakdown) && apt.commissionBreakdown.length > 0;
+        const hasSteps = Array.isArray(apt.steps) && apt.steps.length > 0;
+
+        if (hasBreakdown || hasSteps) {
+          const breakdownRows = hasBreakdown
+            ? apt.commissionBreakdown!
+            : calculateAppointmentCommission(apt, currentStaff, Number(apt.price) || 0).commissionBreakdown;
+
+          if (!hasBreakdown && typeof apt.commissionAmount === 'number' && breakdownRows.length === 1) {
+            breakdownRows[0].amount = roundMoney(apt.commissionAmount);
+            if (typeof apt.commissionRate === 'number') {
+              breakdownRows[0].rate = clampRate(apt.commissionRate);
+            }
+          }
+
+          const perAptStaffAgg = new Map<
+            StaffAccumulator,
+            { revenue: number; amount: number; rate: number }
+          >();
+
+          for (const row of breakdownRows) {
+            const entry = resolveStaffEntry(row.staffId, row.staffName, true);
+            if (!entry) continue;
+            const rev = roundMoney(Number(row.revenue) || 0);
+            const rowRate =
+              typeof row.rate === 'number' ? clampRate(row.rate) : entry.commissionRate;
+            const commAmt =
+              typeof row.amount === 'number'
+                ? roundMoney(row.amount)
+                : roundMoney((rev * rowRate) / 100);
+
+            const prev = perAptStaffAgg.get(entry);
+            if (prev) {
+              prev.revenue = roundMoney(prev.revenue + rev);
+              prev.amount = roundMoney(prev.amount + commAmt);
+              prev.rate =
+                prev.revenue > 0 ? roundMoney((prev.amount / prev.revenue) * 100) : rowRate;
+            } else {
+              perAptStaffAgg.set(entry, {
+                revenue: rev,
+                amount: commAmt,
+                rate: rowRate,
+              });
+            }
+          }
+
+          for (const [entry, agg] of perAptStaffAgg.entries()) {
+            entry.allTimeEarnedCommission = roundMoney(entry.allTimeEarnedCommission + agg.amount);
+            if (inRange(apt.appointmentDate)) {
+              if (!entry.seenCompletedAptIds.has(apt.id)) {
+                entry.seenCompletedAptIds.add(apt.id);
+                entry.completedCount += 1;
+              }
+              entry.totalRevenue = roundMoney(entry.totalRevenue + agg.revenue);
+              entry.earnedCommission = roundMoney(entry.earnedCommission + agg.amount);
+              entry.recentItems.push({
+                id: apt.id,
+                date: apt.appointmentDate || '',
+                timeSlot: apt.timeSlot || '',
+                customerName: apt.customerName || 'Müşteri',
+                serviceName: apt.serviceName || 'Hizmet',
+                revenue: agg.revenue,
+                rate: agg.rate,
+                commissionAmount: agg.amount,
+                source: 'appointment',
+              });
+            }
+          }
+        } else {
+          const entry = resolveStaffEntry(apt.staffId, apt.staffName, true);
+          if (entry) {
+            const rev = roundMoney(Number(apt.price) || 0);
+            const rate =
+              typeof apt.commissionRate === 'number'
+                ? clampRate(apt.commissionRate)
+                : entry.commissionRate;
+            const commAmt =
+              typeof apt.commissionAmount === 'number'
+                ? roundMoney(apt.commissionAmount)
+                : roundMoney((rev * rate) / 100);
+
+            entry.allTimeEarnedCommission = roundMoney(entry.allTimeEarnedCommission + commAmt);
+            if (inRange(apt.appointmentDate)) {
+              if (!entry.seenCompletedAptIds.has(apt.id)) {
+                entry.seenCompletedAptIds.add(apt.id);
+                entry.completedCount += 1;
+              }
+              entry.totalRevenue = roundMoney(entry.totalRevenue + rev);
+              entry.earnedCommission = roundMoney(entry.earnedCommission + commAmt);
+              entry.recentItems.push({
+                id: apt.id,
+                date: apt.appointmentDate || '',
+                timeSlot: apt.timeSlot || '',
+                customerName: apt.customerName || 'Müşteri',
+                serviceName: apt.serviceName || 'Hizmet',
+                revenue: rev,
+                rate,
+                commissionAmount: commAmt,
+                source: 'appointment',
+              });
+            }
+          }
+        }
+      } else if (
+        apt.status === 'gelmedi' ||
+        apt.status === 'bekliyor' ||
+        apt.status === 'onayli' ||
+        apt.status === 'koltukta'
+      ) {
+        if (!inRange(apt.appointmentDate)) continue;
+        const matchedEntries = new Set<StaffAccumulator>();
+        if (Array.isArray(apt.steps) && apt.steps.length > 0) {
+          for (const step of apt.steps) {
+            const e = resolveStaffEntry(step.staffId, step.staffName, false);
+            if (e) matchedEntries.add(e);
+          }
+        } else {
+          const e = resolveStaffEntry(apt.staffId, apt.staffName, false);
+          if (e) matchedEntries.add(e);
+        }
+        for (const e of matchedEntries) {
+          if (apt.status === 'gelmedi') {
+            e.noShowCount += 1;
+          } else {
+            e.upcomingCount += 1;
+          }
+        }
+      }
+    }
+
+    const allPayouts = st.staffCommissionPayouts || [];
+    for (const p of allPayouts) {
+      const entry = resolveStaffEntry(p.staffId, p.staffName, true);
+      if (!entry) continue;
+      const amt = roundMoney(Number(p.amount) || 0);
+      entry.allTimePaidCommission = roundMoney(entry.allTimePaidCommission + amt);
+      if (inRange(String(p.date || '').slice(0, 10))) {
+        entry.paidCommission = roundMoney(entry.paidCommission + amt);
+      }
+    }
+
+    for (const tx of st.transactions || []) {
+      if (tx.type !== 'tahsilat') continue;
+      const rawDesc = String(tx.description || '');
+      const descLower = rawDesc.toLowerCase();
+      const descTrLower = rawDesc.toLocaleLowerCase('tr-TR');
+      if (!descLower.includes('ayaktan berber müşterisi') && !descTrLower.includes('ayaktan berber müşterisi')) {
+        continue;
+      }
+
+      const matchedEntry = staffEntries.find((e) => {
+        const sName = e.name.trim();
+        if (!sName) return false;
+        const needle = `ayaktan berber müşterisi (${sName.toLowerCase()})`;
+        const needleTr = `ayaktan berber müşterisi (${sName.toLocaleLowerCase('tr-TR')})`;
+        return descLower.includes(needle) || descTrLower.includes(needleTr);
+      });
+      if (!matchedEntry) continue;
+
+      const rev = roundMoney(Number(tx.amount) || 0);
+      const rate = matchedEntry.commissionRate;
+      const commAmt = roundMoney((rev * rate) / 100);
+      const txDate = String(tx.date || tx.createdAt || '').slice(0, 10);
+      const txTime = String(tx.date || '').slice(11, 16) || '';
+
+      matchedEntry.allTimeEarnedCommission = roundMoney(matchedEntry.allTimeEarnedCommission + commAmt);
+      if (inRange(txDate)) {
+        matchedEntry.totalRevenue = roundMoney(matchedEntry.totalRevenue + rev);
+        matchedEntry.earnedCommission = roundMoney(matchedEntry.earnedCommission + commAmt);
+        const dashIdx = rawDesc.indexOf(' - ');
+        const serviceLabel = dashIdx !== -1 ? rawDesc.slice(dashIdx + 3).trim() : rawDesc;
+        matchedEntry.recentItems.push({
+          id: tx.id,
+          date: txDate,
+          timeSlot: txTime,
+          customerName: tx.customerName || 'Ayaktan Müşteri',
+          serviceName: serviceLabel || 'Ayaktan Hizmet',
+          revenue: rev,
+          rate,
+          commissionAmount: commAmt,
+          source: 'walkin',
+        });
+      }
+    }
+
+    const staffStats = staffEntries.map((e) => {
+      const payableBalance = Math.max(
+        0,
+        roundMoney(e.allTimeEarnedCommission - e.allTimePaidCommission)
+      );
+      const periodRemaining = roundMoney(e.earnedCommission - e.paidCommission);
+      const recentItems = e.recentItems
+        .sort((a, b) =>
+          `${b.date} ${b.timeSlot || '00:00'}`.localeCompare(`${a.date} ${a.timeSlot || '00:00'}`)
+        )
+        .slice(0, 30);
+
+      return {
+        id: e.id,
+        staffId: e.staffId,
+        name: e.name,
+        staffName: e.staffName,
+        title: e.title,
+        role: e.role,
+        color: e.color,
+        commissionRate: e.commissionRate,
+        active: e.active,
+        archived: e.archived,
+        completedCount: e.completedCount,
+        noShowCount: e.noShowCount,
+        upcomingCount: e.upcomingCount,
+        totalRevenue: roundMoney(e.totalRevenue),
+        earnedCommission: roundMoney(e.earnedCommission),
+        paidCommission: roundMoney(e.paidCommission),
+        periodRemaining,
+        allTimeEarnedCommission: roundMoney(e.allTimeEarnedCommission),
+        allTimePaidCommission: roundMoney(e.allTimePaidCommission),
+        allTimeEarned: roundMoney(e.allTimeEarnedCommission),
+        allTimePaid: roundMoney(e.allTimePaidCommission),
+        payableBalance,
+        recentItems,
+        recentAppointments: recentItems.map((item) => ({
+          ...item,
+          price: item.revenue,
+          commissionRate: item.rate,
+        })),
+      };
+    });
+
+    const summary = {
+      totalRevenue: roundMoney(staffStats.reduce((sum, s) => sum + s.totalRevenue, 0)),
+      totalEarnedCommission: roundMoney(
+        staffStats.reduce((sum, s) => sum + s.earnedCommission, 0)
+      ),
+      totalPaidCommission: roundMoney(staffStats.reduce((sum, s) => sum + s.paidCommission, 0)),
+      totalRemainingBalance: roundMoney(staffStats.reduce((sum, s) => sum + s.payableBalance, 0)),
+      totalCompleted: staffStats.reduce((sum, s) => sum + s.completedCount, 0),
+      totalNoShows: staffStats.reduce((sum, s) => sum + s.noShowCount, 0),
+    };
+
+    const payouts = allPayouts
+      .filter((p) => inRange(String(p.date || '').slice(0, 10)))
+      .slice()
+      .sort((a, b) =>
+        (b.createdAt || b.date || '').localeCompare(a.createdAt || a.date || '')
+      );
+
+    res.json({
+      period,
+      from,
+      to,
+      summary,
+      staffStats,
+      payouts,
+    });
+  });
+
+  // 17. Personele Prim Ödemesi Yap (Kasaya Gider İşler + Payout Kaydı Açar)
+  app.post('/api/barber/staff/:id/pay-commission', (req: Request, res: Response) => {
+    const { amount, paymentMethod, note, periodLabel, staffName } = req.body || {};
+    const parsedAmount = roundMoney(Number(amount));
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: 'Geçerli bir prim ödeme tutarı giriniz (0\'dan büyük olmalıdır).' });
+    }
+
+    const method: 'nakit' | 'kart' | 'havale' = ['nakit', 'kart', 'havale'].includes(paymentMethod)
+      ? paymentMethod
+      : 'nakit';
+
+    const staffMember = (S().barberStaff || []).find((s) => s.id === req.params.id);
+    const resolvedName = staffMember?.name || String(staffName || '').trim() || 'Personel';
+
+    const now = new Date();
+    const todayStr = S().businessDate || localDay();
+    const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+    const cleanPeriodLabel = typeof periodLabel === 'string' ? periodLabel.trim() : '';
+    const cleanNote = typeof note === 'string' ? note.trim() : '';
+
+    const transaction: Transaction = {
+      id: `tx_comm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      customerId: '',
+      customerName: resolvedName,
+      type: 'gider',
+      amount: parsedAmount,
+      paymentMethod: method,
+      category: 'Personel Primi',
+      description:
+        `Personel Primi Ödemesi: ${resolvedName}` +
+        (cleanPeriodLabel ? ` (${cleanPeriodLabel})` : '') +
+        (cleanNote ? ` - ${cleanNote}` : ''),
+      date: `${todayStr} ${timeStr}`,
+      createdAt: now.toISOString(),
+    };
+
+    const payout: StaffCommissionPayout = {
+      id: `payout_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      staffId: req.params.id,
+      staffName: resolvedName,
+      amount: parsedAmount,
+      paymentMethod: method,
+      note: cleanNote || undefined,
+      periodLabel: cleanPeriodLabel || undefined,
+      date: todayStr,
+      createdAt: now.toISOString(),
+      transactionId: transaction.id,
+    };
+
+    S().transactions.unshift(transaction);
+    if (!S().staffCommissionPayouts) S().staffCommissionPayouts = [];
+    S().staffCommissionPayouts!.unshift(payout);
+    saveState();
+
+    const cash = calculateCashRegister();
+    broadcast({ type: 'TRANSACTION_CREATED', payload: { transaction, cash } });
+    broadcast({ type: 'STAFF_COMMISSION_PAID', payload: { payout, transaction, cash } });
+
+    res.json({ success: true, payout, transaction, cash });
+  });
+
+  // 18. Prim Ödeme Kaydını İptal Et / Sil (İlgili Gider İşlemini de Kaldırır)
+  app.delete('/api/barber/commissions/payout/:payoutId', (req: Request, res: Response) => {
+    const { payoutId } = req.params;
+    if (!S().staffCommissionPayouts) S().staffCommissionPayouts = [];
+    const payout = (S().staffCommissionPayouts || []).find((p) => p.id === payoutId);
+    if (payout) {
+      S().staffCommissionPayouts = (S().staffCommissionPayouts || []).filter((p) => p.id !== payoutId);
+      if (payout.transactionId) {
+        S().transactions = (S().transactions || []).filter((t) => t.id !== payout.transactionId);
+      }
+      saveState();
+    }
+    const cash = calculateCashRegister();
+    broadcast({ type: 'CASH_UPDATED', payload: cash });
+    res.json({ success: true, cash, removedId: payoutId });
   });
 }

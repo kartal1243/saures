@@ -41,7 +41,7 @@ interface SectorModuleSwitchProps {
   appointments: Appointment[];
   services: ServiceItem[];
   onAddAppointment: (data: Partial<Appointment>) => Promise<void>;
-  onCompleteAppointment: (id: string, paymentMethod: 'nakit' | 'kart') => Promise<void>;
+  onCompleteAppointment: (id: string, paymentMethod: 'nakit' | 'kart', packageId?: string) => Promise<void>;
   onUpdateAppointmentStatus: (id: string, status: Appointment['status']) => Promise<void>;
   onDeleteAppointment: (id: string) => Promise<void>;
   onFastWalkinCash: (serviceName: string, price: number, staffName: string) => Promise<void>;

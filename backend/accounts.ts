@@ -427,6 +427,7 @@ export function publicAccount(a: Account): {
   role: string;
   position?: string;
   salary?: number;
+  commissionRate?: number;
   staffNotes?: string;
 } {
   return {
@@ -438,6 +439,7 @@ export function publicAccount(a: Account): {
     role: a.role || 'owner',
     position: a.position || undefined,
     salary: typeof a.salary === 'number' ? a.salary : undefined,
+    commissionRate: typeof a.commissionRate === 'number' ? a.commissionRate : undefined,
     staffNotes: a.staffNotes || undefined,
   };
 }

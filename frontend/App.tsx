@@ -38,7 +38,8 @@ import { UpcomingReminders } from './components/panel/UpcomingReminders';
 import { CustomerList } from './components/customers/CustomerList';
 import { AuthPage } from './components/auth/AuthPage';
 import { LandingPage } from './components/auth/LandingPage';
-import { matchPublicRoute, PublicPage } from './components/public/PublicPages';
+import { matchPublicRoute, PublicPage, NotFoundPage } from './components/public/PublicPages';
+import { trackPageView } from './utils/analytics';
 import { PublicQrMenuView } from './components/public/PublicQrMenuView';
 import { PublicBarberBookingView } from './components/public/PublicBarberBookingView';
 import { PublicTicketTrackerView } from './components/public/PublicTicketTrackerView';
@@ -47,6 +48,7 @@ import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
 import { DEFAULT_SERVICES } from './components/sector/ServicesModal';
+import { OnboardingWizardTour, OnboardingChecklistCard } from './components/onboarding/OnboardingWizardTour';
 
 // Agir moduller ayri chunk olarak tembel yuklenir: ilk acilis hizli olsun.
 // (recharts + 6 sektor gorunumu + tum modallar ana pakete girmez.)
@@ -112,6 +114,7 @@ import {
   Wallet,
   HandCoins,
   Handshake,
+  Compass,
 } from 'lucide-react';
 
 export type ActiveTab = 'panel' | 'sector_view' | 'activity' | 'customers' | 'stock' | 'community';
@@ -257,6 +260,60 @@ export default function App() {
   const [isVipModalOpen, setIsVipModalOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [barberStaffCount, setBarberStaffCount] = useState(0);
+  const [barberServicesCount, setBarberServicesCount] = useState(0);
+  const wasUnconfiguredBeforeSaveRef = useRef(false);
+  const onboardingAutoShownRef = useRef(false);
+
+  const onboardingStats = useMemo(
+    () => ({
+      customersCount: customers.length,
+      productsCount: products.length,
+      tablesCount: tables.length,
+      staffCount: barberStaffCount,
+      servicesCount: barberServicesCount || services.length,
+      appointmentsCount: appointments.length,
+      transactionsCount: transactions.length,
+    }),
+    [
+      customers.length,
+      products.length,
+      tables.length,
+      barberStaffCount,
+      barberServicesCount,
+      services.length,
+      appointments.length,
+      transactions.length,
+    ]
+  );
+
+  useEffect(() => {
+    if (isShopProfileModalOpen) {
+      if (!shopProfile?.isConfigured) {
+        wasUnconfiguredBeforeSaveRef.current = true;
+      }
+    } else {
+      wasUnconfiguredBeforeSaveRef.current = false;
+    }
+  }, [isShopProfileModalOpen, shopProfile?.isConfigured]);
+
+  const maybeAutoOpenOnboarding = useCallback((profile?: ShopProfile | null) => {
+    if (!profile || !profile.isConfigured || profile.onboardingCompleted !== false) return;
+    if (onboardingAutoShownRef.current) return;
+    const seenKey = `dukkanim_onboarding_seen_${profile.slug || profile.storeName}`;
+    let alreadySeen = false;
+    try {
+      alreadySeen = Boolean(localStorage.getItem(seenKey));
+    } catch {}
+    if (!alreadySeen) {
+      onboardingAutoShownRef.current = true;
+      try {
+        localStorage.setItem(seenKey, '1');
+      } catch {}
+      setIsOnboardingOpen(true);
+    }
+  }, []);
 
   // Veresiye / Customers Modals
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -523,6 +580,7 @@ export default function App() {
           if (!data.shopProfile.isConfigured) {
             setIsShopProfileModalOpen(true);
           } else {
+            maybeAutoOpenOnboarding(data.shopProfile);
             // Eski bug'dan takılı kalmış sectorKey varsa alana göre sessizce düzelt
             const expected = deriveSector(data.shopProfile.businessField);
             if (data.shopProfile.sectorKey !== expected) {
@@ -557,6 +615,8 @@ export default function App() {
         if (data.maintenanceAssets) setMaintenanceAssets(data.maintenanceAssets);
         if (data.suppliers) setSuppliers(data.suppliers);
         if (data.services) setServices(data.services);
+        if (Array.isArray(data.barberStaff)) setBarberStaffCount(data.barberStaff.length);
+        if (Array.isArray(data.barberServices)) setBarberServicesCount(data.barberServices.length);
         if (data.cases) setCases(data.cases);
         if (data.custody) setCustody(data.custody);
         setCustomers(data.customers || []);
@@ -601,6 +661,8 @@ export default function App() {
               setStoreName(wsEvent.payload.shopProfile.storeName);
               if (!wsEvent.payload.shopProfile.isConfigured) {
                 setIsShopProfileModalOpen(true);
+              } else {
+                maybeAutoOpenOnboarding(wsEvent.payload.shopProfile);
               }
             }
             if (wsEvent.payload.dailyClosings) {
@@ -626,6 +688,12 @@ export default function App() {
             }
             if (wsEvent.payload.services) {
               setServices(wsEvent.payload.services);
+            }
+            if (Array.isArray(wsEvent.payload.barberStaff)) {
+              setBarberStaffCount(wsEvent.payload.barberStaff.length);
+            }
+            if (Array.isArray(wsEvent.payload.barberServices)) {
+              setBarberServicesCount(wsEvent.payload.barberServices.length);
             }
             if (wsEvent.payload.cases) {
               setCases(wsEvent.payload.cases);
@@ -662,6 +730,17 @@ export default function App() {
             setAppointments(nextList);
           } else if (wsEvent.type === 'BARBER_TIMEBLOCKS_UPDATED') {
             window.dispatchEvent(new CustomEvent('barber_timeblocks_updated', { detail: wsEvent.payload }));
+          } else if (wsEvent.type === 'BARBER_STAFF_UPDATED') {
+            setBarberStaffCount(Array.isArray(wsEvent.payload) ? wsEvent.payload.length : 0);
+            window.dispatchEvent(new CustomEvent('staff_commission_updated'));
+          } else if (wsEvent.type === 'STAFF_COMMISSION_PAID') {
+            if (wsEvent.payload?.transaction) {
+              addTransactionDeduplicated(wsEvent.payload.transaction);
+            }
+            if (wsEvent.payload?.cash) {
+              setCash(wsEvent.payload.cash);
+            }
+            window.dispatchEvent(new CustomEvent('staff_commission_updated'));
           } else if (wsEvent.type === 'TABLE_UPDATED') {
             setTables((prev) => {
               const exists = prev.some((t) => t.id === wsEvent.payload.id);
@@ -769,7 +848,15 @@ export default function App() {
           } else if (wsEvent.type === 'CASH_UPDATED') {
             setCash(wsEvent.payload);
           } else if (wsEvent.type === 'SHOP_PROFILE_UPDATED') {
-            setShopProfile(wsEvent.payload);
+            setShopProfile((prev) => ({
+              ...wsEvent.payload,
+              ...(wsEvent.payload.onboardingCompleted === undefined && prev?.onboardingCompleted !== undefined
+                ? {
+                    onboardingCompleted: prev.onboardingCompleted,
+                    onboardingCompletedAt: prev.onboardingCompletedAt,
+                  }
+                : {}),
+            }));
             setStoreName(wsEvent.payload.storeName);
           } else if (wsEvent.type === 'DAILY_CLOSING_CREATED') {
             // Ayni kapanis hem POST cevabinda hem WS ile gelir -> id ile tekilleştir
@@ -855,7 +942,7 @@ export default function App() {
         connectWebSocket();
       }, 3000);
     }
-  }, [triggerLiveBookingAlert]);
+  }, [triggerLiveBookingAlert, maybeAutoOpenOnboarding]);
 
   useEffect(() => {
     initFirebaseAppCheck().catch(() => {});
@@ -945,10 +1032,19 @@ export default function App() {
 
   // Handler: Save Shop Profile
   const handleSaveShopProfile = async (newProfile: ShopProfile) => {
+    const wasFirstSetup = !shopProfile?.isConfigured || wasUnconfiguredBeforeSaveRef.current;
+    const payloadToSave: ShopProfile = {
+      ...newProfile,
+      ...(newProfile.onboardingCompleted !== undefined
+        ? {}
+        : shopProfile?.onboardingCompleted !== undefined
+        ? { onboardingCompleted: shopProfile.onboardingCompleted }
+        : {}),
+    };
     const res = await fetch('/api/shop-profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newProfile),
+      body: JSON.stringify(payloadToSave),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -956,11 +1052,48 @@ export default function App() {
     }
     const saved = await res.json();
     // API { success, profile } döner — yanlışlıkla sarmalayıcıyı profile yazma (Header crash yapar)
-    const profile: ShopProfile = saved.profile || saved;
+    const rawProfile: ShopProfile = saved.profile || saved;
+    const profile: ShopProfile =
+      rawProfile.onboardingCompleted === undefined && shopProfile?.onboardingCompleted !== undefined
+        ? { ...rawProfile, onboardingCompleted: shopProfile.onboardingCompleted }
+        : rawProfile;
     setShopProfile(profile);
     setStoreName(profile.storeName);
     // İlk kurulum sonrası direkt panele dön (restoran/berber özel ekran ana sayfada gözükmesin)
     setActiveTab('panel');
+    if (wasFirstSetup && profile.onboardingCompleted === false) {
+      wasUnconfiguredBeforeSaveRef.current = false;
+      onboardingAutoShownRef.current = true;
+      const seenKey = `dukkanim_onboarding_seen_${profile.slug || profile.storeName}`;
+      try {
+        localStorage.setItem(seenKey, '1');
+      } catch {}
+      setTimeout(() => setIsOnboardingOpen(true), 250);
+    }
+  };
+
+  // Handler: Tanıtım & Kurulum Sihirbazını Tamamla
+  const handleCompleteOnboarding = async () => {
+    const completedAt = new Date().toISOString();
+    const seenKey = `dukkanim_onboarding_seen_${shopProfile?.slug || shopProfile?.storeName}`;
+    try {
+      localStorage.setItem(seenKey, '1');
+    } catch {}
+    setShopProfile((prev) => ({
+      ...prev,
+      onboardingCompleted: true,
+      onboardingCompletedAt: completedAt,
+    }));
+    setIsOnboardingOpen(false);
+    try {
+      await fetch('/api/shop-profile/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: true }),
+      });
+    } catch (err) {
+      console.error('Onboarding durumu kaydedilemedi:', err);
+    }
   };
 
   // Handler: Hızlı Sektör / Meslek Değiştir
@@ -1412,12 +1545,16 @@ export default function App() {
     }
   };
 
-  const handleCompleteAppointment = async (id: string, paymentMethod: 'nakit' | 'kart') => {
+  const handleCompleteAppointment = async (
+    id: string,
+    paymentMethod: 'nakit' | 'kart',
+    packageId?: string
+  ) => {
     try {
       const res = await fetch(`/api/appointments/${id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentMethod }),
+        body: JSON.stringify({ paymentMethod, packageId }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -1863,6 +2000,10 @@ export default function App() {
     );
   }
 
+  useEffect(() => {
+    trackPageView(window.location.pathname || '/', document.title);
+  }, [activeTab, authStatus]);
+
   // ---- Herkese açık restoran dijital QR menüsü (/m/:slug veya /menu) ----
   const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
   if (pathname.startsWith('/m/') || pathname === '/menu') {
@@ -1877,7 +2018,7 @@ export default function App() {
   const cleanBarberMatch = pathname.match(/^\/([^/]+)\/randevu$/i);
   if (
     cleanBarberMatch &&
-    !['api', 'admin', 'assets', 'rehber', 'media', 'r', 'm', 't', 'bakim'].includes(cleanBarberMatch[1].toLowerCase())
+    !['api', 'admin', 'assets', 'rehber', 'blog', 'og', 'media', 'r', 'm', 't', 'bakim'].includes(cleanBarberMatch[1].toLowerCase())
   ) {
     let decodedIdentifier = cleanBarberMatch[1];
     try {
@@ -1922,6 +2063,15 @@ export default function App() {
       );
     }
     if (authView === 'landing') {
+      if (pathname && pathname !== '/' && pathname !== '/giris' && pathname !== '/panel') {
+        return (
+          <NotFoundPage
+            onHome={() => { window.location.href = '/'; }}
+            onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
+            onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
+          />
+        );
+      }
       return (
         <LandingPage
           onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
@@ -1968,6 +2118,7 @@ export default function App() {
         vipUntil={shopProfile?.vipUntil}
         onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
         onOpenStaff={() => setIsStaffModalOpen(true)}
+        onOpenOnboardingTour={() => setIsOnboardingOpen(true)}
         onChangePassword={() => setIsChangePasswordOpen(true)}
         onOpenVip={() => setIsVipModalOpen(true)}
         onOpenServices={() => {
@@ -2081,6 +2232,7 @@ export default function App() {
               [
                 { label: 'Dükkan Bilgileri', Icon: Store, fn: () => setIsShopProfileModalOpen(true) },
                 { label: 'Personel', Icon: UserPlus, fn: () => setIsStaffModalOpen(true) },
+                { label: 'Tanıtım Sihirbazı', Icon: Compass, fn: () => setIsOnboardingOpen(true) },
                 { label: 'Şifre Değiştir', Icon: KeyRound, fn: () => setIsChangePasswordOpen(true) },
                 { label: 'VIP Özel Panel', Icon: Crown, fn: () => setIsVipModalOpen(true) },
               ] as const
@@ -2118,6 +2270,20 @@ export default function App() {
         {activeTab === 'panel' && (
         <>
         {/* PANEL — SADE KASA MODU: hizli islemler, bugunku ciro, son islemler */}
+
+        {shopProfile.isConfigured && shopProfile.onboardingCompleted === false && (
+          <OnboardingChecklistCard
+            shopProfile={shopProfile}
+            sector={currentSector}
+            stats={onboardingStats}
+            onOpenWizard={() => setIsOnboardingOpen(true)}
+            onDismiss={handleCompleteOnboarding}
+            onNavigate={setActiveTab}
+            onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
+            onOpenStaff={() => setIsStaffModalOpen(true)}
+            onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
+          />
+        )}
 
         {/* 1. Hızlı işlem butonları en üstte: Para Al / Para Ver / Gün Sonu */}
         <QuickActionBar
@@ -2792,6 +2958,18 @@ export default function App() {
         onSaveProduct={handleSaveProduct}
       />
       </Suspense>
+      <OnboardingWizardTour
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onComplete={handleCompleteOnboarding}
+        shopProfile={shopProfile}
+        sector={currentSector}
+        stats={onboardingStats}
+        onNavigate={setActiveTab}
+        onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
+        onOpenStaff={() => setIsStaffModalOpen(true)}
+        onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
+      />
       </div>
     </div>
     </ErrorBoundary>

@@ -290,6 +290,9 @@ export interface ShopProfile {
   showOnPublicMap?: boolean;
   coordinates?: { lat: number; lng: number };
   address?: string;
+  onboardingCompleted?: boolean;
+  onboardingCompletedAt?: string;
+  onboardingDismissedSteps?: string[];
 }
 
 export interface DailyClosing {
@@ -540,7 +543,25 @@ export interface Appointment {
   discountNote?: string;
   hasReview?: boolean;
   autoReminderSent?: boolean;
+  commissionRate?: number;
+  commissionAmount?: number;
+  commissionBreakdown?: Array<{ staffId: string; staffName: string; rate: number; revenue: number; amount: number }>;
+  completedAt?: string;
+  paymentMethod?: 'nakit' | 'kart' | 'havale' | 'paket';
   createdAt: string;
+}
+
+export interface StaffCommissionPayout {
+  id: string;
+  staffId: string;
+  staffName: string;
+  amount: number;
+  paymentMethod: 'nakit' | 'kart' | 'havale';
+  note?: string;
+  periodLabel?: string;
+  date: string;
+  createdAt: string;
+  transactionId?: string;
 }
 
 export interface MenuItem {
@@ -578,6 +599,7 @@ export interface AppState {
   customerPackages?: CustomerPackage[];
   barberSettings?: BarberSalonSettings;
   barberReviews?: BarberReview[];
+  staffCommissionPayouts?: StaffCommissionPayout[];
   businessDate: string;
   lastUpdated: string;
 }
@@ -624,6 +646,8 @@ export type WSEvent =
   | { type: 'MENU_ITEM_DELETED'; payload: { id: string } }
   | { type: 'MENU_UPDATED'; payload: MenuItem[] }
   | { type: 'BARBER_TIMEBLOCKS_UPDATED'; payload: BarberTimeBlock[] }
+  | { type: 'BARBER_STAFF_UPDATED'; payload: BarberStaff[] }
+  | { type: 'STAFF_COMMISSION_PAID'; payload: { payout: StaffCommissionPayout; transaction: Transaction; cash: CashRegister } }
   | { type: 'COMMUNITY_POST_CREATED'; payload: CommunityPost }
   | { type: 'COMMUNITY_POST_UPDATED'; payload: CommunityPost }
   | { type: 'COMMUNITY_POST_DELETED'; payload: { id: string } }
@@ -741,6 +765,7 @@ export interface Account {
   parentAccountId?: string; // kasiyer icin hesap sahibi
   position?: string; // personel görevi (örn: Kasiyer, Usta, Çırak)
   salary?: number; // aylık maaş (TL)
+  commissionRate?: number; // personel prim oranı (%)
   staffNotes?: string; // personel notu
   createdIp?: string; // kayit olunan IP
   lastLoginIp?: string; // son giris IP'si

@@ -394,6 +394,17 @@ export function registerProfileRoutes(app: Express): void {
         ? { lat: Number(data.coordinates.lat), lng: Number(data.coordinates.lng) }
         : currentProfile?.coordinates,
       address: typeof data.address === 'string' ? data.address.trim() : currentProfile?.address,
+      onboardingCompleted:
+        typeof data.onboardingCompleted === 'boolean'
+          ? data.onboardingCompleted
+          : (currentProfile?.onboardingCompleted ?? false),
+      onboardingCompletedAt:
+        typeof data.onboardingCompletedAt === 'string'
+          ? data.onboardingCompletedAt
+          : currentProfile?.onboardingCompletedAt,
+      onboardingDismissedSteps: Array.isArray(data.onboardingDismissedSteps)
+        ? data.onboardingDismissedSteps.map(String)
+        : currentProfile?.onboardingDismissedSteps,
     };
 
     S().shopProfile = updatedProfile;
@@ -429,6 +440,41 @@ export function registerProfileRoutes(app: Express): void {
 
     broadcast({ type: 'SHOP_PROFILE_UPDATED', payload: updatedProfile });
     res.json({ success: true, profile: updatedProfile });
+  });
+
+  app.post('/api/shop-profile/onboarding', (req: Request, res: Response) => {
+    const ctx = als.getStore();
+    const { completed = true, dismissedSteps } = req.body || {};
+
+    if (ctx?.accountId === DEMO_ACCOUNT_ID) {
+      return res.json({
+        success: true,
+        profile: {
+          ...S().shopProfile,
+          onboardingCompleted: Boolean(completed),
+          ...(completed ? { onboardingCompletedAt: new Date().toISOString() } : {}),
+          ...(Array.isArray(dismissedSteps)
+            ? { onboardingDismissedSteps: dismissedSteps.map(String) }
+            : {}),
+        },
+      });
+    }
+
+    if (!S().shopProfile) {
+      return res.status(400).json({ error: 'Dükkan profili bulunamadı.' });
+    }
+
+    S().shopProfile.onboardingCompleted = Boolean(completed);
+    if (completed) {
+      S().shopProfile.onboardingCompletedAt = new Date().toISOString();
+    }
+    if (Array.isArray(dismissedSteps)) {
+      S().shopProfile.onboardingDismissedSteps = dismissedSteps.map(String);
+    }
+
+    saveState();
+    broadcast({ type: 'SHOP_PROFILE_UPDATED', payload: S().shopProfile });
+    res.json({ success: true, profile: S().shopProfile });
   });
 
   // ==========================================================================

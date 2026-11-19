@@ -822,6 +822,10 @@ export function registerAuthRoutes(app: Express): void {
       parentAccountId: owner.id,
       position: String(body.position || 'Kasiyer').trim(),
       salary: body.salary !== undefined && body.salary !== '' ? Number(body.salary) : undefined,
+      commissionRate:
+        body.commissionRate !== undefined && body.commissionRate !== null && body.commissionRate !== ''
+          ? Math.min(100, Math.max(0, Number(body.commissionRate) || 0))
+          : undefined,
       staffNotes: String(body.staffNotes || '').trim() || undefined,
     };
     addAccount(staff);
@@ -845,6 +849,94 @@ export function registerAuthRoutes(app: Express): void {
         };
       });
     res.json({ staff: list });
+  });
+
+  // Personel güncelle
+  app.put('/api/auth/staff/:id', (req: Request, res: Response) => {
+    const owner = requireOwner(req, res);
+    if (!owner) return;
+    const id = req.params.id;
+    const target = getAccounts().find((a) => a.id === id && a.parentAccountId === owner.id);
+    if (!target) {
+      return res.status(404).json({ error: 'Personel bulunamadı.' });
+    }
+
+    const body = req.body || {};
+    const name = String(body.name || '').trim();
+    if (!name) {
+      return res.status(400).json({ error: 'Personel adı zorunludur.' });
+    }
+
+    const dupeName = getAccounts().find(
+      (a) =>
+        a.parentAccountId === owner.id &&
+        a.id !== id &&
+        a.ownerName.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (dupeName) {
+      return res.status(409).json({ error: 'Bu isimde başka bir personel zaten kayıtlı.' });
+    }
+
+    if (body.phone !== undefined) {
+      const rawPhone = String(body.phone || '').trim();
+      if (rawPhone) {
+        const normalized = normalizePhone(rawPhone);
+        const existingNormalized = normalizePhone(target.phone || '');
+        const isUnchanged =
+          rawPhone === target.phone ||
+          Boolean(normalized && existingNormalized && normalized === existingNormalized);
+
+        if (!isUnchanged) {
+          if (!isValidTurkishPhone(rawPhone)) {
+            return res.status(400).json({
+              error: 'Geçersiz personel telefon numarası. Lütfen 05XX XXX XX XX formatında geçerli bir Türkiye GSM numarası giriniz (harf veya sahte numara kabul edilmez).',
+            });
+          }
+          const dupePhone = getAccounts().find(
+            (a) => a.parentAccountId === owner.id && a.id !== id && normalizePhone(a.phone) === normalized
+          );
+          if (dupePhone) {
+            return res.status(409).json({ error: 'Bu telefon numarasına sahip başka bir personel zaten kayıtlı.' });
+          }
+          target.phone = normalized;
+        }
+      }
+    }
+
+    if (body.salary !== undefined) {
+      if (body.salary === '' || body.salary === null) {
+        target.salary = undefined;
+      } else {
+        const parsedSalary = Number(body.salary);
+        if (!Number.isFinite(parsedSalary) || parsedSalary < 0) {
+          return res.status(400).json({ error: 'Geçersiz maaş tutarı.' });
+        }
+        target.salary = parsedSalary;
+      }
+    }
+
+    if (body.commissionRate !== undefined) {
+      if (body.commissionRate === '' || body.commissionRate === null) {
+        target.commissionRate = undefined;
+      } else {
+        const parsedRate = Number(body.commissionRate);
+        if (!Number.isFinite(parsedRate)) {
+          return res.status(400).json({ error: 'Geçersiz prim oranı.' });
+        }
+        target.commissionRate = Math.min(100, Math.max(0, parsedRate));
+      }
+    }
+
+    target.ownerName = name;
+    if (body.position !== undefined) {
+      target.position = String(body.position || '').trim() || undefined;
+    }
+    if (body.staffNotes !== undefined) {
+      target.staffNotes = String(body.staffNotes || '').trim() || undefined;
+    }
+
+    persistAccounts();
+    res.json({ success: true, account: publicAccount(target) });
   });
 
   // Personel sil

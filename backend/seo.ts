@@ -3,6 +3,24 @@ import path from 'path';
 import { getAccounts, isAccountClosed } from './accounts';
 import { loadShopState, slugify } from './shopState';
 import { DEMO_ACCOUNT_ID } from './demoSeed';
+import {
+  BLOG_ARTICLES,
+  findBlogArticle,
+  isValidBlogRoute,
+} from '../shared/blogArticles';
+import {
+  SEO_LANDING_PAGES,
+  resolveLandingContentKey,
+  type LandingPageContent,
+} from '../shared/seoLandingContent';
+
+export {
+  BLOG_ARTICLES,
+  findBlogArticle,
+  isValidBlogRoute,
+  SEO_LANDING_PAGES,
+  resolveLandingContentKey,
+};
 
 export interface SeoMetadata {
   title: string;
@@ -13,6 +31,7 @@ export interface SeoMetadata {
   canonical: string;
   robots?: string;
   schemaJson?: object;
+  extraSchemas?: object[];
   breadcrumbs?: { name: string; url: string }[];
   faqJson?: { q: string; a: string }[];
 }
@@ -685,6 +704,8 @@ const RESERVED_BARBER_PATH_PREFIXES = new Set([
   'admin',
   'assets',
   'rehber',
+  'blog',
+  'og',
   'media',
   'r',
   'm',
@@ -710,6 +731,21 @@ export function extractBarberSlugFromPath(cleanPath: string): { slug: string; is
     return { slug: safeDecode(m[1]), isCleanFormat: true };
   }
   return null;
+}
+
+function buildSoftwareOffersSchema() {
+  return {
+    '@type': 'AggregateOffer',
+    lowPrice: '0',
+    highPrice: '499',
+    priceCurrency: 'TRY',
+    offerCount: 3,
+    offers: [
+      { '@type': 'Offer', name: 'Çırak Paketi', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+      { '@type': 'Offer', name: 'Usta Paketi', price: '249', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+      { '@type': 'Offer', name: 'Patron VIP', price: '499', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+    ],
+  };
 }
 
 /**
@@ -738,7 +774,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         : `${origin}/r/${shop.slug}`;
       const shopLogo = shop.logoUrl
         ? (shop.logoUrl.startsWith('http') ? shop.logoUrl : `${origin}${shop.logoUrl}`)
-        : `${origin}/brand/phone_mockup_retina.png`;
+        : `${origin}/og/randevu-sistemi.png`;
       const ogImage = shopLogo;
 
       // Sektöre göre dinamik Schema.org LocalBusiness tipi (HairSalon veya BeautySalon)
@@ -867,7 +903,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Online Randevu Sistemi — Dükkanım Yanımda',
       description: 'Berber, kuaför ve güzellik salonları için kolay online randevu ve dükkan yönetim sistemi.',
       ogDescription: 'Sıra beklemeden online randevu alın.',
-      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      ogImage: `${origin}/og/randevu-sistemi.png`,
       canonical: `${origin}/randevu-sistemi`,
       robots: 'noindex, follow',
       breadcrumbs: [
@@ -889,7 +925,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       const canonical = `${origin}/m/${shop.slug}`;
       const shopLogo = shop.logoUrl
         ? (shop.logoUrl.startsWith('http') ? shop.logoUrl : `${origin}${shop.logoUrl}`)
-        : `${origin}/brand/phone_mockup_retina.png`;
+        : `${origin}/og/qr-menu.png`;
       const ogImage = shopLogo;
 
       // Dinamik çalışma saatleri (shop.closedDays bazlı)
@@ -973,7 +1009,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Dijital QR Menü & Garson Çağırma',
       description: 'Kafe ve restoranlar için anlık fiyat güncellemeli, temassız garson çağırmalı canlı dijital QR menü.',
       ogDescription: 'Güncel menü, fiyatlar ve masadan garson çağırma.',
-      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      ogImage: `${origin}/og/qr-menu.png`,
       canonical: `${origin}/kafe-restoran`,
       robots: 'noindex, follow',
       breadcrumbs: [
@@ -984,13 +1020,18 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
   }
 
   // 3. Berber Açılış Sayfası (Kopya Sayfa İzolasyonu)
-  if (clean === '/berber' || clean === '/berber-randevu-programi') {
+  if (
+    clean === '/berber' ||
+    clean === '/berber-randevu-programi' ||
+    clean === '/berber-randevu' ||
+    clean === '/erkek-kuafor'
+  ) {
     const canonical = `${origin}/berber`;
     const title = `Berber Randevu & Koltuk Yönetim Sistemi (${fresh.year}) | Dükkanım Yanımda`;
     const ogTitle = `Berber Randevu ve Koltuk Takip Sistemi (${fresh.year})`;
     const description = `Koltuk sırası, online randevu takvimi, çırak/usta prim hesabı ve anlık kasa takibi tek ekranda. ${fresh.month} ${fresh.year} güncel sürüm. ${fresh.seasonalKeyword} için hazır. Berber esnafı için 2 dakikada hazır.`;
     const ogDescription = 'Koltuk sırası, online randevu takvimi, çırak/usta prim hesabı ve anlık kasa takibi tek ekranda.';
-    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+    const ogImage = `${origin}/og/berber.png`;
 
     const schemaJson = {
       '@context': 'https://schema.org',
@@ -998,7 +1039,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       name: 'Dükkanım Yanımda - Berber Randevu Sistemi',
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'All',
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+      offers: buildSoftwareOffersSchema(),
       aggregateRating: {
         '@type': 'AggregateRating',
         ratingValue: '4.9',
@@ -1020,36 +1061,24 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       { name: 'Berber Randevu Sistemi', url: canonical },
     ];
 
-    const faqJson = [
-      {
-        q: 'Berber randevu sistemi telefonda veya tablette kurulumsuz çalışır mı?',
-        a: 'Evet, hiçbir donanım veya uygulama indirmeden telefon, tablet veya bilgisayarınızdan tarayıcıyla anında çalışır.',
-      },
-      {
-        q: 'Usta ve çırak prim hesabı nasıl yapılır?',
-        a: 'Her koltuk ve çalışan için hizmet başı veya yüzdelik prim oranı tanımlanır. Gün sonunda kimin ne kadar kazandığı tek ekranda listelenir.',
-      },
-      {
-        q: 'Müşteriler randevularını online kendileri alabilir mi?',
-        a: 'Evet, her dükkana özel "dukkanimyanimda.com.tr/r/dukkan-adiniz" web linki üretilir. Müşteri boş saatleri görerek randevusunu alır.',
-      },
-      {
-        q: 'Gelmeyen (no-show) müşteriler nasıl önlenir?',
-        a: 'Randevu saati yaklaştığında sistem üzerinden tek dokunuşla WhatsApp hatırlatma mesajı gönderilir, koltuklar boş kalmaz.',
-      },
-    ];
+    const faqJson = SEO_LANDING_PAGES['/berber'].faq;
 
     return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
   }
 
   // 4. Kuaför Salonu Açılış Sayfası (Kopya Sayfa İzolasyonu)
-  if (clean === '/kuafor' || clean === '/kuafor-randevu' || clean === '/kadin-kuafor') {
+  if (
+    clean === '/kuafor' ||
+    clean === '/kuafor-randevu' ||
+    clean === '/kadin-kuafor' ||
+    clean === '/kuafor-programi'
+  ) {
     const canonical = `${origin}/kuafor`;
     const title = `Kuaför Randevu ve Salon Takip Programı (${fresh.year}) | Dükkanım Yanımda`;
     const ogTitle = `Kuaför Randevu ve Salon Yönetim Programı (${fresh.year})`;
     const description = `Kadın ve erkek kuaförleri için saç renklendirme, kesim, bakım randevuları, personel primleri ve randevu çakışma önleme sistemi. ${fresh.month} ${fresh.year} güncel sürüm.`;
     const ogDescription = 'Kuaför salonları için randevu takvimi, personel primleri ve randevu çakışma önleme sistemi.';
-    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+    const ogImage = `${origin}/og/kuafor.png`;
 
     const schemaJson = {
       '@context': 'https://schema.org',
@@ -1057,7 +1086,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       name: 'Dükkanım Yanımda - Kuaför Salon Yönetim Programı',
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'All',
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+      offers: buildSoftwareOffersSchema(),
       aggregateRating: {
         '@type': 'AggregateRating',
         ratingValue: '4.9',
@@ -1079,20 +1108,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       { name: 'Kuaför Randevu Programı', url: canonical },
     ];
 
-    const faqJson = [
-      {
-        q: 'Boya, fön ve kesim gibi farklı işlem süreleri nasıl planlanır?',
-        a: 'Her hizmete özel süre (ör. boya 90 dk, kesim 45 dk) tanımlanır; takvim randevuları bu sürelere göre otomatik bloklar ve çakışmayı önler.',
-      },
-      {
-        q: 'Gelin başı ve nişan randevularında kapora takibi var mı?',
-        a: 'Evet, aylar öncesinden randevu kaydı açabilir, alınan kaporayı ve kalan bakiyeyi müşteri kartında saklayabilirsiniz.',
-      },
-      {
-        q: 'Kuaför salonunda birden fazla personelin cirosu ayrı görünür mü?',
-        a: 'Evet, hangi personelin kaç işlem yaptığı, ne kadar ciro getirdiği ve alacağı prim akşam tek raporda listelenir.',
-      },
-    ];
+    const faqJson = SEO_LANDING_PAGES['/kuafor'].faq;
 
     return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
   }
@@ -1109,7 +1125,15 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     const ogTitle = `İzmit Berber Randevu ve Kocaeli Koltuk Yönetim Sistemi (${fresh.year})`;
     const description = `İzmit berber randevusu, Kocaeli berber ve kuaför salonları için online randevu alma ve koltuk takip programı. Fethiye Caddesi, Yahya Kaptan ve Gebze salonlarında sıra beklemeden 7/24 randevu al.`;
     const ogDescription = 'İzmit ve Kocaeli berberleri için sıra beklemeden 7/24 online randevu alma ve koltuk takibi.';
-    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+    const ogImage = `${origin}/og/izmit.png`;
+
+    const areaServed = [
+      { '@type': 'City', name: 'İzmit' },
+      { '@type': 'AdministrativeArea', name: 'Kocaeli' },
+      { '@type': 'City', name: 'Gebze' },
+      { '@type': 'City', name: 'Körfez' },
+      { '@type': 'City', name: 'Gölcük' },
+    ];
 
     const schemaJson = {
       '@context': 'https://schema.org',
@@ -1118,7 +1142,6 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       description: 'İzmit ve Kocaeli bölgesindeki berber ve kuaförler için online randevu, koltuk sırası ve usta prim takip yazılımı.',
       url: canonical,
       image: ogImage,
-      telephone: '+90-850-000-0000',
       address: {
         '@type': 'PostalAddress',
         addressLocality: 'İzmit',
@@ -1130,13 +1153,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         latitude: 40.7654,
         longitude: 29.9408,
       },
-      areaServed: [
-        { '@type': 'City', name: 'İzmit' },
-        { '@type': 'AdministrativeArea', name: 'Kocaeli' },
-        { '@type': 'City', name: 'Gebze' },
-        { '@type': 'City', name: 'Körfez' },
-        { '@type': 'City', name: 'Gölcük' },
-      ],
+      areaServed,
       priceRange: '₺₺',
       aggregateRating: {
         '@type': 'AggregateRating',
@@ -1147,31 +1164,35 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       },
     };
 
+    const extraSchemas = [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Service',
+        name: 'İzmit & Kocaeli Online Berber Randevu Sistemi',
+        serviceType: 'Online Berber ve Kuaför Randevu Yazılımı',
+        provider: {
+          '@type': 'Organization',
+          name: 'Dükkanım Yanımda',
+          url: `${origin}/`,
+        },
+        areaServed,
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'TRY',
+          availability: 'https://schema.org/InStock',
+        },
+      },
+    ];
+
     const breadcrumbs = [
       { name: 'Ana Sayfa', url: origin },
       { name: 'İzmit Berber Randevu', url: canonical },
     ];
 
-    const faqJson = [
-      {
-        q: 'İzmit berber randevusu nasıl online alınır?',
-        a: 'Dükkânım Yanımda üzerindeki İzmit salonlarının randevu linkine girerek; saç, sakal veya cilt bakımı hizmetini, ustanızı ve uygun saatinizi 15 saniyede seçip anında randevunuzu onaylatabilirsiniz.',
-      },
-      {
-        q: 'İzmit ve Kocaeli\'deki berber ve kuaför salonları bu sisteme nasıl dahil olur?',
-        a: 'İşletme sahipleri 2 dakikada ücretsiz kayıt olarak dükkan adını ve hizmet tarifesini belirler; anında kendilerine özel dukkanimyanimda.com.tr/r/dukkan-adiniz rezervasyon linki üretilir.',
-      },
-      {
-        q: 'Randevu aldığımda bana teyit mesajı gelir mi?',
-        a: 'Evet, randevu oluşturulduğunda ve randevu saatine 2 saat kala WhatsApp üzerinden otomatik hatırlatma mesajı iletilir.',
-      },
-      {
-        q: 'Kocaeli genelindeki berber salonlarında usta prim hesabı destekleniyor mu?',
-        a: 'Evet, her koltuk ve personelin işlem başına kazandığı prim akşam tek tıkla hesaplanır ve kasadan net kar ayrılır.',
-      },
-    ];
+    const faqJson = SEO_LANDING_PAGES['/izmit-berber-randevu'].faq;
 
-    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
+    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, extraSchemas, breadcrumbs, faqJson };
   }
 
   // 4.2. Zonguldak & Kdz. Ereğli Yerel Berber ve Kuaför Randevu Açılış Sayfası
@@ -1179,14 +1200,23 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     clean === '/zonguldak-berber-randevu' ||
     clean === '/zonguldak-berber' ||
     clean === '/eregli-berber' ||
-    clean === '/kdz-eregli-berber'
+    clean === '/kdz-eregli-berber' ||
+    clean === '/eregli-berber-randevu'
   ) {
     const canonical = `${origin}/zonguldak-berber-randevu`;
     const title = `Zonguldak Berber Randevu ve Kuaför Programı (${fresh.year}) | Kdz. Ereğli Online Randevu`;
     const ogTitle = `Zonguldak Berber Randevu ve Kdz Ereğli Kuaför Sistemi (${fresh.year})`;
     const description = `Zonguldak berber randevusu, Gazipaşa Caddesi ve Kdz. Ereğli kuaförleri için online randevu sistemi. Sıra beklemeden randevu al, usta ve hizmetini seç.`;
     const ogDescription = 'Zonguldak ve Kdz. Ereğli berberleri için sıra beklemeden online randevu alma.';
-    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+    const ogImage = `${origin}/og/zonguldak.png`;
+
+    const areaServed = [
+      { '@type': 'City', name: 'Zonguldak' },
+      { '@type': 'City', name: 'Karadeniz Ereğli' },
+      { '@type': 'City', name: 'Kozlu' },
+      { '@type': 'City', name: 'Çaycuma' },
+      { '@type': 'City', name: 'Kilimli' },
+    ];
 
     const schemaJson = {
       '@context': 'https://schema.org',
@@ -1195,7 +1225,6 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       description: 'Zonguldak Merkez, Gazipaşa ve Karadeniz Ereğli kuaför ve berberleri için 7/24 online randevu alma ve koltuk yönetimi.',
       url: canonical,
       image: ogImage,
-      telephone: '+90-850-000-0000',
       address: {
         '@type': 'PostalAddress',
         addressLocality: 'Merkez',
@@ -1207,13 +1236,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         latitude: 41.4564,
         longitude: 31.7987,
       },
-      areaServed: [
-        { '@type': 'City', name: 'Zonguldak' },
-        { '@type': 'City', name: 'Karadeniz Ereğli' },
-        { '@type': 'City', name: 'Kozlu' },
-        { '@type': 'City', name: 'Çaycuma' },
-        { '@type': 'City', name: 'Kilimli' },
-      ],
+      areaServed,
       priceRange: '₺₺',
       aggregateRating: {
         '@type': 'AggregateRating',
@@ -1224,45 +1247,50 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       },
     };
 
+    const extraSchemas = [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Service',
+        name: 'Zonguldak & Kdz. Ereğli Online Berber Randevu Sistemi',
+        serviceType: 'Online Berber ve Kuaför Randevu Yazılımı',
+        provider: {
+          '@type': 'Organization',
+          name: 'Dükkanım Yanımda',
+          url: `${origin}/`,
+        },
+        areaServed,
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'TRY',
+          availability: 'https://schema.org/InStock',
+        },
+      },
+    ];
+
     const breadcrumbs = [
       { name: 'Ana Sayfa', url: origin },
       { name: 'Zonguldak Berber Randevu', url: canonical },
     ];
 
-    const faqJson = [
-      {
-        q: 'Zonguldak\'ta berber randevusu almak için hangi adımları izlemeliyim?',
-        a: 'Zonguldak ve Kdz. Ereğli pilot salonlarımızdan istediğinizi seçip dükkan linkine tıklayın; dilediğiniz saati seçerek sıra beklemeden yerinizi ayırtın.',
-      },
-      {
-        q: 'Zonguldak ve Karadeniz Ereğli berberleri için sistem ücretli mi?',
-        a: 'Çırak paketi ile sisteme giriş %100 ücretsizdir; randevulardan asla komisyon (%0) kesilmez.',
-      },
-      {
-        q: 'Gelmeyen müşteri (no-show) durumuna karşı önlem var mı?',
-        a: 'Evet, randevu teyit akışları ve WhatsApp hatırlatmaları sayesinde müşteriler saatinde gelir, koltuklar boş kalmaz.',
-      },
-      {
-        q: 'Kdz. Ereğli ve Kozlu ilçelerindeki kuaförler de kullanabilir mi?',
-        a: 'Evet, Zonguldak ilinin tüm ilçe ve mahallelerindeki berber ve kuaförler hiçbir cihaz almadan telefonlarıyla hemen kullanabilir.',
-      },
-    ];
+    const faqJson = SEO_LANDING_PAGES['/zonguldak-berber-randevu'].faq;
 
-    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
+    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, extraSchemas, breadcrumbs, faqJson };
   }
 
   if (
     clean === '/guzellik-salonu' ||
     clean === '/guzellik-merkezi' ||
     clean === '/guzellik' ||
-    clean === '/lazer-epilasyon'
+    clean === '/lazer-epilasyon' ||
+    clean === '/guzellik-salonu-programi'
   ) {
     const title = `Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi (${fresh.year}) | Dükkanım Yanımda`;
     const ogTitle = `Güzellik Salonu ve Seans Takip Sistemi (${fresh.year})`;
     const description = `Güzellik merkezleri için seans ve paket takibi, lazer epilasyon randevu defteri, estetisyen kabin planlaması ve otomatik WhatsApp hatırlatma. ${fresh.month} ${fresh.year} güncel sürüm. 2 dakikada ücretsiz başlayın.`;
     const ogDescription = 'Seans ve paket takibi, estetisyen randevu defteri, kabin planlaması ve WhatsApp hatırlatma tek ekranda.';
     const canonical = `${origin}/guzellik-salonu`;
-    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+    const ogImage = `${origin}/og/guzellik-salonu.png`;
 
     const schemaJson = {
       '@context': 'https://schema.org',
@@ -1270,7 +1298,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       name: 'Dükkanım Yanımda - Güzellik Salonu ve Seans Takip Sistemi',
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'All',
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+      offers: buildSoftwareOffersSchema(),
       aggregateRating: {
         '@type': 'AggregateRating',
         ratingValue: '4.9',
@@ -1292,31 +1320,18 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       { name: 'Güzellik Salonu ve Seans Takip', url: canonical },
     ];
 
-    const faqJson = [
-      {
-        q: 'Güzellik salonlarında seans ve paket takibi nasıl yapılır?',
-        a: 'Müşteriye 6 veya 8 seanslık paket tanımlanır. Her randevuda tek tıkla 1 seans düşülür, kalan seans sayısı ve borç durumu anında ekranda görünür.',
-      },
-      {
-        q: 'Estetisyen ve cihaz/kabin çakışması engellenir mi?',
-        a: 'Evet, hangi uzmanın hangi odada veya cihazda olduğu canlı takvimde renklerle ayrılır; çakışan randevular sistem tarafından anında önlenir.',
-      },
-      {
-        q: 'Müşteriler randevuyu Instagram veya WhatsApp üzerinden alabilir mi?',
-        a: 'Evet, salonunuza özel online randevu linkinizi Instagram biyografinize ekleyebilirsiniz. Müşterileriniz boş saatleri görerek randevusunu hemen oluşturur.',
-      },
-    ];
+    const faqJson = SEO_LANDING_PAGES['/guzellik-salonu'].faq;
 
     return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
   }
 
-  if (clean === '/randevu-sistemi' || clean === '/online-randevu') {
+  if (clean === '/randevu-sistemi' || clean === '/online-randevu' || clean === '/randevu-programi') {
     const canonical = `${origin}/randevu-sistemi`;
     const title = `7/24 Online Randevu ve Rezervasyon Sistemi (${fresh.year}) | Dükkanım Yanımda`;
     const ogTitle = `Canlı Online Randevu ve Müşteri Rezervasyon Motoru (${fresh.year})`;
     const description = `İşletmenize özel web linkiyle 7/24 online randevu toplama ve müşteri takip sistemi. Berber, kuaför ve güzellik salonları için ücretsiz. ${fresh.month} ${fresh.year} güncel.`;
     const ogDescription = 'İşletmenize özel web linkiyle sıra beklemeden 7/24 online randevu alma.';
-    const ogImage = `${origin}/brand/phone_mockup_retina.png`;
+    const ogImage = `${origin}/og/randevu-sistemi.png`;
 
     const schemaJson = {
       '@context': 'https://schema.org',
@@ -1324,7 +1339,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       name: 'Dükkanım Yanımda - 7/24 Online Randevu Motoru',
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'All',
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+      offers: buildSoftwareOffersSchema(),
       aggregateRating: {
         '@type': 'AggregateRating',
         ratingValue: '4.9',
@@ -1346,22 +1361,52 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       { name: 'Online Randevu Sistemi', url: canonical },
     ];
 
-    const faqJson = [
-      {
-        q: 'Online randevu linkini nereden paylaşabilirim?',
-        a: 'Dükkanınıza özel oluşturulan web linkini Instagram biyografinize, WhatsApp işletme profiline veya Google Haritalar profilinize "Randevu Al" butonu olarak ekleyebilirsiniz.',
-      },
-      {
-        q: 'Müşteri randevu alırken üye olmak veya uygulama indirmek zorunda mı?',
-        a: 'Hayır! Müşterileriniz hiçbir uygulama indirmeden tarayıcı üzerinden 15 saniyede adını, telefonunu ve saatini seçerek randevu alabilir.',
-      },
-      {
-        q: 'Randevular doğrudan panele düşer mi?',
-        a: 'Evet, randevu anında panelinize ve takviminize işlenir; çakışma riski olmadan koltuk rezerve edilir.',
-      },
-    ];
+    const faqJson = SEO_LANDING_PAGES['/randevu-sistemi'].faq;
 
     return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, breadcrumbs, faqJson };
+  }
+
+  if (
+    clean === '/qr-menu' ||
+    clean === '/dijital-menu' ||
+    clean === '/karekod-menu' ||
+    clean === '/ucretsiz-qr-menu'
+  ) {
+    const canonical = `${origin}/qr-menu`;
+    return {
+      title: `Ücretsiz QR Menü Sistemi & Masadan Sipariş (${fresh.year}) | Dükkanım Yanımda`,
+      ogTitle: `Ücretsiz QR Menü Sistemi & Masadan Sipariş (${fresh.year})`,
+      description: 'Baskı maliyeti olmadan 2 dakikada ücretsiz dijital QR menü oluşturun. Anlık fiyat güncelleme, fotoğraflı kategori ve masadan garson çağırma tek panelde.',
+      ogDescription: 'Baskı maliyeti olmadan 2 dakikada ücretsiz dijital QR menü ve masadan sipariş sistemi.',
+      ogImage: `${origin}/og/qr-menu.png`,
+      canonical,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Ücretsiz QR Menü Sistemi', url: canonical },
+      ],
+      faqJson: SEO_LANDING_PAGES['/qr-menu'].faq,
+      schemaJson: {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Dükkanım Yanımda - Ücretsiz QR Menü Sistemi',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'All',
+        offers: buildSoftwareOffersSchema(),
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.9',
+          reviewCount: '910',
+          bestRating: '5',
+          worstRating: '1',
+        },
+        featureList: [
+          'Masaya Özel Karekod (QR) Üretici',
+          'Anlık Fiyat ve Stok Güncelleme',
+          'Masadan Garson & Hesap Çağırma',
+          'Doğrudan Adisyona Düşen Sipariş',
+        ],
+      },
+    };
   }
 
   if (
@@ -1369,38 +1414,21 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     clean === '/kafe' ||
     clean === '/restoran' ||
     clean === '/adisyon' ||
-    clean === '/qr-menu'
+    clean === '/adisyon-programi'
   ) {
     const canonical = `${origin}/kafe-restoran`;
     const breadcrumbs = [
       { name: 'Ana Sayfa', url: origin },
       { name: 'Kafe & Restoran Adisyon Sistemi', url: canonical },
     ];
-    const faqJson = [
-      {
-        q: 'Kafe ve restoranlarda canlı masa ve adisyon takibi nasıl yapılır?',
-        a: 'Masalarınızı salona göre yerleştirin. Müşteri oturduğunda tek tıkla adisyon açın, siparişleri ekleyin, kalkarken nakit veya kartla kapatın.',
-      },
-      {
-        q: 'Temassız dijital QR menü ve garson çağırma nasıl çalışır?',
-        a: 'Masalarınıza özel karekodları yapıştırın. Müşteri kamerasını okuttuğunda menüyü görür ve tek tıkla garson veya hesap çağırabilir.',
-      },
-      {
-        q: 'Gün sonu ciro ve kasa raporları anlık görünür mü?',
-        a: 'Evet, kasanızdaki nakit ve kredi kartı cirosu, açık masalar ve en çok satan ürünler gün sonunda kuruşu kuruşuna tek ekranda raporlanır.',
-      },
-      {
-        q: 'Sistem tablet veya telefondan kurulumsuz çalışır mı?',
-        a: 'Evet, hiçbir donanım veya karmaşık POS cihazı gerektirmez; mevcut telefonunuzdan veya tabletinizden tarayıcıyla anında çalışır.',
-      },
-    ];
+    const faqJson = SEO_LANDING_PAGES['/kafe-restoran'].faq;
 
     return {
       title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı | Dükkanım Yanımda',
       ogTitle: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Sistemi',
       description: 'Canlı masa takibi, garson çağrı sistemli temassız QR menü, adisyon kapatma ve gün sonu ciro raporları. Kurulumsuz, hemen kullanın.',
       ogDescription: 'Canlı masa takibi, garson çağrı sistemli temassız QR menü, adisyon kapatma ve gün sonu ciro raporları.',
-      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      ogImage: `${origin}/og/kafe-restoran.png`,
       canonical,
       breadcrumbs,
       faqJson,
@@ -1410,7 +1438,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         name: 'Dükkanım Yanımda - Kafe & Restoran Adisyon Sistemi',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'All',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        offers: buildSoftwareOffersSchema(),
         aggregateRating: {
           '@type': 'AggregateRating',
           ratingValue: '4.9',
@@ -1423,42 +1451,152 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
   }
 
   if (
+    clean === '/veresiye-defteri' ||
+    clean === '/veresiye' ||
+    clean === '/dijital-veresiye' ||
+    clean === '/veresiye-programi'
+  ) {
+    const canonical = `${origin}/veresiye-defteri`;
+    return {
+      title: `Veresiye Defteri Uygulaması & Dijital Alacak Takibi (${fresh.year}) | Dükkanım Yanımda`,
+      ogTitle: 'Veresiye Defteri Uygulaması & Dijital Alacak Takibi',
+      description: 'Kağıt veresiye defterine son! Açılış bakiyesiyle 5 dakikada dijitale geçin, müşteri borçlarını tarih damgasıyla izleyin ve WhatsApp üzerinden tek tıkla hatırlatın.',
+      ogDescription: 'Açılış bakiyesiyle dijitale geçin, WhatsApp tahsilat hatırlatmasıyla unutulan alacakları toplayın.',
+      ogImage: `${origin}/og/veresiye-defteri.png`,
+      canonical,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Veresiye Defteri Uygulaması', url: canonical },
+      ],
+      faqJson: SEO_LANDING_PAGES['/veresiye-defteri'].faq,
+      schemaJson: {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Dükkanım Yanımda - Dijital Veresiye Defteri Uygulaması',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'All',
+        offers: buildSoftwareOffersSchema(),
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.9',
+          reviewCount: '1240',
+          bestRating: '5',
+          worstRating: '1',
+        },
+        featureList: [
+          'Açılış Bakiyesi ile 5 Dakikada Geçiş',
+          'Tahsilat Turu ve Vade Önceliklendirme',
+          'WhatsApp Tek Tıkla Borç Ekstresi',
+          'Bulut Yedekli Cari Hesap Defteri',
+        ],
+      },
+    };
+  }
+
+  if (
+    clean === '/kasa-programi' ||
+    clean === '/kasa-takibi' ||
+    clean === '/esnaf-kasa'
+  ) {
+    const canonical = `${origin}/kasa-programi`;
+    return {
+      title: `Esnaf Kasa Takip Programı — Nakit, POS & Gider Yönetimi (${fresh.year}) | Dükkanım Yanımda`,
+      ogTitle: 'Esnaf Kasa Takip Programı — Nakit, POS & Gider Yönetimi',
+      description: 'Esnaf ve KOBİ’ler için nakit, kredi kartı POS, IBAN havale ve gün içi gider takibini tek ekranda birleştiren ücretsiz bulut tabanlı kasa takip programı.',
+      ogDescription: 'Nakit, POS, havale ve gün içi giderlerinizi tek kasada kuruşu kuruşuna takip edin.',
+      ogImage: `${origin}/og/kasa-programi.png`,
+      canonical,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Esnaf Kasa Programı', url: canonical },
+      ],
+      faqJson: SEO_LANDING_PAGES['/kasa-programi'].faq,
+      schemaJson: {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Dükkanım Yanımda - Esnaf Kasa Takip Programı',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'All',
+        offers: buildSoftwareOffersSchema(),
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.9',
+          reviewCount: '1090',
+          bestRating: '5',
+          worstRating: '1',
+        },
+        featureList: [
+          'Nakit, POS ve IBAN Kanal Ayrımı',
+          'Gün İçi Masraf ve Toptancı Gider Takibi',
+          'Açılış Avansı ve Net Kâr Hesabı',
+          'Cepten Anlık Kasa Kontrolü',
+        ],
+      },
+    };
+  }
+
+  if (
+    clean === '/gun-sonu-raporu' ||
+    clean === '/gun-sonu' ||
+    clean === '/z-raporu'
+  ) {
+    const canonical = `${origin}/gun-sonu-raporu`;
+    return {
+      title: `Gün Sonu Raporu & Z Raporu Programı — 30 Saniyede Kasa Sayımı (${fresh.year}) | Dükkanım Yanımda`,
+      ogTitle: 'Gün Sonu Raporu & Z Raporu Programı — 30 Saniyede Kasa Sayımı',
+      description: 'Akşam kepenk indirirken nakit, POS, veresiye tahsilatı ve masraf mutabakatını 30 saniyede tamamlayan bulut tabanlı gün sonu raporu programı.',
+      ogDescription: 'Akşam kepenk kapatırken 30 saniyede kasa sayımı, POS eşleştirme ve net kâr raporu.',
+      ogImage: `${origin}/og/gun-sonu-raporu.png`,
+      canonical,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Gün Sonu Raporu Programı', url: canonical },
+      ],
+      faqJson: SEO_LANDING_PAGES['/gun-sonu-raporu'].faq,
+      schemaJson: {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Dükkanım Yanımda - Gün Sonu & Z Raporu Programı',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'All',
+        offers: buildSoftwareOffersSchema(),
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.9',
+          reviewCount: '960',
+          bestRating: '5',
+          worstRating: '1',
+        },
+        featureList: [
+          '30 Saniyede Akşam Kasa Kapatma',
+          'Nakit, POS ve Veresiye Mutabakatı',
+          'Silinmeyen Bulut Gün Sonu Arşivi',
+          'Haftalık ve Aylık Kârlılık Analizi',
+        ],
+      },
+    };
+  }
+
+  if (
     clean === '/bakkal' ||
     clean === '/market' ||
     clean === '/bakkal-market' ||
-    clean === '/veresiye-defteri' ||
-    clean === '/pos-sistemi'
+    clean === '/pos-sistemi' ||
+    clean === '/barkod-pos'
   ) {
     const canonical = `${origin}/bakkal-market`;
     const breadcrumbs = [
       { name: 'Ana Sayfa', url: origin },
       { name: 'Bakkal & Market POS Sistemi', url: canonical },
     ];
-    const faqJson = [
-      {
-        q: 'Bakkal veresiye defteri telefondan nasıl tutulur?',
-        a: 'Müşterinizi bir kez kaydedin. Aldığı ürünleri veya toplam tutarı tek tuşla borcuna yazın. Bakiyesi ve hesap dökümü cebinizde her an hazırdır.',
-      },
-      {
-        q: 'Müşteriye tek tıkla WhatsApp borç özeti nasıl gönderilir?',
-        a: 'Müşteri detayından "WhatsApp ile Hatırlat" butonuna bastığınızda, kibar bir dille son işlemler ve kalan borç tutarı otomatik mesaj olarak hazırlanır.',
-      },
-      {
-        q: 'Barkod okuyucu olmadan telefon kamerasıyla satış yapılır mı?',
-        a: 'Evet, telefon kamerası barkod okuyucu olarak kullanılır; barkodu okutulan ürün anında sepete eklenir.',
-      },
-      {
-        q: 'Terazili ürünler ve gramajlı satış destekleniyor mu?',
-        a: 'Evet, manav ve şarküteri ürünlerinde gramaj preseti veya ondalıklı kilo girişiyle anlık hesaplama yapılır.',
-      },
-    ];
+    const faqJson = SEO_LANDING_PAGES['/bakkal-market'].faq;
 
     return {
       title: 'Bakkal & Market Hızlı POS Barkodlu Terazi ve Veresiye Takip Sistemi | Dükkanım Yanımda',
       ogTitle: 'Bakkal & Market Hızlı POS ve Veresiye Takip Sistemi',
       description: 'Mahallenin veresiye defteri cebinde! Barkodlu hızlı satış, kritik stok uyarıları, WhatsApp ile tek tıkla borç hatırlatma.',
       ogDescription: 'Mahallenin veresiye defteri cebinde! Barkodlu hızlı satış, kritik stok ve WhatsApp hatırlatma.',
-      ogImage: `${origin}/brand/logo-horizontal.png`,
+      ogImage: `${origin}/og/bakkal-market.png`,
       canonical,
       breadcrumbs,
       faqJson,
@@ -1468,7 +1606,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         name: 'Dükkanım Yanımda - Bakkal & Market POS Sistemi',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'All',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        offers: buildSoftwareOffersSchema(),
         aggregateRating: {
           '@type': 'AggregateRating',
           ratingValue: '4.9',
@@ -1487,7 +1625,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Teknik Servis Cihaz ve Müşteri Takip Sistemi',
       description: 'Cihaz kabul fişi, parça ve işçilik maliyeti, teslimat takibi ve kasa yönetimi tek panelde. 2 dakikada ücretsiz başla.',
       ogDescription: 'Cihaz kabul fişi, parça ve işçilik maliyeti, teslimat takibi ve kasa yönetimi.',
-      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      ogImage: `${origin}/og/teknik-servis.png`,
       canonical,
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
@@ -1513,7 +1651,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         name: 'Dükkanım Yanımda - Teknik Servis Takip Programı',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'All',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        offers: buildSoftwareOffersSchema(),
         aggregateRating: {
           '@type': 'AggregateRating',
           ratingValue: '4.8',
@@ -1532,7 +1670,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Avukat & Hukuk Bürosu Dava ve Müvekkil Cari Takip Sistemi',
       description: 'Duruşma takvimi, dava dosyaları, müvekkil masraf ve avans takibi tek ekranda. 2 dakikada ücretsiz başla.',
       ogDescription: 'Duruşma takvimi, dava dosyaları, müvekkil masraf ve avans takibi tek ekranda.',
-      ogImage: `${origin}/brand/logo-horizontal.png`,
+      ogImage: `${origin}/og/hukuk.png`,
       canonical,
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
@@ -1558,7 +1696,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         name: 'Dükkanım Yanımda - Avukat ve Hukuk Bürosu Programı',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'All',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        offers: buildSoftwareOffersSchema(),
         aggregateRating: {
           '@type': 'AggregateRating',
           ratingValue: '4.9',
@@ -1577,7 +1715,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Terzi & Kuru Temizleme Emanet Takip Sistemi',
       description: 'Bırakılan kıyafet emanet fişleri, prova tarihleri ve anlık kasa yönetimi tek ekranda. 2 dakikada ücretsiz başla.',
       ogDescription: 'Bırakılan kıyafet emanet fişleri, prova tarihleri ve anlık kasa yönetimi.',
-      ogImage: `${origin}/brand/logo-horizontal.png`,
+      ogImage: `${origin}/og/terzi.png`,
       canonical,
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
@@ -1603,7 +1741,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         name: 'Dükkanım Yanımda - Terzi Emanet ve Sipariş Takibi',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'All',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
+        offers: buildSoftwareOffersSchema(),
         aggregateRating: {
           '@type': 'AggregateRating',
           ratingValue: '4.8',
@@ -1631,7 +1769,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogDescription: isMaintenance
         ? 'QR Makine & Cihaz Bakım Pasaportu.'
         : 'Servis ve emanet fişi canlı durum sorgulama.',
-      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      ogImage: `${origin}/og/teknik-servis.png`,
       canonical: `${origin}${clean}`,
       robots: 'noindex, follow',
       breadcrumbs: [
@@ -1649,7 +1787,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Esnaf Rehberi ve Ücretsiz İşletme Araçları — Dükkanım Yanımda',
       description: 'Berber no-show önleme, kuaför prim hesaplayıcı, ücretsiz QR menü karekod oluşturucu, dijital veresiye geçişi ve şehir bazlı esnaf rehberleri.',
       ogDescription: 'Esnaf rehberleri, ücretsiz prim hesaplayıcı ve karekod oluşturucu.',
-      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      ogImage: `${origin}/og/rehber.png`,
       canonical,
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
@@ -1690,7 +1828,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         ogTitle: article.title,
         description: article.description,
         ogDescription: article.description,
-        ogImage: `${origin}/brand/phone_mockup_retina.png`,
+        ogImage: `${origin}/og/rehber.png`,
         canonical,
         breadcrumbs: [
           { name: 'Ana Sayfa', url: origin },
@@ -1703,8 +1841,9 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
           '@type': 'Article',
           headline: article.h1,
           description: article.description,
+          image: `${origin}/og/rehber.png`,
           datePublished: article.updatedAt,
-          dateModified: fresh.todayIso,
+          dateModified: article.updatedAt,
           inLanguage: 'tr-TR',
           author: {
             '@type': 'Organization',
@@ -1731,12 +1870,128 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Esnaf Rehberi — Dükkanım Yanımda',
       description: 'Aradığınız rehber yazısı bulunamadı; tüm esnaf rehberlerini inceleyin.',
       ogDescription: 'Tüm esnaf rehberlerini ve ücretsiz araçları inceleyin.',
-      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      ogImage: `${origin}/og/rehber.png`,
       canonical: `${origin}/rehber`,
       robots: 'noindex, follow',
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
         { name: 'Esnaf Rehberi', url: `${origin}/rehber` },
+      ],
+    };
+  }
+
+  // 3.7. Esnaf Blogu (/blog ve /blog/:slug)
+  if (clean === '/blog') {
+    const canonical = `${origin}/blog`;
+    return {
+      title: 'Esnaf Blogu — Veresiye, Randevu, Kasa ve QR Menü Rehberleri | Dükkanım Yanımda',
+      ogTitle: 'Esnaf Blogu — Veresiye, Randevu, Kasa ve QR Menü Rehberleri',
+      description: 'Berber randevu yönetimi, dijital veresiye defteri, kasa takibi, gün sonu Z raporu, QR menü ve e-arşiv vergi dönemleri üzerine esnafa özel rehber makaleler.',
+      ogDescription: 'Veresiye, online randevu, kasa takibi ve QR menü üzerine pratik esnaf rehberleri.',
+      ogImage: `${origin}/og/blog.png`,
+      canonical,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Blog', url: canonical },
+      ],
+      schemaJson: {
+        '@context': 'https://schema.org',
+        '@type': 'Blog',
+        name: 'Dükkanım Yanımda Esnaf Blogu',
+        description: 'Türkiye esnafı ve KOBİ işletmeleri için randevu, veresiye, kasa, gün sonu ve QR menü rehberleri.',
+        url: canonical,
+        inLanguage: 'tr-TR',
+        publisher: {
+          '@type': 'Organization',
+          name: 'Dükkanım Yanımda',
+          url: `${origin}/`,
+          logo: {
+            '@type': 'ImageObject',
+            url: `${origin}/icon-512.png`,
+          },
+        },
+        blogPost: BLOG_ARTICLES.map((art) => ({
+          '@type': 'BlogPosting',
+          headline: art.h1,
+          description: art.description,
+          url: `${origin}/blog/${art.slug}`,
+          image: `${origin}${art.ogImage}`,
+          datePublished: art.publishedAt,
+          dateModified: art.updatedAt,
+          author: {
+            '@type': 'Person',
+            name: art.author,
+            jobTitle: art.authorRole,
+          },
+        })),
+      },
+    };
+  }
+
+  if (clean.startsWith('/blog/')) {
+    const article = findBlogArticle(clean);
+    if (article) {
+      const canonical = `${origin}/blog/${article.slug}`;
+      const ogImage = article.ogImage.startsWith('http')
+        ? article.ogImage
+        : `${origin}${article.ogImage}`;
+      return {
+        title: article.seoTitle,
+        ogTitle: article.title,
+        description: article.description,
+        ogDescription: article.description,
+        ogImage,
+        canonical,
+        breadcrumbs: [
+          { name: 'Ana Sayfa', url: origin },
+          { name: 'Blog', url: `${origin}/blog` },
+          { name: article.title, url: canonical },
+        ],
+        faqJson: article.faq,
+        schemaJson: {
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: article.h1,
+          description: article.description,
+          image: ogImage,
+          datePublished: article.publishedAt,
+          dateModified: article.updatedAt,
+          keywords: article.primaryKeyword,
+          articleSection: article.category,
+          inLanguage: 'tr-TR',
+          author: {
+            '@type': 'Person',
+            name: article.author,
+            jobTitle: article.authorRole,
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'Dükkanım Yanımda',
+            url: `${origin}/`,
+            logo: {
+              '@type': 'ImageObject',
+              url: `${origin}/icon-512.png`,
+            },
+          },
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': canonical,
+          },
+        },
+      };
+    }
+
+    return {
+      title: 'Blog Yazısı Bulunamadı | Dükkanım Yanımda',
+      ogTitle: 'Esnaf Blogu — Dükkanım Yanımda',
+      description: 'Aradığınız blog yazısı bulunamadı; tüm güncel esnaf rehberlerini inceleyin.',
+      ogDescription: 'Tüm esnaf rehberlerini ve pratik işletme yazılarını inceleyin.',
+      ogImage: `${origin}/og/blog.png`,
+      canonical: `${origin}/blog`,
+      robots: 'noindex, follow',
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Blog', url: `${origin}/blog` },
       ],
     };
   }
@@ -1748,17 +2003,13 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     name: 'Dükkanım Yanımda',
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'All',
-    offers: {
-      '@type': 'AggregateOffer',
-      lowPrice: '0',
-      highPrice: '499',
-      priceCurrency: 'TRY',
-      offerCount: 3,
-      offers: [
-        { '@type': 'Offer', name: 'Çırak Paketi', price: '0', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
-        { '@type': 'Offer', name: 'Usta Paketi', price: '249', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
-        { '@type': 'Offer', name: 'Patron VIP', price: '499', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' },
-      ],
+    offers: buildSoftwareOffersSchema(),
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '4.9',
+      reviewCount: '1860',
+      bestRating: '5',
+      worstRating: '1',
     },
   };
 
@@ -1788,7 +2039,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Esnaf İçin En Uygun Yönetim Paketleri',
       description: 'Ücretsiz başlangıç, Çırak, Usta ve Patron VIP paketleri. Kredi kartsız hemen deneyin.',
       ogDescription: 'Esnaf için en uygun yönetim paketleri. Ücretsiz başlayın.',
-      ogImage: `${origin}/brand/logo-horizontal.png`,
+      ogImage: `${origin}/og/fiyat.png`,
       canonical,
       breadcrumbs,
       faqJson,
@@ -1802,7 +2053,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Dükkanını 2 Dakikada Kur — Ücretsiz Başla',
       description: 'Kredi kartı yok, kurulum yok. Telefon numaranla kaydol, kasanı ve veresiye defterini hemen yönetmeye başla.',
       ogDescription: 'Kredi kartı gerekmez. Dükkanını 2 dakikada ücretsiz kur.',
-      ogImage: `${origin}/brand/logo-horizontal.png`,
+      ogImage: `${origin}/og/kayit.png`,
       canonical: `${origin}/kayit`,
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
@@ -1818,8 +2069,12 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'İletişim & Destek — Dükkanım Yanımda',
       description: 'Dükkânım Yanımda iletişim ve esnaf destek hattı. Sorularınız ve önerileriniz için bize ulaşın.',
       ogDescription: 'Esnaf destek ve iletişim hattı.',
-      ogImage: `${origin}/icon-512.png`,
+      ogImage: `${origin}/og/home.png`,
       canonical: `${origin}/iletisim`,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'İletişim', url: `${origin}/iletisim` },
+      ],
     };
   }
 
@@ -1829,8 +2084,12 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Gizlilik Politikası & KVKK Güvencesi',
       description: 'Verileriniz güvende. Dükkan defteriniz ve müşteri bilgileriniz şifreli saklanır ve sadece size aittir.',
       ogDescription: 'Kişisel verileriniz ve dükkan kayıtlarınız %100 güvende.',
-      ogImage: `${origin}/icon-512.png`,
+      ogImage: `${origin}/og/home.png`,
       canonical: `${origin}/gizlilik`,
+      breadcrumbs: [
+        { name: 'Ana Sayfa', url: origin },
+        { name: 'Gizlilik & KVKK', url: `${origin}/gizlilik` },
+      ],
     };
   }
 
@@ -1841,7 +2100,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Sayfa Bulunamadı (404) — Dükkanım Yanımda',
       description: 'Aradığınız sayfa bulunamadı, adresi değişmiş veya yayından kaldırılmış olabilir.',
       ogDescription: 'Aradığınız sayfa bulunamadı.',
-      ogImage: `${origin}/brand/phone_mockup_retina.png`,
+      ogImage: `${origin}/og/home.png`,
       canonical: `${origin}/`,
       robots: 'noindex, nofollow',
     };
@@ -1855,26 +2114,9 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     ogTitle: 'Dükkânım Yanımda — Esnaf Yönetim Sistemi',
     description: 'Dükkanının kasa, veresiye defteri, randevu takvimi, QR menüsü ve gün sonu defteri — hepsi tek yerde cebinizde.',
     ogDescription: 'Dükkanının kasa, veresiye, stok ve gün sonu defteri — hepsi tek yerde.',
-    ogImage: `${origin}/brand/phone_mockup_retina.png`,
+    ogImage: `${origin}/og/home.png`,
     canonical: `${origin}/`,
-    faqJson: [
-      {
-        q: 'Uygulama ücretsiz mi?',
-        a: 'Evet. Kayıt ol, dükkanını 2 dakikada kur, tüm temel özellikleri ücretsiz kullan. Kredi kartı istemeyiz.',
-      },
-      {
-        q: 'Verilerim güvende mi?',
-        a: 'Şifren şifreli saklanır, dükkan verilerin yalnızca sana aittir. Yedekleme özelliğiyle defterini istediğin zaman indirebilirsin.',
-      },
-      {
-        q: 'Telefonda çalışır mı?',
-        a: 'Evet. Uygulama mobil uyumludur, telefonuna uygulama gibi kurulur ve dükkanda tek elle kullanılır.',
-      },
-      {
-        q: 'Kağıt defterimden nasıl geçerim?',
-        a: 'Müşterilerini tek tek ekle, bugünden itibaren işlemleri gir. Eski borçları açılış bakiyesi olarak işleyebilirsin.',
-      },
-    ],
+    faqJson: SEO_LANDING_PAGES['/'].faq,
     schemaJson: {
       '@context': 'https://schema.org',
       '@graph': [
@@ -1883,7 +2125,14 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
           name: 'Dükkanım Yanımda',
           applicationCategory: 'BusinessApplication',
           operatingSystem: 'All',
-          offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+          offers: buildSoftwareOffersSchema(),
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: '4.9',
+            reviewCount: '1860',
+            bestRating: '5',
+            worstRating: '1',
+          },
           description: 'Esnaf için online randevu, QR menü, kasa, veresiye defteri ve gün sonu takip sistemi.',
         },
         {
@@ -1906,7 +2155,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
               '@type': s.type,
               name: s.name,
               url: s.url,
-              telephone: s.phone,
+              ...(s.phone ? { telephone: s.phone } : {}),
               address: {
                 '@type': 'PostalAddress',
                 addressLocality: s.cityDistrict,
@@ -1986,6 +2235,294 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
+function filterCityMapShops(origin: string, cityKeywords: string[]): SeoMapShop[] {
+  const normalizeTr = (val: string) =>
+    (val || '')
+      .toLowerCase()
+      .replace(/ı/g, 'i')
+      .replace(/ğ/g, 'g')
+      .replace(/ü/g, 'u')
+      .replace(/ş/g, 's')
+      .replace(/ö/g, 'o')
+      .replace(/ç/g, 'c');
+  const normKeywords = cityKeywords.map(normalizeTr);
+  return getFeaturedMapShops(origin).filter((shop) => {
+    const haystack = normalizeTr(`${shop.cityDistrict} ${shop.city} ${shop.district}`);
+    return normKeywords.some((kw) => haystack.includes(kw));
+  });
+}
+
+function renderLandingContentSsr(content: LandingPageContent, origin: string): string {
+  const isHome = content.key === '/';
+  const isIzmit = content.key === '/izmit-berber-randevu';
+  const isZonguldak = content.key === '/zonguldak-berber-randevu';
+
+  const heroHeadingHtml = isHome
+    ? `<h1 style="font-size:36px;font-weight:900;color:#0f172a;margin:14px 0 12px 0;line-height:1.15;">Defteri Kapat, Dükkânını Cebine Al</h1>
+       <h2 style="font-size:24px;font-weight:900;color:#ea580c;margin:0 0 14px 0;line-height:1.25;">${escapeHtml(content.h1)}</h2>`
+    : `<h1 style="font-size:32px;font-weight:900;color:#0f172a;margin:12px 0 12px 0;line-height:1.2;">${escapeHtml(content.h1)}</h1>`;
+
+  const introHtml = content.introParagraphs
+    .map(
+      (p) =>
+        `<p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 14px 0;">${escapeHtml(p)}</p>`
+    )
+    .join('\n');
+
+  const howItWorksHtml = `
+    <section aria-label="Nasıl Çalışır" style="margin:32px 0;">
+      <h2 style="font-size:22px;font-weight:900;color:#0f172a;margin:0 0 16px 0;">3 Adımda Hızlı Kurulum ve Kullanım</h2>
+      <ol style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));gap:16px;">
+        ${content.howItWorks
+          .map(
+            (step) => `
+          <li style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;">
+            <span style="display:inline-block;font-size:12px;font-weight:900;color:#ffffff;background:#ea580c;padding:3px 10px;border-radius:999px;margin-bottom:10px;">Adım ${escapeHtml(step.step)}</span>
+            <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 8px 0;">${escapeHtml(step.title)}</h3>
+            <p style="font-size:14px;color:#475569;margin:0;line-height:1.6;">${escapeHtml(step.description)}</p>
+          </li>`
+          )
+          .join('')}
+      </ol>
+    </section>`;
+
+  const featureSectionsHtml = content.featureSections
+    .map(
+      (sec) => `
+    <section style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:22px;margin-bottom:18px;">
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 12px 0;">${escapeHtml(sec.heading)}</h2>
+      ${sec.paragraphs
+        .map(
+          (p) =>
+            `<p style="font-size:14px;color:#475569;line-height:1.7;margin:0 0 10px 0;">${escapeHtml(p)}</p>`
+        )
+        .join('')}
+      ${
+        sec.bullets && sec.bullets.length > 0
+          ? `<ul style="margin:10px 0 0 0;padding-left:20px;color:#334155;font-size:14px;line-height:1.7;">
+              ${sec.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}
+            </ul>`
+          : ''
+      }
+    </section>`
+    )
+    .join('\n');
+
+  const comparisonHtml =
+    content.comparisonPoints && content.comparisonPoints.length > 0
+      ? `
+    <section aria-label="Karşılaştırma" style="margin:32px 0;">
+      <h2 style="font-size:22px;font-weight:900;color:#0f172a;margin:0 0 14px 0;">Klasik Yöntem vs. Dükkânım Yanımda</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;">
+        ${content.comparisonPoints
+          .map(
+            (cp) => `
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;">
+            <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 8px 0;">${escapeHtml(cp.title)}</h3>
+            <p style="font-size:13px;color:#991b1b;margin:0 0 6px 0;"><strong>Eski Yöntem:</strong> ${escapeHtml(cp.oldWay)}</p>
+            <p style="font-size:13px;color:#166534;margin:0;"><strong>Dijital Çözüm:</strong> ${escapeHtml(cp.newWay)}</p>
+          </div>`
+          )
+          .join('')}
+      </div>
+    </section>`
+      : '';
+
+  let citySectionHtml = '';
+  if (content.cityDetails) {
+    const cd = content.cityDetails;
+    const cityKeywords = isIzmit
+      ? ['izmit', 'kocaeli', 'gebze', 'körfez', 'gölcük', 'kartepe', 'darıca', 'başiskele', 'derince']
+      : ['zonguldak', 'ereğli', 'kozlu', 'çaycuma', 'devrek', 'kilimli', 'alaplı', 'gökçebey'];
+    const localShops = filterCityMapShops(origin, cityKeywords);
+    const contractTitle = isIzmit
+      ? 'İzmit ve Kocaeli Berber Randevu Sistemi — İlçe ve Mahalle Kapsamı'
+      : isZonguldak
+      ? 'Zonguldak ve Karadeniz Ereğli Berber Randevu — İlçe ve Mahalle Kapsamı'
+      : `${cd.city} (${cd.region}) Yerel Berber Kapsamı`;
+
+    citySectionHtml = `
+    <section aria-label="${escapeHtml(cd.city)} Yerel Hizmet Bölgesi" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:24px;margin:28px 0;">
+      <h2 style="font-size:21px;font-weight:900;color:#9a3412;margin:0 0 12px 0;">${escapeHtml(contractTitle)}</h2>
+      <p style="font-size:14px;color:#7c2d12;margin:0 0 14px 0;">
+        <strong>Aktif Kayıtlı Açık Salon Sayısı:</strong> ${localShops.length} işletme · <strong>Bölge:</strong> ${escapeHtml(cd.region)}
+      </p>
+      ${
+        localShops.length > 0
+          ? `<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px;margin-bottom:16px;">
+              ${localShops
+                .slice(0, 6)
+                .map(
+                  (ls) => `
+                <a href="${escapeHtml(ls.url)}" style="background:#ffffff;border:1px solid #fed7aa;border-radius:10px;padding:12px;text-decoration:none;display:block;">
+                  <strong style="color:#0f172a;font-size:14px;display:block;">${escapeHtml(ls.name)}</strong>
+                  <span style="color:#64748b;font-size:12px;">📍 ${escapeHtml(ls.cityDistrict)} · ${escapeHtml(ls.sectorName)}</span>
+                </a>`
+                )
+                .join('')}
+            </div>`
+          : ''
+      }
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-bottom:16px;">
+        <div style="background:#ffffff;border-radius:12px;padding:14px;border:1px solid #fed7aa;">
+          <h3 style="font-size:15px;font-weight:800;color:#0f172a;margin:0 0 8px 0;">Kapsanan İlçeler</h3>
+          <p style="font-size:13px;color:#475569;margin:0;">${escapeHtml(cd.districts.join(', '))}</p>
+        </div>
+        <div style="background:#ffffff;border-radius:12px;padding:14px;border:1px solid #fed7aa;">
+          <h3 style="font-size:15px;font-weight:800;color:#0f172a;margin:0 0 8px 0;">Öne Çıkan Semt ve Caddeler</h3>
+          <p style="font-size:13px;color:#475569;margin:0;">${escapeHtml(cd.neighborhoods.join(', '))}</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px;margin-bottom:16px;">
+        ${cd.localStats
+          .map(
+            (st) => `
+          <div style="background:#ffffff;border-radius:10px;padding:12px;text-align:center;border:1px solid #fed7aa;">
+            <strong style="display:block;font-size:17px;color:#ea580c;">${escapeHtml(st.value)}</strong>
+            <span style="font-size:12px;color:#475569;">${escapeHtml(st.label)}</span>
+          </div>`
+          )
+          .join('')}
+      </div>
+      <div style="background:#ffffff;border-radius:12px;padding:16px;border:1px solid #fed7aa;">
+        <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">${escapeHtml(cd.caseStudyTitle)}</h3>
+        <p style="font-size:14px;color:#475569;margin:0;line-height:1.6;">${escapeHtml(cd.caseStudySummary)}</p>
+      </div>
+    </section>`;
+  }
+
+  const homeExtraHtml = isHome
+    ? (() => {
+        const activeShops = getFeaturedMapShops(origin);
+        return `
+      <section style="margin:36px 0;">
+        <h2 style="font-size:22px;font-weight:900;color:#0f172a;margin-bottom:16px;text-align:center;">Sektörünüze Özel Dijital Çözümler</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:14px;">
+          <a href="/berber" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;display:block;">
+            <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Berber &amp; Kuaför</h3>
+            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Koltuk sırası, online randevu takvimi ve usta primleri tek ekranda.</p>
+          </a>
+          <a href="/kuafor" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;display:block;">
+            <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Kuaför Salonu</h3>
+            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">İşlem bazlı süre planlaması, boya/kesim takvimi ve personel primleri.</p>
+          </a>
+          <a href="/guzellik-salonu" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;display:block;">
+            <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Güzellik Salonu</h3>
+            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Lazer epilasyon paketleri, seans sayacı ve estetisyen kabin planı.</p>
+          </a>
+          <a href="/veresiye-defteri" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;display:block;">
+            <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Veresiye Defteri</h3>
+            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Açılış bakiyesiyle hızlı geçiş, Tahsilat Turu ve WhatsApp hatırlatma.</p>
+          </a>
+          <a href="/kasa-programi" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;display:block;">
+            <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Kasa &amp; Gün Sonu</h3>
+            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Nakit, POS, havale ve gider takibi; 30 saniyede gün sonu kapanışı.</p>
+          </a>
+          <a href="/qr-menu" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;display:block;">
+            <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">QR Menü &amp; Kafe POS</h3>
+            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Canlı masa takibi, temassız karekod QR menü ve garson çağırma.</p>
+          </a>
+        </div>
+      </section>
+
+      <section style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;margin-bottom:32px;">
+        <h2 style="font-size:20px;font-weight:900;color:#0f172a;margin:0 0 10px 0;">Türkiye Esnaf İletişim Ağı &amp; Canlı Esnaf Haritası</h2>
+        <p style="font-size:14px;color:#64748b;margin:0 0 14px 0;">Türkiye genelinde aktif ${activeShops.length} açık işletme Dükkânım Yanımda ile çalışıyor.</p>
+        ${
+          activeShops.length > 0
+            ? `<ul style="list-style:none;padding:0;margin:0 0 16px 0;display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px;">
+                ${activeShops
+                  .slice(0, 6)
+                  .map(
+                    (s) => `
+                  <li style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                    <a href="${escapeHtml(s.url)}" style="font-weight:800;color:#0f172a;text-decoration:none;display:block;">${escapeHtml(s.name)}</a>
+                    <span style="font-size:12px;color:#64748b;">${escapeHtml(s.sectorName)} · ${escapeHtml(s.cityDistrict)}</span>
+                  </li>`
+                  )
+                  .join('')}
+              </ul>`
+            : ''
+        }
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <a href="/berber" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Berber &amp; Kuaför Sistemi →</a>
+          <a href="/kafe-restoran" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Kafe &amp; Restoran Adisyon →</a>
+          <a href="/bakkal-market" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Bakkal &amp; Market POS →</a>
+          <a href="/blog" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Esnaf Blogu (12 Rehber) →</a>
+        </div>
+      </section>`;
+      })()
+    : '';
+
+  const testimonialsHtml =
+    content.testimonials && content.testimonials.length > 0
+      ? `
+    <section aria-label="Esnaf Yorumları ve Kullanıcı Deneyimleri" style="margin-top:32px;padding-top:24px;border-top:1px solid #e2e8f0;">
+      <h2 style="font-size:22px;font-weight:900;color:#0f172a;margin:0 0 14px 0;">Esnaf Yorumları ve Kullanıcı Deneyimleri</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;">
+        ${content.testimonials
+          .map(
+            (t) => `
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">
+            <p style="font-size:13px;color:#ea580c;font-weight:800;margin:0 0 6px 0;">★★★★★ ${escapeHtml(t.rating)} · ${escapeHtml(t.shopAndCity)}</p>
+            <p style="font-size:13px;color:#475569;margin:0 0 8px 0;line-height:1.5;">“${escapeHtml(t.quote)}”</p>
+            <strong style="font-size:12px;color:#0f172a;">${escapeHtml(t.name)}</strong>
+          </div>`
+          )
+          .join('')}
+      </div>
+    </section>`
+      : '';
+
+  const relatedLinksHtml =
+    content.relatedLinks && content.relatedLinks.length > 0
+      ? `
+    <nav aria-label="İlgili Ürün ve Rehber Sayfaları" style="margin-top:32px;padding-top:24px;border-top:1px solid #e2e8f0;">
+      <h2 style="font-size:20px;font-weight:900;color:#0f172a;margin:0 0 14px 0;">İlgili Çözümler ve Rehberler</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;">
+        ${content.relatedLinks
+          .map(
+            (rl) => `
+          <a href="${escapeHtml(rl.href)}" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;text-decoration:none;display:block;">
+            <strong style="font-size:14px;color:#ea580c;display:block;margin-bottom:4px;">${escapeHtml(rl.label)} →</strong>
+            <span style="font-size:13px;color:#475569;line-height:1.45;">${escapeHtml(rl.description)}</span>
+          </a>`
+          )
+          .join('')}
+      </div>
+    </nav>`
+      : '';
+
+  return `
+  <article style="max-width:960px;margin:0 auto;">
+    <div style="margin-bottom:28px;">
+      <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 12px;border-radius:999px;border:1px solid #fed7aa;">${escapeHtml(content.badge)}</span>
+      ${heroHeadingHtml}
+      <p style="font-size:16px;color:#475569;line-height:1.65;margin:0 0 20px 0;">${escapeHtml(content.subtitle)}</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
+        <a href="/kayit" style="background:#ea580c;color:#ffffff;font-size:15px;font-weight:800;padding:12px 26px;border-radius:10px;text-decoration:none;">2 Dakikada Ücretsiz Başla</a>
+        <a href="/fiyat" style="background:#f1f5f9;color:#0f172a;font-size:15px;font-weight:700;padding:12px 22px;border-radius:10px;text-decoration:none;border:1px solid #cbd5e1;">Paketleri İncele</a>
+      </div>
+      <div>${introHtml}</div>
+    </div>
+
+    ${howItWorksHtml}
+    ${citySectionHtml}
+    ${featureSectionsHtml}
+    ${comparisonHtml}
+    ${homeExtraHtml}
+
+    <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin:28px 0;">
+      <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Dükkânınızı Bugün Dijitale Taşıyın</h2>
+      <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">Kredi kartı gerekmez, komisyon %0. Çırak paketiyle hemen ücretsiz başlayın.</p>
+      <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Ücretsiz Hesap Oluştur</a>
+    </div>
+
+    ${testimonialsHtml}
+    ${relatedLinksHtml}
+  </article>`;
+}
+
 /**
  * Arama motorları (Googlebot vb.) ve JavaScript kapalı istemciler için rotaya özel
  * zengin, semantik SSR HTML gövdesi üretir (<div id="root"> içine enjekte edilir).
@@ -2010,9 +2547,12 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
         <a href="/kuafor" style="color:#cbd5e1;text-decoration:none;">Kuaför Salonu</a>
         <a href="/randevu-sistemi" style="color:#cbd5e1;text-decoration:none;">Online Randevu</a>
         <a href="/guzellik-salonu" style="color:#cbd5e1;text-decoration:none;">Güzellik Salonu</a>
-        <a href="/kafe-restoran" style="color:#cbd5e1;text-decoration:none;">Kafe &amp; QR Menü</a>
+        <a href="/veresiye-defteri" style="color:#cbd5e1;text-decoration:none;">Veresiye Defteri</a>
+        <a href="/kasa-programi" style="color:#cbd5e1;text-decoration:none;">Kasa Programı</a>
+        <a href="/qr-menu" style="color:#cbd5e1;text-decoration:none;">QR Menü</a>
+        <a href="/kafe-restoran" style="color:#cbd5e1;text-decoration:none;">Kafe &amp; Adisyon</a>
         <a href="/bakkal-market" style="color:#cbd5e1;text-decoration:none;">Bakkal &amp; POS</a>
-        <a href="/teknik-servis" style="color:#cbd5e1;text-decoration:none;">Teknik Servis</a>
+        <a href="/blog" style="color:#cbd5e1;text-decoration:none;">Blog</a>
         <a href="/rehber" style="color:#cbd5e1;text-decoration:none;">Esnaf Rehberi</a>
         <a href="/fiyat" style="color:#cbd5e1;text-decoration:none;">Fiyatlar</a>
         <a href="/kayit" style="background:#f97316;color:#ffffff;padding:6px 14px;border-radius:8px;text-decoration:none;">Ücretsiz Kayıt</a>
@@ -2062,11 +2602,19 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
         <a href="/berber" style="color:#cbd5e1;text-decoration:none;">Berber Randevu</a>
         <a href="/kuafor" style="color:#cbd5e1;text-decoration:none;">Kuaför Salonu</a>
         <a href="/randevu-sistemi" style="color:#cbd5e1;text-decoration:none;">Online Randevu</a>
+        <a href="/guzellik-salonu" style="color:#cbd5e1;text-decoration:none;">Güzellik Salonu</a>
+        <a href="/veresiye-defteri" style="color:#cbd5e1;text-decoration:none;">Veresiye Defteri</a>
+        <a href="/kasa-programi" style="color:#cbd5e1;text-decoration:none;">Kasa Programı</a>
+        <a href="/gun-sonu-raporu" style="color:#cbd5e1;text-decoration:none;">Gün Sonu Raporu</a>
+        <a href="/qr-menu" style="color:#cbd5e1;text-decoration:none;">QR Menü</a>
         <a href="/kafe-restoran" style="color:#cbd5e1;text-decoration:none;">Kafe &amp; Restoran</a>
         <a href="/bakkal-market" style="color:#cbd5e1;text-decoration:none;">Bakkal &amp; Market</a>
+        <a href="/izmit-berber-randevu" style="color:#cbd5e1;text-decoration:none;">İzmit Berber Randevu</a>
+        <a href="/zonguldak-berber-randevu" style="color:#cbd5e1;text-decoration:none;">Zonguldak Berber Randevu</a>
         <a href="/teknik-servis" style="color:#cbd5e1;text-decoration:none;">Teknik Servis</a>
         <a href="/hukuk" style="color:#cbd5e1;text-decoration:none;">Hukuk Bürosu</a>
         <a href="/terzi" style="color:#cbd5e1;text-decoration:none;">Terzi &amp; Kuru Temizleme</a>
+        <a href="/blog" style="color:#cbd5e1;text-decoration:none;">Blog</a>
         <a href="/rehber" style="color:#cbd5e1;text-decoration:none;">Esnaf Rehberi</a>
         <a href="/fiyat" style="color:#cbd5e1;text-decoration:none;">Fiyatlar</a>
         <a href="/iletisim" style="color:#cbd5e1;text-decoration:none;">İletişim</a>
@@ -2085,7 +2633,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
     if (shop) {
       const shopLogo = shop.logoUrl
         ? (shop.logoUrl.startsWith('http') ? shop.logoUrl : `${origin}${shop.logoUrl}`)
-        : `${origin}/brand/phone_mockup_retina.png`;
+        : `${origin}/og/randevu-sistemi.png`;
 
       const shopReviewsHtml = (shop.reviews && shop.reviews.length > 0)
         ? `
@@ -2112,7 +2660,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
           <div style="flex:1;min-width:240px;">
             <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 10px;border-radius:6px;border:1px solid #fed7aa;">Canlı Randevu Açık</span>
             <h1 style="font-size:28px;font-weight:900;color:#0f172a;margin:8px 0 6px 0;">${escapeHtml(shop.name)} — Online Randevu Al</h1>
-            <p style="font-size:14px;color:#64748b;margin:0;">📍 ${escapeHtml(shop.cityDistrict || 'Türkiye')} &nbsp;·&nbsp; 📞 ${escapeHtml(shop.phone || '0555 000 0000')} &nbsp;·&nbsp; 🕒 ${escapeHtml(shop.openingTime || '09:00')} - ${escapeHtml(shop.closingTime || '21:00')}</p>
+            <p style="font-size:14px;color:#64748b;margin:0;">📍 ${escapeHtml(shop.cityDistrict || 'Türkiye')}${shop.phone ? ` &nbsp;·&nbsp; 📞 ${escapeHtml(shop.phone)}` : ''} &nbsp;·&nbsp; 🕒 ${escapeHtml(shop.openingTime || '09:00')} - ${escapeHtml(shop.closingTime || '21:00')}</p>
           </div>
         </div>
 
@@ -2141,6 +2689,13 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
           <a href="${barberPath.isCleanFormat ? `/${escapeHtml(shop.slug)}/randevu` : `/r/${escapeHtml(shop.slug)}`}" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;box-shadow:0 4px 12px rgba(234,88,12,0.25);">Randevu Saatini Seç</a>
         </div>
       </article>`;
+    } else {
+      mainBodyContent = `
+      <article style="max-width:760px;margin:0 auto;text-align:center;">
+        <h1 style="font-size:28px;font-weight:900;color:#0f172a;margin:0 0 12px 0;">İşletme Randevu Sayfası Bulunamadı</h1>
+        <p style="font-size:15px;color:#475569;margin:0 0 20px 0;">Aradığınız işletme bağlantısı geçersiz olabilir veya aktif olmayabilir.</p>
+        <a href="/randevu-sistemi" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;">Online Randevu Sistemini İncele</a>
+      </article>`;
     }
   }
 
@@ -2151,7 +2706,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
     if (shop) {
       const shopLogo = shop.logoUrl
         ? (shop.logoUrl.startsWith('http') ? shop.logoUrl : `${origin}${shop.logoUrl}`)
-        : `${origin}/brand/phone_mockup_retina.png`;
+        : `${origin}/og/qr-menu.png`;
 
       // Kategorilere göre grupla
       const categoriesMap = new Map<string, typeof shop.menuItems>();
@@ -2168,7 +2723,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
           <div style="flex:1;min-width:240px;">
             <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 10px;border-radius:6px;border:1px solid #fed7aa;">Canlı QR Menü &amp; Garson Çağırma</span>
             <h1 style="font-size:28px;font-weight:900;color:#0f172a;margin:8px 0 6px 0;">${escapeHtml(shop.name)} — Dijital Menü &amp; Fiyat Listesi</h1>
-            <p style="font-size:14px;color:#64748b;margin:0;">📍 ${escapeHtml(shop.cityDistrict || 'Türkiye')} &nbsp;·&nbsp; 📞 ${escapeHtml(shop.phone || 'İletişim')} &nbsp;·&nbsp; 🕒 ${escapeHtml(shop.openingTime || '09:00')} - ${escapeHtml(shop.closingTime || '22:00')}</p>
+            <p style="font-size:14px;color:#64748b;margin:0;">📍 ${escapeHtml(shop.cityDistrict || 'Türkiye')}${shop.phone ? ` &nbsp;·&nbsp; 📞 ${escapeHtml(shop.phone)}` : ''} &nbsp;·&nbsp; 🕒 ${escapeHtml(shop.openingTime || '09:00')} - ${escapeHtml(shop.closingTime || '22:00')}</p>
           </div>
         </div>
 
@@ -2200,289 +2755,148 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
           <a href="/m/${escapeHtml(shop.slug)}" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;box-shadow:0 4px 12px rgba(234,88,12,0.25);">Dijital Menüyü Aç</a>
         </div>
       </article>`;
+    } else {
+      mainBodyContent = `
+      <article style="max-width:760px;margin:0 auto;text-align:center;">
+        <h1 style="font-size:28px;font-weight:900;color:#0f172a;margin:0 0 12px 0;">Dijital QR Menü Bulunamadı</h1>
+        <p style="font-size:15px;color:#475569;margin:0 0 20px 0;">Aradığınız restoran veya kafe menü bağlantısı aktif değil.</p>
+        <a href="/qr-menu" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;">Ücretsiz QR Menü Sistemini Gör</a>
+      </article>`;
     }
   }
 
-  // 3. Berber Sayfası
-  else if (clean === '/berber' || clean === '/berber-randevu-programi') {
+  // 2.5. Esnaf Blogu (/blog)
+  else if (clean === '/blog') {
+    const categories = Array.from(new Set(BLOG_ARTICLES.map((a) => a.category)));
     mainBodyContent = `
     <article style="max-width:960px;margin:0 auto;">
-      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">Berber Randevu &amp; Koltuk Yönetim Sistemi</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Koltuk sırası, online randevu takvimi, usta ve kalfa prim hesabı, anlık kasa takibi tek ekranda. Kağıt defteri tarihe gömün; dükkanınızı cebinizden yönetin.</p>
+      <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 12px;border-radius:999px;border:1px solid #fed7aa;">Esnaf Blogu · Pratik İşletme Rehberleri</span>
+      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin:12px 0 12px 0;line-height:1.2;">Esnaf Blogu — Veresiye, Randevu, Kasa ve QR Menü Rehberleri</h1>
+      <p style="font-size:16px;color:#475569;line-height:1.65;margin:0 0 22px 0;">Berberden kafeye, bakkaldan güzellik salonuna Türkiye esnafı için sahadan denenmiş kasa kapatma, dijital veresiye, online randevu ve vergi takvimi rehberleri.</p>
 
-      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Koltuk Sırası &amp; Randevu Takvimi</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Günün randevuları, bekleyen müşteriler ve koltuktaki işlemler tek ekranda; no-show yüzünden koltuklar boş kalmaz.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Usta ve Kalfa Prim Dağılımı</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Hangi koltuk ne kazandırdı, usta ve çırak primleri kuruşu kuruşuna akşam tek tıkla hesaplanır.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">WhatsApp Randevu Hatırlatma</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Randevu saati öncesi müşteriye tek dokunuşla otomatik WhatsApp hatırlatması gönderilir.</p>
-        </div>
-      </section>
-
-      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
-        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Berber Dükkanınızı 2 Dakikada Kurun</h2>
-        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">Kredi kartı gerekmez. Hemen ücretsiz kayıt olun, dükkanınızı cebinize alın.</p>
-        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Ücretsiz Başla</a>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;">
+        ${categories
+          .map(
+            (cat) =>
+              `<span style="background:#ffffff;border:1px solid #e2e8f0;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;color:#334155;">${escapeHtml(cat)}</span>`
+          )
+          .join('')}
       </div>
-    </article>`;
-  }
 
-  // 4. Kuaför Salonu Sayfası
-  else if (clean === '/kuafor' || clean === '/kuafor-randevu' || clean === '/kadin-kuafor') {
-    mainBodyContent = `
-    <article style="max-width:960px;margin:0 auto;">
-      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">Kuaför Randevu ve Salon Takip Programı</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Kadın ve erkek kuaför salonları için saç renklendirme, kesim, bakım randevuları, personel primleri ve randevu çakışma önleme sistemi.</p>
-
-      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">İşlem Süresi Bazlı Akıllı Takvim</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Boya, röfle, fön ve saç kesimi gibi farklı sürelerdeki işlemler için çakışmasız randevu planlaması.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Gelin Başı &amp; Özel Gün Rezervasyonları</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Aylar öncesinden özel gün blokajları, kapora ve kalan bakiye takibi tek kartta tutulur.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Personel Hakediş &amp; Koltuk Cirosu</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Hangi uzmanın ne kadar ciro getirdiği ve prim hak edişleri akşam tek tıkla önünüzde.</p>
-        </div>
-      </section>
-
-      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
-        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Kuaför Salonunuzu Hemen Dijitale Taşıyın</h2>
-        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">Online müşteri randevu linkiniz 2 dakikada hazır. Kredi kartı istemeyiz.</p>
-        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Kuaför Panelini Başlat</a>
-      </div>
-    </article>`;
-  }
-
-  // 4.1. İzmit & Kocaeli Yerel Berber Sayfası SSR
-  else if (clean === '/izmit-berber-randevu' || clean === '/izmit-berber' || clean === '/kocaeli-berber' || clean === '/kocaeli-berber-randevu') {
-    mainBodyContent = `
-    <article style="max-width:960px;margin:0 auto;">
-      <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 10px;border-radius:6px;border:1px solid #fed7aa;">İzmit &amp; Kocaeli Yerel Randevu</span>
-      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin:12px 0 12px 0;line-height:1.2;">İzmit ve Kocaeli Berber Randevu Sistemi — Sıra Beklemeden Online Randevu Al</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.65;margin-bottom:24px;">İzmit Fethiye Caddesi, Yürüyüş Yolu, Yahya Kaptan, Bekirdere ve Gebze bölgesindeki berber salonlarında sıra beklemeden usta, hizmet ve müsait saatinizi 15 saniyede seçin. Telefon araması yapmadan anında onaylı randevu alın.</p>
-
-      <section style="margin-bottom:32px;">
-        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:14px;">İzmit &amp; Kocaeli Salonları İçin Dijital Randevu Altyapısı</h2>
+      <section aria-label="Blog Makaleleri">
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
-          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">7/24 Online Takvim</span>
-            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">İzmit Merkez &amp; Çarşı Salonları</h3>
-            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 İzmit, Kocaeli · Sıfır Komisyon</p>
-            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Saç kesimi, sakal tasarımı, cilt bakımı ve koltuk prim takibi için dükkanınıza özel web linki alın.</p>
-            <a href="/kayit" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Salonunu Ücretsiz Kur</a>
-          </div>
-          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Otomatik Hatırlatma</span>
-            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Gebze &amp; Körfez Kuaförleri</h3>
-            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Gebze, Kocaeli · WhatsApp Teyitli</p>
-            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Modern saç kesimi, çoklu usta randevuları ve kasa/prim yönetimi tek panelde.</p>
-            <a href="/kayit" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Hemen Başla</a>
-          </div>
+          ${BLOG_ARTICLES.map(
+            (art) => `
+            <a href="/blog/${escapeHtml(art.slug)}" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;">
+              <div>
+                <img src="${escapeHtml(art.ogImage)}" alt="${escapeHtml(art.title)}" width="400" height="210" style="width:100%;height:auto;border-radius:10px;margin-bottom:12px;object-fit:cover;" />
+                <span style="font-size:11px;font-weight:800;color:#ea580c;text-transform:uppercase;">${escapeHtml(art.category)} · ${escapeHtml(art.readTime)}</span>
+                <h2 style="font-size:17px;font-weight:800;color:#0f172a;margin:6px 0 8px 0;line-height:1.35;">${escapeHtml(art.title)}</h2>
+                <p style="font-size:13px;color:#475569;margin:0 0 12px 0;line-height:1.55;">${escapeHtml(art.description)}</p>
+              </div>
+              <div style="font-size:12px;color:#64748b;border-top:1px solid #f1f5f9;padding-top:10px;display:flex;justify-content:space-between;">
+                <span>${escapeHtml(art.author)}</span>
+                <span>${escapeHtml(art.updatedAt)}</span>
+              </div>
+            </a>`
+          ).join('')}
         </div>
       </section>
-
-      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">İzmit Berber Randevusu Neden Çok Kolay?</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Telefonla arayıp 'müsait misin usta' diye sormaya son. Canlı takvimde boş saatleri görün, ustanızı seçip saniyeler içinde randevu oluşturun.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Kocaeli Esnafı İçin %0 Komisyon</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Pazaryeri komisyonu kesilmez. Kocaeli berberleri kendi markaları ve kendi linkleriyle online randevu toplayıp müşterilerini korur.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">WhatsApp Otomatik Hatırlatma</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Randevudan önce nazik WhatsApp hatırlatması gönderilir; müşteriniz randevusunu unutmaz, koltuklar asla boş kalmaz.</p>
-        </div>
-      </section>
-
-      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
-        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">İzmit veya Kocaeli'de Berber misiniz?</h2>
-        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">2 dakikada salonunuzu ekleyin, komisyonsuz online randevu almaya hemen bugün başlayın.</p>
-        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Ücretsiz Salonunu Ekle</a>
-      </div>
     </article>`;
   }
 
-  // 4.2. Zonguldak & Kdz. Ereğli Yerel Berber Sayfası SSR
-  else if (clean === '/zonguldak-berber-randevu' || clean === '/zonguldak-berber' || clean === '/eregli-berber' || clean === '/kdz-eregli-berber') {
-    mainBodyContent = `
-    <article style="max-width:960px;margin:0 auto;">
-      <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 10px;border-radius:6px;border:1px solid #fed7aa;">Zonguldak &amp; Kdz. Ereğli Yerel Randevu</span>
-      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin:12px 0 12px 0;line-height:1.2;">Zonguldak ve Karadeniz Ereğli Berber Randevu Sistemi</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.65;margin-bottom:24px;">Zonguldak Gazipaşa Caddesi, Soğuksu, Kozlu ve Kdz. Ereğli sahil bölgesindeki berber ve kuaförlerde sıra beklemeden 7/24 online randevu alma kolaylığı. Tek tuşla usta seçin, randevunuzu oluşturun.</p>
+  // 2.6. Esnaf Blog Makalesi (/blog/:slug)
+  else if (clean.startsWith('/blog/')) {
+    const article = findBlogArticle(clean);
+    if (article) {
+      const relatedArticles = BLOG_ARTICLES.filter((a) => article.relatedSlugs.includes(a.slug));
+      mainBodyContent = `
+      <article style="max-width:860px;margin:0 auto;">
+        <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 12px;border-radius:999px;border:1px solid #fed7aa;">${escapeHtml(article.category)} · ${escapeHtml(article.readTime)}</span>
+        <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin:12px 0 10px 0;line-height:1.2;">${escapeHtml(article.h1)}</h1>
+        <p style="font-size:13px;color:#64748b;margin:0 0 20px 0;">
+          Yazar: <strong>${escapeHtml(article.author)}</strong> (${escapeHtml(article.authorRole)}) · Yayın: ${escapeHtml(article.publishedAt)} · Güncelleme: ${escapeHtml(article.updatedAt)}
+        </p>
+        <img src="${escapeHtml(article.ogImage)}" alt="${escapeHtml(article.h1)}" width="860" height="450" style="width:100%;height:auto;border-radius:16px;margin-bottom:22px;border:1px solid #e2e8f0;" />
+        <p style="font-size:16px;color:#334155;line-height:1.7;margin:0 0 24px 0;">${escapeHtml(article.lead)}</p>
 
-      <section style="margin-bottom:32px;">
-        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:14px;">Zonguldak &amp; Ereğli Salonları İçin Dijital Randevu Altyapısı</h2>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
-          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">7/24 Online Takvim</span>
-            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Zonguldak Merkez &amp; Gazipaşa Salonları</h3>
-            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Merkez, Zonguldak · Sıfır Komisyon</p>
-            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Klasik ve modern saç kesimi, sakal tıraşı ve randevulu koltuk yönetimi için kendi sayfanızı kurun.</p>
-            <a href="/kayit" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Salonunu Ücretsiz Kur</a>
-          </div>
-          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-            <span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:6px;">Otomatik Hatırlatma</span>
-            <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:8px 0 4px 0;">Kdz. Ereğli Sahil Kuaförleri</h3>
-            <p style="font-size:13px;color:#64748b;margin:0 0 12px 0;">📍 Karadeniz Ereğli, Zonguldak · WhatsApp Teyitli</p>
-            <p style="font-size:13px;color:#334155;margin:0 0 14px 0;">Erkek ve kadın kuaför hizmetleri, randevu hatırlatma ve kasa takibi tek panelde.</p>
-            <a href="/kayit" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;">Hemen Başla</a>
-          </div>
-        </div>
-      </section>
+        ${
+          article.keyTakeaways && article.keyTakeaways.length > 0
+            ? `<section aria-label="Öne Çıkanlar" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:20px;margin-bottom:24px;">
+                <h2 style="font-size:18px;font-weight:900;color:#9a3412;margin:0 0 10px 0;">Yazıdan Öne Çıkanlar</h2>
+                <ul style="margin:0;padding-left:20px;color:#7c2d12;font-size:14px;line-height:1.7;">
+                  ${article.keyTakeaways.map((kt) => `<li>${escapeHtml(kt)}</li>`).join('')}
+                </ul>
+              </section>`
+            : ''
+        }
 
-      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Zonguldak Berber Randevusu Kolaylığı</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Telefonla arayıp randevu kovalamaya son! Dilediğiniz saat dilimini seçin, bekleme derdi olmadan koltuğunuza oturun.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Kdz. Ereğli Kuaför ve Berber Koltuk Yönetimi</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Ereğli esnafı için randevu takvimi, çırak/usta prim dağılımı ve günlük kasa defteri tek ekranda toplanır.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">%0 Komisyon &amp; Yerel Destek</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Zonguldak esnafının kazancından komisyon kesilmez. Her randevu doğrudan kasanıza artı olarak yansır.</p>
-        </div>
-      </section>
+        ${article.sections
+          .map(
+            (sec) => `
+          <section style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:22px;margin-bottom:18px;">
+            <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 12px 0;">${escapeHtml(sec.heading)}</h2>
+            ${sec.paragraphs
+              .map(
+                (p) =>
+                  `<p style="font-size:15px;color:#475569;line-height:1.7;margin:0 0 12px 0;">${escapeHtml(p)}</p>`
+              )
+              .join('')}
+            ${
+              sec.bullets && sec.bullets.length > 0
+                ? `<ul style="margin:10px 0 0 0;padding-left:20px;color:#334155;font-size:14px;line-height:1.7;">
+                    ${sec.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}
+                  </ul>`
+                : ''
+            }
+            ${
+              sec.tip
+                ? `<p style="margin:14px 0 0 0;padding:12px 14px;background:#f8fafc;border-left:4px solid #ea580c;border-radius:6px;font-size:13px;color:#334155;"><strong>Esnaf İpucu:</strong> ${escapeHtml(sec.tip)}</p>`
+                : ''
+            }
+          </section>`
+          )
+          .join('')}
 
-      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
-        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Zonguldak veya Ereğli'de Salon Sahibi misiniz?</h2>
-        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">Salonunuzu hemen sisteme ekleyin, müşterileriniz online randevu almaya başlasın.</p>
-        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Ücretsiz Kaydol</a>
-      </div>
-    </article>`;
+        <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:26px;text-align:center;margin:28px 0;">
+          <h2 style="font-size:21px;font-weight:900;margin:0 0 8px 0;">Dükkânım Yanımda ile Hemen Uygulamaya Geçin</h2>
+          <p style="font-size:14px;color:#94a3b8;margin:0 0 16px 0;">Kurulum yok, komisyon %0. Çırak paketiyle 2 dakikada ücretsiz başlayın.</p>
+          <a href="${escapeHtml(article.relatedProductHref)}" style="display:inline-block;background:#f97316;color:#ffffff;font-size:14px;font-weight:800;padding:12px 26px;border-radius:10px;text-decoration:none;">${escapeHtml(article.relatedProductLabel)} →</a>
+        </div>
+
+        ${
+          relatedArticles.length > 0
+            ? `<section aria-label="İlgili Blog Yazıları" style="margin-top:28px;">
+                <h2 style="font-size:19px;font-weight:900;color:#0f172a;margin:0 0 12px 0;">İlgili Esnaf Rehberleri</h2>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;">
+                  ${relatedArticles
+                    .map(
+                      (ra) => `
+                    <a href="/blog/${escapeHtml(ra.slug)}" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;text-decoration:none;display:block;">
+                      <span style="font-size:11px;font-weight:800;color:#ea580c;">${escapeHtml(ra.category)} · ${escapeHtml(ra.readTime)}</span>
+                      <strong style="display:block;font-size:14px;color:#0f172a;margin-top:4px;">${escapeHtml(ra.title)}</strong>
+                    </a>`
+                    )
+                    .join('')}
+                </div>
+              </section>`
+            : ''
+        }
+      </article>`;
+    } else {
+      mainBodyContent = `
+      <article style="max-width:760px;margin:0 auto;text-align:center;">
+        <h1 style="font-size:28px;font-weight:900;color:#0f172a;margin:0 0 12px 0;">Blog Yazısı Bulunamadı</h1>
+        <p style="font-size:15px;color:#475569;margin:0 0 20px 0;">Aradığınız makale adresi değişmiş olabilir. Tüm güncel esnaf rehberlerini incelemek için blog ana sayfasına dönebilirsiniz.</p>
+        <a href="/blog" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;">Tüm Blog Yazılarını Gör</a>
+      </article>`;
+    }
   }
 
-  // 5. Online Randevu Sistemi Genel Sayfası
-  else if (clean === '/randevu-sistemi' || clean === '/online-randevu') {
-    mainBodyContent = `
-    <article style="max-width:960px;margin:0 auto;">
-      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">7/24 Canlı Online Randevu ve Rezervasyon Sistemi</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">İşletmenize özel web linkiyle müşterileriniz sıra beklemeden usta, hizmet ve müsait saat seçer. Randevular panelinize anında düşer, koltuklar asla boş kalmaz.</p>
-
-      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Kişiselleştirilmiş Randevu Linki</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">dukkanimyanimda.com.tr/r/dukkan-adiniz linkini Instagram veya WhatsApp bio'nuza ekleyin, 7/24 randevu kabul edin.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Sıfır No-Show (Gelmeyen Müşteri)</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Otomatik WhatsApp teyit ve saat öncesi nazik hatırlatmalar ile randevu fire oranı sıfıra yaklaşır.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Kurulumsuz &amp; Mobil Uyumlu</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Müşteri hiçbir uygulama indirmeden tarayıcıdan randevu alır; işletme sahibi tek elle cepten onaylar.</p>
-        </div>
-      </section>
-
-      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
-        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Kendi Randevu Linkinizi Hemen Alın</h2>
-        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">2 dakikada ücretsiz kurun, müşterileriniz online randevu almaya başlasın.</p>
-        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Ücretsiz Randevu Linkini Oluştur</a>
-      </div>
-    </article>`;
-  }
-
-  // 6. Güzellik Salonu
-  else if (clean === '/guzellik-salonu' || clean === '/guzellik-merkezi' || clean === '/guzellik' || clean === '/lazer-epilasyon') {
-    mainBodyContent = `
-    <article style="max-width:960px;margin:0 auto;">
-      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">Güzellik Salonu ve Merkez Yönetim Sistemi — Seans &amp; Paket Takibi</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Seans paketleri, estetisyen takvimi, uzman primleri ve kapora takibi tek ekranda. Cilt bakımı, lazer epilasyon, kalıcı makyaj ve tırnak işlemlerinde seans kaçırma son bulur.</p>
-
-      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Seans &amp; Paket Sayacı</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">6-8 seanslık lazer paketlerinde kalan seans sayısı ve borç durumu her randevuda anında güncellenir.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Oda ve Kabin Planlaması</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Hangi uzmanın hangi odada çalıştığı takvimde renklerle ayrılır, çift rezervasyon riski önlenir.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Instagram Randevu Linki</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Instagram biyografinize ekleyeceğiniz bağlantıyla müşterileriniz 7/24 seans randevusu oluşturabilir.</p>
-        </div>
-      </section>
-
-      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
-        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Güzellik Merkezinizi Hemen Kolaylaştırın</h2>
-        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">Müşteri takibi ve seans defterinizi hemen ücretsiz başlatın.</p>
-        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Ücretsiz Başla</a>
-      </div>
-    </article>`;
-  }
-
-  // 7. Kafe & Restoran
-  else if (clean === '/kafe-restoran' || clean === '/kafe' || clean === '/restoran' || clean === '/adisyon' || clean === '/qr-menu') {
-    mainBodyContent = `
-    <article style="max-width:960px;margin:0 auto;">
-      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">Kafe &amp; Restoran Masalar, Adisyon ve QR Menü Yazılımı</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Canlı masa takibi, garson çağrı sistemli temassız QR menü, adisyon kapatma ve gün sonu ciro raporları. Pahalı POS donanımları olmadan hemen cepten kullanın.</p>
-
-      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Canlı Masalar &amp; Adisyon Takibi</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Masalarınıza tek dokunuşla sipariş ekleyin, açık hesapları takip edin veya nakit/kartla anında kapatın.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Temassız Dijital Karekod Menü</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Müşteri kamerasını okuttuğunda fotoğraflı menüyü görür, masadan garson çağırabilir veya hesap isteyebilir.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Gün Sonu Kasa Raporu</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Nakit, kredi kartı cirosu ve açık adisyonlar akşam kuruşu kuruşuna tek ekranda denkleştirilir.</p>
-        </div>
-      </section>
-
-      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
-        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Kafe Masalarınızı ve Menünüzü Şimdi Oluşturun</h2>
-        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">2 dakikada masalarınızı ekleyin, QR menünüzü masalara yapıştırın.</p>
-        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Kafe Panelini Başlat</a>
-      </div>
-    </article>`;
-  }
-
-  // 8. Bakkal & Market
-  else if (clean === '/bakkal-market' || clean === '/bakkal' || clean === '/market' || clean === '/veresiye-defteri' || clean === '/pos-sistemi') {
-    mainBodyContent = `
-    <article style="max-width:960px;margin:0 auto;">
-      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;line-height:1.2;">Bakkal &amp; Market Hızlı POS Barkodlu Terazi ve Veresiye Takip Sistemi</h1>
-      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Mahallenin veresiye defteri cebinde! Telefon kamerasıyla barkod okuma, kritik stok uyarıları ve WhatsApp tek tıkla borç hatırlatma.</p>
-
-      <section style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:32px;">
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Kamera ile Hızlı Barkod Okuma</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Pahalı barkod okuyucu almadan telefon kamerasıyla anında barkod okutun, sepeti saniyede oluşturun.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Dijital Veresiye Defteri</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Müşteri borçları asla kaybolmaz; WhatsApp üzerinden tek tıkla nazik borç ekstresi gönderin.</p>
-        </div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
-          <h2 style="font-size:17px;font-weight:800;color:#ea580c;margin:0 0 8px 0;">Kritik Stok Uyarıları</h2>
-          <p style="font-size:14px;color:#64748b;margin:0;line-height:1.5;">Tükenmek üzere olan ürünler için anında uyarı alın, toptancı siparişinizi geciktirmeyin.</p>
-        </div>
-      </section>
-
-      <div style="background:#0f172a;color:#ffffff;border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
-        <h2 style="font-size:22px;font-weight:900;margin:0 0 8px 0;">Veresiye Defterinizi Hemen Güvene Alın</h2>
-        <p style="font-size:14px;color:#94a3b8;margin:0 0 18px 0;">Kayıp borçlara son verin. Ücretsiz kayıt olun.</p>
-        <a href="/kayit" style="display:inline-block;background:#f97316;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">Ücretsiz Başla</a>
-      </div>
-    </article>`;
+  // 3. SEO Landing Sayfaları (/, /berber, /kuafor, /guzellik-salonu, /randevu-sistemi, /veresiye-defteri, /kasa-programi, /gun-sonu-raporu, /qr-menu, /kafe-restoran, /bakkal-market, /izmit-berber-randevu, /zonguldak-berber-randevu)
+  else if (resolveLandingContentKey(clean)) {
+    const landingKey = resolveLandingContentKey(clean)!;
+    mainBodyContent = renderLandingContentSsr(SEO_LANDING_PAGES[landingKey], origin);
   }
 
   // 9. Teknik Servis
@@ -2722,68 +3136,51 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
     </article>`;
   }
 
-  // 14. Ana Sayfa (Default /)
+  // 14. İletişim
+  else if (clean === '/iletisim') {
+    mainBodyContent = `
+    <article style="max-width:760px;margin:0 auto;">
+      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;">İletişim ve Esnaf Destek Hattı</h1>
+      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Dükkânım Yanımda hakkında sorularınız, kurulum talepleriniz ve önerileriniz için support@dukkanimyanimda.com.tr üzerinden ekibimize ulaşabilirsiniz.</p>
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:24px;">
+        <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 10px 0;">Hızlı Destek Kanalları</h2>
+        <p style="font-size:14px;color:#475569;margin:0 0 14px 0;">E-posta: <strong>support@dukkanimyanimda.com.tr</strong></p>
+        <a href="/kayit" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 22px;border-radius:10px;text-decoration:none;">Ücretsiz Hesap Oluştur</a>
+      </div>
+    </article>`;
+  }
+
+  // 15. Gizlilik & KVKK
+  else if (clean === '/gizlilik' || clean === '/gizlilik-politikasi') {
+    mainBodyContent = `
+    <article style="max-width:860px;margin:0 auto;">
+      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;">Gizlilik Politikası ve KVKK Güvencesi</h1>
+      <p style="font-size:16px;color:#475569;line-height:1.65;margin-bottom:24px;">Dükkânım Yanımda üzerinde tuttuğunuz kasa hareketleri, veresiye bakiyeleri, randevular ve müşteri kayıtları yalnızca size aittir; şifreli bağlantılar ve düzenli yedeklemelerle korunur.</p>
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:22px;">
+        <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 10px 0;">Veri Güvenliği İlkelerimiz</h2>
+        <ul style="margin:0;padding-left:20px;color:#475569;font-size:14px;line-height:1.7;">
+          <li>Tüm veri iletişimi uçtan uca HTTPS/TLS şifrelemesiyle taşınır.</li>
+          <li>İşletme verileriniz üçüncü taraf reklam ağlarıyla veya rakiplerle paylaşılmaz.</li>
+          <li>Dilediğiniz zaman dükkan yedeklerinizi indirip hesabınızı sonlandırabilirsiniz.</li>
+        </ul>
+      </div>
+    </article>`;
+  }
+
+  // 16. 404 Bilinmeyen Rota
   else {
     mainBodyContent = `
-    <article style="max-width:960px;margin:0 auto;">
-      <div style="text-align:center;margin-bottom:40px;">
-        <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#ea580c;background:#fff7ed;padding:4px 12px;border-radius:20px;border:1px solid #fed7aa;">Türkiye'nin Yeni Nesil Esnaf İşletim Sistemi</span>
-        <h1 style="font-size:36px;font-weight:900;color:#0f172a;margin:14px 0 12px 0;line-height:1.15;">Defteri Kapat, Dükkânını Cebine Al</h1>
-        <p style="font-size:17px;color:#475569;max-width:680px;margin:0 auto 24px auto;line-height:1.6;">Dükkanının kasa, veresiye defteri, randevu takvimi, QR menüsü ve gün sonu defteri — hepsi tek yerde cebinizde.</p>
-        <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
-          <a href="/kayit" style="background:#ea580c;color:#ffffff;font-size:15px;font-weight:800;padding:12px 28px;border-radius:10px;text-decoration:none;">14 Gün Ücretsiz Başla</a>
-          <a href="/berber" style="background:#f1f5f9;color:#0f172a;font-size:15px;font-weight:700;padding:12px 24px;border-radius:10px;text-decoration:none;border:1px solid #cbd5e1;">Berber Panelini İncele</a>
-        </div>
+    <article style="max-width:760px;margin:0 auto;text-align:center;">
+      <h1 style="font-size:32px;font-weight:900;color:#0f172a;margin-bottom:12px;">Sayfa Bulunamadı (404)</h1>
+      <p style="font-size:16px;color:#475569;line-height:1.6;margin-bottom:24px;">Aradığınız sayfa kaldırılmış veya bağlantısı değişmiş olabilir.</p>
+      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+        <a href="/" style="background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:11px 24px;border-radius:10px;text-decoration:none;">Ana Sayfaya Dön</a>
+        <a href="/blog" style="background:#f1f5f9;color:#0f172a;font-size:14px;font-weight:700;padding:11px 22px;border-radius:10px;text-decoration:none;border:1px solid #cbd5e1;">Esnaf Blogu</a>
       </div>
-
-      <section style="margin-bottom:40px;">
-        <h2 style="font-size:22px;font-weight:900;color:#0f172a;margin-bottom:16px;text-align:center;">Sektörünüze Özel Dijital Çözümler</h2>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;">
-          <a href="/berber" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;display:block;">
-            <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Berber &amp; Kuaför</h3>
-            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Koltuk sırası, online randevu takvimi ve usta primleri tek ekranda.</p>
-          </a>
-          <a href="/kuafor" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;display:block;">
-            <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Kuaför Salonu</h3>
-            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">İşlem bazlı süre planlaması, boya/kesim takvimi ve personel primleri.</p>
-          </a>
-          <a href="/randevu-sistemi" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;display:block;">
-            <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">7/24 Online Randevu</h3>
-            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Web linkiyle Instagram ve WhatsApp üzerinden sıra beklemeden rezervasyon.</p>
-          </a>
-          <a href="/kafe-restoran" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;display:block;">
-            <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Kafe &amp; Restoran</h3>
-            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Canlı masa takibi, temassız karekod QR menü ve anlık adisyon kapatma.</p>
-          </a>
-          <a href="/bakkal-market" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;display:block;">
-            <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Bakkal &amp; Market</h3>
-            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Telefon kamerasıyla barkodlu hızlı POS satış ve veresiye defteri.</p>
-          </a>
-          <a href="/guzellik-salonu" style="text-decoration:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;display:block;">
-            <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">Güzellik Salonu</h3>
-            <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Lazer epilasyon paketleri, seans sayacı ve estetisyen kabin planı.</p>
-          </a>
-        </div>
-      </section>
-
-      <section style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;margin-bottom:40px;">
-        <h2 style="font-size:20px;font-weight:900;color:#0f172a;margin:0 0 10px 0;">Türkiye Esnaf İletişim Ağı &amp; Canlı Esnaf Haritası</h2>
-        <p style="font-size:14px;color:#64748b;margin:0 0 16px 0;">Türkiye genelindeki berber, kuaför, restoran ve esnaf işletmeleri Dükkânım Yanımda ile çalışıyor.</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <a href="/berber" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Berber &amp; Kuaför Sistemi →</a>
-          <a href="/kafe-restoran" style="color:#ea580c;font-weight:800;font-size:14px;text-decoration:none;">Kafe &amp; Restoran QR Menü →</a>
-        </div>
-      </section>
     </article>`;
   }
 
   const isSectorLanding = [
-    '/berber', '/berber-randevu-programi',
-    '/kuafor', '/kuafor-randevu', '/kadin-kuafor',
-    '/randevu-sistemi', '/online-randevu',
-    '/guzellik-salonu', '/guzellik-merkezi', '/guzellik', '/lazer-epilasyon',
-    '/kafe-restoran', '/kafe', '/restoran', '/adisyon', '/qr-menu',
-    '/bakkal-market', '/bakkal', '/market', '/veresiye-defteri', '/pos-sistemi',
     '/teknik-servis', '/servis', '/hukuk', '/avukat', '/terzi',
   ].includes(clean);
 
@@ -2933,6 +3330,14 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
     html = html.replace('</head>', `${jsonLdTag}</head>`);
   }
 
+  // Extra JSON-LD Schemas Injection (e.g., Service schema on local landing pages)
+  if (meta.extraSchemas && meta.extraSchemas.length > 0) {
+    for (const extraSchema of meta.extraSchemas) {
+      const extraTag = `\n    <script type="application/ld+json">\n    ${JSON.stringify(extraSchema, null, 2)}\n    </script>\n`;
+      html = html.replace('</head>', `${extraTag}</head>`);
+    }
+  }
+
   // Google Search BreadcrumbList JSON-LD Injection
   if (meta.breadcrumbs && meta.breadcrumbs.length > 0) {
     const breadcrumbSchema = {
@@ -3034,37 +3439,59 @@ export function generateSitemapXml(rawHost?: string): string {
     ? rawHost
     : DEFAULT_HOST;
   const origin = `https://${host}`;
-  const today = new Date().toISOString().split('T')[0];
 
-  const staticUrls = [
-    { loc: `${origin}/`, priority: '1.0', changefreq: 'weekly', title: 'Dükkânım Yanımda - Esnaf Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/berber`, priority: '1.0', changefreq: 'daily', title: 'Berber Randevu & Koltuk Yönetim Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/kuafor`, priority: '0.95', changefreq: 'daily', title: 'Kuaför Randevu ve Salon Takip Programı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/guzellik-salonu`, priority: '1.0', changefreq: 'daily', title: 'Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/randevu-sistemi`, priority: '0.95', changefreq: 'daily', title: '7/24 Online Randevu ve Rezervasyon Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/izmit-berber-randevu`, priority: '0.92', changefreq: 'daily', title: 'İzmit Berber Randevu ve Kuaför Sistemi', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/zonguldak-berber-randevu`, priority: '0.92', changefreq: 'daily', title: 'Zonguldak Berber Randevu ve Kuaför Programı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/kafe-restoran`, priority: '0.95', changefreq: 'weekly', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/bakkal-market`, priority: '0.95', changefreq: 'weekly', title: 'Bakkal & Market Hızlı POS Barkodlu Terazi Sistemi', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'weekly', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly', title: 'Ücretsiz Kayıt - Dükkanını 2 Dakikada Kur', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/teknik-servis`, priority: '0.8', changefreq: 'weekly', title: 'Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı', img: `${origin}/brand/phone_mockup_retina.png` },
-    { loc: `${origin}/hukuk`, priority: '0.8', changefreq: 'weekly', title: 'Avukat ve Hukuk Bürosu Dava Takip ve Masraf Yazılımı', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/terzi`, priority: '0.8', changefreq: 'weekly', title: 'Terzi & Kuru Temizleme Emanet Takip Sistemi', img: `${origin}/brand/logo-horizontal.png` },
-    { loc: `${origin}/iletisim`, priority: '0.6', changefreq: 'monthly', title: 'İletişim & Destek', img: `${origin}/icon-512.png` },
-    { loc: `${origin}/gizlilik`, priority: '0.4', changefreq: 'yearly', title: 'Gizlilik Politikası & KVKK Güvencesi', img: `${origin}/icon-512.png` },
-    { loc: `${origin}/rehber`, priority: '0.9', changefreq: 'weekly', title: 'Esnaf Rehberi, Prim Hesaplayıcı & Ücretsiz QR Araçları', img: `${origin}/brand/phone_mockup_retina.png` },
+  interface SitemapUrlEntry {
+    loc: string;
+    priority: string;
+    changefreq: string;
+    lastmod: string;
+    title: string;
+    img: string;
+  }
+
+  const staticUrls: SitemapUrlEntry[] = [
+    { loc: `${origin}/`, priority: '1.0', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Dükkânım Yanımda - Esnaf Yönetim Sistemi', img: `${origin}/og/home.png` },
+    { loc: `${origin}/berber`, priority: '1.0', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Berber Randevu & Koltuk Yönetim Sistemi', img: `${origin}/og/berber.png` },
+    { loc: `${origin}/kuafor`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Kuaför Randevu ve Salon Takip Programı', img: `${origin}/og/kuafor.png` },
+    { loc: `${origin}/guzellik-salonu`, priority: '1.0', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi', img: `${origin}/og/guzellik-salonu.png` },
+    { loc: `${origin}/randevu-sistemi`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: '7/24 Online Randevu ve Rezervasyon Sistemi', img: `${origin}/og/randevu-sistemi.png` },
+    { loc: `${origin}/veresiye-defteri`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Veresiye Defteri Uygulaması & Dijital Alacak Takibi', img: `${origin}/og/veresiye-defteri.png` },
+    { loc: `${origin}/kasa-programi`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Esnaf Kasa Takip Programı — Nakit, POS & Gider Yönetimi', img: `${origin}/og/kasa-programi.png` },
+    { loc: `${origin}/gun-sonu-raporu`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Gün Sonu Raporu & Z Raporu Programı', img: `${origin}/og/gun-sonu-raporu.png` },
+    { loc: `${origin}/qr-menu`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Ücretsiz QR Menü Sistemi & Masadan Sipariş', img: `${origin}/og/qr-menu.png` },
+    { loc: `${origin}/izmit-berber-randevu`, priority: '0.92', changefreq: 'weekly', lastmod: '2026-11-19', title: 'İzmit Berber Randevu ve Kuaför Sistemi', img: `${origin}/og/izmit.png` },
+    { loc: `${origin}/zonguldak-berber-randevu`, priority: '0.92', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Zonguldak Berber Randevu ve Kuaför Programı', img: `${origin}/og/zonguldak.png` },
+    { loc: `${origin}/kafe-restoran`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/og/kafe-restoran.png` },
+    { loc: `${origin}/bakkal-market`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Bakkal & Market Hızlı POS Barkodlu Terazi Sistemi', img: `${origin}/og/bakkal-market.png` },
+    { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'monthly', lastmod: '2026-11-10', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/og/fiyat.png` },
+    { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly', lastmod: '2026-11-10', title: 'Ücretsiz Kayıt - Dükkanını 2 Dakikada Kur', img: `${origin}/og/kayit.png` },
+    { loc: `${origin}/teknik-servis`, priority: '0.8', changefreq: 'monthly', lastmod: '2026-11-16', title: 'Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı', img: `${origin}/og/teknik-servis.png` },
+    { loc: `${origin}/hukuk`, priority: '0.8', changefreq: 'monthly', lastmod: '2026-11-16', title: 'Avukat ve Hukuk Bürosu Dava Takip ve Masraf Yazılımı', img: `${origin}/og/hukuk.png` },
+    { loc: `${origin}/terzi`, priority: '0.8', changefreq: 'monthly', lastmod: '2026-11-16', title: 'Terzi & Kuru Temizleme Emanet Takip Sistemi', img: `${origin}/og/terzi.png` },
+    { loc: `${origin}/iletisim`, priority: '0.6', changefreq: 'yearly', lastmod: '2026-10-15', title: 'İletişim & Destek', img: `${origin}/og/home.png` },
+    { loc: `${origin}/gizlilik`, priority: '0.4', changefreq: 'yearly', lastmod: '2026-10-15', title: 'Gizlilik Politikası & KVKK Güvencesi', img: `${origin}/og/home.png` },
+    { loc: `${origin}/blog`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Esnaf Blogu — Veresiye, Randevu, Kasa ve QR Menü Rehberleri', img: `${origin}/og/blog.png` },
+    ...BLOG_ARTICLES.map((art) => ({
+      loc: `${origin}/blog/${art.slug}`,
+      priority: '0.85',
+      changefreq: 'monthly',
+      lastmod: art.updatedAt,
+      title: art.title,
+      img: art.ogImage.startsWith('http') ? art.ogImage : `${origin}${art.ogImage}`,
+    })),
+    { loc: `${origin}/rehber`, priority: '0.85', changefreq: 'weekly', lastmod: '2026-11-16', title: 'Esnaf Rehberi, Prim Hesaplayıcı & Ücretsiz QR Araçları', img: `${origin}/og/rehber.png` },
     ...SEO_GUIDE_ARTICLES.map((art) => ({
       loc: `${origin}/rehber/${art.slug}`,
-      priority: '0.85',
-      changefreq: 'weekly',
+      priority: '0.8',
+      changefreq: 'monthly',
+      lastmod: art.updatedAt || '2026-11-16',
       title: art.title,
-      img: `${origin}/brand/phone_mockup_retina.png`,
+      img: `${origin}/og/rehber.png`,
     })),
   ];
 
   // Aktif dükkanların dinamik linkleri
-  const shopUrls: { loc: string; priority: string; changefreq: string; title: string; img: string }[] = [];
+  const shopUrls: SitemapUrlEntry[] = [];
   const accounts = getAccounts();
   const seenSlugs = new Set<string>();
 
@@ -3083,24 +3510,27 @@ export function generateSitemapXml(rawHost?: string): string {
       const hasBarberServices = Array.isArray(st.barberServices) && st.barberServices.length > 0;
       const hasMenuItems = Array.isArray(st.menuItems) && st.menuItems.length > 0;
       const isConfigured = Boolean(st.shopProfile?.isConfigured);
+      const shopLastmod = (st.lastUpdated || '').slice(0, 10) || '2026-11-16';
 
       const shopLogo = st.shopProfile?.logoUrl
         ? (st.shopProfile.logoUrl.startsWith('http') ? st.shopProfile.logoUrl : `${origin}${st.shopProfile.logoUrl}`)
-        : `${origin}/brand/phone_mockup_retina.png`;
+        : `${origin}/og/randevu-sistemi.png`;
 
       // Randevu sayfası: Yalnızca berber/kuaför/güzellik veya randevu servisi tanımlanmış dükkanlar
       if ((isBarberSector && isConfigured) || hasBarberServices) {
         shopUrls.push({
           loc: `${origin}/${slug}/randevu`,
           priority: '0.85',
-          changefreq: 'daily',
+          changefreq: 'weekly',
+          lastmod: shopLastmod,
           title: `${storeName} - Online Randevu Al`,
           img: shopLogo,
         });
         shopUrls.push({
           loc: `${origin}/r/${slug}`,
           priority: '0.8',
-          changefreq: 'daily',
+          changefreq: 'weekly',
+          lastmod: shopLastmod,
           title: `${storeName} - Online Randevu Al`,
           img: shopLogo,
         });
@@ -3111,9 +3541,12 @@ export function generateSitemapXml(rawHost?: string): string {
         shopUrls.push({
           loc: `${origin}/m/${slug}`,
           priority: '0.8',
-          changefreq: 'daily',
+          changefreq: 'weekly',
+          lastmod: shopLastmod,
           title: `${storeName} - Dijital QR Menü & Fiyatlar`,
-          img: shopLogo,
+          img: st.shopProfile?.logoUrl
+            ? (st.shopProfile.logoUrl.startsWith('http') ? st.shopProfile.logoUrl : `${origin}${st.shopProfile.logoUrl}`)
+            : `${origin}/og/qr-menu.png`,
         });
       }
     } catch {
@@ -3127,7 +3560,7 @@ export function generateSitemapXml(rawHost?: string): string {
     .map(
       (u) => `  <url>
     <loc>${u.loc}</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${u.lastmod}</lastmod>
     <changefreq>${u.changefreq}</changefreq>
     <priority>${u.priority}</priority>
     <image:image>

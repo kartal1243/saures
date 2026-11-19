@@ -46,6 +46,8 @@ import {
   Star,
   Flame,
   Share2,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import type {
   Appointment,
@@ -61,6 +63,7 @@ import type {
   ServiceItem,
 } from '../../../shared/types.ts';
 import { BarberVoiceAssistant } from './BarberVoiceAssistant';
+import { StaffCommissionDashboard } from './StaffCommissionDashboard';
 import { cleanPhoneForWhatsApp } from '../../utils/formatters.ts';
 
 interface BarberAppointmentsViewProps {
@@ -173,6 +176,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   const [activeTab, setActiveTab] = useState<'timeline' | 'staff' | 'services' | 'customers' | 'settings_qr'>(initialTab || 'timeline');
   const [fallbackLogoUrl, setFallbackLogoUrl] = useState<string>(shopLogoUrl || '');
   const [fetchedProfileSlug, setFetchedProfileSlug] = useState<string>('');
+  const [fetchedGoogleMapsUrl, setFetchedGoogleMapsUrl] = useState<string>('');
 
   useEffect(() => {
     if (initialTab) {
@@ -198,6 +202,9 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
         }
         if (prof?.slug) {
           setFetchedProfileSlug(String(prof.slug));
+        }
+        if (prof?.googleMapsUrl) {
+          setFetchedGoogleMapsUrl(String(prof.googleMapsUrl));
         }
       })
       .catch(() => {});
@@ -323,11 +330,15 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
   const [blockEndTime, setBlockEndTime] = useState('14:00');
   const [blockReason, setBlockReason] = useState('Öğle Molası');
 
-  // Personel Ekle / Düzenle Formu (Ad, prim %, rol, telefon)
+  // Personel Ekle / Düzenle Formu (Ad, prim %, rol, telefon, çalışma saatleri, izinler, aktiflik)
   const [staffFormName, setStaffFormName] = useState('');
   const [staffFormCommission, setStaffFormCommission] = useState(30);
   const [staffFormRole, setStaffFormRole] = useState('Usta');
   const [staffFormPhone, setStaffFormPhone] = useState('');
+  const [staffFormWorkStart, setStaffFormWorkStart] = useState('09:00');
+  const [staffFormWorkEnd, setStaffFormWorkEnd] = useState('21:00');
+  const [staffFormOffDays, setStaffFormOffDays] = useState<number[]>([0]);
+  const [staffFormActive, setStaffFormActive] = useState<boolean>(true);
   const [editingStaff, setEditingStaff] = useState<BarberStaff | null>(null);
   const [isEditStaffModalOpen, setIsEditStaffModalOpen] = useState(false);
 
@@ -370,6 +381,43 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     const filtered = staffList.filter((s) => s.id === filterStaff || s.name === filterStaff);
     return filtered.length > 0 ? filtered : staffList;
   }, [staffList, filterStaff]);
+
+  // Müşterinin geçmiş 'gelmedi' (no-show) sayısını hesapla
+  const getCustomerNoShowCount = (apt: Appointment): number => {
+    const normPhone = (p?: string) => (p || '').replace(/\D/g, '').slice(-10);
+    const targetPhone = normPhone(apt.phone);
+    const targetName = (apt.customerName || '').trim().toLowerCase();
+    return appointments.filter((a) => {
+      if (a.id === apt.id || a.status !== 'gelmedi') return false;
+      const aPhone = normPhone(a.phone);
+      if (targetPhone.length >= 7 && aPhone.length >= 7) {
+        return aPhone === targetPhone;
+      }
+      if (!targetName) return false;
+      return (a.customerName || '').trim().toLowerCase() === targetName;
+    }).length;
+  };
+
+  // Liste görünümü için saate göre sıralı gün randevuları
+  const sortedDayAppointments = useMemo(() => {
+    return [...dayAppointments].sort((a, b) => timeToMin(a.timeSlot) - timeToMin(b.timeSlot));
+  }, [dayAppointments]);
+
+  // Ustası eşleşmeyen, 'auto' atanmış veya grid saat aralığı dışındaki gün randevuları
+  const unmatchedDayAppointments = useMemo(() => {
+    const firstHourMin = timeToMin(HOURS[0]);
+    const lastHourEndMin = timeToMin(HOURS[HOURS.length - 1]) + 30;
+    return sortedDayAppointments.filter((a) => {
+      if (a.status === 'iptal') return false;
+      if (a.staffId === 'auto') return true;
+      const matchesDisplayed = displayedStaff.some(
+        (st) => a.staffId === st.id || (a.staffName || '').includes(st.name)
+      );
+      if (!matchesDisplayed) return true;
+      const startMin = timeToMin(a.timeSlot);
+      return startMin < firstHourMin || startMin >= lastHourEndMin;
+    });
+  }, [sortedDayAppointments, displayedStaff]);
 
   // Personel Müsaitlik Paneli
   const staffAvailability = useMemo(() => {
@@ -609,7 +657,25 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     return true;
   };
 
-  // Personel Ekle (ad, e-posta, şifre, prim %, rol)
+  const openAddStaffModal = () => {
+    setStaffFormName('');
+    setStaffFormCommission(30);
+    setStaffFormRole('Usta');
+    setStaffFormPhone('');
+    setStaffFormWorkStart('09:00');
+    setStaffFormWorkEnd('21:00');
+    setStaffFormOffDays([0]);
+    setStaffFormActive(true);
+    setIsStaffModalOpen(true);
+  };
+
+  const toggleStaffFormOffDay = (dayIdx: number) => {
+    setStaffFormOffDays((prev) =>
+      prev.includes(dayIdx) ? prev.filter((d) => d !== dayIdx) : [...prev, dayIdx]
+    );
+  };
+
+  // Personel Ekle (ad, prim %, rol, çalışma saatleri, izin günleri, aktiflik)
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!staffFormName.trim()) return;
@@ -621,22 +687,41 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
       role: staffFormRole,
       title: staffFormRole,
       phone: staffFormPhone.trim(),
-      offDays: [0],
+      workStart: staffFormWorkStart || '09:00',
+      workEnd: staffFormWorkEnd || '21:00',
+      workingHours: {
+        start: staffFormWorkStart || '09:00',
+        end: staffFormWorkEnd || '21:00',
+      },
+      offDays: staffFormOffDays,
       skills: ['Saç Kesimi', 'Sakal Tıraşı'],
       color: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899'][staffList.length % 5],
-      active: true,
+      active: staffFormActive,
     };
 
     const updated = [...staffList, newStaff];
-    await fetch('/api/barber/staff', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ staff: updated }),
-    });
+    try {
+      const res = await fetch('/api/barber/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff: updated }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || 'Personel eklenemedi.');
+        if (res.status === 403 || data.code === 'VIP_REQUIRED') {
+          onOpenVip?.();
+        }
+        return;
+      }
 
-    setStaffList(updated);
-    setIsStaffModalOpen(false);
-    setStaffFormName('');
+      setStaffList(Array.isArray(data.staff) ? data.staff : updated);
+      setIsStaffModalOpen(false);
+      setStaffFormName('');
+      window.dispatchEvent(new CustomEvent('staff_commission_updated'));
+    } catch {
+      alert('Personel kaydedilirken bağlantı hatası oluştu.');
+    }
   };
 
   // Personel Düzenle
@@ -646,6 +731,10 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     setStaffFormCommission(st.commissionRate ?? 30);
     setStaffFormRole(st.role || st.title || 'Usta');
     setStaffFormPhone(st.phone || '');
+    setStaffFormWorkStart(st.workStart || st.workingHours?.start || '09:00');
+    setStaffFormWorkEnd(st.workEnd || st.workingHours?.end || '21:00');
+    setStaffFormOffDays(Array.isArray(st.offDays) ? st.offDays : [0]);
+    setStaffFormActive(st.active !== false);
     setStaffCustomPricing(st.customPricing || {});
     setIsEditStaffModalOpen(true);
   };
@@ -654,6 +743,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     e.preventDefault();
     if (!editingStaff || !staffFormName.trim()) return;
 
+    const prevList = staffList;
     const updated = staffList.map((s) =>
       s.id === editingStaff.id
         ? {
@@ -663,6 +753,14 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
             role: staffFormRole,
             title: staffFormRole,
             phone: staffFormPhone.trim(),
+            workStart: staffFormWorkStart || '09:00',
+            workEnd: staffFormWorkEnd || '21:00',
+            workingHours: {
+              start: staffFormWorkStart || '09:00',
+              end: staffFormWorkEnd || '21:00',
+            },
+            offDays: staffFormOffDays,
+            active: staffFormActive,
             customPricing: staffCustomPricing,
           }
         : s
@@ -672,11 +770,50 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     setIsEditStaffModalOpen(false);
     setEditingStaff(null);
 
-    await fetch('/api/barber/staff', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ staff: updated }),
-    });
+    try {
+      const res = await fetch('/api/barber/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff: updated }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setStaffList(prevList);
+        alert(data.error || 'Personel bilgileri güncellenemedi.');
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('staff_commission_updated'));
+    } catch {
+      setStaffList(prevList);
+      alert('Personel güncellenirken bağlantı hatası oluştu.');
+    }
+  };
+
+  // Personel Aktif/Pasif Durumu Değiştir
+  const handleToggleStaffActive = async (staffId: string) => {
+    const prevList = staffList;
+    const updated = staffList.map((s) =>
+      s.id === staffId ? { ...s, active: s.active !== false ? false : true } : s
+    );
+    setStaffList(updated);
+
+    try {
+      const res = await fetch('/api/barber/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff: updated }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setStaffList(prevList);
+        alert(data.error || 'Personel durumu güncellenemedi.');
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('staff_commission_updated'));
+    } catch {
+      setStaffList(prevList);
+      alert('Personel durumu güncellenirken bağlantı hatası oluştu.');
+    }
   };
 
   // Personel Sil
@@ -689,6 +826,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ staff: updated }),
     });
+    window.dispatchEvent(new CustomEvent('staff_commission_updated'));
   };
 
   // Hizmet Ekle
@@ -864,6 +1002,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     setCompletingApt(null);
     setSelectedPackageId('');
     setCompletedFeedbackApt(finishedApt);
+    window.dispatchEvent(new CustomEvent('staff_commission_updated'));
   };
 
   // WhatsApp Yorum & Puan İsteme Gönderimi (Kolay Randevu Modülü)
@@ -1432,6 +1571,167 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
     document.body.removeChild(link);
   };
 
+  const getAppointmentStatusMeta = (status: AppointmentStatus) => {
+    switch (status) {
+      case 'koltukta':
+        return {
+          label: 'Koltukta (Geldi)',
+          badgeClass: 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30',
+          cardClass: 'bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-200',
+        };
+      case 'tamamlandi':
+        return {
+          label: 'Tamamlandı',
+          badgeClass: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/30',
+          cardClass: 'bg-emerald-500/15 border-emerald-500 text-emerald-900 dark:text-emerald-200',
+        };
+      case 'gelmedi':
+        return {
+          label: 'Gelmedi (No-show)',
+          badgeClass: 'bg-rose-500/15 text-rose-800 dark:text-rose-300 border-rose-500/30',
+          cardClass: 'bg-rose-500/10 border-rose-400 text-rose-700 dark:text-rose-300',
+        };
+      case 'iptal':
+        return {
+          label: 'İptal',
+          badgeClass: 'bg-stone-500/15 text-stone-600 dark:text-stone-400 border-stone-500/30',
+          cardClass: 'bg-stone-100 dark:bg-stone-800/60 border-stone-300 dark:border-stone-700 text-stone-500',
+        };
+      case 'onayli':
+        return {
+          label: 'Onaylı',
+          badgeClass: 'bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/30',
+          cardClass: 'bg-orange-500/10 border-orange-400 text-orange-900 dark:text-orange-200',
+        };
+      case 'bekliyor':
+      default:
+        return {
+          label: 'Bekliyor',
+          badgeClass: 'bg-orange-500/15 text-orange-800 dark:text-orange-300 border-orange-500/30',
+          cardClass: 'bg-orange-500/10 border-orange-400 text-orange-900 dark:text-orange-200',
+        };
+    }
+  };
+
+  // Ortak Randevu Kartı Hızlı Aksiyon Butonları (Çizelge, Liste ve Atanmamış Üst Şerit)
+  const renderAppointmentCardActions = (apt: Appointment) => {
+    const cleanTel = (apt.phone || '').replace(/[^\d+]/g, '');
+    return (
+      <div className="flex flex-wrap items-center gap-1 mt-2 pt-1.5 border-t border-black/10 dark:border-white/10">
+        {apt.status !== 'koltukta' && apt.status !== 'tamamlandi' && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpdateStatus(apt.id, 'koltukta');
+            }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] cursor-pointer transition-colors"
+            title="Müşteri geldi, koltuğa al"
+          >
+            <UserCheck className="w-3 h-3" />
+            <span>Geldi</span>
+          </button>
+        )}
+
+        {apt.status === 'koltukta' && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCompletingApt(apt);
+            }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] cursor-pointer transition-colors"
+            title="Tahsilat al ve adisyonu kapat"
+          >
+            <DollarSign className="w-3 h-3" />
+            <span>Tahsil Et</span>
+          </button>
+        )}
+
+        {apt.status !== 'tamamlandi' && apt.status !== 'gelmedi' && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpdateStatus(apt.id, 'gelmedi');
+            }}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-stone-200 dark:bg-stone-700 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-stone-700 dark:text-stone-200 hover:text-rose-700 dark:hover:text-rose-300 font-semibold text-[10px] cursor-pointer transition-colors"
+            title="Gelmedi (No-show)"
+          >
+            <UserX className="w-3 h-3" />
+            <span>Gelmedi</span>
+          </button>
+        )}
+
+        {cleanTel ? (
+          <a
+            href={`tel:${cleanTel}`}
+            onClick={(e) => e.stopPropagation()}
+            title="Müşteriyi Ara"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-600 hover:text-white font-bold text-[10px] transition-colors"
+          >
+            <Phone className="w-3 h-3" />
+            <span>Ara</span>
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled
+            title="Telefon numarası kayıtlı değil"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500 font-medium text-[10px] cursor-not-allowed opacity-60"
+          >
+            <Phone className="w-3 h-3" />
+            <span>Ara</span>
+          </button>
+        )}
+
+        <div className="flex items-center gap-1 ml-auto">
+          {apt.status === 'tamamlandi' ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSendWhatsAppReview(apt);
+              }}
+              className="px-2 py-0.5 rounded-md bg-emerald-600/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white font-bold text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
+              title="WhatsApp Yorum ve Puan İste"
+            >
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+              <span>Yorum İste</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSendWhatsApp(apt);
+              }}
+              className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer"
+              title="WhatsApp Hatırlatması Gönder"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`${apt.customerName} randevusunu kalıcı olarak silmek istiyor musunuz?`)) {
+                onDeleteAppointment(apt.id);
+              }
+            }}
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white font-bold text-[10px] cursor-pointer transition-colors"
+            title="Randevuyu Sil"
+          >
+            <Trash2 className="w-3 h-3" />
+            <span>Sil</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Üst Navigasyon & Berber Sekmeleri */}
@@ -1682,290 +1982,373 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               </div>
             </div>
 
-            {/* 2. Sıra: Randevu & Mola Ekleme Butonları (Mobilde tam sığan grid) */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-stone-100 dark:border-stone-800">
-              <button
-                type="button"
-                onClick={() => setIsTimeBlockModalOpen(true)}
-                className="px-4 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-colors"
-              >
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span>Saati Kapat / Mola</span>
-              </button>
+            {/* 2. Sıra: Görünüm Seçici + Randevu & Mola Ekleme Butonları */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+              <div className="inline-flex items-center p-1 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700/70 self-start">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-all ${
+                    viewMode !== 'list'
+                      ? 'bg-orange-600 text-white shadow-xs'
+                      : 'text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>Çizelge</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-all ${
+                    viewMode === 'list'
+                      ? 'bg-orange-600 text-white shadow-xs'
+                      : 'text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700/60'
+                  }`}
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span>Liste ({sortedDayAppointments.length})</span>
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => openNewAppointmentModal()}
-                className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-orange-600/20 active:scale-95 transition-all"
-              >
-                <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Randevu Ekle</span>
-              </button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTimeBlockModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Clock className="w-4 h-4 text-amber-500" />
+                  <span>Saati Kapat / Mola</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => openNewAppointmentModal()}
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-orange-600/20 active:scale-95 transition-all"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Randevu Ekle</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Usta Zaman Çizelgesi Izgarası (Timeline Grid) */}
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse min-w-[700px]">
-                <thead>
-                  <tr className="bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800">
-                    <th className="w-24 p-3.5 text-left text-xs font-black uppercase tracking-wider text-stone-500">
-                      Saat
-                    </th>
-                    {displayedStaff.map((st) => (
-                      <th
-                        key={st.id}
-                        className="p-3.5 text-left text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200 border-l border-stone-200 dark:border-stone-800"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: st.color || '#3b82f6' }}
-                          />
-                          <span>{st.name}</span>
+          {/* Atanmamış / Otomatik veya Çizelge Dışı Gün Randevuları Üst Şeridi */}
+          {viewMode !== 'list' && unmatchedDayAppointments.length > 0 && (
+            <div className="bg-amber-50/80 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-800/60 rounded-3xl p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>Otomatik Usta Bekleyen / Çizelge Dışı Randevular ({unmatchedDayAppointments.length})</span>
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                {unmatchedDayAppointments.map((apt) => {
+                  const statusMeta = getAppointmentStatusMeta(apt.status);
+                  const noShowCount = getCustomerNoShowCount(apt);
+                  return (
+                    <div
+                      key={apt.id}
+                      className={`p-3 rounded-2xl border shadow-xs ${statusMeta.cardClass}`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="px-1.5 py-0.5 rounded-md bg-black/10 dark:bg-white/10 font-black text-[10px] shrink-0">
+                            {apt.timeSlot}
+                          </span>
+                          <span className="font-black text-xs truncate">{apt.customerName}</span>
                         </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-200 dark:divide-stone-800 text-xs">
-                  {HOURS.map((hour) => {
+                        <span className="font-bold text-[11px] text-amber-600 dark:text-amber-400 shrink-0">
+                          ₺{apt.price}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-stone-600 dark:text-stone-300">
+                        <span className="truncate">{apt.serviceName}</span>
+                        <span className="text-stone-400">•</span>
+                        <span className="font-semibold">{apt.staffName || 'Otomatik Usta'}</span>
+                        {noShowCount >= 1 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-600/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-[10px] font-black">
+                            ⚠ {noShowCount}x Gelmedi
+                          </span>
+                        )}
+                      </div>
+                      {renderAppointmentCardActions(apt)}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {viewMode === 'list' ? (
+            /* Kompakt Liste Görünümü (Mobil ve Masaüstü Uyumlu) */
+            <div className="space-y-3">
+              {sortedDayAppointments.length === 0 ? (
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-10 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-400 flex items-center justify-center mx-auto">
+                    <Calendar className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-sm font-black text-stone-900 dark:text-white">
+                    Seçili Tarihte Randevu Bulunmuyor
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    {selectedDate} tarihi için filtreye uyan bir randevu kaydı yok.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openNewAppointmentModal()}
+                    className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Randevu Ekle</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {sortedDayAppointments.map((apt) => {
+                    const statusMeta = getAppointmentStatusMeta(apt.status);
+                    const noShowCount = getCustomerNoShowCount(apt);
+                    const duration = apt.durationMinutes || apt.duration || 30;
+                    const matchedStaff = staffList.find(
+                      (s) => s.id === apt.staffId || (apt.staffName || '').includes(s.name)
+                    );
+
                     return (
-                      <tr key={hour} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors">
-                        <td className="p-3 font-bold text-stone-400 select-none whitespace-nowrap">{hour}</td>
-                        {displayedStaff.map((st) => {
-                          const currentHourMin = timeToMin(hour);
-
-                          // Bu saatte başlayan veya devam eden randevu (örn: 90 dk Damat Tıraşı 14:00-15:30 arasını komple kaplar!)
-                          const activeApt = dayAppointments.find((a) => {
-                            if (a.status === 'iptal') return false;
-                            const matchStaff = a.staffId === st.id || a.staffName.includes(st.name);
-                            if (!matchStaff) return false;
-                            const aStart = timeToMin(a.timeSlot);
-                            const aDuration = a.durationMinutes || a.duration || 30;
-                            const aEnd = aStart + aDuration;
-                            return currentHourMin >= aStart && currentHourMin < aEnd;
-                          });
-
-                          const isStartingSlot = activeApt && activeApt.timeSlot === hour;
-
-                          // Bu saatte mola bloğu var mı?
-                          const matchingBlock = timeBlocks.find((b) => {
-                            if (b.date !== selectedDate) return false;
-                            const matchStaff = !b.staffId || b.staffId === 'all' || b.staffId === st.id;
-                            return matchStaff && hour >= b.startTime && hour < b.endTime;
-                          });
-
-                          return (
-                            <td
-                              key={st.id}
-                              className="p-2 border-l border-stone-200 dark:border-stone-800 relative align-top min-h-[52px]"
+                      <div
+                        key={apt.id}
+                        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 shadow-xs space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded-lg bg-orange-600 text-white font-black text-xs">
+                              {apt.timeSlot}
+                            </span>
+                            <span className="text-[11px] font-bold text-stone-400">{duration} dk</span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusMeta.badgeClass}`}
                             >
-                              {activeApt ? (
-                                isStartingSlot ? (
-                                  <div
-                                    className={`p-2.5 rounded-xl border transition-all shadow-xs ${
-                                      activeApt.status === 'koltukta'
-                                        ? 'bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-200'
-                                        : activeApt.status === 'tamamlandi'
-                                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-900 dark:text-emerald-200'
-                                        : activeApt.status === 'gelmedi'
-                                        ? 'bg-rose-500/10 border-rose-400 text-rose-700 dark:text-rose-300'
-                                        : 'bg-orange-500/10 border-orange-400 text-orange-900 dark:text-orange-200'
-                                    }`}
-                                  >
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="font-black text-xs line-clamp-1">{activeApt.customerName}</span>
-                                      <span className="font-bold text-[11px] text-amber-600 dark:text-amber-400">
-                                        ₺{activeApt.price}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-[11px] text-stone-600 dark:text-stone-300 mb-1">
-                                      <span className="truncate">{activeApt.serviceName}</span>
-                                      {(activeApt.durationMinutes || activeApt.duration || 30) > 30 && (
-                                        <span className="text-[10px] font-black px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0 ml-1">
-                                          {activeApt.durationMinutes || activeApt.duration} dk
-                                        </span>
-                                      )}
-                                    </div>
+                              {statusMeta.label}
+                            </span>
+                            {noShowCount >= 1 && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-600/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-[10px] font-black">
+                                ⚠ {noShowCount}x Gelmedi
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-sm font-black text-amber-600 dark:text-amber-400 shrink-0">
+                            ₺{apt.price}
+                          </span>
+                        </div>
 
-                                    {/* Hızlı Butonlar */}
-                                    <div className="flex items-center gap-1 mt-2 pt-1.5 border-t border-black/10 dark:border-white/10">
-                                      {activeApt.status === 'bekliyor' && (
-                                        <button
-                                          type="button"
-                                          onClick={() => onUpdateStatus(activeApt.id, 'koltukta')}
-                                          className="px-2 py-0.5 rounded-md bg-amber-500 text-white font-bold text-[10px] cursor-pointer hover:bg-amber-600"
-                                        >
-                                          Geldi
-                                        </button>
-                                      )}
-                                      {activeApt.status === 'koltukta' && (
-                                        <button
-                                          type="button"
-                                          onClick={() => setCompletingApt(activeApt)}
-                                          className="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-bold text-[10px] cursor-pointer hover:bg-emerald-500"
-                                        >
-                                          Tahsil Et
-                                        </button>
-                                      )}
-                                      {activeApt.status !== 'tamamlandi' && activeApt.status !== 'gelmedi' && (
-                                        <button
-                                          type="button"
-                                          onClick={() => onUpdateStatus(activeApt.id, 'gelmedi')}
-                                          className="px-1.5 py-0.5 rounded-md bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 font-medium text-[10px] cursor-pointer"
-                                          title="Gelmedi (No-show)"
-                                        >
-                                          Gelmedi
-                                        </button>
-                                      )}
-                                      {activeApt.status === 'tamamlandi' ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSendWhatsAppReview(activeApt)}
-                                          className="px-2 py-0.5 rounded-md bg-emerald-600/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white font-bold text-[10px] cursor-pointer ml-auto flex items-center gap-1 transition-colors"
-                                          title="WhatsApp Yorum ve Puan İste"
-                                        >
-                                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                                          <span>Yorum İste</span>
-                                        </button>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSendWhatsApp(activeApt)}
-                                          className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer ml-auto"
-                                          title="WhatsApp Hatırlatması Gönder"
-                                        >
-                                          <MessageCircle className="w-3.5 h-3.5" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="p-2 rounded-xl border border-dashed border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200">
-                                    <div className="flex items-center justify-between text-[11px] font-bold">
-                                      <span className="truncate">⏳ {activeApt.serviceName}</span>
-                                      <span className="text-[10px] font-black opacity-80">{activeApt.durationMinutes || 90} dk</span>
-                                    </div>
-                                    <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate mt-0.5">
-                                      {activeApt.customerName} ({activeApt.timeSlot} başlangıç)
-                                    </p>
-                                  </div>
-                                )
-                              ) : matchingBlock ? (
-                                <div className="py-2 px-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-center font-bold text-[11px] border border-stone-200 dark:border-stone-700 flex items-center justify-between gap-1">
-                                  <span className="truncate">{matchingBlock.reason || 'Mola / Kapalı'}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteTimeBlock(matchingBlock.id)}
-                                    className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer shrink-0"
-                                    title="Saati Tekrar Randevulara Aç"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSlotClick(hour, st.id)}
-                                  className="w-full h-full min-h-[44px] rounded-xl border border-dashed border-stone-200 dark:border-stone-800 hover:border-orange-500 hover:bg-orange-50/40 dark:hover:bg-orange-950/20 text-stone-400 hover:text-orange-600 flex items-center justify-center transition-all cursor-pointer opacity-40 hover:opacity-100"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <h4 className="text-sm font-black text-stone-900 dark:text-white">{apt.customerName}</h4>
+                            <p className="text-xs text-stone-600 dark:text-stone-300">
+                              {apt.serviceName}
+                              {apt.phone ? <span className="text-stone-400 ml-2 font-mono">{apt.phone}</span> : null}
+                            </p>
+                          </div>
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs font-bold text-stone-700 dark:text-stone-200">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: matchedStaff?.color || '#f97316' }}
+                            />
+                            <span>{apt.staffName || 'Usta'}</span>
+                          </div>
+                        </div>
+
+                        {apt.notes && (
+                          <p className="text-[11px] text-stone-500 dark:text-stone-400 italic bg-stone-50 dark:bg-stone-800/50 px-2.5 py-1.5 rounded-xl">
+                            {apt.notes}
+                          </p>
+                        )}
+
+                        {renderAppointmentCardActions(apt)}
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            /* Usta Zaman Çizelgesi Izgarası (Timeline Grid) */
+            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800">
+                      <th className="w-24 p-3.5 text-left text-xs font-black uppercase tracking-wider text-stone-500">
+                        Saat
+                      </th>
+                      {displayedStaff.map((st) => (
+                        <th
+                          key={st.id}
+                          className="p-3.5 text-left text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200 border-l border-stone-200 dark:border-stone-800"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: st.color || '#3b82f6' }}
+                            />
+                            <span>{st.name}</span>
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-200 dark:divide-stone-800 text-xs">
+                    {HOURS.map((hour) => {
+                      return (
+                        <tr key={hour} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors">
+                          <td className="p-3 font-bold text-stone-400 select-none whitespace-nowrap">{hour}</td>
+                          {displayedStaff.map((st) => {
+                            const currentHourMin = timeToMin(hour);
+                            const slotStartMin = currentHourMin;
+                            const slotEndMin = currentHourMin + 30;
+
+                            const startingApts = dayAppointments
+                              .filter(
+                                (a) =>
+                                  a.status !== 'iptal' &&
+                                  a.staffId !== 'auto' &&
+                                  (a.staffId === st.id || (a.staffName || '').includes(st.name)) &&
+                                  timeToMin(a.timeSlot) >= slotStartMin &&
+                                  timeToMin(a.timeSlot) < slotEndMin
+                              )
+                              .sort((a, b) => timeToMin(a.timeSlot) - timeToMin(b.timeSlot));
+
+                            const continuingApt =
+                              startingApts.length === 0
+                                ? dayAppointments.find(
+                                    (a) =>
+                                      a.status !== 'iptal' &&
+                                      a.staffId !== 'auto' &&
+                                      (a.staffId === st.id || (a.staffName || '').includes(st.name)) &&
+                                      timeToMin(a.timeSlot) < slotStartMin &&
+                                      timeToMin(a.timeSlot) + (a.durationMinutes || a.duration || 30) > slotStartMin
+                                  )
+                                : undefined;
+
+                            // Bu saatte mola bloğu var mı?
+                            const matchingBlock = timeBlocks.find((b) => {
+                              if (b.date !== selectedDate) return false;
+                              const matchStaff = !b.staffId || b.staffId === 'all' || b.staffId === st.id;
+                              const bStart = timeToMin(b.startTime);
+                              const bEnd = timeToMin(b.endTime);
+                              return matchStaff && slotStartMin >= bStart && slotStartMin < bEnd;
+                            });
+
+                            return (
+                              <td
+                                key={st.id}
+                                className="p-2 border-l border-stone-200 dark:border-stone-800 relative align-top min-h-[52px]"
+                              >
+                                {startingApts.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    {startingApts.map((apt) => {
+                                      const statusMeta = getAppointmentStatusMeta(apt.status);
+                                      const noShowCount = getCustomerNoShowCount(apt);
+                                      const duration = apt.durationMinutes || apt.duration || 30;
+                                      return (
+                                        <div
+                                          key={apt.id}
+                                          className={`p-2.5 rounded-xl border transition-all shadow-xs ${statusMeta.cardClass}`}
+                                        >
+                                          <div className="flex items-center justify-between gap-1.5 mb-1">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              <span className="px-1.5 py-0.5 rounded-md bg-black/10 dark:bg-white/10 font-black text-[10px] shrink-0">
+                                                {apt.timeSlot}
+                                              </span>
+                                              <span className="font-black text-xs line-clamp-1">
+                                                {apt.customerName}
+                                              </span>
+                                            </div>
+                                            <span className="font-bold text-[11px] text-amber-600 dark:text-amber-400 shrink-0">
+                                              ₺{apt.price}
+                                            </span>
+                                          </div>
+
+                                          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-stone-600 dark:text-stone-300 mb-1">
+                                            <span className="truncate">{apt.serviceName}</span>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              {duration !== 30 && (
+                                                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                                                  {duration} dk
+                                                </span>
+                                              )}
+                                              {noShowCount >= 1 && (
+                                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-600/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-[10px] font-black">
+                                                  ⚠ {noShowCount}x Gelmedi
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {renderAppointmentCardActions(apt)}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : continuingApt ? (
+                                  <div className="p-2 rounded-xl border border-dashed border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+                                    <div className="flex items-center justify-between text-[11px] font-bold">
+                                      <span className="truncate">⏳ {continuingApt.serviceName}</span>
+                                      <span className="text-[10px] font-black opacity-80">
+                                        {continuingApt.durationMinutes || continuingApt.duration || 90} dk
+                                      </span>
+                                    </div>
+                                    <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate mt-0.5">
+                                      {continuingApt.customerName} ({continuingApt.timeSlot} başlangıç)
+                                    </p>
+                                  </div>
+                                ) : matchingBlock ? (
+                                  <div className="py-2 px-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-center font-bold text-[11px] border border-stone-200 dark:border-stone-700 flex items-center justify-between gap-1">
+                                    <span className="truncate">{matchingBlock.reason || 'Mola / Kapalı'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteTimeBlock(matchingBlock.id)}
+                                      className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer shrink-0"
+                                      title="Saati Tekrar Randevulara Aç"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSlotClick(hour, st.id)}
+                                    className="w-full h-full min-h-[44px] rounded-xl border border-dashed border-stone-200 dark:border-stone-800 hover:border-orange-500 hover:bg-orange-50/40 dark:hover:bg-orange-950/20 text-stone-400 hover:text-orange-600 flex items-center justify-center transition-all cursor-pointer opacity-40 hover:opacity-100"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* ========================================================= */}
-      {/* 2. SEKME: PERSONEL / USTA YÖNETİMİ */}
+      {/* 2. SEKME: PERSONEL / USTA YÖNETİMİ & PRİM HAKEDİŞLERİ */}
       {/* ========================================================= */}
       {activeTab === 'staff' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-black text-stone-900 dark:text-white">Salon Ustaları &amp; Ekip</h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
-                Usta ve kalfaların yetkileri, prim oranları (%) ve çalışma saatleri
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsStaffModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 shadow-md shadow-orange-600/20"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Personel Ekle</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {staffList.map((st) => (
-              <div
-                key={st.id}
-                className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-5 shadow-xs space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg"
-                      style={{ backgroundColor: st.color || '#3b82f6' }}
-                    >
-                      {st.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-stone-900 dark:text-white">{st.name}</h3>
-                      <p className="text-xs text-stone-400">{st.role || st.title || 'Usta'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditStaff(st)}
-                      className="p-1.5 rounded-xl text-stone-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors cursor-pointer"
-                      title="Usta Profilini Düzenle"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteStaff(st.id)}
-                      className="p-1.5 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                      title="Ustayı Sil"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-1.5 text-xs text-stone-600 dark:text-stone-300">
-                  <div className="flex justify-between">
-                    <span className="text-stone-400">Prim Oranı:</span>
-                    <span className="font-bold text-amber-600 dark:text-amber-400">%{st.commissionRate ?? 30}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400">İletişim:</span>
-                    <span className="font-medium">{st.phone || 'Girilmedi'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400">E-Posta:</span>
-                    <span className="font-medium">{st.email || '-'}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <StaffCommissionDashboard
+          staffList={staffList}
+          appointments={appointments}
+          storeName={storeName}
+          onEditStaff={handleOpenEditStaff}
+          onDeleteStaff={handleDeleteStaff}
+          onToggleStaffActive={handleToggleStaffActive}
+          onAddStaffClick={openAddStaffModal}
+        />
       )}
 
       {/* ========================================================= */}
@@ -2921,11 +3304,11 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 3: PERSONEL EKLE (Ad, e-posta, şifre, prim %, rol) */}
+      {/* MODAL 3: PERSONEL EKLE (Ad, prim %, rol, çalışma saatleri, izinler) */}
       {/* ========================================================= */}
       {isStaffModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
-          <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4">
+          <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
                 <User className="w-5 h-5 text-orange-600" />
@@ -2934,7 +3317,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsStaffModalOpen(false)}
-                className="p-1 rounded-xl text-stone-400 hover:text-stone-600"
+                className="p-1 rounded-xl text-stone-400 hover:text-stone-600 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2951,7 +3334,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                   value={staffFormName}
                   onChange={(e) => setStaffFormName(e.target.value)}
                   placeholder="Örn: Eren Usta"
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold"
+                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
                 />
               </div>
 
@@ -2963,7 +3346,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                   <select
                     value={staffFormRole}
                     onChange={(e) => setStaffFormRole(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-semibold text-stone-900 dark:text-white"
                   >
                     <option value="Usta">Baş Usta</option>
                     <option value="Kuaför">Kuaför / Stilist</option>
@@ -2983,10 +3366,90 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                     max={100}
                     value={staffFormCommission}
                     onChange={(e) => setStaffFormCommission(Number(e.target.value))}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold"
+                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                  Telefon
+                </label>
+                <input
+                  type="tel"
+                  value={staffFormPhone}
+                  onChange={(e) => setStaffFormPhone(e.target.value)}
+                  placeholder="05XX XXX XX XX"
+                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs text-stone-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Mesai Başlangıç
+                  </label>
+                  <input
+                    type="time"
+                    value={staffFormWorkStart}
+                    onChange={(e) => setStaffFormWorkStart(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Mesai Bitiş
+                  </label>
+                  <input
+                    type="time"
+                    value={staffFormWorkEnd}
+                    onChange={(e) => setStaffFormWorkEnd(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1.5">
+                  Haftalık İzin Günleri
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[1, 2, 3, 4, 5, 6, 0].map((dayIdx) => {
+                    const isSelected = staffFormOffDays.includes(dayIdx);
+                    return (
+                      <button
+                        key={dayIdx}
+                        type="button"
+                        onClick={() => toggleStaffFormOffDay(dayIdx)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-rose-600 border-rose-600 text-white shadow-xs'
+                            : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
+                        }`}
+                      >
+                        {DAYS_TR[dayIdx]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <label className="flex items-center justify-between p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700/70 cursor-pointer">
+                <div>
+                  <span className="text-xs font-bold text-stone-800 dark:text-stone-200 block">
+                    Aktif Durum (Online Randevuya Açık)
+                  </span>
+                  <span className="text-[10px] text-stone-500 dark:text-stone-400">
+                    Pasif yapılırsa müşteriler bu ustaya yeni randevu alamaz
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={staffFormActive}
+                  onChange={(e) => setStaffFormActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-orange-600 focus:ring-0 cursor-pointer"
+                />
+              </label>
 
               <div className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800/70 border border-stone-200 dark:border-stone-700 text-[11px] text-stone-600 dark:text-stone-300">
                 <strong>Bilgi:</strong> İşletme paneline güvenlik gereği yalnızca dükkan sahibi giriş yapabilir; personel için ayrı giriş şifresi gerekmez.
@@ -2996,13 +3459,13 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsStaffModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-black cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black cursor-pointer shadow-md shadow-orange-600/20"
                 >
                   Personeli Kaydet
                 </button>
@@ -3017,7 +3480,7 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
       {/* ========================================================= */}
       {isEditStaffModalOpen && editingStaff && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
-          <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4">
+          <div className="bg-white dark:bg-stone-900 rounded-3xl max-w-md w-full border border-stone-200 dark:border-stone-800 p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-stone-900 dark:text-white flex items-center gap-2">
                 <Pencil className="w-5 h-5 text-orange-600" />
@@ -3096,6 +3559,73 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                   className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs text-stone-900 dark:text-white"
                 />
               </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Mesai Başlangıç
+                  </label>
+                  <input
+                    type="time"
+                    value={staffFormWorkStart}
+                    onChange={(e) => setStaffFormWorkStart(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1">
+                    Mesai Bitiş
+                  </label>
+                  <input
+                    type="time"
+                    value={staffFormWorkEnd}
+                    onChange={(e) => setStaffFormWorkEnd(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-600 dark:text-stone-300 mb-1.5">
+                  Haftalık İzin Günleri
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[1, 2, 3, 4, 5, 6, 0].map((dayIdx) => {
+                    const isSelected = staffFormOffDays.includes(dayIdx);
+                    return (
+                      <button
+                        key={dayIdx}
+                        type="button"
+                        onClick={() => toggleStaffFormOffDay(dayIdx)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-rose-600 border-rose-600 text-white shadow-xs'
+                            : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
+                        }`}
+                      >
+                        {DAYS_TR[dayIdx]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <label className="flex items-center justify-between p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700/70 cursor-pointer">
+                <div>
+                  <span className="text-xs font-bold text-stone-800 dark:text-stone-200 block">
+                    Aktif Durum (Online Randevuya Açık)
+                  </span>
+                  <span className="text-[10px] text-stone-500 dark:text-stone-400">
+                    Pasif yapılırsa müşteriler bu ustaya yeni randevu alamaz
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={staffFormActive}
+                  onChange={(e) => setStaffFormActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-orange-600 focus:ring-0 cursor-pointer"
+                />
+              </label>
 
               <div className="p-3 rounded-xl bg-stone-50 dark:bg-stone-800/70 border border-stone-200 dark:border-stone-700 text-[11px] text-stone-600 dark:text-stone-300">
                 <strong>Not:</strong> İşletme paneline yalnızca dükkan sahibi giriş yapabilir; personel takvimi ve prim hesaplaması otomatik yürütülür.
@@ -3505,6 +4035,23 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 <span>Tahsil Edilecek:</span>
                 <span className="text-emerald-600 dark:text-emerald-400">₺{completingApt.price}</span>
               </div>
+              {(() => {
+                const matchedStaff = staffList.find(
+                  (s) =>
+                    s.id === completingApt.staffId ||
+                    (completingApt.staffName &&
+                      s.name &&
+                      completingApt.staffName.toLowerCase().includes(s.name.toLowerCase()))
+                );
+                const rate = matchedStaff?.commissionRate ?? completingApt.commissionRate ?? 30;
+                const effectiveAmount = selectedPackageId ? 0 : Number(completingApt.price) || 0;
+                return (
+                  <div className="flex justify-between items-center pt-1 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                    <span>Tahmini Usta Primi (%{rate}):</span>
+                    <span>₺{((effectiveAmount * rate) / 100).toLocaleString('tr-TR')}</span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Varsa Müşteri Paketi Seçimi */}
@@ -3694,8 +4241,29 @@ export const BarberAppointmentsView: React.FC<BarberAppointmentsViewProps> = ({
                 className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/25 active:scale-98"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>💬 WhatsApp'tan Yorum &amp; Puan İste</span>
+                <span>💬 WhatsApp&apos;tan Yorum &amp; Puan İste</span>
               </button>
+              {fetchedGoogleMapsUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const phoneClean = cleanPhoneForWhatsApp(completedFeedbackApt.phone || '');
+                    const msgText = encodeURIComponent(
+                      `Merhaba Sayın ${completedFeedbackApt.customerName}, ${storeName} salonumuzu ziyaret ettiğiniz için teşekkür ederiz! Hizmetimizden memnun kaldıysanız Google Haritalar üzerinden kısa bir 5 yıldızlı yorum bırakmanız bizi çok mutlu eder: ${fetchedGoogleMapsUrl}`
+                    );
+                    if (phoneClean) {
+                      window.open(`https://wa.me/${phoneClean}?text=${msgText}`, '_blank');
+                    } else {
+                      window.open(fetchedGoogleMapsUrl, '_blank');
+                    }
+                    setCompletedFeedbackApt(null);
+                  }}
+                  className="w-full py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 active:scale-98"
+                >
+                  <Star className="w-4 h-4 fill-stone-950" />
+                  <span>⭐ Google Haritalar Yorumu İste</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setCompletedFeedbackApt(null)}

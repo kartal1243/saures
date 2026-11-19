@@ -22,6 +22,7 @@ import {
   Wifi,
   WifiOff,
   Handshake,
+  Compass,
 } from 'lucide-react';
 import type { ActiveTab } from '../../App';
 import type { LawyerTab } from '../sector/LawyerCasesView';
@@ -47,6 +48,7 @@ interface SidebarProps {
   vipUntil?: string;
   onOpenShopProfile: () => void;
   onOpenStaff: () => void;
+  onOpenOnboardingTour?: () => void;
   onChangePassword: () => void;
   onOpenVip: () => void;
   onOpenServices: () => void;
@@ -86,6 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   vipUntil,
   onOpenShopProfile,
   onOpenStaff,
+  onOpenOnboardingTour,
   onChangePassword,
   onOpenVip,
   onOpenServices,
@@ -183,11 +186,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = (
     <>
       <p className="px-3 mt-4 mb-1 text-[10px] font-black uppercase tracking-widest text-stone-600">Menü</p>
-      <button type="button" onClick={onOpenShopProfile} className={menuBtn}>
+      <button id="nav-menu-profile" type="button" onClick={onOpenShopProfile} className={menuBtn}>
         <Store className="w-4 h-4 shrink-0 text-stone-500" /> Dükkan Bilgileri
       </button>
-      <button type="button" onClick={onOpenStaff} className={menuBtn}>
+      <button id="nav-menu-staff" type="button" onClick={onOpenStaff} className={menuBtn}>
         <UserPlus className="w-4 h-4 shrink-0 text-stone-500" /> Personel
+      </button>
+      <button id="nav-menu-onboarding" type="button" onClick={() => onOpenOnboardingTour?.()} className={menuBtn}>
+        <Compass className="w-4 h-4 shrink-0 text-orange-400" /> Tanıtım Sihirbazı
       </button>
       <button type="button" onClick={onChangePassword} className={menuBtn}>
         <KeyRound className="w-4 h-4 shrink-0 text-stone-500" /> Şifre Değiştir

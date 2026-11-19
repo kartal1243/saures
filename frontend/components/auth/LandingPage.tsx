@@ -34,9 +34,14 @@ import {
   CheckCircle2,
   Crown,
   Instagram,
+  BookOpen,
+  MapPin,
+  Calendar,
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
 import { useForceLightTheme } from '../../hooks/useForceLightTheme';
+import { trackCtaClick, trackDemoStart } from '../../utils/analytics';
+import { BLOG_ARTICLES } from '../../../shared/blogArticles.ts';
 
 const LazyShopsDiscoveryMap = React.lazy(() => import('../public/ShopsDiscoveryMap'));
 
@@ -96,6 +101,8 @@ interface LandingPageProps {
 
 interface SectorInfo {
   id: string;
+  href: string;
+  image: string;
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   tagline: string;
@@ -107,6 +114,8 @@ interface SectorInfo {
 const SECTOR_DATA: SectorInfo[] = [
   {
     id: 'berber',
+    href: '/berber',
+    image: '/og/berber.png',
     icon: Scissors,
     title: 'Berber & Kuaför',
     tagline: 'Koltuk sırası, usta primi ve randevu takibi cebinde',
@@ -116,6 +125,8 @@ const SECTOR_DATA: SectorInfo[] = [
   },
   {
     id: 'kafe',
+    href: '/kafe-restoran',
+    image: '/og/kafe-restoran.png',
     icon: UtensilsCrossed,
     title: 'Kafe & Restoran',
     tagline: 'Masa adisyonları, açık hesaplar ve hızlı fiş',
@@ -125,6 +136,8 @@ const SECTOR_DATA: SectorInfo[] = [
   },
   {
     id: 'bakkal',
+    href: '/bakkal-market',
+    image: '/og/bakkal-market.png',
     icon: ShoppingCart,
     title: 'Bakkal & Market',
     tagline: 'Kamera ile barkod okuma, tezgah satışı ve veresiye',
@@ -134,6 +147,8 @@ const SECTOR_DATA: SectorInfo[] = [
   },
   {
     id: 'servis',
+    href: '/teknik-servis',
+    image: '/og/teknik-servis.png',
     icon: Wrench,
     title: 'Teknik Servis',
     tagline: 'Cihaz kabul fişi, parça maliyeti ve durum SMS/WhatsApp',
@@ -143,6 +158,8 @@ const SECTOR_DATA: SectorInfo[] = [
   },
   {
     id: 'terzi',
+    href: '/terzi',
+    image: '/og/terzi.png',
     icon: Shirt,
     title: 'Terzi & Kuru Temizleme',
     tagline: 'Emanet fişi, tadilat durumu ve teslimat tarihi',
@@ -152,6 +169,8 @@ const SECTOR_DATA: SectorInfo[] = [
   },
   {
     id: 'diger',
+    href: '/kasa-programi',
+    image: '/og/kasa-programi.png',
     icon: Store,
     title: 'Tüm Esnaf & Hizmet',
     tagline: 'Kasa akışı, alacak-borç dengesi ve günlük özet',
@@ -268,19 +287,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               className="flex items-center gap-2 select-none cursor-pointer transition-transform hover:scale-[1.02]"
               title="Dükkânım Yanımda - Esnaf Portalı"
             >
-              <img
-                src="/brand/logo-horizontal.png"
-                alt="Dükkânım Yanımda"
-                className="h-10 sm:h-11 w-auto object-contain block"
-              />
+              <picture>
+                <source srcSet="/brand/logo-horizontal.webp" type="image/webp" />
+                <img
+                  src="/brand/logo-horizontal.png"
+                  alt="Dükkânım Yanımda — Esnaf Yönetim Programı logosu"
+                  width={160}
+                  height={53}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="h-10 sm:h-11 w-auto object-contain block"
+                />
+              </picture>
             </a>
           </div>
 
           {/* Menü Linkleri */}
-          <nav className="hidden md:flex items-center gap-7 text-sm font-bold text-stone-600 dark:text-stone-300">
+          <nav className="hidden lg:flex items-center gap-6 text-sm font-bold text-stone-600 dark:text-stone-300">
             <a href="#ozellikler" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Özellikler</a>
             <a href="#sektorler" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Sektörler</a>
-            <a href="#nasil-calisir" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Nasıl Çalışır</a>
+            <a href="/blog" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Esnaf Blogu</a>
+            <a href="/rehber" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Rehber &amp; Araçlar</a>
             <a href="#vip" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-orange-700 dark:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/25 transition-all">
               <Crown className="w-3.5 h-3.5 text-orange-500" />
               <span>VIP Panel &amp; Fiyatlar</span>
@@ -303,7 +330,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
             <button
               type="button"
-              onClick={onRegister}
+              onClick={() => {
+                trackCtaClick('14 Gün Ücretsiz Başla', 'landing_header');
+                trackDemoStart('landing_header');
+                onRegister();
+              }}
               className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black text-white bg-orange-600 hover:bg-orange-700 transition-all shadow-xs cursor-pointer"
               title="14 Gün Ücretsiz Başla (Kredi Kartsız)"
             >
@@ -313,7 +344,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
             <button
               type="button"
-              onClick={onLogin}
+              onClick={() => {
+                trackCtaClick('Giriş', 'landing_header');
+                onLogin();
+              }}
               className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer border border-transparent hover:border-stone-200 dark:hover:border-stone-700"
             >
               <LogIn className="w-4 h-4 text-stone-500" /> Giriş
@@ -321,7 +355,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
             <button
               type="button"
-              onClick={onRegister}
+              onClick={() => {
+                trackCtaClick('Ücretsiz Başla', 'landing_header');
+                trackDemoStart('landing_header_primary');
+                onRegister();
+              }}
               className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black text-white bg-linear-to-r from-orange-500 via-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-md shadow-orange-500/25 active:scale-95 transition-all cursor-pointer"
             >
               Ücretsiz Başla
@@ -374,7 +412,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5">
               <button
                 type="button"
-                onClick={onRegister}
+                onClick={() => {
+                  trackCtaClick('14 Gün Ücretsiz Başla', 'landing_hero');
+                  trackDemoStart('landing_hero');
+                  onRegister();
+                }}
                 className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-xl text-base font-black text-white bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-xl shadow-orange-500/30 hover:shadow-orange-500/40 active:scale-98 transition-all cursor-pointer"
               >
                 14 Gün Ücretsiz Başla
@@ -383,7 +425,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
               <button
                 type="button"
-                onClick={onLogin}
+                onClick={() => {
+                  trackCtaClick('Giriş Yap', 'landing_hero');
+                  onLogin();
+                }}
                 className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-base font-bold text-stone-800 dark:text-stone-100 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-orange-400 dark:hover:border-orange-600 shadow-xs hover:shadow-md transition-all cursor-pointer"
               >
                 <LogIn className="w-5 h-5 text-orange-500" />
@@ -503,12 +548,43 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               {/* Hızlı Başlangıç Butonu */}
               <button
                 type="button"
-                onClick={onRegister}
+                onClick={() => {
+                  trackCtaClick('14 Gün Ücretsiz Canlı Dene', 'landing_hero_mockup');
+                  trackDemoStart('landing_hero_mockup');
+                  onRegister();
+                }}
                 className="mt-4 w-full py-2.5 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
               >
                 <Sparkles className="w-4 h-4 text-white" />
                 14 Gün Ücretsiz Canlı Dene (Kredi Kartsız)
               </button>
+            </div>
+
+            {/* Mobil Uygulama Görsel Önizlemesi (LCP WebP Preload ile Eşleşir) */}
+            <div className="mt-4 flex items-center gap-3.5 rounded-2xl bg-white/95 dark:bg-stone-900/95 border border-stone-200/90 dark:border-stone-800 p-3 shadow-lg">
+              <picture className="shrink-0">
+                <source srcSet="/brand/phone_mockup_retina.webp" type="image/webp" />
+                <img
+                  src="/brand/phone_mockup_retina.png"
+                  alt="Dükkânım Yanımda mobil esnaf kasa, veresiye defteri ve randevu uygulaması ekranı"
+                  width={580}
+                  height={900}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="w-16 h-24 sm:w-20 sm:h-28 object-contain rounded-xl bg-stone-50 dark:bg-stone-800 p-1"
+                />
+              </picture>
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                  CEPTE TAM KONTROL
+                </p>
+                <p className="text-xs sm:text-sm font-black text-stone-900 dark:text-white leading-snug mt-0.5">
+                  Android, iPhone ve Masaüstünde Anlık Senkronizasyon
+                </p>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium mt-1">
+                  Tezgahta tablet, cebinizde telefon: tüm veresiye ve kasa hareketleri aynı saniyede güncellenir.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -640,27 +716,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 {currentSector.description}
               </p>
 
-              <div className="mt-6">
+              <div className="mt-6 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={onRegister}
+                  onClick={() => {
+                    trackCtaClick(`Bu Sektörle Başla: ${currentSector.title}`, 'landing_sectors');
+                    trackDemoStart(`sector_${currentSector.id}`);
+                    onRegister();
+                  }}
                   className="btn-primary px-6 py-2.5 text-sm"
                 >
                   Bu Sektörle Başla <ArrowRight className="w-4 h-4" />
                 </button>
+                <a
+                  href={currentSector.href}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/50 hover:bg-orange-100 border border-orange-200/80 dark:border-orange-800/50 transition-colors"
+                >
+                  Sayfasını İncele <ArrowRight className="w-3.5 h-3.5" />
+                </a>
               </div>
             </div>
 
-            <div className="space-y-3 bg-stone-50 dark:bg-stone-800/50 p-6 rounded-2xl border border-stone-200/60 dark:border-stone-700/60">
-              <p className="text-xs font-black uppercase tracking-wider text-stone-400">Öne Çıkan Özellikler</p>
-              {currentSector.highlights.map((h) => (
-                <div key={h} className="flex items-center gap-3 text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-200">
-                  <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <Check className="w-3.5 h-3.5" />
-                  </span>
-                  {h}
-                </div>
-              ))}
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-700/70 bg-stone-100 dark:bg-stone-800">
+                <img
+                  src={currentSector.image}
+                  alt={`${currentSector.title} dijital yönetim ve kasa modülü önizlemesi — Dükkânım Yanımda`}
+                  width={1200}
+                  height={630}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-40 object-cover"
+                />
+              </div>
+              <div className="space-y-3 bg-stone-50 dark:bg-stone-800/50 p-5 rounded-2xl border border-stone-200/60 dark:border-stone-700/60">
+                <p className="text-xs font-black uppercase tracking-wider text-stone-400">Öne Çıkan Özellikler</p>
+                {currentSector.highlights.map((h) => (
+                  <div key={h} className="flex items-center gap-3 text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-200">
+                    <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <Check className="w-3.5 h-3.5" />
+                    </span>
+                    {h}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -777,7 +876,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               <div className="mt-6 pt-5 border-t border-stone-100 dark:border-stone-800">
                 <button
                   type="button"
-                  onClick={onRegister}
+                  onClick={() => {
+                    trackCtaClick('Çırak Paketi - Ücretsiz Başla', 'landing_pricing');
+                    trackDemoStart('pricing_cirak');
+                    onRegister();
+                  }}
                   className="w-full py-3 px-4 rounded-xl text-sm font-black text-stone-800 dark:text-stone-100 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200/80 dark:border-stone-700 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   Ücretsiz Başla
@@ -835,7 +938,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               <div className="mt-6 pt-5 border-t border-stone-100 dark:border-stone-800">
                 <button
                   type="button"
-                  onClick={onRegister}
+                  onClick={() => {
+                    trackCtaClick('Usta Paketine Geç', 'landing_pricing');
+                    onRegister();
+                  }}
                   className="w-full py-3 px-4 rounded-xl text-sm font-black text-white bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   Usta Paketine Geç
@@ -902,7 +1008,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               <div className="mt-6 pt-5 border-t border-orange-200/60 dark:border-orange-800/40">
                 <button
                   type="button"
-                  onClick={onRegister}
+                  onClick={() => {
+                    trackCtaClick('Patron VIP Başlat — ₺499', 'landing_pricing');
+                    onRegister();
+                  }}
                   className="w-full py-3 px-4 rounded-xl text-sm font-black text-white bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:to-orange-800 shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Crown className="w-4 h-4 text-yellow-200" />
@@ -944,6 +1053,126 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
         </div>
       </section>
 
+      {/* ESNAF BLOGU'NDAN ÖNE ÇIKAN REHBERLER */}
+      <section id="blog-vitrin" className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-14 scroll-mt-20">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+          <div>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+              <BookOpen className="w-3.5 h-3.5" /> ESNAF BİLGİ MERKEZİ
+            </span>
+            <h2 className="mt-3 text-2xl sm:text-4xl font-black tracking-tight text-stone-900 dark:text-white">
+              Esnaf Blogu&apos;ndan Öne Çıkan Rehberler
+            </h2>
+            <p className="mt-2 text-sm text-stone-600 dark:text-stone-400 font-medium max-w-2xl">
+              Veresiye tahsilatından berber randevu düzenine, gün sonu kasa kapatmadan QR menü kurulumuna kadar sahadan pratik yazılar.
+            </p>
+          </div>
+          <a
+            href="/blog"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-stone-900 dark:bg-white text-white dark:text-stone-900 text-xs sm:text-sm font-black hover:opacity-90 transition-opacity shrink-0 self-start sm:self-auto"
+          >
+            Tüm Yazıları Gör ({BLOG_ARTICLES.length}) <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {BLOG_ARTICLES.slice(0, 6).map((article) => (
+            <a
+              key={article.slug}
+              href={`/blog/${article.slug}`}
+              className="group rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/90 dark:border-stone-800 overflow-hidden shadow-xs hover:shadow-xl hover:border-orange-300 dark:hover:border-orange-700 transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="aspect-[1200/630] bg-stone-100 dark:bg-stone-800 overflow-hidden">
+                  <img
+                    src={article.ogImage}
+                    alt={`${article.title} — Dükkânım Yanımda Esnaf Blogu`}
+                    width={1200}
+                    height={630}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
+                  />
+                </div>
+                <div className="p-5">
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-wide">
+                    <span>{article.category}</span>
+                    <span className="text-stone-400 font-bold">{article.readTime}</span>
+                  </div>
+                  <h3 className="mt-2 text-base font-black text-stone-900 dark:text-white group-hover:text-orange-600 transition-colors leading-snug">
+                    {article.title}
+                  </h3>
+                  <p className="mt-2 text-xs text-stone-600 dark:text-stone-400 font-medium line-clamp-2 leading-relaxed">
+                    {article.description}
+                  </p>
+                </div>
+              </div>
+              <div className="px-5 pb-4 pt-1 flex items-center gap-1.5 text-xs font-black text-orange-600 dark:text-orange-400">
+                <span>Rehberi Oku</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      {/* HIZLI KEŞİF: ÇÖZÜMLER, SEKTÖRLER & YEREL REHBERLER */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-14">
+        <div className="rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/90 dark:border-stone-800 p-6 sm:p-8 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-stone-100 dark:border-stone-800">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">
+                HIZLI KEŞİF &amp; ÇÖZÜMLER
+              </span>
+              <h2 className="mt-1 text-xl sm:text-2xl font-black text-stone-900 dark:text-white">
+                İşletmenize Uygun Modülü ve Şehir Rehberini Seçin
+              </h2>
+            </div>
+            <a
+              href="/rehber"
+              className="inline-flex items-center gap-1.5 text-xs font-black text-orange-600 hover:text-orange-700"
+            >
+              Ücretsiz Prim &amp; QR Araçları <ArrowRight className="w-3.5 h-3.5" />
+            </a>
+          </div>
+
+          <div className="mt-6 grid sm:grid-cols-3 gap-6 text-xs">
+            <div>
+              <p className="font-black uppercase tracking-wider text-stone-400 mb-3">Temel Yönetim Çözümleri</p>
+              <ul className="space-y-2 font-bold text-stone-700 dark:text-stone-300">
+                <li><a href="/veresiye-defteri" className="hover:text-orange-600 transition-colors">Dijital Veresiye Defteri &amp; Cari Takip</a></li>
+                <li><a href="/kasa-programi" className="hover:text-orange-600 transition-colors">Esnaf Kasa Programı (Nakit, POS, Havale)</a></li>
+                <li><a href="/gun-sonu-raporu" className="hover:text-orange-600 transition-colors">30 Saniyede Gün Sonu Raporu</a></li>
+                <li><a href="/qr-menu" className="hover:text-orange-600 transition-colors">Ücretsiz Fotoğraflı QR Menü Sistemi</a></li>
+                <li><a href="/randevu-sistemi" className="hover:text-orange-600 transition-colors">%0 Komisyonlu Online Randevu Sistemi</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-black uppercase tracking-wider text-stone-400 mb-3">Sektörel Esnaf Panelleri</p>
+              <ul className="space-y-2 font-bold text-stone-700 dark:text-stone-300">
+                <li><a href="/berber" className="hover:text-orange-600 transition-colors">Berber Randevu ve Koltuk Sistemi</a></li>
+                <li><a href="/kuafor" className="hover:text-orange-600 transition-colors">Kuaför Salonu &amp; Prim Programı</a></li>
+                <li><a href="/guzellik-salonu" className="hover:text-orange-600 transition-colors">Güzellik Salonu Seans &amp; Paket Takibi</a></li>
+                <li><a href="/kafe-restoran" className="hover:text-orange-600 transition-colors">Kafe &amp; Restoran Masa Adisyonu</a></li>
+                <li><a href="/bakkal-market" className="hover:text-orange-600 transition-colors">Bakkal &amp; Market Barkod POS</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-black uppercase tracking-wider text-stone-400 mb-3">Yerel Çözümler &amp; Bilgi Merkezi</p>
+              <ul className="space-y-2 font-bold text-stone-700 dark:text-stone-300">
+                <li><a href="/izmit-berber-randevu" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><MapPin className="w-3.5 h-3.5 text-orange-500" /> İzmit &amp; Kocaeli Berber Randevu</a></li>
+                <li><a href="/zonguldak-berber-randevu" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><MapPin className="w-3.5 h-3.5 text-orange-500" /> Zonguldak &amp; Ereğli Berber Randevu</a></li>
+                <li><a href="/rehber" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><Calendar className="w-3.5 h-3.5 text-orange-500" /> Esnaf Rehberi, Prim &amp; QR Araçları</a></li>
+                <li><a href="/blog" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><BookOpen className="w-3.5 h-3.5 text-orange-500" /> Esnaf Blogu (12 Kapsamlı Rehber)</a></li>
+                <li><a href="/fiyat" className="hover:text-orange-600 transition-colors">Şeffaf Paketler &amp; VIP Fiyatlandırma</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FINAL DÖNÜŞÜM ÇAĞRISI (CTA) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
         <div className="relative rounded-3xl bg-[#0F172A] text-white p-8 sm:p-14 text-center overflow-hidden shadow-2xl">
@@ -972,7 +1201,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <div className="pt-4 flex flex-wrap items-center justify-center gap-3.5">
               <button
                 type="button"
-                onClick={onRegister}
+                onClick={() => {
+                  trackCtaClick('14 Gün Ücretsiz Başla', 'landing_final_cta');
+                  trackDemoStart('landing_final_cta');
+                  onRegister();
+                }}
                 className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-base font-black text-[#0F172A] bg-orange-400 hover:bg-orange-300 transition-colors shadow-lg shadow-orange-500/20 cursor-pointer"
               >
                 14 Gün Ücretsiz Başla
@@ -981,7 +1214,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
               <button
                 type="button"
-                onClick={onLogin}
+                onClick={() => {
+                  trackCtaClick('Dükkanıma Giriş Yap', 'landing_final_cta');
+                  onLogin();
+                }}
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-base font-bold text-white bg-white/10 hover:bg-white/20 transition-colors border border-white/20 cursor-pointer"
               >
                 <LogIn className="w-5 h-5 text-orange-400" />
@@ -993,11 +1229,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
         {/* FOOTER */}
         <footer className="mt-12 flex flex-col items-center gap-6 text-xs text-stone-500 dark:text-stone-400 font-semibold">
-          <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+          <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 max-w-5xl">
             <a href="/kayit" className="hover:text-orange-600 transition-colors">Ücretsiz Kayıt</a>
-            <a href="/berber" className="hover:text-orange-600 transition-colors">Berber &amp; Kuaför</a>
+            <a href="/fiyat" className="hover:text-orange-600 transition-colors">Fiyatlar</a>
+            <a href="/blog" className="hover:text-orange-600 transition-colors">Blog</a>
+            <a href="/rehber" className="hover:text-orange-600 transition-colors">Esnaf Rehberi</a>
+            <a href="/veresiye-defteri" className="hover:text-orange-600 transition-colors">Veresiye Defteri</a>
+            <a href="/kasa-programi" className="hover:text-orange-600 transition-colors">Kasa Programı</a>
+            <a href="/gun-sonu-raporu" className="hover:text-orange-600 transition-colors">Gün Sonu Raporu</a>
+            <a href="/qr-menu" className="hover:text-orange-600 transition-colors">QR Menü</a>
+            <a href="/randevu-sistemi" className="hover:text-orange-600 transition-colors">Randevu Sistemi</a>
+            <a href="/berber" className="hover:text-orange-600 transition-colors">Berber</a>
+            <a href="/kuafor" className="hover:text-orange-600 transition-colors">Kuaför</a>
+            <a href="/guzellik-salonu" className="hover:text-orange-600 transition-colors">Güzellik Salonu</a>
             <a href="/kafe-restoran" className="hover:text-orange-600 transition-colors">Kafe &amp; Restoran</a>
             <a href="/bakkal-market" className="hover:text-orange-600 transition-colors">Bakkal &amp; Market</a>
+            <a href="/izmit-berber-randevu" className="hover:text-orange-600 transition-colors">İzmit Berber</a>
+            <a href="/zonguldak-berber-randevu" className="hover:text-orange-600 transition-colors">Zonguldak Berber</a>
             <a href="/teknik-servis" className="hover:text-orange-600 transition-colors">Teknik Servis</a>
             <a href="/iletisim" className="hover:text-orange-600 transition-colors">İletişim</a>
             <a href="/gizlilik" className="hover:text-orange-600 transition-colors">Gizlilik &amp; KVKK</a>
@@ -1014,11 +1262,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
           </a>
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full pt-6 border-t border-stone-200/70 dark:border-stone-800">
-            <img
-              src="/brand/logo-horizontal.png"
-              alt="Dükkânım Yanımda"
-              className="h-9 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
-            />
+            <picture>
+              <source srcSet="/brand/logo-horizontal.webp" type="image/webp" />
+              <img
+                src="/brand/logo-horizontal.png"
+                alt="Dükkânım Yanımda — Türkiye Esnaf ve KOBİ Yönetim Platformu logosu"
+                width={160}
+                height={53}
+                loading="lazy"
+                decoding="async"
+                className="h-9 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
+              />
+            </picture>
             <p>© 2026 Dükkânım Yanımda · Türkiye Esnaf ve KOBİ'leri İçin Özel Geliştirildi</p>
           </div>
         </footer>

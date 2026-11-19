@@ -13,6 +13,7 @@ import {
   fetchWithAppCheck,
 } from '../../firebase';
 import type { ConfirmationResult } from 'firebase/auth';
+import { trackLogin, trackSignUp } from '../../utils/analytics';
 
 interface AuthPageProps {
   onSuccess: () => void;
@@ -126,6 +127,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, initialMode, onBa
       });
       const data = await res.json().catch(() => ({} as any));
       if (!res.ok) throw new Error(data.error || 'İşlem başarısız oldu.');
+      if (mode === 'register') {
+        trackSignUp('phone_otp');
+      } else {
+        trackLogin('password');
+      }
       onSuccess();
     } catch (err: any) {
       setError(err.message || 'Bağlantı hatası oluştu.');

@@ -270,7 +270,7 @@ export const PublicQrMenuView: React.FC = () => {
           <div className="flex items-center gap-3.5 pt-1">
             {data.logoUrl ? (
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white p-1 border-2 border-amber-500/40 shadow-xl shrink-0">
-                <img src={data.logoUrl} alt={data.shopName} className="w-full h-full object-cover rounded-xl" />
+                <img src={data.logoUrl} alt={`${data.shopName} logosu`} decoding="async" className="w-full h-full object-cover rounded-xl" />
               </div>
             ) : (
               <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black text-xl shrink-0 shadow-md">
@@ -361,9 +361,10 @@ export const PublicQrMenuView: React.FC = () => {
                     {item.imageUrl ? (
                       <img
                         src={item.imageUrl}
-                        alt={item.name}
+                        alt={`${item.name} — ${data.shopName}`}
                         className="w-full h-full object-cover"
                         loading="lazy"
+                        decoding="async"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-stone-300 dark:text-stone-600">
@@ -449,12 +450,12 @@ export const PublicQrMenuView: React.FC = () => {
         {(data as any).brandingRequired !== false && (
           <div className="py-6 pb-24 text-center">
             <a
-              href="https://dukkanimyanimda.com.tr/?utm_source=qr_menu&utm_medium=viral_footer"
+              href="https://dukkanimyanimda.com.tr/qr-menu"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-xs font-bold border border-stone-200 dark:border-stone-700 transition-colors shadow-2xs"
             >
-              <span>⚡ Dükkânım Yanımda ile oluşturuldu — Ücretsiz Dene</span>
+              <span>⚡ Powered by Dükkanım Yanımda — Ücretsiz QR Menü Sistemi</span>
             </a>
           </div>
         )}

@@ -96,6 +96,9 @@ const VALID_PUBLIC_ROUTES = new Set([
   '/gizlilik',
   '/gizlilik-politikasi',
   '/rehber',
+  '/blog',
+  '/kasa-programi',
+  '/gun-sonu-raporu',
 ]);
 
 const GUIDE_FALLBACK_ROUTES = new Set([
@@ -120,6 +123,8 @@ const RESERVED_CLEAN_BOOKING_PREFIXES = new Set([
   'admin',
   'assets',
   'rehber',
+  'blog',
+  'og',
   'media',
   'r',
   'm',
@@ -130,6 +135,10 @@ const RESERVED_CLEAN_BOOKING_PREFIXES = new Set([
 export function isPublicRouteValid(pathname: string): boolean {
   const clean = (pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
   if (VALID_PUBLIC_ROUTES.has(clean)) return true;
+  if (seoModule.resolveLandingContentKey(clean) !== null) return true;
+  if (clean === '/blog' || clean.startsWith('/blog/')) {
+    return seoModule.isValidBlogRoute(clean);
+  }
   if (clean === '/rehber' || clean.startsWith('/rehber/')) {
     const seoGuideValidator = (seoModule as { isValidGuideRoute?: (p: string) => boolean }).isValidGuideRoute;
     return typeof seoGuideValidator === 'function' ? seoGuideValidator(clean) : GUIDE_FALLBACK_ROUTES.has(clean);
@@ -529,8 +538,22 @@ export async function startServer(): Promise<void> {
       '/var/www/dukkanim/dist',
     ];
     const distPath = distPathCandidates.find((p) => fs.existsSync(path.join(p, 'index.html'))) || path.join(process.cwd(), 'dist');
-    // Statik varlıklar (JS/CSS/görseller) sunulur; ancak HTML rotalarını dinamik SEO motoru karşılar
-    app.use(express.static(distPath, { index: false }));
+    // Statik varlıklar (JS/CSS/görseller/OG/WebP) uygun cache başlıklarıyla sunulur; HTML rotalarını dinamik SEO motoru karşılar
+    app.use(
+      express.static(distPath, {
+        index: false,
+        setHeaders: (res, filePath) => {
+          const normalized = filePath.replace(/\\/g, '/').toLowerCase();
+          if (normalized.includes('/assets/')) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          } else if (normalized.includes('/og/') || normalized.endsWith('.webp')) {
+            res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+          } else if (/\.(png|jpg|jpeg|svg|ico|woff2?|ttf)$/i.test(normalized)) {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+          }
+        },
+      })
+    );
 
     // Tarayıcı ve e-posta önizleyicileri için favicon.ico & apple-touch-icon.png (404 Not Found dönmesin)
     app.get(['/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'], (req, res) => {

@@ -21,8 +21,27 @@ import {
   Copy,
   BookOpen,
   MapPin,
+  ChevronRight,
+  Search,
+  Clock as ClockIcon,
+  FileWarning,
+  Home,
+  ArrowLeft,
+  CheckCheck,
+  Tag,
 } from 'lucide-react';
 import logoRaw from '../../public/brand/logo-dukkanim.svg?raw';
+import { trackCtaClick, trackPageView } from '../../utils/analytics';
+import {
+  SEO_LANDING_PAGES,
+  resolveLandingContentKey,
+  type LandingPageKey,
+} from '../../../shared/seoLandingContent.ts';
+import {
+  BLOG_ARTICLES,
+  findBlogArticle,
+  type BlogArticle,
+} from '../../../shared/blogArticles.ts';
 
 // İletişim e-postası tek noktada. Değişirse sadece burası güncellenir.
 export const CONTACT_EMAIL = 'support@dukkanimyanimda.com.tr';
@@ -37,10 +56,15 @@ export type PublicRouteKey =
   | 'guzellik-salonu'
   | 'kafe-restoran'
   | 'bakkal-market'
+  | 'veresiye-defteri'
+  | 'kasa-programi'
+  | 'gun-sonu-raporu'
+  | 'qr-menu'
   | 'teknik-servis'
   | 'hukuk'
   | 'terzi'
-  | 'rehber';
+  | 'rehber'
+  | 'blog';
 
 /** URL yolunu herkese açık sayfa anahtarına çevirir. Eşleşmezse null. */
 export function matchPublicRoute(pathname: string): PublicRouteKey | null {
@@ -48,6 +72,9 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
   const key = clean.startsWith('/') ? clean.slice(1) : clean;
   if (key === 'rehber' || key.startsWith('rehber/')) {
     return 'rehber';
+  }
+  if (key === 'blog' || key.startsWith('blog/')) {
+    return 'blog';
   }
   switch (key) {
     case 'gizlilik':
@@ -61,12 +88,16 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
     case 'fiyatlandirma':
       return 'fiyat';
     case 'berber':
+    case 'berber-randevu-programi':
+    case 'berber-randevu':
+    case 'erkek-kuafor':
     case 'kuafor':
     case 'kuafor-randevu':
     case 'kadin-kuafor':
-    case 'berber-randevu-programi':
+    case 'kuafor-programi':
     case 'randevu-sistemi':
     case 'online-randevu':
+    case 'randevu-programi':
     case 'izmit-berber-randevu':
     case 'izmit-berber':
     case 'kocaeli-berber':
@@ -75,24 +106,44 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
     case 'zonguldak-berber':
     case 'eregli-berber':
     case 'kdz-eregli-berber':
+    case 'eregli-berber-randevu':
       return 'berber';
     case 'guzellik-salonu':
     case 'guzellik-merkezi':
     case 'guzellik':
     case 'lazer-epilasyon':
+    case 'guzellik-salonu-programi':
       return 'guzellik-salonu';
     case 'kafe-restoran':
     case 'kafe':
     case 'restoran':
     case 'adisyon':
-    case 'qr-menu':
+    case 'adisyon-programi':
       return 'kafe-restoran';
     case 'bakkal-market':
     case 'bakkal':
     case 'market':
-    case 'veresiye-defteri':
     case 'pos-sistemi':
+    case 'barkod-pos':
       return 'bakkal-market';
+    case 'veresiye-defteri':
+    case 'veresiye':
+    case 'dijital-veresiye':
+    case 'veresiye-programi':
+      return 'veresiye-defteri';
+    case 'kasa-programi':
+    case 'kasa-takibi':
+    case 'esnaf-kasa':
+      return 'kasa-programi';
+    case 'gun-sonu-raporu':
+    case 'gun-sonu':
+    case 'z-raporu':
+      return 'gun-sonu-raporu';
+    case 'qr-menu':
+    case 'dijital-menu':
+    case 'karekod-menu':
+    case 'ucretsiz-qr-menu':
+      return 'qr-menu';
     case 'teknik-servis':
     case 'servis':
       return 'teknik-servis';
@@ -106,8 +157,15 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
   }
 }
 
+interface BreadcrumbItem {
+  label: string;
+  href?: string;
+}
+
 interface ShellProps {
   title: string;
+  breadcrumbTitle?: string;
+  breadcrumbs?: BreadcrumbItem[];
   onHome: () => void;
   onLogin: () => void;
   onRegister: () => void;
@@ -120,26 +178,91 @@ interface ShellProps {
 
 const NAV_LINKS: { href: string; label: string }[] = [
   { href: '/', label: 'Ana Sayfa' },
-  { href: '/fiyat', label: 'Fiyat' },
-  { href: '/kayit', label: 'Ücretsiz Kayıt' },
   { href: '/berber', label: 'Berber' },
-  { href: '/kafe-restoran', label: 'Kafe & Restoran' },
-  { href: '/bakkal-market', label: 'Bakkal & Market' },
+  { href: '/veresiye-defteri', label: 'Veresiye Defteri' },
+  { href: '/kasa-programi', label: 'Kasa Programı' },
+  { href: '/qr-menu', label: 'QR Menü' },
+  { href: '/blog', label: 'Blog' },
   { href: '/rehber', label: 'Esnaf Rehberi' },
-  { href: '/teknik-servis', label: 'Teknik Servis' },
-  { href: '/hukuk', label: 'Hukuk' },
-  { href: '/terzi', label: 'Terzi' },
-  { href: '/iletisim', label: 'İletişim' },
-  { href: '/gizlilik', label: 'Gizlilik' },
+  { href: '/fiyat', label: 'Fiyat' },
+];
+
+const FOOTER_HUB_GROUPS: { heading: string; links: { href: string; label: string }[] }[] = [
+  {
+    heading: 'Temel Çözümler',
+    links: [
+      { href: '/veresiye-defteri', label: 'Veresiye Defteri' },
+      { href: '/kasa-programi', label: 'Kasa Programı' },
+      { href: '/gun-sonu-raporu', label: 'Gün Sonu Raporu' },
+      { href: '/qr-menu', label: 'Ücretsiz QR Menü' },
+      { href: '/randevu-sistemi', label: 'Online Randevu Sistemi' },
+    ],
+  },
+  {
+    heading: 'Sektörler',
+    links: [
+      { href: '/berber', label: 'Berber Programı' },
+      { href: '/kuafor', label: 'Kuaför Randevu' },
+      { href: '/guzellik-salonu', label: 'Güzellik Salonu' },
+      { href: '/kafe-restoran', label: 'Kafe & Restoran' },
+      { href: '/bakkal-market', label: 'Bakkal & Market' },
+      { href: '/teknik-servis', label: 'Teknik Servis' },
+      { href: '/hukuk', label: 'Hukuk' },
+      { href: '/terzi', label: 'Terzi' },
+    ],
+  },
+  {
+    heading: 'Yerel & Bilgi Merkezi',
+    links: [
+      { href: '/izmit-berber-randevu', label: 'İzmit Berber Randevu' },
+      { href: '/zonguldak-berber-randevu', label: 'Zonguldak Berber Randevu' },
+      { href: '/blog', label: 'Esnaf Blogu (12 Rehber)' },
+      { href: '/rehber', label: 'Esnaf Rehberi & Araçlar' },
+    ],
+  },
+  {
+    heading: 'Platform',
+    links: [
+      { href: '/fiyat', label: 'Fiyatlar & VIP' },
+      { href: '/kayit', label: 'Ücretsiz Kayıt' },
+      { href: '/iletisim', label: 'İletişim' },
+      { href: '/gizlilik', label: 'Gizlilik & KVKK' },
+    ],
+  },
 ];
 
 const linkCls =
   'hover:text-amber-600 transition-colors';
 
-function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText, ctaButton, ctaHref }: ShellProps) {
+function Shell({
+  title,
+  breadcrumbTitle,
+  breadcrumbs,
+  onHome,
+  onLogin,
+  onRegister,
+  children,
+  ctaTitle,
+  ctaText,
+  ctaButton,
+  ctaHref,
+}: ShellProps) {
   useEffect(() => {
-    document.title = `${title} · Dükkanım Yanımda`;
+    document.title =
+      title.includes('Dükkanım Yanımda') || title.includes('Dükkânım Yanımda')
+        ? title
+        : `${title} · Dükkanım Yanımda`;
+    if (typeof window !== 'undefined') {
+      trackPageView(window.location.pathname, document.title);
+    }
   }, [title]);
+
+  const crumbs: BreadcrumbItem[] = breadcrumbs && breadcrumbs.length > 0
+    ? breadcrumbs
+    : [
+        { label: 'Ana Sayfa', href: '/' },
+        { label: breadcrumbTitle || title },
+      ];
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-900 font-sans scroll-smooth flex flex-col">
@@ -151,28 +274,40 @@ function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText
             className="flex items-center select-none"
             aria-label="Dükkanım Yanımda ana sayfa"
           >
-            <img
-              src="/brand/logo-horizontal.png"
-              alt="Dükkânım Yanımda"
-              className="h-9 sm:h-10 w-auto object-contain block"
-            />
+            <picture>
+              <source srcSet="/brand/logo-horizontal.webp" type="image/webp" />
+              <img
+                src="/brand/logo-horizontal.png"
+                alt="Dükkânım Yanımda — Esnaf Yönetim Programı logosu"
+                width={160}
+                height={40}
+                decoding="async"
+                className="h-9 sm:h-10 w-auto object-contain block"
+              />
+            </picture>
           </a>
-          <nav className="hidden lg:flex items-center gap-5 text-sm font-bold text-stone-500">
-            {NAV_LINKS.slice(1, 7).map((l) => (
+          <nav className="hidden lg:flex items-center gap-4 text-sm font-bold text-stone-500">
+            {NAV_LINKS.slice(1).map((l) => (
               <a key={l.href} href={l.href} className={linkCls}>{l.label}</a>
             ))}
           </nav>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onLogin}
+              onClick={() => {
+                trackCtaClick('Giriş Yap', 'public_header');
+                onLogin();
+              }}
               className="px-4 py-2 rounded-xl text-sm font-black text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
             >
               Giriş Yap
             </button>
             <button
               type="button"
-              onClick={onRegister}
+              onClick={() => {
+                trackCtaClick('Ücretsiz Başla', 'public_header');
+                onRegister();
+              }}
               className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-black shadow hover:bg-orange-600 transition-colors cursor-pointer"
             >
               Ücretsiz Başla
@@ -181,7 +316,29 @@ function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap items-center gap-1.5 text-xs font-bold text-stone-500">
+          {crumbs.map((c, idx) => {
+            const isLast = idx === crumbs.length - 1;
+            return (
+              <React.Fragment key={`${c.label}-${idx}`}>
+                {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-stone-400 shrink-0" />}
+                {c.href && !isLast ? (
+                  <a
+                    href={c.href}
+                    onClick={c.href === '/' ? (e) => { e.preventDefault(); onHome(); } : undefined}
+                    className="hover:text-orange-600 transition-colors"
+                  >
+                    {c.label}
+                  </a>
+                ) : (
+                  <span className={isLast ? 'text-stone-900 font-black' : ''}>{c.label}</span>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </nav>
+
         {children}
 
         <div className="mt-12 rounded-3xl bg-stone-900 text-white px-6 sm:px-10 py-10 text-center relative overflow-hidden">
@@ -195,6 +352,7 @@ function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText
           {ctaHref ? (
             <a
               href={ctaHref}
+              onClick={() => trackCtaClick(ctaButton || 'Ücretsiz Hesap Oluştur', 'public_footer_cta')}
               className="relative mt-6 inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-amber-500 text-white text-[15px] font-black shadow-lg hover:bg-amber-600 transition-colors"
             >
               {ctaButton || 'Ücretsiz Hesap Oluştur'}
@@ -202,7 +360,10 @@ function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText
           ) : (
             <button
               type="button"
-              onClick={onRegister}
+              onClick={() => {
+                trackCtaClick(ctaButton || 'Ücretsiz Hesap Oluştur', 'public_footer_cta');
+                onRegister();
+              }}
               className="relative mt-6 inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-amber-500 text-white text-[15px] font-black shadow-lg hover:bg-amber-600 transition-colors cursor-pointer"
             >
               {ctaButton || 'Ücretsiz Hesap Oluştur'}
@@ -212,13 +373,38 @@ function Shell({ title, onHome, onLogin, onRegister, children, ctaTitle, ctaText
       </main>
 
       <footer className="border-t border-stone-200 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col items-center gap-4">
-          <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-bold text-stone-500">
-            {NAV_LINKS.map((l) => (
-              <a key={l.href} href={l.href} className={linkCls}>{l.label}</a>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pb-8 border-b border-stone-100">
+            {FOOTER_HUB_GROUPS.map((group) => (
+              <div key={group.heading}>
+                <p className="text-[11px] font-black uppercase tracking-wider text-stone-400 mb-3">
+                  {group.heading}
+                </p>
+                <ul className="space-y-2 text-xs font-bold text-stone-600">
+                  {group.links.map((l) => (
+                    <li key={l.href}>
+                      <a href={l.href} className={linkCls}>{l.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </nav>
-          <p className="text-xs text-stone-400 font-semibold">© 2026 Dükkanım Yanımda · Esnaf için yapıldı</p>
+          </div>
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <picture>
+              <source srcSet="/brand/logo-horizontal.webp" type="image/webp" />
+              <img
+                src="/brand/logo-horizontal.png"
+                alt="Dükkânım Yanımda"
+                width={160}
+                height={40}
+                loading="lazy"
+                decoding="async"
+                className="h-8 w-auto object-contain opacity-90"
+              />
+            </picture>
+            <p className="text-xs text-stone-400 font-semibold">© 2026 Dükkanım Yanımda · Esnaf için yapıldı</p>
+          </div>
         </div>
       </footer>
     </div>
@@ -396,7 +582,10 @@ function FiyatPage(props: PageProps) {
           </ul>
           <button
             type="button"
-            onClick={onRegister}
+            onClick={() => {
+              trackCtaClick('Çırak - Ücretsiz Başla', 'fiyat_page');
+              onRegister();
+            }}
             className="mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border-2 border-stone-200 hover:border-amber-500 hover:text-amber-700 text-stone-700 text-sm font-black transition-colors cursor-pointer"
           >
             Ücretsiz Başla
@@ -424,7 +613,10 @@ function FiyatPage(props: PageProps) {
           </ul>
           <button
             type="button"
-            onClick={onRegister}
+            onClick={() => {
+              trackCtaClick('Usta Paketine Geç', 'fiyat_page');
+              onRegister();
+            }}
             className="mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-stone-900 text-white text-sm font-black shadow-md hover:bg-stone-800 transition-colors cursor-pointer"
           >
             Usta Paketine Geç
@@ -457,7 +649,10 @@ function FiyatPage(props: PageProps) {
           </ul>
           <button
             type="button"
-            onClick={onRegister}
+            onClick={() => {
+              trackCtaClick('Patron VIP Başlat', 'fiyat_page');
+              onRegister();
+            }}
             className="relative mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 text-stone-950 text-sm font-black shadow-lg hover:bg-amber-400 transition-colors cursor-pointer"
           >
             Patron VIP Başlat
@@ -522,7 +717,10 @@ function KayitPage(props: PageProps) {
       <div className="mt-8 text-center">
         <button
           type="button"
-          onClick={onRegister}
+          onClick={() => {
+            trackCtaClick('Hemen Ücretsiz Kaydol', 'kayit_page');
+            onRegister();
+          }}
           className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-amber-500 text-white text-base font-black shadow-lg hover:bg-amber-600 transition-colors cursor-pointer"
         >
           Hemen Ücretsiz Kaydol
@@ -1252,6 +1450,10 @@ function RehberPage(props: PageProps) {
             <img
               src={generatedQrImageUrl}
               alt={`${qrShopName || 'Dükkan'} QR Kodu`}
+              width={112}
+              height={112}
+              loading="lazy"
+              decoding="async"
               className="w-28 h-28 rounded-xl border border-stone-200 bg-white p-1.5 shrink-0"
             />
             <div className="flex-1 min-w-0 w-full">
@@ -1331,6 +1533,901 @@ function RehberPage(props: PageProps) {
   );
 }
 
+type DeepLandingRoute =
+  | 'berber'
+  | 'guzellik-salonu'
+  | 'kafe-restoran'
+  | 'bakkal-market'
+  | 'veresiye-defteri'
+  | 'kasa-programi'
+  | 'gun-sonu-raporu'
+  | 'qr-menu';
+
+const ROUTE_DEFAULT_CONTENT_KEY: Record<DeepLandingRoute, LandingPageKey> = {
+  berber: '/berber',
+  'guzellik-salonu': '/guzellik-salonu',
+  'kafe-restoran': '/kafe-restoran',
+  'bakkal-market': '/bakkal-market',
+  'veresiye-defteri': '/veresiye-defteri',
+  'kasa-programi': '/kasa-programi',
+  'gun-sonu-raporu': '/gun-sonu-raporu',
+  'qr-menu': '/qr-menu',
+};
+
+function DeepLandingPage({
+  route,
+  ...props
+}: PageProps & { route: DeepLandingRoute }) {
+  const { onRegister } = props;
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const resolved = resolveLandingContentKey(pathname);
+  const contentKey: LandingPageKey =
+    route === 'berber'
+      ? resolved && resolved !== '/'
+        ? resolved
+        : '/berber'
+      : ROUTE_DEFAULT_CONTENT_KEY[route] || '/berber';
+
+  const content = SEO_LANDING_PAGES[contentKey] || SEO_LANDING_PAGES['/berber'];
+  const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
+
+  const breadcrumbs: BreadcrumbItem[] = content.cityDetails
+    ? [
+        { label: 'Ana Sayfa', href: '/' },
+        { label: 'Berber Randevu', href: '/berber' },
+        { label: `${content.cityDetails.city} Berber Randevu` },
+      ]
+    : [
+        { label: 'Ana Sayfa', href: '/' },
+        { label: content.badge },
+      ];
+
+  return (
+    <Shell
+      title={content.h1}
+      breadcrumbs={breadcrumbs}
+      ctaTitle="Dükkanını 2 dakikada dijitale taşı, kasanı ve müşterini cebinden yönet."
+      ctaText="Çırak paketi kredi kartı istemeden ₺0 başlar. İhtiyacına göre dilediğin zaman Usta veya Patron VIP’e geç."
+      ctaButton="Ücretsiz Hesap Oluştur"
+      {...props}
+    >
+      {/* Hero */}
+      <section className="grid md:grid-cols-12 gap-8 items-center rounded-3xl bg-white border border-stone-200 p-6 sm:p-10 shadow-xs">
+        <div className="md:col-span-7 space-y-4">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-black">
+            <Sparkles className="w-3.5 h-3.5" />
+            {content.badge}
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-stone-900 leading-tight">
+            {content.h1}
+          </h1>
+          <p className="text-sm sm:text-base text-stone-600 font-medium leading-relaxed">
+            {content.subtitle}
+          </p>
+          <div className="pt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                trackCtaClick(`Ücretsiz Başla: ${content.key}`, `landing_${content.key}`);
+                onRegister();
+              }}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-black shadow-md shadow-orange-500/25 cursor-pointer transition-colors"
+            >
+              <span>Ücretsiz Başla (2 Dk)</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            <a
+              href="/fiyat"
+              onClick={() => trackCtaClick('Paketleri İncele', `landing_${content.key}`)}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-stone-200 hover:border-orange-400 text-stone-800 text-sm font-black transition-colors"
+            >
+              Paketleri İncele
+            </a>
+          </div>
+          <div className="pt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-bold text-stone-500">
+            <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Kredi Kartı Gerekmez</span>
+            <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> %0 Randevu Komisyonu</span>
+            <span className="inline-flex items-center gap-1"><Smartphone className="w-3.5 h-3.5 text-orange-500" /> Mobil &amp; Masaüstü</span>
+          </div>
+        </div>
+
+        <div className="md:col-span-5 flex flex-col items-center justify-center rounded-2xl bg-linear-to-br from-orange-50 via-amber-50/70 to-stone-50 border border-orange-100 p-5">
+          <picture>
+            <source srcSet="/brand/phone_mockup_retina.webp" type="image/webp" />
+            <img
+              src="/brand/phone_mockup_retina.png"
+              alt={`${content.h1} — Dükkânım Yanımda mobil ekran görünümü`}
+              width={580}
+              height={900}
+              fetchPriority="high"
+              decoding="async"
+              className="w-48 sm:w-56 h-auto object-contain drop-shadow-xl"
+            />
+          </picture>
+          <p className="mt-3 text-[11px] font-black text-orange-800 uppercase tracking-wider text-center">
+            Telefonda &amp; Tablette Anlık Yönetim
+          </p>
+        </div>
+      </section>
+
+      {/* Şehir × Yerel SEO Kutusu (İzmit & Zonguldak vb.) */}
+      {content.cityDetails && (
+        <section className="mt-8 space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {content.cityDetails.localStats.map((st) => (
+              <div key={st.label} className="rounded-2xl bg-white border border-stone-200 p-4 text-center shadow-2xs">
+                <p className="text-xl sm:text-2xl font-black text-orange-600">{st.value}</p>
+                <p className="mt-1 text-[11px] font-bold text-stone-500">{st.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-3xl bg-white border border-stone-200 p-6 sm:p-7 space-y-5">
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-orange-600">
+                <MapPin className="w-4 h-4" />
+                {content.cityDetails.city} &amp; {content.cityDetails.region} Hizmet Kapsamı
+              </div>
+              <h2 className="mt-1 text-xl font-black text-stone-900">
+                Hizmet Verilen İlçeler ve Öne Çıkan Semtler
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {content.cityDetails.districts.map((d) => (
+                  <span key={d} className="px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-800 text-xs font-black">
+                    {d}
+                  </span>
+                ))}
+                {content.cityDetails.neighborhoods.map((n) => (
+                  <span key={n} className="px-3 py-1 rounded-full bg-stone-100 border border-stone-200 text-stone-700 text-xs font-bold">
+                    {n}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-amber-50/70 border border-amber-200 p-5">
+              <p className="text-[11px] font-black uppercase tracking-wider text-amber-800">
+                Yerel Vaka Çalışması
+              </p>
+              <h3 className="mt-1 text-base font-black text-stone-900">
+                {content.cityDetails.caseStudyTitle}
+              </h3>
+              <p className="mt-2 text-sm text-stone-700 font-medium leading-relaxed">
+                {content.cityDetails.caseStudySummary}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Giriş Paragrafları */}
+      <section className="mt-8 rounded-3xl bg-white border border-stone-200 p-6 sm:p-8 space-y-4">
+        {content.introParagraphs.map((p, idx) => (
+          <p key={idx} className="text-sm sm:text-[15px] text-stone-700 font-medium leading-relaxed">
+            {p}
+          </p>
+        ))}
+      </section>
+
+      {/* Nasıl Çalışır (3 Adım) */}
+      <section className="mt-10">
+        <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-orange-600">
+          <Zap className="w-4 h-4" />
+          3 Adımda Kurulum
+        </div>
+        <h2 className="mt-1 text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
+          Nasıl Çalışır?
+        </h2>
+        <div className="mt-5 grid sm:grid-cols-3 gap-4">
+          {content.howItWorks.map((item) => (
+            <div key={item.step} className="rounded-2xl bg-white border border-stone-200 p-5 shadow-2xs">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-orange-500 text-white text-sm font-black">
+                {item.step}
+              </span>
+              <h3 className="mt-3 text-base font-black text-stone-900">{item.title}</h3>
+              <p className="mt-1.5 text-xs sm:text-sm text-stone-600 font-medium leading-relaxed">
+                {item.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Detaylı Özellik Bölümleri */}
+      <section className="mt-10 space-y-6">
+        {content.featureSections.map((sec) => (
+          <article key={sec.heading} className="rounded-3xl bg-white border border-stone-200 p-6 sm:p-8 space-y-4">
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+              {sec.heading}
+            </h2>
+            {sec.paragraphs.map((p, i) => (
+              <p key={i} className="text-sm sm:text-[15px] text-stone-700 font-medium leading-relaxed">
+                {p}
+              </p>
+            ))}
+            {sec.bullets && sec.bullets.length > 0 && (
+              <ul className="pt-2 grid sm:grid-cols-2 gap-2.5">
+                {sec.bullets.map((b) => (
+                  <li key={b} className="flex items-start gap-2 text-xs sm:text-sm font-bold text-stone-800 bg-stone-50 rounded-xl p-3 border border-stone-100">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </article>
+        ))}
+      </section>
+
+      {/* Karşılaştırma Tablosu */}
+      {content.comparisonPoints && content.comparisonPoints.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+            Geleneksel Yönteme Göre Farkımız
+          </h2>
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-xs">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="bg-stone-50 border-b border-stone-200 text-stone-700">
+                <tr>
+                  <th className="p-3.5 sm:p-4 font-black">Karşılaştırma Başlığı</th>
+                  <th className="p-3.5 sm:p-4 font-black text-rose-600 bg-rose-50/50">Eski Yöntem / Kağıt Defter</th>
+                  <th className="p-3.5 sm:p-4 font-black text-amber-800 bg-amber-50/70">Dükkânım Yanımda</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 font-medium">
+                {content.comparisonPoints.map((cp) => (
+                  <tr key={cp.title}>
+                    <td className="p-3.5 sm:p-4 font-bold text-stone-900">{cp.title}</td>
+                    <td className="p-3.5 sm:p-4 text-stone-500">{cp.oldWay}</td>
+                    <td className="p-3.5 sm:p-4 font-bold text-emerald-700 bg-amber-50/30">{cp.newWay}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Fiyat Özeti Kartı */}
+      <section className="mt-10 rounded-3xl bg-white border border-stone-200 p-6 sm:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-stone-100">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-orange-600">Şeffaf Fiyatlandırma</p>
+            <h2 className="mt-0.5 text-xl sm:text-2xl font-black text-stone-900">Dükkânına Uygun Paketle Hemen Başla</h2>
+          </div>
+          <a href="/fiyat" className="text-xs font-black text-orange-600 hover:underline">
+            Tüm Paket Detayları →
+          </a>
+        </div>
+        <div className="mt-5 grid sm:grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-stone-200 p-4 flex flex-col justify-between">
+            <div>
+              <p className="text-xs font-black uppercase text-stone-400">Çırak</p>
+              <p className="mt-1 text-2xl font-black text-stone-900">₺0 <span className="text-xs font-bold text-stone-400">/ hep ücretsiz</span></p>
+              <p className="mt-1.5 text-xs text-stone-600 font-medium">25 müşteri cari kotası, temel kasa ve ayda 20 online randevu.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                trackCtaClick('Çırak Ücretsiz Başla', `landing_pricing_${content.key}`);
+                onRegister();
+              }}
+              className="mt-4 w-full py-2 rounded-xl border border-stone-300 hover:border-orange-500 text-xs font-black text-stone-800 cursor-pointer"
+            >
+              Ücretsiz Başla
+            </button>
+          </div>
+          <div className="rounded-2xl border-2 border-amber-400 p-4 flex flex-col justify-between bg-amber-50/20">
+            <div>
+              <p className="text-xs font-black uppercase text-amber-700">Usta (Tek Koltuk)</p>
+              <p className="mt-1 text-2xl font-black text-stone-900">₺249 <span className="text-xs font-bold text-stone-400">/ ay</span></p>
+              <p className="mt-1.5 text-xs text-stone-600 font-medium">100 müşteri kotası, ayda 60 randevu, AI tarife okuyucu ve gün sonu.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                trackCtaClick('Usta Paketi Seç', `landing_pricing_${content.key}`);
+                onRegister();
+              }}
+              className="mt-4 w-full py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-black cursor-pointer"
+            >
+              Usta Paketini Seç
+            </button>
+          </div>
+          <div className="rounded-2xl bg-stone-900 text-white p-4 flex flex-col justify-between">
+            <div>
+              <p className="text-xs font-black uppercase text-amber-400">Patron VIP</p>
+              <p className="mt-1 text-2xl font-black">₺499 <span className="text-xs font-bold text-stone-400">/ ay</span></p>
+              <p className="mt-1.5 text-xs text-stone-300 font-medium">Sınırsız müşteri, çoklu usta primi, QR menü ve özel yazılım desteği.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                trackCtaClick('Patron VIP Başlat', `landing_pricing_${content.key}`);
+                onRegister();
+              }}
+              className="mt-4 w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-black cursor-pointer"
+            >
+              Patron VIP Başlat
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Müşteri Yorumları */}
+      {content.testimonials && content.testimonials.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+            Kullanan Esnaf Ne Diyor?
+          </h2>
+          <div className="mt-4 grid sm:grid-cols-3 gap-4">
+            {content.testimonials.map((t) => (
+              <div key={t.name + t.shopAndCity} className="rounded-2xl bg-white border border-stone-200 p-5 flex flex-col justify-between shadow-2xs">
+                <div>
+                  <div className="flex items-center gap-1 text-amber-500 text-xs font-black">
+                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    <span>{t.rating} / 5.0</span>
+                  </div>
+                  <p className="mt-3 text-xs sm:text-sm text-stone-700 font-medium leading-relaxed">
+                    &ldquo;{t.quote}&rdquo;
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-stone-100">
+                  <p className="text-xs font-black text-stone-900">{t.name}</p>
+                  <p className="text-[11px] font-semibold text-stone-500">{t.shopAndCity}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Etkileşimli SSS Akordeonu */}
+      <section className="mt-10">
+        <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+          Sıkça Sorulan Sorular
+        </h2>
+        <div className="mt-4 space-y-2.5">
+          {content.faq.map((item, idx) => {
+            const isOpen = openFaqIdx === idx;
+            return (
+              <div key={item.q} className="rounded-2xl bg-white border border-stone-200 overflow-hidden">
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  onClick={() => setOpenFaqIdx(isOpen ? null : idx)}
+                  className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-stone-50/70 transition-colors"
+                >
+                  <span className="text-sm font-black text-stone-900">{item.q}</span>
+                  <ChevronDown
+                    className={`w-4 h-4 text-stone-500 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {isOpen && (
+                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 text-sm text-stone-600 font-medium leading-relaxed border-t border-stone-100 pt-3">
+                    {item.a}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* İlgili Sayfa ve Blog İç Linkleri */}
+      {content.relatedLinks && content.relatedLinks.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-lg sm:text-xl font-black text-stone-900 tracking-tight">
+            İlgili Sayfalar &amp; Rehber Yazıları
+          </h2>
+          <div className="mt-4 grid sm:grid-cols-2 gap-3.5">
+            {content.relatedLinks.map((lnk) => (
+              <a
+                key={lnk.href}
+                href={lnk.href}
+                className="group rounded-2xl bg-white border border-stone-200 p-4 hover:border-orange-400 hover:shadow-md transition-all flex items-center justify-between gap-3"
+              >
+                <div>
+                  <p className="text-sm font-black text-stone-900 group-hover:text-orange-600 transition-colors">
+                    {lnk.label}
+                  </p>
+                  <p className="mt-1 text-xs text-stone-500 font-medium">{lnk.description}</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-stone-400 group-hover:text-orange-600 shrink-0" />
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+    </Shell>
+  );
+}
+
+const BLOG_CATEGORIES: Array<'Tümü' | BlogArticle['category']> = [
+  'Tümü',
+  'Randevu & Salon',
+  'Veresiye & Kasa',
+  'QR Menü & Kafe',
+  'İşletme & Vergi',
+];
+
+function BlogPage(props: PageProps) {
+  const { onRegister } = props;
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/blog';
+  const cleanPath = pathname.toLowerCase().replace(/\/+$/, '') || '/blog';
+  const isDetailRoute = cleanPath !== '/blog' && cleanPath.startsWith('/blog/');
+  const article = isDetailRoute ? findBlogArticle(cleanPath) : undefined;
+
+  const [selectedCategory, setSelectedCategory] = useState<'Tümü' | BlogArticle['category']>('Tümü');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
+
+  if (isDetailRoute && !article) {
+    return (
+      <Shell
+        title="Blog Yazısı Bulunamadı"
+        breadcrumbs={[
+          { label: 'Ana Sayfa', href: '/' },
+          { label: 'Esnaf Blogu', href: '/blog' },
+          { label: 'Yazı Bulunamadı' },
+        ]}
+        {...props}
+      >
+        <div className="rounded-3xl bg-white border border-stone-200 p-8 text-center space-y-4">
+          <FileWarning className="w-10 h-10 text-orange-500 mx-auto" />
+          <h1 className="text-2xl font-black text-stone-900">Aradığınız Blog Yazısı Bulunamadı</h1>
+          <p className="text-sm text-stone-600 font-medium max-w-md mx-auto">
+            Bağlantı güncellenmiş olabilir. Tüm esnaf rehberlerimize blog ana sayfasından ulaşabilirsiniz.
+          </p>
+          <a
+            href="/blog"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-black hover:bg-orange-600"
+          >
+            <ArrowLeft className="w-4 h-4" /> Tüm Blog Yazılarına Dön
+          </a>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (article) {
+    const relatedArticles = article.relatedSlugs
+      .map((slug) => BLOG_ARTICLES.find((b) => b.slug === slug))
+      .filter((b): b is BlogArticle => Boolean(b));
+    while (relatedArticles.length < 3) {
+      const next = BLOG_ARTICLES.find(
+        (b) => b.slug !== article.slug && !relatedArticles.some((r) => r.slug === b.slug)
+      );
+      if (!next) break;
+      relatedArticles.push(next);
+    }
+
+    return (
+      <Shell
+        title={article.seoTitle}
+        breadcrumbs={[
+          { label: 'Ana Sayfa', href: '/' },
+          { label: 'Esnaf Blogu', href: '/blog' },
+          { label: article.title },
+        ]}
+        ctaTitle={article.relatedProductLabel}
+        ctaText="Yazıda okuduklarınızı 2 dakikada dükkanınızda uygulamaya başlayın."
+        ctaButton="Ücretsiz Hesap Oluştur"
+        {...props}
+      >
+        <div className="mb-4">
+          <a
+            href="/blog"
+            className="inline-flex items-center gap-1.5 text-xs font-black text-orange-600 hover:text-orange-700"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Tüm Blog Yazılarına Dön
+          </a>
+        </div>
+
+        <article className="rounded-3xl bg-white border border-stone-200 overflow-hidden shadow-xs">
+          <div className="aspect-[1200/630] max-h-[340px] w-full bg-stone-100 overflow-hidden">
+            <img
+              src={article.ogImage}
+              alt={`${article.h1} — Dükkânım Yanımda Esnaf Blogu`}
+              width={1200}
+              height={630}
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          <div className="p-6 sm:p-10 space-y-6">
+            <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold">
+              <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-800 font-black">
+                {article.category}
+              </span>
+              <span className="inline-flex items-center gap-1 text-stone-500">
+                <ClockIcon className="w-3.5 h-3.5" /> {article.readTime}
+              </span>
+              <span className="text-stone-400">•</span>
+              <span className="text-stone-600">
+                {article.author} ({article.authorRole})
+              </span>
+              <span className="text-stone-400">•</span>
+              <span className="text-stone-500">Güncelleme: {article.updatedAt}</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-stone-900 leading-tight">
+              {article.h1}
+            </h1>
+
+            <p className="text-base text-stone-700 font-medium leading-relaxed">
+              {article.lead}
+            </p>
+
+            {/* Kilit Çıkarımlar */}
+            <div className="rounded-2xl bg-amber-50/80 border border-amber-200 p-5 space-y-2.5">
+              <p className="text-xs font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                <CheckCheck className="w-4 h-4" /> Kilit Çıkarımlar
+              </p>
+              <ul className="space-y-2">
+                {article.keyTakeaways.map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-xs sm:text-sm font-bold text-stone-800">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Makale Bölümleri */}
+            <div className="space-y-8 pt-2">
+              {article.sections.map((sec) => (
+                <section key={sec.heading} className="space-y-3">
+                  <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                    {sec.heading}
+                  </h2>
+                  {sec.paragraphs.map((p, i) => (
+                    <p key={i} className="text-sm sm:text-[15px] text-stone-700 font-medium leading-relaxed">
+                      {p}
+                    </p>
+                  ))}
+                  {sec.bullets && sec.bullets.length > 0 && (
+                    <ul className="space-y-2 pt-1">
+                      {sec.bullets.map((b) => (
+                        <li key={b} className="flex items-start gap-2 text-sm text-stone-800 font-semibold">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                          <span>{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {sec.tip && (
+                    <div className="rounded-2xl bg-orange-50 border border-orange-200 p-4 text-xs sm:text-sm font-bold text-orange-950">
+                      <span className="text-orange-700 uppercase text-[11px] font-black block mb-1">Pratik Esnaf İpucu</span>
+                      {sec.tip}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+
+            {/* İlgili Ürün CTA Kartı */}
+            <div className="rounded-2xl bg-stone-900 text-white p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                  İlgili Dükkânım Yanımda Çözümü
+                </p>
+                <p className="mt-1 text-lg font-black">{article.relatedProductLabel}</p>
+                <p className="mt-1 text-xs text-stone-300 font-medium">
+                  Kurulum yok, kredi kartı gerekmez. 2 dakikada ücretsiz deneyin.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2.5 shrink-0">
+                <a
+                  href={article.relatedProductHref}
+                  onClick={() => trackCtaClick(article.relatedProductLabel, `blog_article_${article.slug}`)}
+                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-black transition-colors"
+                >
+                  Sayfayı İncele →
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    trackCtaClick('Ücretsiz Dene', `blog_article_${article.slug}`);
+                    onRegister();
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-black cursor-pointer transition-colors"
+                >
+                  Hemen Başla
+                </button>
+              </div>
+            </div>
+
+            {/* Makale SSS */}
+            {article.faq && article.faq.length > 0 && (
+              <section className="pt-4">
+                <h2 className="text-xl font-black text-stone-900 mb-3">Sıkça Sorulan Sorular</h2>
+                <div className="space-y-2.5">
+                  {article.faq.map((f, idx) => {
+                    const isOpen = openFaqIdx === idx;
+                    return (
+                      <div key={f.q} className="rounded-2xl border border-stone-200 overflow-hidden">
+                        <button
+                          type="button"
+                          aria-expanded={isOpen}
+                          onClick={() => setOpenFaqIdx(isOpen ? null : idx)}
+                          className="w-full p-4 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-stone-50"
+                        >
+                          <span className="text-sm font-black text-stone-900">{f.q}</span>
+                          <ChevronDown className={`w-4 h-4 text-stone-500 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isOpen && (
+                          <div className="px-4 pb-4 text-sm text-stone-600 font-medium leading-relaxed border-t border-stone-100 pt-3">
+                            {f.a}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
+        </article>
+
+        {/* 3 İlgili Yazı */}
+        <section className="mt-10">
+          <h2 className="text-xl font-black text-stone-900 mb-4">İlgili Yazılar</h2>
+          <div className="grid sm:grid-cols-3 gap-4">
+            {relatedArticles.slice(0, 3).map((rel) => (
+              <a
+                key={rel.slug}
+                href={`/blog/${rel.slug}`}
+                className="group rounded-2xl bg-white border border-stone-200 overflow-hidden hover:border-orange-400 hover:shadow-md transition-all flex flex-col justify-between"
+              >
+                <div>
+                  <img
+                    src={rel.ogImage}
+                    alt={rel.title}
+                    width={1200}
+                    height={630}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-32 object-cover"
+                  />
+                  <div className="p-4">
+                    <span className="text-[10px] font-black uppercase text-orange-600">{rel.category}</span>
+                    <p className="mt-1 text-sm font-black text-stone-900 group-hover:text-orange-600 leading-snug">
+                      {rel.title}
+                    </p>
+                  </div>
+                </div>
+                <div className="px-4 pb-3 text-xs font-bold text-orange-600">Devamını Oku →</div>
+              </a>
+            ))}
+          </div>
+        </section>
+      </Shell>
+    );
+  }
+
+  // Blog Dizin Sayfası (/blog)
+  const filteredArticles = BLOG_ARTICLES.filter((art) => {
+    const matchesCat = selectedCategory === 'Tümü' || art.category === selectedCategory;
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      art.title.toLowerCase().includes(q) ||
+      art.description.toLowerCase().includes(q) ||
+      art.primaryKeyword.toLowerCase().includes(q) ||
+      art.lead.toLowerCase().includes(q);
+    return matchesCat && matchesSearch;
+  });
+
+  return (
+    <Shell
+      title="Esnaf Blogu: Kasa, Veresiye, Randevu & QR Menü Rehberleri"
+      breadcrumbs={[
+        { label: 'Ana Sayfa', href: '/' },
+        { label: 'Esnaf Blogu' },
+      ]}
+      ctaTitle="Okuduklarını 2 dakikada dükkanında uygula."
+      ctaText="Veresiye defteri, online randevu, QR menü ve kasa programını ücretsiz başlat."
+      ctaButton="Ücretsiz Dükkanını Aç"
+      {...props}
+    >
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-black">
+        <BookOpen className="w-3.5 h-3.5" />
+        Esnaf Blogu · {BLOG_ARTICLES.length} Kapsamlı Rehber
+      </div>
+      <H1>Esnaf Blogu: Kasa, Veresiye, Randevu ve Büyüme Rehberleri</H1>
+      <Lead>
+        Mahalle esnafı, berber, kuaför, güzellik merkezi ve kafe işletmecileri için hazırlanmış sahadan pratik kılavuzlar ve işletme yönetimi ipuçları.
+      </Lead>
+
+      {/* Arama ve Kategori Filtreleri */}
+      <div className="mt-7 space-y-4">
+        <div className="relative">
+          <Search className="w-4 h-4 text-stone-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Yazı ara... (örn. veresiye, berber randevu, gün sonu, QR menü, vergi)"
+            className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border border-stone-200 text-sm font-semibold text-stone-900 placeholder:text-stone-400 focus:outline-hidden focus:border-orange-500"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {BLOG_CATEGORIES.map((cat) => {
+            const active = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer ${
+                  active
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'bg-white border border-stone-200 text-stone-600 hover:border-orange-400'
+                }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 12 Yazı Kartı */}
+      {filteredArticles.length === 0 ? (
+        <div className="mt-8 rounded-3xl bg-white border border-stone-200 p-10 text-center text-sm font-bold text-stone-500">
+          Aradığınız kritere uygun blog yazısı bulunamadı.
+        </div>
+      ) : (
+        <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredArticles.map((art) => (
+            <a
+              key={art.slug}
+              href={`/blog/${art.slug}`}
+              className="group rounded-3xl bg-white border border-stone-200 overflow-hidden shadow-2xs hover:shadow-lg hover:border-orange-300 transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="aspect-[1200/630] bg-stone-100 overflow-hidden">
+                  <img
+                    src={art.ogImage}
+                    alt={`${art.title} — Dükkânım Yanımda Blog`}
+                    width={1200}
+                    height={630}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
+                  />
+                </div>
+                <div className="p-5">
+                  <div className="flex items-center justify-between text-[11px] font-black text-orange-600 uppercase">
+                    <span className="inline-flex items-center gap-1"><Tag className="w-3 h-3" /> {art.category}</span>
+                    <span className="text-stone-400 font-bold">{art.readTime}</span>
+                  </div>
+                  <h2 className="mt-2 text-base font-black text-stone-900 group-hover:text-orange-600 leading-snug">
+                    {art.title}
+                  </h2>
+                  <p className="mt-2 text-xs text-stone-600 font-medium line-clamp-3 leading-relaxed">
+                    {art.description}
+                  </p>
+                </div>
+              </div>
+              <div className="px-5 pb-4 pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] font-bold text-stone-500">
+                <span>{art.author}</span>
+                <span className="text-orange-600 font-black">Oku →</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* Popüler Açılış Sayfaları */}
+      <section className="mt-12 rounded-3xl bg-white border border-stone-200 p-6 sm:p-8">
+        <p className="text-xs font-black uppercase tracking-wider text-orange-600">Popüler Ürün &amp; Sektör Sayfaları</p>
+        <h2 className="mt-1 text-xl font-black text-stone-900">Dükkânım Yanımda Çözümlerini İnceleyin</h2>
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          {[
+            { href: '/veresiye-defteri', label: 'Veresiye Defteri' },
+            { href: '/kasa-programi', label: 'Kasa Programı' },
+            { href: '/gun-sonu-raporu', label: 'Gün Sonu Raporu' },
+            { href: '/qr-menu', label: 'Ücretsiz QR Menü' },
+            { href: '/berber', label: 'Berber Randevu' },
+            { href: '/kuafor', label: 'Kuaför Programı' },
+            { href: '/guzellik-salonu', label: 'Güzellik Salonu' },
+            { href: '/randevu-sistemi', label: 'Online Randevu Sistemi' },
+            { href: '/izmit-berber-randevu', label: 'İzmit Berber Randevu' },
+            { href: '/zonguldak-berber-randevu', label: 'Zonguldak Berber Randevu' },
+            { href: '/rehber', label: 'Prim & QR Araçları' },
+          ].map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="px-3.5 py-2 rounded-xl bg-stone-50 hover:bg-orange-50 border border-stone-200 hover:border-orange-300 text-xs font-black text-stone-800 hover:text-orange-700 transition-colors"
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+      </section>
+    </Shell>
+  );
+}
+
+export function NotFoundPage({ onHome, onLogin, onRegister }: PageProps) {
+  return (
+    <Shell
+      title="404 — Sayfa Bulunamadı"
+      breadcrumbs={[
+        { label: 'Ana Sayfa', href: '/' },
+        { label: '404 — Sayfa Bulunamadı' },
+      ]}
+      onHome={onHome}
+      onLogin={onLogin}
+      onRegister={onRegister}
+    >
+      <div className="rounded-3xl bg-white border border-stone-200 p-8 sm:p-12 text-center shadow-xs space-y-5">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-black">
+          <FileWarning className="w-3.5 h-3.5" /> 404 — Sayfa Bulunamadı
+        </span>
+        <h1 className="text-3xl sm:text-4xl font-black text-stone-900 tracking-tight">
+          Aradığınız Sayfaya Ulaşılamadı
+        </h1>
+        <p className="text-sm sm:text-base text-stone-600 font-medium max-w-lg mx-auto leading-relaxed">
+          Ziyaret etmek istediğiniz adres taşınmış, silinmiş veya hatalı yazılmış olabilir. Aşağıdaki popüler sayfalardan dilediğinize devam edebilirsiniz.
+        </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onHome}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-sm font-black cursor-pointer transition-colors"
+          >
+            <Home className="w-4 h-4" /> Ana Sayfaya Dön
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              trackCtaClick('404 Ücretsiz Dükkan Aç', 'not_found_page');
+              onRegister();
+            }}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-black cursor-pointer transition-colors"
+          >
+            Ücretsiz Dükkan Aç <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="pt-6 border-t border-stone-100">
+          <p className="text-xs font-black uppercase tracking-wider text-stone-400 mb-3">
+            Popüler Sayfalar
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {[
+              { href: '/berber', label: 'Berber Randevu' },
+              { href: '/kuafor', label: 'Kuaför Programı' },
+              { href: '/veresiye-defteri', label: 'Veresiye Defteri' },
+              { href: '/kasa-programi', label: 'Kasa Programı' },
+              { href: '/gun-sonu-raporu', label: 'Gün Sonu Raporu' },
+              { href: '/qr-menu', label: 'QR Menü' },
+              { href: '/blog', label: 'Esnaf Blogu' },
+              { href: '/rehber', label: 'Esnaf Rehberi' },
+              { href: '/fiyat', label: 'Fiyatlar' },
+            ].map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                className="px-3.5 py-2 rounded-xl bg-stone-50 hover:bg-orange-50 border border-stone-200 hover:border-orange-300 text-xs font-bold text-stone-700 hover:text-orange-700 transition-colors"
+              >
+                {l.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
 export function PublicPage({
   route,
   onHome,
@@ -1354,10 +2451,17 @@ export function PublicPage({
       return <FiyatPage {...props} />;
     case 'rehber':
       return <RehberPage {...props} />;
+    case 'blog':
+      return <BlogPage {...props} />;
     case 'berber':
     case 'guzellik-salonu':
     case 'kafe-restoran':
     case 'bakkal-market':
+    case 'veresiye-defteri':
+    case 'kasa-programi':
+    case 'gun-sonu-raporu':
+    case 'qr-menu':
+      return <DeepLandingPage route={route} {...props} />;
     case 'teknik-servis':
     case 'hukuk':
     case 'terzi':

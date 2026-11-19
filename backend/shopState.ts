@@ -84,6 +84,7 @@ export function emptyState(seed?: { storeName: string; ownerName: string; phone:
       slogan: 'Kaliteli & Güler Yüzlü Hizmet',
       slug: storeSlug,
       isConfigured: false,
+      onboardingCompleted: false,
       isVip: true, // 14 Gün Ücretsiz VIP Kampanyası
       vipTier: 'patron',
       vipPlan: '14_gun_deneme',
@@ -110,6 +111,7 @@ export function emptyState(seed?: { storeName: string; ownerName: string; phone:
     barberTimeBlocks: [],
     customerPackages: [],
     barberReviews: [],
+    staffCommissionPayouts: [],
     barberSettings: {
       ...defaultBarberSettings,
       slug: storeSlug,
@@ -173,6 +175,7 @@ export function loadShopState(accountId: string): AppState {
   }
   if (!Array.isArray((st as any).barberTimeBlocks)) (st as any).barberTimeBlocks = [];
   if (!Array.isArray((st as any).customerPackages)) (st as any).customerPackages = [];
+  if (!Array.isArray((st as any).staffCommissionPayouts)) (st as any).staffCommissionPayouts = [];
   if (!st.barberSettings) {
     st.barberSettings = {
       ...defaultBarberSettings,
