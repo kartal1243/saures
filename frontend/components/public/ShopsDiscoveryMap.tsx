@@ -246,7 +246,7 @@ export const ShopsDiscoveryMap: React.FC<ShopsDiscoveryMapProps> = ({
             </span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-            ${shop.logoUrl ? `<img src="${shop.logoUrl}" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover; border: 1px solid #e7e5e4; flex-shrink: 0;" />` : ''}
+            ${shop.logoUrl ? `<img src="${shop.logoUrl}" alt="${String(shop.name || 'İşletme').replace(/"/g, '&quot;')} logosu" width="32" height="32" loading="lazy" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover; border: 1px solid #e7e5e4; flex-shrink: 0;" />` : ''}
             <h4 style="font-size: 13px; font-weight: 900; margin: 0; color: #1c1917; line-height: 1.2;">
               ${shop.name}
             </h4>

@@ -65,8 +65,10 @@ export const PhoneMockupHero: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-white p-1 shadow-md flex items-center justify-center">
                     <img
-                      src="/brand/logo-icon.png"
-                      alt="Logo"
+                      src="/brand/logo-icon.webp"
+                      alt="Dükkânım Yanımda mobil uygulama ikonu"
+                      width={28}
+                      height={28}
                       className="w-full h-full object-contain"
                     />
                   </div>

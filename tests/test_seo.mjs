@@ -490,8 +490,13 @@ it('/teknik-servis, /hukuk, /terzi zengin SSR gövdesi sunar ve sahte demo/telef
   assert.ok(!homeJson.includes('Karaköy Kahvecisi'), 'Sahte Karaköy Kahvecisi şemadan kaldırılmış olmalı');
 });
 
-// 20. /rehber & /rehber/:slug İçerik Kümeleri + Sitemap
-it('SEO_GUIDE_ARTICLES, isValidGuideRoute ve 9 rehber rotası SSR/Schema/Sitemap içinde eksiksizdir', () => {
+// 20. /rehber & /rehber/:slug İçerik Kümeleri + Doorway Şehir Noindex Koruması + Sitemap
+it('SEO_GUIDE_ARTICLES doorway şehirleri noindex, aktif 10 rehber rotası SSR/Schema/Sitemap içinde eksiksizdir', () => {
+  const noindexSlugs = new Set([
+    'istanbul-berber-kuafor',
+    'ankara-berber-kuafor',
+    'izmir-kafe-restoran',
+  ]);
   const expectedSlugs = [
     'berber-no-show-onleme',
     'kuafor-prim-hesaplama',
@@ -512,6 +517,7 @@ it('SEO_GUIDE_ARTICLES, isValidGuideRoute ve 9 rehber rotası SSR/Schema/Sitemap
   assert.strictEqual(isValidGuideRoute('/rehber/olmayan-yazi'), false);
 
   const xml = generateSitemapXml('dukkanimyanimda.com.tr');
+  let activeCount = 0;
   for (const slug of expectedSlugs) {
     const route = `/rehber/${slug}`;
     assert.strictEqual(isValidGuideRoute(route), true, `${route} geçerli rehber rotası olmalı`);
@@ -520,8 +526,16 @@ it('SEO_GUIDE_ARTICLES, isValidGuideRoute ve 9 rehber rotası SSR/Schema/Sitemap
     assert.ok(meta.faqJson && meta.faqJson.length >= 1, `${route} FAQ içermeli`);
     const html = renderSeoHtml(route);
     assert.ok(html.includes('<h1'), `${route} SSR H1 içermeli`);
-    assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr${route}</loc>`), `${route} sitemapte olmalı`);
+    if (noindexSlugs.has(slug)) {
+      assert.strictEqual(meta.robots, 'noindex, follow', `${route} doorway koruması için noindex, follow dönmeli`);
+      assert.ok(!xml.includes(`<loc>https://dukkanimyanimda.com.tr${route}</loc>`), `${route} sitemap dışında tutulmalı`);
+    } else {
+      activeCount++;
+      assert.ok(!meta.robots || !meta.robots.includes('noindex'), `${route} indekslenebilir olmalı`);
+      assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr${route}</loc>`), `${route} sitemapte olmalı`);
+    }
   }
+  assert.strictEqual(activeCount, 10, '10 aktif rehber rotası indekslenebilir ve sitemapte olmalı');
 });
 
 // 21. İzmit ve Zonguldak Yerel SEO Landing Sayfaları (LocalBusiness + Service & SSR & GeoCoordinates)
@@ -638,6 +652,24 @@ it('Sitemap tüm sayfalara aynı lastmod basmaz ve gerçekçi changefreq/og gör
   const imageLocs = [...xml.matchAll(/<image:loc>([^<]+)<\/image:loc>/g)].map((m) => m[1]);
   assert.ok(imageLocs.some((loc) => loc.includes('/og/veresiye-defteri.png')), 'Sitemap /og/veresiye-defteri.png içermeli');
   assert.ok(imageLocs.some((loc) => loc.includes('/og/blog.png')), 'Sitemap /og/blog.png içermeli');
+  assert.ok(imageLocs.some((loc) => loc.includes('/og/iletisim.png')), 'Sitemap /og/iletisim.png içermeli');
+  assert.ok(imageLocs.some((loc) => loc.includes('/og/gizlilik.png')), 'Sitemap /og/gizlilik.png içermeli');
+});
+
+// 25. SSR "Powered by Dükkanım Yanımda" Linkleri & İletişim/Gizlilik Özgün OG Görselleri
+it('/r/:slug ve /m/:slug SSR çıktıları Powered by bağlantısı, /iletisim ve /gizlilik özgün OG görseli içerir', () => {
+  const barberHtml = renderSeoHtml(`/r/${barberSlug}`);
+  assert.ok(barberHtml.includes('Powered by Dükkanım Yanımda'), '/r/:slug SSR Powered by linki içermeli');
+  assert.ok(barberHtml.includes('/berber'), '/r/:slug Powered by linki /berber sayfasına bağlanmalı');
+
+  const menuHtml = renderSeoHtml(`/m/${cafeSlug}`);
+  assert.ok(menuHtml.includes('Powered by Dükkanım Yanımda'), '/m/:slug SSR Powered by linki içermeli');
+  assert.ok(menuHtml.includes('/qr-menu'), '/m/:slug Powered by linki /qr-menu sayfasına bağlanmalı');
+
+  const iletisimMeta = getSeoMetadata('/iletisim');
+  assert.ok(iletisimMeta.ogImage.endsWith('/og/iletisim.png'), '/iletisim özgün OG görseline sahip olmalı');
+  const gizlilikMeta = getSeoMetadata('/gizlilik');
+  assert.ok(gizlilikMeta.ogImage.endsWith('/og/gizlilik.png'), '/gizlilik özgün OG görseline sahip olmalı');
 });
 
 cleanupSeoFixtures();

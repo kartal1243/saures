@@ -21,37 +21,64 @@ import {
   CustodyTicket,
   MaintenanceAsset,
 } from '../shared/types.ts';
-import {
-  initFirebaseAnalytics,
-  initFirebaseAppCheck,
-  registerFirebaseWebPush,
-  unregisterFirebaseWebPush,
-} from './firebase';
 import { Header, type AppNotificationItem } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
-import { HomeDashboard } from './components/panel/HomeDashboard';
 import { SECTORS } from './components/sector/SectorSwitcherBar';
-
-import { CashSummary } from './components/panel/CashSummary';
-import { QuickActionBar } from './components/panel/QuickActionBar';
-import { UpcomingReminders } from './components/panel/UpcomingReminders';
-import { CustomerList } from './components/customers/CustomerList';
-import { AuthPage } from './components/auth/AuthPage';
-import { LandingPage } from './components/auth/LandingPage';
-import { matchPublicRoute, PublicPage, NotFoundPage } from './components/public/PublicPages';
+import { matchPublicRoute } from './utils/publicRouteMatcher';
 import { trackPageView } from './utils/analytics';
-import { PublicQrMenuView } from './components/public/PublicQrMenuView';
-import { PublicBarberBookingView } from './components/public/PublicBarberBookingView';
-import { PublicTicketTrackerView } from './components/public/PublicTicketTrackerView';
-import { PublicAssetPassportView } from './components/public/PublicAssetPassportView';
-import { StockManagementView } from './components/stock/StockManagementView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { SupplierModalMode } from './components/stock/SupplierModal';
 import { DEFAULT_SERVICES } from './components/sector/ServicesModal';
-import { OnboardingWizardTour, OnboardingChecklistCard } from './components/onboarding/OnboardingWizardTour';
 
-// Agir moduller ayri chunk olarak tembel yuklenir: ilk acilis hizli olsun.
-// (recharts + 6 sektor gorunumu + tum modallar ana pakete girmez.)
+// Agir moduller, kamusal SEO sayfalari ve alt gorunumler ayri chunk olarak tembel yuklenir.
+const HomeDashboard = lazy(() =>
+  import('./components/panel/HomeDashboard').then((m) => ({ default: m.HomeDashboard })),
+);
+const CashSummary = lazy(() =>
+  import('./components/panel/CashSummary').then((m) => ({ default: m.CashSummary })),
+);
+const QuickActionBar = lazy(() =>
+  import('./components/panel/QuickActionBar').then((m) => ({ default: m.QuickActionBar })),
+);
+const UpcomingReminders = lazy(() =>
+  import('./components/panel/UpcomingReminders').then((m) => ({ default: m.UpcomingReminders })),
+);
+const CustomerList = lazy(() =>
+  import('./components/customers/CustomerList').then((m) => ({ default: m.CustomerList })),
+);
+const StockManagementView = lazy(() =>
+  import('./components/stock/StockManagementView').then((m) => ({ default: m.StockManagementView })),
+);
+const OnboardingWizardTour = lazy(() =>
+  import('./components/onboarding/OnboardingWizardTour').then((m) => ({ default: m.OnboardingWizardTour })),
+);
+const OnboardingChecklistCard = lazy(() =>
+  import('./components/onboarding/OnboardingWizardTour').then((m) => ({ default: m.OnboardingChecklistCard })),
+);
+const AuthPage = lazy(() =>
+  import('./components/auth/AuthPage').then((m) => ({ default: m.AuthPage })),
+);
+const LandingPage = lazy(() =>
+  import('./components/auth/LandingPage').then((m) => ({ default: m.LandingPage })),
+);
+const PublicPage = lazy(() =>
+  import('./components/public/PublicPages').then((m) => ({ default: m.PublicPage })),
+);
+const NotFoundPage = lazy(() =>
+  import('./components/public/PublicPages').then((m) => ({ default: m.NotFoundPage })),
+);
+const PublicQrMenuView = lazy(() =>
+  import('./components/public/PublicQrMenuView').then((m) => ({ default: m.PublicQrMenuView })),
+);
+const PublicBarberBookingView = lazy(() =>
+  import('./components/public/PublicBarberBookingView').then((m) => ({ default: m.PublicBarberBookingView })),
+);
+const PublicTicketTrackerView = lazy(() =>
+  import('./components/public/PublicTicketTrackerView').then((m) => ({ default: m.PublicTicketTrackerView })),
+);
+const PublicAssetPassportView = lazy(() =>
+  import('./components/public/PublicAssetPassportView').then((m) => ({ default: m.PublicAssetPassportView })),
+);
 const RevenueVsExpensesChart = lazy(() =>
   import('./components/panel/RevenueVsExpensesChart').then((m) => ({ default: m.RevenueVsExpensesChart })),
 );
@@ -73,6 +100,22 @@ const CommunityView = lazy(() =>
 
 function ChunkFallback() {
   return <div className="animate-pulse rounded-2xl bg-stone-200 dark:bg-stone-800 h-24" />;
+}
+
+function PageFallback() {
+  return (
+    <div className="min-h-screen bg-[#fffaf6] flex flex-col">
+      <div className="h-16 border-b border-orange-100 bg-white/80 px-6 flex items-center justify-between">
+        <div className="h-5 w-40 rounded-lg bg-orange-100 animate-pulse" />
+        <div className="h-9 w-28 rounded-xl bg-orange-200 animate-pulse" />
+      </div>
+      <div className="max-w-5xl w-full mx-auto px-6 py-12 space-y-6">
+        <div className="h-10 w-3/4 rounded-xl bg-stone-200/70 animate-pulse" />
+        <div className="h-5 w-1/2 rounded-lg bg-stone-200/50 animate-pulse" />
+        <div className="h-64 w-full rounded-3xl bg-white border border-stone-200/70 animate-pulse" />
+      </div>
+    </div>
+  );
 }
 import type { LawyerTab } from './components/sector/LawyerCasesView';
 import { formatCurrency } from './utils/formatters';
@@ -518,6 +561,10 @@ export default function App() {
   const handleLogout = async () => {
     authedRef.current = false;
     try {
+      localStorage.removeItem('dukkanim_has_session');
+    } catch {}
+    try {
+      const { unregisterFirebaseWebPush } = await import('./firebase');
       await unregisterFirebaseWebPush();
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (e) {
@@ -530,31 +577,41 @@ export default function App() {
   };
 
   const bootstrapSession = async () => {
-    initFirebaseAppCheck().catch(() => {});
     try {
       const me = await fetch('/api/auth/me');
       if (!me.ok) {
+        try {
+          localStorage.removeItem('dukkanim_has_session');
+        } catch {}
         authedRef.current = false;
         setAuthStatus('out');
         return;
       }
+      try {
+        localStorage.setItem('dukkanim_has_session', '1');
+      } catch {}
       authedRef.current = true;
       setAuthStatus('in');
       fetchInitialData();
       connectWebSocket();
-      initFirebaseAnalytics();
-      registerFirebaseWebPush({
-        askPermission: false,
-        onForegroundMessage: (msg) => {
-          if (msg.title || msg.body) {
-            setLiveTableCallAlert({
-              tableNo: msg.title || 'Bildirim',
-              action: msg.body || 'Yeni işlem bildirimi',
-              time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-            });
-          }
-        },
-      }).catch(() => {});
+      import('./firebase')
+        .then((fb) => {
+          fb.initFirebaseAppCheck().catch(() => {});
+          fb.initFirebaseAnalytics();
+          fb.registerFirebaseWebPush({
+            askPermission: false,
+            onForegroundMessage: (msg) => {
+              if (msg.title || msg.body) {
+                setLiveTableCallAlert({
+                  tableNo: msg.title || 'Bildirim',
+                  action: msg.body || 'Yeni işlem bildirimi',
+                  time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+                });
+              }
+            },
+          }).catch(() => {});
+        })
+        .catch(() => {});
     } catch (e) {
       console.error('Auth check failed:', e);
       authedRef.current = false;
@@ -945,10 +1002,15 @@ export default function App() {
   }, [triggerLiveBookingAlert, maybeAutoOpenOnboarding]);
 
   useEffect(() => {
-    initFirebaseAppCheck().catch(() => {});
+    const appCheckTimer = window.setTimeout(() => {
+      import('./firebase')
+        .then((fb) => fb.initFirebaseAppCheck())
+        .catch(() => {});
+    }, 1500);
     bootstrapSession();
 
     return () => {
+      window.clearTimeout(appCheckTimer);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
@@ -2007,13 +2069,21 @@ export default function App() {
   // ---- Herkese açık restoran dijital QR menüsü (/m/:slug veya /menu) ----
   const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
   if (pathname.startsWith('/m/') || pathname === '/menu') {
-    return <PublicQrMenuView />;
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <PublicQrMenuView />
+      </Suspense>
+    );
   }
 
   // ---- Herkese açık berber online randevu sayfası (/r/:slug, /randevu/:slug veya /:slug/randevu) ----
   if (pathname.startsWith('/r/') || pathname.startsWith('/randevu/') || pathname === '/randevu' || pathname === '/r') {
     const rawSlug = pathname.replace(/^\/(r|randevu)\/?/, '');
-    return <PublicBarberBookingView identifier={rawSlug} />;
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <PublicBarberBookingView identifier={rawSlug} />
+      </Suspense>
+    );
   }
   const cleanBarberMatch = pathname.match(/^\/([^/]+)\/randevu$/i);
   if (
@@ -2024,21 +2094,92 @@ export default function App() {
     try {
       decodedIdentifier = decodeURIComponent(cleanBarberMatch[1]);
     } catch {}
-    return <PublicBarberBookingView identifier={decodedIdentifier} />;
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <PublicBarberBookingView identifier={decodedIdentifier} />
+      </Suspense>
+    );
   }
 
   // ---- Herkese açık servis & emanet fişi takip ekranı (/t/:code) ----
   if (pathname.startsWith('/t/') || pathname === '/t') {
     const ticketCode = decodeURIComponent(pathname.replace(/^\/t\/?/, ''));
-    return <PublicTicketTrackerView initialCode={ticketCode} />;
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <PublicTicketTrackerView initialCode={ticketCode} />
+      </Suspense>
+    );
   }
 
   // ---- Herkese açık fabrika/cihaz QR bakım pasaportu (/bakim/:code) ----
   if (pathname.startsWith('/bakim/') || pathname === '/bakim') {
     const assetCode = decodeURIComponent(pathname.replace(/^\/bakim\/?/, ''));
-    return <PublicAssetPassportView initialCode={assetCode} />;
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <PublicAssetPassportView initialCode={assetCode} />
+      </Suspense>
+    );
   }
+
+  const pub = matchPublicRoute(window.location.pathname);
+  if (pub && authStatus !== 'in' && authView !== 'auth') {
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <PublicPage
+          route={pub}
+          onHome={() => { window.location.href = '/'; }}
+          onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
+          onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
+        />
+      </Suspense>
+    );
+  }
+
   if (authStatus === 'checking') {
+    let hasSessionHint = false;
+    try {
+      hasSessionHint = localStorage.getItem('dukkanim_has_session') === '1';
+    } catch {}
+    if (!hasSessionHint) {
+      if (authView === 'auth') {
+        return (
+          <Suspense fallback={<PageFallback />}>
+            <AuthPage
+              initialMode={authMode}
+              onBack={() => setAuthView('landing')}
+              onSuccess={() => {
+                try {
+                  localStorage.setItem('dukkanim_has_session', '1');
+                } catch {}
+                authedRef.current = true;
+                setAuthStatus('in');
+                fetchInitialData();
+                connectWebSocket();
+              }}
+            />
+          </Suspense>
+        );
+      }
+      if (pathname && pathname !== '/' && pathname !== '/giris' && pathname !== '/panel') {
+        return (
+          <Suspense fallback={<PageFallback />}>
+            <NotFoundPage
+              onHome={() => { window.location.href = '/'; }}
+              onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
+              onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
+            />
+          </Suspense>
+        );
+      }
+      return (
+        <Suspense fallback={<PageFallback />}>
+          <LandingPage
+            onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
+            onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
+          />
+        </Suspense>
+      );
+    }
     return (
       <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center gap-3">
         <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white flex items-center justify-center animate-pulse">
@@ -2049,47 +2190,43 @@ export default function App() {
     );
   }
   if (authStatus === 'out') {
-    // Herkese açık SEO sayfaları (/gizlilik, /iletisim, /kayit, sektör sayfaları).
-    // Backend tüm yollarda index.html sunar, içerik buradan seçilir.
-    const pub = matchPublicRoute(window.location.pathname);
-    if (pub) {
-      return (
-        <PublicPage
-          route={pub}
-          onHome={() => { window.location.href = '/'; }}
-          onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
-          onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
-        />
-      );
-    }
     if (authView === 'landing') {
       if (pathname && pathname !== '/' && pathname !== '/giris' && pathname !== '/panel') {
         return (
-          <NotFoundPage
-            onHome={() => { window.location.href = '/'; }}
-            onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
-            onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
-          />
+          <Suspense fallback={<PageFallback />}>
+            <NotFoundPage
+              onHome={() => { window.location.href = '/'; }}
+              onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
+              onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
+            />
+          </Suspense>
         );
       }
       return (
-        <LandingPage
-          onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
-          onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
-        />
+        <Suspense fallback={<PageFallback />}>
+          <LandingPage
+            onLogin={() => { setAuthMode('login'); setAuthView('auth'); }}
+            onRegister={() => { setAuthMode('register'); setAuthView('auth'); }}
+          />
+        </Suspense>
       );
     }
     return (
-      <AuthPage
-        initialMode={authMode}
-        onBack={() => setAuthView('landing')}
-        onSuccess={() => {
-          authedRef.current = true;
-          setAuthStatus('in');
-          fetchInitialData();
-          connectWebSocket();
-        }}
-      />
+      <Suspense fallback={<PageFallback />}>
+        <AuthPage
+          initialMode={authMode}
+          onBack={() => setAuthView('landing')}
+          onSuccess={() => {
+            try {
+              localStorage.setItem('dukkanim_has_session', '1');
+            } catch {}
+            authedRef.current = true;
+            setAuthStatus('in');
+            fetchInitialData();
+            connectWebSocket();
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -2272,45 +2409,49 @@ export default function App() {
         {/* PANEL — SADE KASA MODU: hizli islemler, bugunku ciro, son islemler */}
 
         {shopProfile.isConfigured && shopProfile.onboardingCompleted === false && (
-          <OnboardingChecklistCard
-            shopProfile={shopProfile}
-            sector={currentSector}
-            stats={onboardingStats}
-            onOpenWizard={() => setIsOnboardingOpen(true)}
-            onDismiss={handleCompleteOnboarding}
-            onNavigate={setActiveTab}
-            onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
-            onOpenStaff={() => setIsStaffModalOpen(true)}
-            onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
-          />
+          <Suspense fallback={<ChunkFallback />}>
+            <OnboardingChecklistCard
+              shopProfile={shopProfile}
+              sector={currentSector}
+              stats={onboardingStats}
+              onOpenWizard={() => setIsOnboardingOpen(true)}
+              onDismiss={handleCompleteOnboarding}
+              onNavigate={setActiveTab}
+              onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
+              onOpenStaff={() => setIsStaffModalOpen(true)}
+              onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
+            />
+          </Suspense>
         )}
 
         {/* 1. Hızlı işlem butonları en üstte: Para Al / Para Ver / Gün Sonu */}
-        <QuickActionBar
-          onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
-          onOpenMoneyOut={() => setIsMoneyOutModalOpen(true)}
-          onOpenDailyClosing={() => setIsDailyClosingModalOpen(true)}
-          onOpenVip={() => {}}
-          criticalStockCount={criticalStockCount}
-        />
-        <style>{`#btn-quick-vip, #btn-quick-stock, #btn-quick-sector-view, #btn-toggle-customer-ledger { display: none !important; }`}</style>
+        <Suspense fallback={<ChunkFallback />}>
+          <QuickActionBar
+            onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
+            onOpenMoneyOut={() => setIsMoneyOutModalOpen(true)}
+            onOpenDailyClosing={() => setIsDailyClosingModalOpen(true)}
+            onOpenVip={() => {}}
+            criticalStockCount={criticalStockCount}
+          />
+          <style>{`#btn-quick-vip, #btn-quick-stock, #btn-quick-sector-view, #btn-toggle-customer-ledger { display: none !important; }`}</style>
 
-        {/* 2. Bugünkü ciro balonları (nakit + POS + havale) */}
-        <CashSummary
-          cash={cash}
-          profileTarget={shopProfile.dailyTarget}
-          onOpenUpcomingModal={() => {
-            const el = document.getElementById('section-upcoming-reminders');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
+          {/* 2. Bugünkü ciro balonları (nakit + POS + havale) */}
+          <CashSummary
+            cash={cash}
+            profileTarget={shopProfile.dailyTarget}
+            onOpenUpcomingModal={() => {
+              const el = document.getElementById('section-upcoming-reminders');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
 
-        {/* 3. Son işlemler — ciro balonlarının altında */}
-        <HomeDashboard
-          transactions={transactions}
-          onNavigate={setActiveTab}
-          onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
-        />
+          {/* 3. Son işlemler — ciro balonlarının altında */}
+          <HomeDashboard
+            transactions={transactions}
+            onNavigate={setActiveTab}
+            onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
+          />
+        </Suspense>
 
         {/* 4. Eski grafikler: kar/zarar karsilastirmasi + haftalik trend */}
         <Suspense fallback={<ChunkFallback />}>
@@ -2823,48 +2964,52 @@ export default function App() {
           </div>
           </div>
         ) : activeTab === 'stock' ? (
-          <StockManagementView
-            key={stockViewKey}
-            products={products}
-            stockMovements={stockMovements}
-            initialOnlyCritical={stockCriticalOnly}
-            onOpenAdjustment={(prod, type) => {
-              setSelectedProductForAdjustment(prod);
-              setAdjustmentType(type);
-              setIsStockAdjustmentModalOpen(true);
-            }}
-            onOpenNewProduct={() => {
-              setProductToEdit(null);
-              setIsProductFormModalOpen(true);
-            }}
-            onOpenEditProduct={(prod) => {
-              setProductToEdit(prod);
-              setIsProductFormModalOpen(true);
-            }}
-            onDeleteProduct={handleDeleteProduct}
-          />
-        ) : activeTab === 'customers' ? (
-          <div className="space-y-4">
-            {/* Müşteri sekmesine taşındı: günü gelen ödemeler */}
-            {(cash.overdueCount > 0 || cash.dueTodayCount > 0) && (
-              <UpcomingReminders
-                customers={customers}
-                onOpenWhatsApp={(cust, type) => openWhatsAppForCustomer(cust, type)}
-                onOpenPayment={(cust) => openTransactionForCustomer(cust, 'tahsilat')}
-              />
-            )}
-            <CustomerList
-              customers={customers}
-              isVip={Boolean(shopProfile?.isVip)}
-              onOpenVip={() => setIsVipModalOpen(true)}
-              onSelectCustomer={(cust) => {
-                setSelectedCustomer(cust);
-                setIsDetailModalOpen(true);
+          <Suspense fallback={<ChunkFallback />}>
+            <StockManagementView
+              key={stockViewKey}
+              products={products}
+              stockMovements={stockMovements}
+              initialOnlyCritical={stockCriticalOnly}
+              onOpenAdjustment={(prod, type) => {
+                setSelectedProductForAdjustment(prod);
+                setAdjustmentType(type);
+                setIsStockAdjustmentModalOpen(true);
               }}
-              onOpenTransaction={(cust, type) => openTransactionForCustomer(cust, type)}
-              onOpenWhatsApp={(cust) => openWhatsAppForCustomer(cust)}
+              onOpenNewProduct={() => {
+                setProductToEdit(null);
+                setIsProductFormModalOpen(true);
+              }}
+              onOpenEditProduct={(prod) => {
+                setProductToEdit(prod);
+                setIsProductFormModalOpen(true);
+              }}
+              onDeleteProduct={handleDeleteProduct}
             />
-          </div>
+          </Suspense>
+        ) : activeTab === 'customers' ? (
+          <Suspense fallback={<ChunkFallback />}>
+            <div className="space-y-4">
+              {/* Müşteri sekmesine taşındı: günü gelen ödemeler */}
+              {(cash.overdueCount > 0 || cash.dueTodayCount > 0) && (
+                <UpcomingReminders
+                  customers={customers}
+                  onOpenWhatsApp={(cust, type) => openWhatsAppForCustomer(cust, type)}
+                  onOpenPayment={(cust) => openTransactionForCustomer(cust, 'tahsilat')}
+                />
+              )}
+              <CustomerList
+                customers={customers}
+                isVip={Boolean(shopProfile?.isVip)}
+                onOpenVip={() => setIsVipModalOpen(true)}
+                onSelectCustomer={(cust) => {
+                  setSelectedCustomer(cust);
+                  setIsDetailModalOpen(true);
+                }}
+                onOpenTransaction={(cust, type) => openTransactionForCustomer(cust, type)}
+                onOpenWhatsApp={(cust) => openWhatsAppForCustomer(cust)}
+              />
+            </div>
+          </Suspense>
         ) : activeTab === 'community' ? (
           <Suspense fallback={<ChunkFallback />}>
             <CommunityView currentShopProfile={shopProfile} />
@@ -2958,18 +3103,22 @@ export default function App() {
         onSaveProduct={handleSaveProduct}
       />
       </Suspense>
-      <OnboardingWizardTour
-        isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-        onComplete={handleCompleteOnboarding}
-        shopProfile={shopProfile}
-        sector={currentSector}
-        stats={onboardingStats}
-        onNavigate={setActiveTab}
-        onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
-        onOpenStaff={() => setIsStaffModalOpen(true)}
-        onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
-      />
+      {isOnboardingOpen && (
+        <Suspense fallback={null}>
+          <OnboardingWizardTour
+            isOpen={isOnboardingOpen}
+            onClose={() => setIsOnboardingOpen(false)}
+            onComplete={handleCompleteOnboarding}
+            shopProfile={shopProfile}
+            sector={currentSector}
+            stats={onboardingStats}
+            onNavigate={setActiveTab}
+            onOpenShopProfile={() => setIsShopProfileModalOpen(true)}
+            onOpenStaff={() => setIsStaffModalOpen(true)}
+            onOpenMoneyIn={() => setIsMoneyInModalOpen(true)}
+          />
+        </Suspense>
+      )}
       </div>
     </div>
     </ErrorBoundary>

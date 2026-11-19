@@ -69,6 +69,7 @@ export interface SeoGuideArticle {
   faq: { q: string; a: string }[];
   ctaHref: string;
   ctaLabel: string;
+  noindex?: boolean;
 }
 
 export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
@@ -218,6 +219,7 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
   },
   {
     slug: 'istanbul-berber-kuafor',
+    noindex: true,
     title: 'İstanbul Berber & Kuaför Randevu ve Salon Yönetimi',
     seoTitle: 'İstanbul Berber ve Kuaför Randevu Sistemi | Dükkanım Yanımda',
     description: 'Kadıköy, Beşiktaş, Şişli, Üsküdar ve tüm İstanbul berber ile kuaför salonları için 7/24 online randevu, koltuk sırası ve prim takip sistemi.',
@@ -245,6 +247,7 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
   },
   {
     slug: 'ankara-berber-kuafor',
+    noindex: true,
     title: 'Ankara Berber & Kuaför Randevu ve Koltuk Yönetim Sistemi',
     seoTitle: 'Ankara Berber ve Kuaför Randevu Programı | Dükkanım Yanımda',
     description: 'Çankaya, Kızılay, Keçiören, Yenimahalle ve tüm Ankara berber/kuaför işletmeleri için online randevu, veresiye ve kasa takip programı.',
@@ -272,6 +275,7 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
   },
   {
     slug: 'izmir-kafe-restoran',
+    noindex: true,
     title: 'İzmir Kafe & Restoran QR Menü ve Adisyon Sistemi',
     seoTitle: 'İzmir Kafe ve Restoran Adisyon & QR Menü Programı | Dükkanım Yanımda',
     description: 'Alsancak, Bostanlı, Bornova ve Çeşme kafeleri için canlı masa takibi, temassız QR menü, garson çağırma ve komisyonsuz adisyon yazılımı.',
@@ -1807,8 +1811,8 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         '@context': 'https://schema.org',
         '@type': 'ItemList',
         name: 'Dükkânım Yanımda Esnaf Rehberi ve İçerik Kümeleri',
-        numberOfItems: SEO_GUIDE_ARTICLES.length,
-        itemListElement: SEO_GUIDE_ARTICLES.map((art, idx) => ({
+        numberOfItems: SEO_GUIDE_ARTICLES.filter((art) => !art.noindex).length,
+        itemListElement: SEO_GUIDE_ARTICLES.filter((art) => !art.noindex).map((art, idx) => ({
           '@type': 'ListItem',
           position: idx + 1,
           name: art.title,
@@ -1830,6 +1834,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
         ogDescription: article.description,
         ogImage: `${origin}/og/rehber.png`,
         canonical,
+        ...(article.noindex ? { robots: 'noindex, follow' } : {}),
         breadcrumbs: [
           { name: 'Ana Sayfa', url: origin },
           { name: 'Esnaf Rehberi', url: `${origin}/rehber` },
@@ -2069,7 +2074,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'İletişim & Destek — Dükkanım Yanımda',
       description: 'Dükkânım Yanımda iletişim ve esnaf destek hattı. Sorularınız ve önerileriniz için bize ulaşın.',
       ogDescription: 'Esnaf destek ve iletişim hattı.',
-      ogImage: `${origin}/og/home.png`,
+      ogImage: `${origin}/og/iletisim.png`,
       canonical: `${origin}/iletisim`,
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
@@ -2084,7 +2089,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       ogTitle: 'Gizlilik Politikası & KVKK Güvencesi',
       description: 'Verileriniz güvende. Dükkan defteriniz ve müşteri bilgileriniz şifreli saklanır ve sadece size aittir.',
       ogDescription: 'Kişisel verileriniz ve dükkan kayıtlarınız %100 güvende.',
-      ogImage: `${origin}/og/home.png`,
+      ogImage: `${origin}/og/gizlilik.png`,
       canonical: `${origin}/gizlilik`,
       breadcrumbs: [
         { name: 'Ana Sayfa', url: origin },
@@ -2688,6 +2693,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
           <p style="font-size:13px;color:#7c2d12;margin:0 0 14px 0;">İstediğiniz ustayı, hizmeti ve müsait saati seçerek randevunuzu hemen oluşturabilirsiniz.</p>
           <a href="${barberPath.isCleanFormat ? `/${escapeHtml(shop.slug)}/randevu` : `/r/${escapeHtml(shop.slug)}`}" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;box-shadow:0 4px 12px rgba(234,88,12,0.25);">Randevu Saatini Seç</a>
         </div>
+        <p style="margin-top:18px;text-align:center;font-size:12px;color:#64748b;"><a href="${origin}/berber" style="color:#ea580c;font-weight:700;text-decoration:none;">Powered by Dükkanım Yanımda — Online Randevu Sistemi</a></p>
       </article>`;
     } else {
       mainBodyContent = `
@@ -2754,6 +2760,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
           <p style="font-size:13px;color:#7c2d12;margin:0 0 14px 0;">Karekod menüyü açarak garson çağırabilir veya siparişinizi anında iletebilirsiniz.</p>
           <a href="/m/${escapeHtml(shop.slug)}" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;box-shadow:0 4px 12px rgba(234,88,12,0.25);">Dijital Menüyü Aç</a>
         </div>
+        <p style="margin-top:18px;text-align:center;font-size:12px;color:#64748b;"><a href="${origin}/qr-menu" style="color:#ea580c;font-weight:700;text-decoration:none;">Powered by Dükkanım Yanımda — Ücretsiz QR Menü Sistemi</a></p>
       </article>`;
     } else {
       mainBodyContent = `
@@ -3468,8 +3475,8 @@ export function generateSitemapXml(rawHost?: string): string {
     { loc: `${origin}/teknik-servis`, priority: '0.8', changefreq: 'monthly', lastmod: '2026-11-16', title: 'Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı', img: `${origin}/og/teknik-servis.png` },
     { loc: `${origin}/hukuk`, priority: '0.8', changefreq: 'monthly', lastmod: '2026-11-16', title: 'Avukat ve Hukuk Bürosu Dava Takip ve Masraf Yazılımı', img: `${origin}/og/hukuk.png` },
     { loc: `${origin}/terzi`, priority: '0.8', changefreq: 'monthly', lastmod: '2026-11-16', title: 'Terzi & Kuru Temizleme Emanet Takip Sistemi', img: `${origin}/og/terzi.png` },
-    { loc: `${origin}/iletisim`, priority: '0.6', changefreq: 'yearly', lastmod: '2026-10-15', title: 'İletişim & Destek', img: `${origin}/og/home.png` },
-    { loc: `${origin}/gizlilik`, priority: '0.4', changefreq: 'yearly', lastmod: '2026-10-15', title: 'Gizlilik Politikası & KVKK Güvencesi', img: `${origin}/og/home.png` },
+    { loc: `${origin}/iletisim`, priority: '0.6', changefreq: 'yearly', lastmod: '2026-10-15', title: 'İletişim & Destek', img: `${origin}/og/iletisim.png` },
+    { loc: `${origin}/gizlilik`, priority: '0.4', changefreq: 'yearly', lastmod: '2026-10-15', title: 'Gizlilik Politikası & KVKK Güvencesi', img: `${origin}/og/gizlilik.png` },
     { loc: `${origin}/blog`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Esnaf Blogu — Veresiye, Randevu, Kasa ve QR Menü Rehberleri', img: `${origin}/og/blog.png` },
     ...BLOG_ARTICLES.map((art) => ({
       loc: `${origin}/blog/${art.slug}`,
@@ -3480,7 +3487,7 @@ export function generateSitemapXml(rawHost?: string): string {
       img: art.ogImage.startsWith('http') ? art.ogImage : `${origin}${art.ogImage}`,
     })),
     { loc: `${origin}/rehber`, priority: '0.85', changefreq: 'weekly', lastmod: '2026-11-16', title: 'Esnaf Rehberi, Prim Hesaplayıcı & Ücretsiz QR Araçları', img: `${origin}/og/rehber.png` },
-    ...SEO_GUIDE_ARTICLES.map((art) => ({
+    ...SEO_GUIDE_ARTICLES.filter((art) => !art.noindex).map((art) => ({
       loc: `${origin}/rehber/${art.slug}`,
       priority: '0.8',
       changefreq: 'monthly',
