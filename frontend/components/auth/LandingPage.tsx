@@ -277,14 +277,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
   return (
     <div className="min-h-screen bg-[#FDFBF7] dark:bg-[#0B0F17] text-[#0F172A] dark:text-[#F8FAFC] font-sans scroll-smooth selection:bg-orange-500/25 selection:text-orange-900 transition-colors">
       {/* Üst Navigasyon Çubuğu */}
-      <header className="sticky top-0 z-50 border-b border-stone-200/80 dark:border-stone-800/80 bg-white/90 dark:bg-[#0B0F17]/90 backdrop-blur-md transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-50 border-b border-stone-200/80 dark:border-stone-800/80 bg-white/95 dark:bg-[#0B0F17]/95 backdrop-blur-md transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[72px] flex items-center justify-between gap-6">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center shrink-0">
             <a
               href="#"
               onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              className="flex items-center gap-2 select-none cursor-pointer transition-transform hover:scale-[1.02]"
+              className="flex items-center gap-2 select-none cursor-pointer transition-transform hover:scale-[1.02] shrink-0"
               title="Dükkânım Yanımda - Esnaf Portalı"
             >
               <picture>
@@ -296,32 +296,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                   height={53}
                   fetchPriority="high"
                   decoding="async"
-                  className="h-10 sm:h-11 w-auto object-contain block"
+                  className="h-9 sm:h-10 w-auto object-contain block"
                 />
               </picture>
             </a>
           </div>
 
           {/* Menü Linkleri */}
-          <nav className="hidden lg:flex items-center gap-6 text-sm font-bold text-stone-600 dark:text-stone-300">
-            <a href="#ozellikler" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Özellikler</a>
-            <a href="#sektorler" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Sektörler</a>
-            <a href="/blog" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Esnaf Blogu</a>
-            <a href="/rehber" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Rehber &amp; Araçlar</a>
-            <a href="#vip" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-orange-700 dark:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/25 transition-all">
-              <Crown className="w-3.5 h-3.5 text-orange-500" />
-              <span>VIP Panel &amp; Fiyatlar</span>
+          <nav
+            aria-label="Ana Menü"
+            className="hidden lg:flex items-center justify-center gap-5 xl:gap-7 text-sm font-bold text-stone-600 dark:text-stone-300"
+          >
+            <a href="#ozellikler" className="whitespace-nowrap shrink-0 hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Özellikler</a>
+            <a href="#sektorler" className="whitespace-nowrap shrink-0 hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Sektörler</a>
+            <a href="/blog" className="whitespace-nowrap shrink-0 hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Blog</a>
+            <a href="/rehber" className="whitespace-nowrap shrink-0 hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Rehber</a>
+            <a
+              href="#vip"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 px-3 py-1.5 rounded-xl text-orange-700 dark:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 transition-all"
+            >
+              <Crown className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+              <span>Fiyatlar</span>
             </a>
-            <a href="#sss" className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">SSS</a>
+            <a href="#sss" className="whitespace-nowrap shrink-0 hover:text-orange-600 dark:hover:text-orange-400 transition-colors">SSS</a>
           </nav>
 
           {/* Aksiyon Butonları */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <a
               href="https://www.instagram.com/dukkanimyanimdatr/"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 rounded-xl text-stone-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors"
+              className="hidden sm:inline-flex items-center justify-center p-2 rounded-xl text-stone-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors shrink-0"
               title="Instagram: @dukkanimyanimdatr"
               aria-label="Instagram @dukkanimyanimdatr"
             >
@@ -331,26 +337,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <button
               type="button"
               onClick={() => {
-                trackCtaClick('14 Gün Ücretsiz Başla', 'landing_header');
-                trackDemoStart('landing_header');
-                onRegister();
-              }}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black text-white bg-orange-600 hover:bg-orange-700 transition-all shadow-xs cursor-pointer"
-              title="14 Gün Ücretsiz Başla (Kredi Kartsız)"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              14 Gün Ücretsiz Başla
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
                 trackCtaClick('Giriş', 'landing_header');
                 onLogin();
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer border border-transparent hover:border-stone-200 dark:hover:border-stone-700"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer border border-stone-200/80 dark:border-stone-700/80"
             >
-              <LogIn className="w-4 h-4 text-stone-500" /> Giriş
+              <LogIn className="w-4 h-4 text-stone-500 shrink-0" />
+              <span>Giriş Yap</span>
             </button>
 
             <button
@@ -360,10 +353,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 trackDemoStart('landing_header_primary');
                 onRegister();
               }}
-              className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black text-white bg-linear-to-r from-orange-500 via-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-md shadow-orange-500/25 active:scale-95 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black text-white bg-linear-to-r from-orange-500 via-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-md shadow-orange-500/25 active:scale-95 transition-all cursor-pointer"
+              title="14 Gün Ücretsiz Başla (Kredi Kartsız)"
             >
-              Ücretsiz Başla
-              <ArrowRight className="w-4 h-4" />
+              <span>Ücretsiz Başla</span>
+              <ArrowRight className="w-4 h-4 shrink-0" />
             </button>
           </div>
         </div>

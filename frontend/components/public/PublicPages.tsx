@@ -179,12 +179,12 @@ interface ShellProps {
 const NAV_LINKS: { href: string; label: string }[] = [
   { href: '/', label: 'Ana Sayfa' },
   { href: '/berber', label: 'Berber' },
-  { href: '/veresiye-defteri', label: 'Veresiye Defteri' },
-  { href: '/kasa-programi', label: 'Kasa Programı' },
+  { href: '/veresiye-defteri', label: 'Veresiye' },
+  { href: '/kasa-programi', label: 'Kasa' },
   { href: '/qr-menu', label: 'QR Menü' },
   { href: '/blog', label: 'Blog' },
-  { href: '/rehber', label: 'Esnaf Rehberi' },
-  { href: '/fiyat', label: 'Fiyat' },
+  { href: '/rehber', label: 'Rehber' },
+  { href: '/fiyat', label: 'Fiyatlar' },
 ];
 
 const FOOTER_HUB_GROUPS: { heading: string; links: { href: string; label: string }[] }[] = [
@@ -266,12 +266,12 @@ function Shell({
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-900 font-sans scroll-smooth flex flex-col">
-      <header className="sticky top-0 z-40 border-b border-stone-200/70 bg-white/85 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-white/95 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[72px] flex items-center justify-between gap-6">
           <a
             href="/"
             onClick={(e) => { e.preventDefault(); onHome(); }}
-            className="flex items-center select-none"
+            className="flex items-center select-none shrink-0"
             aria-label="Dükkanım Yanımda ana sayfa"
           >
             <picture>
@@ -286,19 +286,22 @@ function Shell({
               />
             </picture>
           </a>
-          <nav className="hidden lg:flex items-center gap-4 text-sm font-bold text-stone-500">
+          <nav
+            aria-label="Üst Menü"
+            className="hidden lg:flex items-center justify-center gap-5 xl:gap-6 text-sm font-bold text-stone-600"
+          >
             {NAV_LINKS.slice(1).map((l) => (
-              <a key={l.href} href={l.href} className={linkCls}>{l.label}</a>
+              <a key={l.href} href={l.href} className={`${linkCls} whitespace-nowrap shrink-0`}>{l.label}</a>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               type="button"
               onClick={() => {
                 trackCtaClick('Giriş Yap', 'public_header');
                 onLogin();
               }}
-              className="px-4 py-2 rounded-xl text-sm font-black text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+              className="whitespace-nowrap shrink-0 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black text-stone-700 hover:text-stone-900 hover:bg-stone-100 border border-stone-200/80 transition-colors cursor-pointer"
             >
               Giriş Yap
             </button>
@@ -308,7 +311,7 @@ function Shell({
                 trackCtaClick('Ücretsiz Başla', 'public_header');
                 onRegister();
               }}
-              className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-black shadow hover:bg-orange-600 transition-colors cursor-pointer"
+              className="whitespace-nowrap shrink-0 px-4 sm:px-5 py-2.5 rounded-xl bg-orange-500 text-white text-xs sm:text-sm font-black shadow-md shadow-orange-500/20 hover:bg-orange-600 transition-colors cursor-pointer"
             >
               Ücretsiz Başla
             </button>
