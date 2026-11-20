@@ -189,26 +189,22 @@ const NAV_LINKS: { href: string; label: string }[] = [
 
 const FOOTER_HUB_GROUPS: { heading: string; links: { href: string; label: string }[] }[] = [
   {
-    heading: 'Temel Çözümler',
+    heading: 'Randevu & Salon',
     links: [
-      { href: '/veresiye-defteri', label: 'Veresiye Defteri' },
-      { href: '/kasa-programi', label: 'Kasa Programı' },
-      { href: '/gun-sonu-raporu', label: 'Gün Sonu Raporu' },
-      { href: '/qr-menu', label: 'Ücretsiz QR Menü' },
+      { href: '/berber', label: 'Berber Randevu Sistemi' },
+      { href: '/kuafor', label: 'Kuaför Salonu Programı' },
+      { href: '/guzellik-salonu', label: 'Güzellik Salonu Seans Takibi' },
       { href: '/randevu-sistemi', label: 'Online Randevu Sistemi' },
     ],
   },
   {
-    heading: 'Sektörler',
+    heading: 'Kafe, Restoran & Kasa',
     links: [
-      { href: '/berber', label: 'Berber Programı' },
-      { href: '/kuafor', label: 'Kuaför Randevu' },
-      { href: '/guzellik-salonu', label: 'Güzellik Salonu' },
-      { href: '/kafe-restoran', label: 'Kafe & Restoran' },
-      { href: '/bakkal-market', label: 'Bakkal & Market' },
-      { href: '/teknik-servis', label: 'Teknik Servis' },
-      { href: '/hukuk', label: 'Hukuk' },
-      { href: '/terzi', label: 'Terzi' },
+      { href: '/kafe-restoran', label: 'Kafe & Restoran Adisyon' },
+      { href: '/qr-menu', label: 'Ücretsiz QR Menü' },
+      { href: '/kasa-programi', label: 'Kasa Programı' },
+      { href: '/gun-sonu-raporu', label: 'Gün Sonu Raporu' },
+      { href: '/veresiye-defteri', label: 'Veresiye Defteri' },
     ],
   },
   {
@@ -216,8 +212,8 @@ const FOOTER_HUB_GROUPS: { heading: string; links: { href: string; label: string
     links: [
       { href: '/izmit-berber-randevu', label: 'İzmit Berber Randevu' },
       { href: '/zonguldak-berber-randevu', label: 'Zonguldak Berber Randevu' },
-      { href: '/blog', label: 'Esnaf Blogu (12 Rehber)' },
-      { href: '/rehber', label: 'Esnaf Rehberi & Araçlar' },
+      { href: '/blog', label: 'Esnaf Blogu (15 Rehber)' },
+      { href: '/rehber', label: 'Ücretsiz Prim & QR Araçları' },
     ],
   },
   {
@@ -670,12 +666,10 @@ function FiyatPage(props: PageProps) {
       </P>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {[
-          { h: '/berber', t: 'Berber & Kuaför', d: '“Yarın uğrarım” diyenlerin borcunu toplu turla topla, ölü günlere AI ile kampanya günü koy.' },
-          { h: '/kafe-restoran', t: 'Kafe & Restoran', d: 'Açık masa ve abonman bakiyelerini büyükten küçüğe diz, happy-hour saatlerini AI ile bul.' },
-          { h: '/bakkal-market', t: 'Bakkal & Market', d: 'Mahallenin veresiyesini tek listede gör, kapı kapı dolaşmadan kibar hatırlatmayla tahsil et.' },
-          { h: '/teknik-servis', t: 'Teknik Servis', d: 'Teslim edip ücreti alınmamış işleri biriktirme; en kârlı iş tipini AI raporunda gör.' },
-          { h: '/hukuk', t: 'Hukuk & Avukat', d: 'Ödenmemiş müvekkil alacaklarını resmi tonda hatırlat, avans politikanı AI ile düzenle.' },
-          { h: '/terzi', t: 'Terzi', d: 'Teslim edip ücreti kalmış emanetleri toplu turla kapat, yoğun günlere randevu yay.' },
+          { h: '/berber', t: 'Berber & Erkek Kuaförü', d: '%0 komisyonlu 7/24 online randevu, otomatik usta/kalfa prim hesabı ve WhatsApp hatırlatma.' },
+          { h: '/kuafor', t: 'Kuaför & Güzellik Salonu', d: 'İşlem süresi planlama, seans/paket sayacı, kapora takibi ve uzman bazlı takvim.' },
+          { h: '/kafe-restoran', t: 'Kafe & Restoran Adisyon', d: 'Canlı masa planı, logolu QR menü, garson çağrı zili ve nakit/POS/havale parçalı tahsilat.' },
+          { h: '/kasa-programi', t: 'Ortak Kasa & Gün Sonu', d: 'Kapanan randevu ve adisyonları anlık kasaya işleyin, akşam 30 saniyede gün sonu Z raporu alın.' },
         ].map((c) => (
           <a key={c.h} href={c.h} className="rounded-2xl bg-white border border-stone-200 p-5 hover:border-amber-400 hover:shadow-md transition-all">
             <p className="text-sm font-black text-amber-700">{c.t}</p>
@@ -1022,13 +1016,12 @@ function SectorPage({ route, ...props }: PageProps & { route: 'berber' | 'guzell
       <H2>Neden Dükkanım Yanımda?</H2>
       <P>{s.closing}</P>
       <P>
-        Diğer sektörlerde de çalışır: <a className="text-amber-700 font-bold" href="/berber">berber</a>,{' '}
-        <a className="text-amber-700 font-bold" href="/kafe-restoran">kafe &amp; restoran</a>,{' '}
-        <a className="text-amber-700 font-bold" href="/bakkal-market">bakkal &amp; market</a>,{' '}
-        <a className="text-amber-700 font-bold" href="/teknik-servis">teknik servis</a>,{' '}
-        <a className="text-amber-700 font-bold" href="/hukuk">hukuk</a>,{' '}
-        <a className="text-amber-700 font-bold" href="/terzi">terzi</a> — hepsi aynı hesapta,
-        sektörünü dilediğinde değiştirebilirsin.
+        Diğer çözümlerimizi de inceleyin: <a className="text-amber-700 font-bold" href="/berber">berber randevu</a>,{' '}
+        <a className="text-amber-700 font-bold" href="/kuafor">kuaför</a>,{' '}
+        <a className="text-amber-700 font-bold" href="/guzellik-salonu">güzellik salonu</a>,{' '}
+        <a className="text-amber-700 font-bold" href="/kafe-restoran">kafe &amp; restoran adisyon</a>,{' '}
+        <a className="text-amber-700 font-bold" href="/qr-menu">QR menü</a>,{' '}
+        <a className="text-amber-700 font-bold" href="/kasa-programi">kasa &amp; gün sonu</a> — hepsi tek hesapta.
       </P>
     </Shell>
   );
@@ -1323,17 +1316,17 @@ function RehberPage(props: PageProps) {
         </div>
         <h2 className="mt-2 text-xl font-black text-stone-900">Bölgenizdeki Dijital Esnaf Ağı</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <a href="/rehber/istanbul-berber-kuafor" className="rounded-2xl border border-stone-200 p-4 hover:border-orange-400 transition-colors">
-            <p className="text-sm font-black text-stone-900">İstanbul Berber &amp; Kuaför</p>
-            <p className="mt-1 text-xs text-stone-600 font-medium">Kadıköy, Şişli, Beşiktaş online koltuk ve randevu rehberi.</p>
+          <a href="/izmit-berber-randevu" className="rounded-2xl border border-stone-200 p-4 hover:border-orange-400 transition-colors">
+            <p className="text-sm font-black text-stone-900">İzmit &amp; Kocaeli Berber Randevu</p>
+            <p className="mt-1 text-xs text-stone-600 font-medium">İzmit, Gebze, Körfez ve Gölcük salonları için online koltuk ve randevu sistemi.</p>
           </a>
-          <a href="/rehber/ankara-berber-kuafor" className="rounded-2xl border border-stone-200 p-4 hover:border-orange-400 transition-colors">
-            <p className="text-sm font-black text-stone-900">Ankara Berber &amp; Kuaför</p>
-            <p className="mt-1 text-xs text-stone-600 font-medium">Çankaya, Kızılay, Yenimahalle salon yönetim ve sadakat kartı.</p>
+          <a href="/zonguldak-berber-randevu" className="rounded-2xl border border-stone-200 p-4 hover:border-orange-400 transition-colors">
+            <p className="text-sm font-black text-stone-900">Zonguldak &amp; Ereğli Berber Randevu</p>
+            <p className="mt-1 text-xs text-stone-600 font-medium">Gazipaşa, Kozlu ve Kdz. Ereğli berber/kuaför salon yönetimi ve usta primi.</p>
           </a>
-          <a href="/rehber/izmir-kafe-restoran" className="rounded-2xl border border-stone-200 p-4 hover:border-orange-400 transition-colors">
-            <p className="text-sm font-black text-stone-900">İzmir Kafe &amp; Restoran</p>
-            <p className="mt-1 text-xs text-stone-600 font-medium">Alsancak, Bostanlı bahçe masa takibi ve temassız QR menü.</p>
+          <a href="/kafe-restoran" className="rounded-2xl border border-stone-200 p-4 hover:border-orange-400 transition-colors">
+            <p className="text-sm font-black text-stone-900">Kafe &amp; Restoran QR Adisyon</p>
+            <p className="mt-1 text-xs text-stone-600 font-medium">Salon ve bahçe masa takibi, logolu QR menü ve anlık garson çağırma.</p>
           </a>
         </div>
       </section>

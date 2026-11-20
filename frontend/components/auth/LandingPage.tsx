@@ -117,66 +117,44 @@ const SECTOR_DATA: SectorInfo[] = [
     href: '/berber',
     image: '/og/berber.png',
     icon: Scissors,
-    title: 'Berber & Kuaför',
-    tagline: 'Koltuk sırası, usta primi ve randevu takibi cebinde',
-    description: 'Müşteri randevuları karışmasın, usta ve kalfa primleri kuruşu kuruşuna hesaplansın. Gün sonunda hangi koltuk ne kazandırdı anında gör.',
+    title: 'Berber & Erkek Kuaförü',
+    tagline: '7/24 online randevu, koltuk sırası ve usta primi cebinde',
+    description: 'Müşteri randevuları karışmasın, usta ve kalfa primleri kuruşu kuruşuna hesaplansın. %0 komisyonlu randevu linkinle koltuklarını tam kapasite doldur.',
     badge: 'Koltuk & Randevu',
-    highlights: ['Randevu & Koltuk Takvimi', 'Usta & Kalfa Prim Dağılımı', 'Müşteri Saç/Sakal Bakım Notları', 'Hızlı Kasa Tahsilatı'],
+    highlights: ['%0 Komisyonlu Online Randevu Linki', 'Otomatik Usta & Kalfa Prim Hesabı', 'WhatsApp & SMS Randevu Hatırlatma', 'Tek Tıkla Kasa & Gün Sonu'],
+  },
+  {
+    id: 'kuafor',
+    href: '/kuafor',
+    image: '/og/guzellik-salonu.png',
+    icon: Sparkles,
+    title: 'Kuaför & Güzellik Salonu',
+    tagline: 'İşlem süresi planlama, seans/paket takibi ve kapora yönetimi',
+    description: 'Boya, keratin, lazer epilasyon ve cilt bakımı gibi çok seanslı işlemleri kabin ve uzman takvimine göre planla; gelmeme (no-show) kaybını önle.',
+    badge: 'Salon & Seans Takibi',
+    highlights: ['Uzman & Kabin Bazlı Takvim', 'Seans / Paket Kalan Hak Sayacı', 'Gelin Başı & İşlem Kapora Takibi', 'Müşteri Bakım Notları & Sadakat'],
   },
   {
     id: 'kafe',
     href: '/kafe-restoran',
     image: '/og/kafe-restoran.png',
     icon: UtensilsCrossed,
-    title: 'Kafe & Restoran',
-    tagline: 'Masa adisyonları, açık hesaplar ve hızlı fiş',
-    description: 'Açık masaları tek dokunuşla yönet. Masaya sipariş ekle, parçalı ödeme al veya hesabı anında kapat. Karmaşık POS cihazlarına servet ödeme.',
+    title: 'Kafe & Restoran Adisyon',
+    tagline: 'Canlı masa planı, fotoğraflı QR menü ve hızlı adisyon',
+    description: 'Salon, bahçe ve teras masalarını tek ekrandan yönet. Masadan QR sipariş al, garson çağrılarını anında gör, parçalı ödeme alıp hesabı saniyeler içinde kapat.',
     badge: 'Masa & QR Menü',
-    highlights: ['Masalara Özel Fotoğraflı QR Menü', 'Canlı Masa & Adisyon Takibi', 'Nakit / Kart / Açık Hesap Kapatma', 'Garson & Hesap Çağrı Zili'],
+    highlights: ['Masalara Özel Logolu QR Menü', 'Canlı Masa, İkram & Adisyon Takibi', 'Nakit / POS / Havale Parçalı Tahsilat', 'Anlık Garson & Hesap Çağrı Zili'],
   },
   {
-    id: 'bakkal',
-    href: '/bakkal-market',
-    image: '/og/bakkal-market.png',
-    icon: ShoppingCart,
-    title: 'Bakkal & Market',
-    tagline: 'Kamera ile barkod okuma, tezgah satışı ve veresiye',
-    description: 'Ekstra barkod okuyucu almana gerek yok, telefon kameranla ürünleri biplet. Mahallelinin veresiye defterini tek dokunuşla kaydet.',
-    badge: 'Hızlı Tezgah',
-    highlights: ['Kamerayla Anında Barkod Okuma', 'Veresiye Defteri & Cari Hesap', 'Kritik Stok Azalma Uyarısı', 'Sepet Fişi & Para Üstü Hesabı'],
-  },
-  {
-    id: 'servis',
-    href: '/teknik-servis',
-    image: '/og/teknik-servis.png',
-    icon: Wrench,
-    title: 'Teknik Servis',
-    tagline: 'Cihaz kabul fişi, parça maliyeti ve durum SMS/WhatsApp',
-    description: 'Tamire gelen telefonu, bilgisayarı veya beyaz eşyayı kabul fişiyle sisteme işle. Müşteriye tamir bittiğinde tek tuşla hazır mesajı gönder.',
-    badge: 'Servis & Arıza Fişi',
-    highlights: ['Cihaz Kabul & Takip Numarası', 'Yedek Parça Maliyeti & İşçilik', 'WhatsApp ile Hazır Bildirimi', 'Garanti & Teslimat Takibi'],
-  },
-  {
-    id: 'terzi',
-    href: '/terzi',
-    image: '/og/terzi.png',
-    icon: Shirt,
-    title: 'Terzi & Kuru Temizleme',
-    tagline: 'Emanet fişi, tadilat durumu ve teslimat tarihi',
-    description: 'Paça boyu, daraltma veya kuru temizleme teslim gününü unutma. Müşteri ölçülerini ve alınan kaporaları tek kartta tut.',
-    badge: 'Emanet & Tadilat',
-    highlights: ['Tadilat Teslimat Tarihi', 'Kapora & Kalan Bakiye Takibi', 'Beden ve Ölçü Notları', 'Teslimat Hazır Bildirimi'],
-  },
-  {
-    id: 'diger',
+    id: 'kasa',
     href: '/kasa-programi',
-    image: '/og/kasa-programi.png',
-    icon: Store,
-    title: 'Tüm Esnaf & Hizmet',
-    tagline: 'Kasa akışı, alacak-borç dengesi ve günlük özet',
-    description: 'Nalbur, kırtasiye, manav, çiçekçi veya oto yıkama. Dükkanının büyüklüğü ne olursa olsun paran nerede, ne zaman ödenecek her an cebinde.',
-    badge: 'Esnaf İşletim Sistemi',
-    highlights: ['Gün Sonu Kasa Denkleştirme', 'Müşteri & Tedarikçi Carisi', 'Mobil Uyumlu PWA', 'Bulut Yedekleme'],
+    image: '/og/gun-sonu-raporu.png',
+    icon: Wallet,
+    title: 'Ortak Kasa, Veresiye & Gün Sonu',
+    tagline: 'Her iki sektör için nakit, POS, cari ve 30 saniyede Z raporu',
+    description: 'Hem salonlarda hem kafe/restoranlarda kapanan her randevu ve adisyon kasaya otomatik işlenir. Gider, personel primi ve açık hesaplarla akşam hesabın birebir tutar.',
+    badge: 'Kasa & Gün Sonu',
+    highlights: ['Nakit, POS & Havale Canlı Kasa', '30 Saniyede Gün Sonu Z Raporu', 'Dijital Veresiye & WhatsApp Ekstresi', 'Bulut Yedekleme & Mobil PWA'],
   },
 ];
 
@@ -382,7 +360,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-stone-900 border border-orange-300/80 dark:border-orange-700/50 shadow-xs">
               <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-ping" />
               <span className="text-[11px] sm:text-xs font-black tracking-wide text-orange-800 dark:text-orange-300 uppercase">
-                TÜRKİYE'NİN İLK YENİ NESİL ESNAF İŞLETİM SİSTEMİ
+                KUAFÖR &amp; BERBER RANDEVU · KAFE &amp; RESTORAN QR ADİSYON
               </span>
             </div>
 
@@ -396,10 +374,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
             {/* Açıklama */}
             <p className="text-base sm:text-xl text-stone-600 dark:text-stone-300 font-medium leading-relaxed max-w-2xl">
-              Kasa, veresiye, stok ve gün sonu tek ekranda. Kağıt defteri tarihe gömün;
-              WhatsApp alacak hatırlatması ve akıllı kasa denkleştirmeyle dükkanınızı
-              <strong className="text-stone-900 dark:text-white font-black"> 2 dakikada </strong>
-              dijitale taşıyın.
+              Berber, kuaför ve güzellik salonları için <strong className="text-stone-900 dark:text-white font-black">%0 komisyonlu online randevu &amp; usta primi</strong>; kafe ve restoranlar için <strong className="text-stone-900 dark:text-white font-black">ücretsiz QR menü, masa adisyonu</strong>, kasa ve gün sonu tek ekranda.
             </p>
 
             {/* Aksiyon Grubu */}
@@ -783,7 +758,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             {
               step: '02',
               title: 'Dükkan Türünü Seç',
-              desc: 'Kuaför, kafe, bakkal veya tamirci. Panel otomatik sana göre ayarlansın.',
+              desc: 'Kuaför, berber, güzellik salonu veya kafe/restoran. Panel otomatik sana göre ayarlansın.',
             },
             {
               step: '03',
@@ -894,7 +869,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 </div>
                 <h3 className="mt-3 text-2xl font-black text-stone-900 dark:text-white">Usta Paketi</h3>
                 <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 font-medium">
-                  Tek çalışan mahalle berberi, terzi ve tamirci esnafı için.
+                  Tek koltuklu berber, kuaför, güzellik uzmanı ve butik kafeler için.
                 </p>
 
                 <div className="mt-5 pb-5 border-b border-stone-100 dark:border-stone-800">
@@ -1132,24 +1107,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
           <div className="mt-6 grid sm:grid-cols-3 gap-6 text-xs">
             <div>
-              <p className="font-black uppercase tracking-wider text-stone-400 mb-3">Temel Yönetim Çözümleri</p>
+              <p className="font-black uppercase tracking-wider text-stone-400 mb-3">Kuaför, Berber &amp; Güzellik</p>
               <ul className="space-y-2 font-bold text-stone-700 dark:text-stone-300">
-                <li><a href="/veresiye-defteri" className="hover:text-orange-600 transition-colors">Dijital Veresiye Defteri &amp; Cari Takip</a></li>
-                <li><a href="/kasa-programi" className="hover:text-orange-600 transition-colors">Esnaf Kasa Programı (Nakit, POS, Havale)</a></li>
-                <li><a href="/gun-sonu-raporu" className="hover:text-orange-600 transition-colors">30 Saniyede Gün Sonu Raporu</a></li>
-                <li><a href="/qr-menu" className="hover:text-orange-600 transition-colors">Ücretsiz Fotoğraflı QR Menü Sistemi</a></li>
+                <li><a href="/berber" className="hover:text-orange-600 transition-colors">Berber Randevu ve Koltuk Sistemi</a></li>
+                <li><a href="/kuafor" className="hover:text-orange-600 transition-colors">Kuaför Salonu &amp; Prim Programı</a></li>
+                <li><a href="/guzellik-salonu" className="hover:text-orange-600 transition-colors">Güzellik Salonu Seans &amp; Paket Takibi</a></li>
                 <li><a href="/randevu-sistemi" className="hover:text-orange-600 transition-colors">%0 Komisyonlu Online Randevu Sistemi</a></li>
               </ul>
             </div>
 
             <div>
-              <p className="font-black uppercase tracking-wider text-stone-400 mb-3">Sektörel Esnaf Panelleri</p>
+              <p className="font-black uppercase tracking-wider text-stone-400 mb-3">Kafe, Restoran &amp; Ortak Kasa</p>
               <ul className="space-y-2 font-bold text-stone-700 dark:text-stone-300">
-                <li><a href="/berber" className="hover:text-orange-600 transition-colors">Berber Randevu ve Koltuk Sistemi</a></li>
-                <li><a href="/kuafor" className="hover:text-orange-600 transition-colors">Kuaför Salonu &amp; Prim Programı</a></li>
-                <li><a href="/guzellik-salonu" className="hover:text-orange-600 transition-colors">Güzellik Salonu Seans &amp; Paket Takibi</a></li>
                 <li><a href="/kafe-restoran" className="hover:text-orange-600 transition-colors">Kafe &amp; Restoran Masa Adisyonu</a></li>
-                <li><a href="/bakkal-market" className="hover:text-orange-600 transition-colors">Bakkal &amp; Market Barkod POS</a></li>
+                <li><a href="/qr-menu" className="hover:text-orange-600 transition-colors">Ücretsiz Fotoğraflı QR Menü Sistemi</a></li>
+                <li><a href="/kasa-programi" className="hover:text-orange-600 transition-colors">Kasa Programı (Nakit, POS, Havale)</a></li>
+                <li><a href="/gun-sonu-raporu" className="hover:text-orange-600 transition-colors">30 Saniyede Gün Sonu Raporu</a></li>
+                <li><a href="/veresiye-defteri" className="hover:text-orange-600 transition-colors">Dijital Veresiye Defteri &amp; Cari Takip</a></li>
               </ul>
             </div>
 
@@ -1158,8 +1132,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               <ul className="space-y-2 font-bold text-stone-700 dark:text-stone-300">
                 <li><a href="/izmit-berber-randevu" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><MapPin className="w-3.5 h-3.5 text-orange-500" /> İzmit &amp; Kocaeli Berber Randevu</a></li>
                 <li><a href="/zonguldak-berber-randevu" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><MapPin className="w-3.5 h-3.5 text-orange-500" /> Zonguldak &amp; Ereğli Berber Randevu</a></li>
-                <li><a href="/rehber" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><Calendar className="w-3.5 h-3.5 text-orange-500" /> Esnaf Rehberi, Prim &amp; QR Araçları</a></li>
-                <li><a href="/blog" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><BookOpen className="w-3.5 h-3.5 text-orange-500" /> Esnaf Blogu (12 Kapsamlı Rehber)</a></li>
+                <li><a href="/rehber" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><Calendar className="w-3.5 h-3.5 text-orange-500" /> Ücretsiz Prim &amp; QR Araçları</a></li>
+                <li><a href="/blog" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"><BookOpen className="w-3.5 h-3.5 text-orange-500" /> Esnaf Blogu ({BLOG_ARTICLES.length} Kapsamlı Rehber)</a></li>
                 <li><a href="/fiyat" className="hover:text-orange-600 transition-colors">Şeffaf Paketler &amp; VIP Fiyatlandırma</a></li>
               </ul>
             </div>
@@ -1237,10 +1211,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <a href="/kuafor" className="hover:text-orange-600 transition-colors">Kuaför</a>
             <a href="/guzellik-salonu" className="hover:text-orange-600 transition-colors">Güzellik Salonu</a>
             <a href="/kafe-restoran" className="hover:text-orange-600 transition-colors">Kafe &amp; Restoran</a>
-            <a href="/bakkal-market" className="hover:text-orange-600 transition-colors">Bakkal &amp; Market</a>
             <a href="/izmit-berber-randevu" className="hover:text-orange-600 transition-colors">İzmit Berber</a>
             <a href="/zonguldak-berber-randevu" className="hover:text-orange-600 transition-colors">Zonguldak Berber</a>
-            <a href="/teknik-servis" className="hover:text-orange-600 transition-colors">Teknik Servis</a>
             <a href="/iletisim" className="hover:text-orange-600 transition-colors">İletişim</a>
             <a href="/gizlilik" className="hover:text-orange-600 transition-colors">Gizlilik &amp; KVKK</a>
           </nav>

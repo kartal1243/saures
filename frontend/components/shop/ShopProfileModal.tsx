@@ -29,16 +29,10 @@ interface ShopProfileModalProps {
 
 const BUSINESS_FIELDS = [
   'Kuaför / Berber / Güzellik Salonu',
-  'Kafe / Çay Ocağı / Restoran',
-  'Bakkal / Market / Büfe',
-  'Avukat / Danışmanlık / Hukuk',
-  'Oto Tamir / Yıkama / Yedek Parça',
-  'Terzi / Kuru Temizleme / Giyim',
-  'Kırtasiye / Kitap / Fotokopi',
-  'Teknoloji / Telefon Tamiri & Aksesuar',
-  'Manav / Kasap / Şarküteri',
-  'Çiçekçi / Hediyelik Eşya',
-  'Diğer Mahalle Hizmeti & Ticaret',
+  'Erkek Kuaförü / Berber',
+  'Kadın Kuaförü / Güzellik Merkezi',
+  'Kafe / Restoran / Lokanta',
+  'Pastane / Kahve Dükkanı / Bistro',
 ];
 
 const EMPLOYEE_OPTIONS = [

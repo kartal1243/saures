@@ -1378,6 +1378,214 @@ export const BLOG_ARTICLES: BlogArticle[] = [
       'kucuk-isletmeler-icin-kasa-takibi-rehberi',
     ],
   },
+  {
+    slug: 'kafe-restoran-adisyon-programi-nasil-secilir',
+    title: 'Kafe ve Restoran Adisyon Programı Nasıl Seçilir? 2026 Rehberi',
+    seoTitle: 'Kafe ve Restoran Adisyon Programı Nasıl Seçilir? (2026 Karşılaştırma) | Dükkanım Yanımda',
+    description: 'Kafe, bistro, pastane ve restoranlar için bulut adisyon programı seçerken nelere dikkat edilmeli? Donanım maliyeti, QR menü entegrasyonu, parçalı ödeme ve gizli ücret kontrol listesi.',
+    category: 'QR Menü & Kafe',
+    author: 'Murat Karahan',
+    authorRole: 'Esnaf Operasyon & Finans Editörü',
+    publishedAt: '2026-11-20',
+    updatedAt: '2026-11-20',
+    readTime: '6 dk okuma',
+    ogImage: '/og/kafe-restoran.png',
+    primaryKeyword: 'kafe restoran adisyon programı',
+    h1: 'Kafe ve Restoran Adisyon Programı Nasıl Seçilir? Gizli Maliyetlere Dikkat',
+    lead: 'Bir kafe veya restoran açarken ya da kağıt adisyondan dijitale geçerken yapılan en büyük hata, yalnızca masaüstü POS donanımına odaklanıp aylık QR menü, garson el terminali ve teknik servis ücretlerini gözden kaçırmaktır. Doğru adisyon yazılımı telefon ve tablette kurulumsuz çalışmalı, akşam Z raporunu tek dokunuşta vermelidir.',
+    keyTakeaways: [
+      'Ekstra dokunmatik POS bilgisayarı zorunlu kılan kapalı sistemler başlangıç maliyetini 30–60 bin TL artırır; bulut tabanlı sistemler mevcut telefon ve tabletle anında çalışır.',
+      'QR menü, masa taşıma, ikram kaydı ve parçalı hesap (Nakit + POS + Havale) tek pakette dahil olmalıdır; her modül için ayrı abonelik ödenmemelidir.',
+      'Salon, teras ve bahçe bölgelerini ayrı sekmelerde gösteren görsel masa haritası yoğun saatlerde sipariş karışıklığını sıfırlar.',
+      'Adisyon kapandığı anda kasa gelirine otomatik işlenmesi akşam hesap tutmama sorununu ortadan kaldırır.',
+    ],
+    sections: [
+      {
+        heading: '1. Donanım Bağımlılığı ve Gizli Modül Ücretlerini Sorgulayın',
+        paragraphs: [
+          'Klasik restoran yazılımlarının çoğu lisansı uygun gösterip QR menü, mobil garson uygulaması, stok modülü veya bulut yedekleme için ayrı ayrı aylık ücret talep eder. Ayrıca yalnızca tek bir yerel bilgisayarda çalışan sistemlerde elektrik kesintisi veya cihaz arızasında tüm açık masalar kaybolabilir.',
+          'Modern bulut adisyon programlarında ise veriler anlık olarak sunucuda saklanır. Kasa başındaki tablet ile salondaki garsonun telefonu aynı saniyede senkronize olur; patron dükkan dışındayken bile açık masaları ve günlük ciroyu canlı izler.',
+        ],
+        bullets: [
+          'Kurulum ve yıllık bakım sözleşmesi zorunluluğu olmamalı',
+          'Mevcut Android, iOS tablet veya bilgisayardan tarayıcıyla açılabilmeli',
+          'QR menü ve garson çağırma özelliği temel paketin parçası olmalı',
+        ],
+      },
+      {
+        heading: '2. Yoğun Saatlerde Hızlı Sipariş, İkram ve Parçalı Ödeme',
+        paragraphs: [
+          'Cuma ve hafta sonu akşamlarında bir masada dört arkadaş oturup hesabın bir kısmını nakit, bir kısmını kredi kartı, kalanını IBAN/havale ile ödemek isteyebilir. Parçalı tahsilatı desteklemeyen sistemlerde kasiyer hesap makinesiyle uğraşır ve gün sonu kasa mutlaka açık verir.',
+          'Aynı şekilde çay veya tatlı ikram edildiğinde bunu 0 TL "İkram" satırı olarak işaretleyebilmek hem stok maliyetini doğru görmenizi sağlar hem de kasada kayıp şüphesini ortadan kaldırır.',
+        ],
+        tip: 'Masa taşıma ve adisyon birleştirme özelliklerini mutlaka test edin; bahçeden içeri geçen müşterinin siparişini tek dokunuşla yeni masaya aktarmak en az 2 dakika kazandırır.',
+      },
+      {
+        heading: '3. Gün Sonu Kasa ve Açık Hesap Entegrasyonu',
+        paragraphs: [
+          'Adisyon sistemi kasadan bağımsız çalışıyorsa akşam kapanışta iki ayrı defter tutmak zorunda kalırsınız. Kapanan her masa adisyonu ödeme yöntemine göre (Nakit, POS, Havale, Açık Hesap) anında günlük kasaya düşmelidir.',
+          'Dükkânım Yanımda ile kafe ve restoranlar tek ekranda masa planı, fotoğraflı QR menü, garson çağırma zili, parçalı tahsilat ve 30 saniyede gün sonu Z raporu alabilir; üstelik ilk 14 gün Patron VIP özelliklerini kredi kartsız deneyebilir.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: 'Kafe adisyon programı için özel POS bilgisayarı almam gerekir mi?',
+        a: 'Hayır. Dükkânım Yanımda bulut tabanlı olduğu için elinizdeki herhangi bir tablet, telefon veya bilgisayardan kurulumsuz olarak anında çalışır.',
+      },
+      {
+        q: 'Masada hesap bölme ve parçalı ödeme yapılabiliyor mu?',
+        a: 'Evet. Tek masanın hesabını nakit, kredi kartı, IBAN/havale veya müşteri açık hesabına bölerek saniyeler içinde kapatabilirsiniz.',
+      },
+      {
+        q: 'QR menü adisyon sistemine entegre mi?',
+        a: 'Evet. Müşteriler masa karekodunu okutup güncel fiyatları görür, siparişini sepete ekler ve tek tıkla garson veya hesap çağırır.',
+      },
+    ],
+    relatedProductHref: '/kafe-restoran',
+    relatedProductLabel: 'Kafe & Restoran Adisyon Sistemini Ücretsiz Dene',
+    relatedSlugs: [
+      'qr-menu-nedir-nasil-yapilir',
+      'masadan-qr-siparis-ve-garson-cagirma-rehberi',
+      'kafe-restoran-gun-sonu-kasa-ve-maliyet-takibi',
+    ],
+  },
+  {
+    slug: 'masadan-qr-siparis-ve-garson-cagirma-rehberi',
+    title: 'Masadan QR Sipariş ve Garson Çağırma ile Servis Hızını Artırma',
+    seoTitle: 'Masadan QR Sipariş ve Garson Çağırma Sistemi Rehberi | Dükkanım Yanımda',
+    description: 'Kafe ve restoranlarda temassız QR menüden masaya sipariş alma, tek tıkla garson/hesap çağırma ve masa devir hızını %25 artırmanın pratik yöntemleri.',
+    category: 'QR Menü & Kafe',
+    author: 'Selin Demirtaş',
+    authorRole: 'Müşteri Deneyimi & Dijital Dönüşüm Yazarı',
+    publishedAt: '2026-11-20',
+    updatedAt: '2026-11-20',
+    readTime: '5 dk okuma',
+    ogImage: '/og/qr-menu.png',
+    primaryKeyword: 'masadan qr sipariş ve garson çağırma',
+    h1: 'Masadan QR Sipariş ve Garson Çağırma ile Servis Hızını %25 Artırın',
+    lead: 'Müşterilerin bir kafede en çok şikayet ettiği iki an vardır: oturduktan sonra menü beklemek ve kalkmak isterken garsonla göz göze gelip hesap istemeye çalışmak. Masaya özel QR karekod standları bu iki darboğazı tamamen ortadan kaldırır.',
+    keyTakeaways: [
+      'Her masaya özel üretilen QR kod, müşterinin hangi masada oturduğunu sisteme otomatik bildirir; yanlış masaya ürün gitmez.',
+      '"Garson Çağır" ve "Hesap İste" butonları kasa ekranına sesli bildirimle düşer; müşteri el kaldırmak zorunda kalmaz.',
+      'Tükenen ürünler tek tıkla "Tükendi" yapıldığında müşteri menüde bunu anında görür, garsonun mutfaktan geri dönme mahcubiyeti biter.',
+      'Fotoğraflı ve açıklamalı dijital menü, kağıt metin listelerine göre tatlı ve yan ürün satışlarını belirgin biçimde artırır.',
+    ],
+    sections: [
+      {
+        heading: '1. Masa Devir Hızı Neden Ciroyu Doğrudan Etkiler?',
+        paragraphs: [
+          'Öğle arası veya akşam saatlerinde dolu bir mekanda her masanın 10 dakika daha hızlı sipariş verip 5 dakika daha hızlı hesap ödemesi, gün içinde aynı koltuktan 1–2 ekstra masa cirosu üretir. Bu ek ciro sıfır yeni kira ve sıfır yeni personel maliyetiyle doğrudan net kâra yazılır.',
+          'Müşteri masaya oturduğu saniye telefon kamerasını karekoda tutup güncel fiyatları ve fotoğraflı lezzetleri incelediğinde, garson masaya ulaştığında sipariş çoktan hazır olur ya da doğrudan telefondan adisyona düşer.',
+        ],
+      },
+      {
+        heading: '2. Dükkan Logolu Masaya Özel QR Stand Tasarımı',
+        paragraphs: [
+          'Sıradan siyah-beyaz bir karekod yerine, ortasında işletmenizin logosu bulunan ve altında "Menüyü Gör · Garson Çağır" yazan şık masa kartları müşteride yüksek güven ve profesyonel marka algısı oluşturur.',
+          'Dükkânım Yanımda içindeki Masa QR Baskı Modülü, işletme logonuzu yüksek hata düzeltmeli (ECC-H) karekodun merkezine yerleştirerek her masa için baskıya hazır kartlar üretir.',
+        ],
+        bullets: [
+          'Bahçe, teras ve iç mekan masaları için ayrı numaralı karekodlar',
+          'Fiyat değiştiğinde karekodları yeniden bastırmaya gerek kalmaz',
+          'Müşteri uygulama indirmeden 1 saniyede tarayıcıda menüyü açar',
+        ],
+      },
+      {
+        heading: '3. Canlı Stok ve Tek Tıkla Sesli Garson Bildirimi',
+        paragraphs: [
+          'Akşam saat 20:00’de mutfakta belirli bir tatlı veya dürüm bittiğinde panelden tek tıkla "Tükendi" anahtarını kapatmanız yeterlidir. Müşteri menüde o ürünü seçemez, sipariş iptali yaşanmaz.',
+          'Müşteri "Hesap İstiyorum" butonuna bastığında kasa ekranında hangi masanın hesap beklediği sesli uyarı ile yanıp söner; ödeme alındığında bildirim tek tıkla tamamlanır.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: 'Müşterilerin QR menü için uygulama indirmesi gerekiyor mu?',
+        a: 'Hayır. iPhone ve Android telefonların standart kamerası karekodu okuttuğunda menü doğrudan tarayıcıda açılır.',
+      },
+      {
+        q: 'Garson çağırma bildirimi hangi ekranlara düşer?',
+        a: 'Aynı anda kasa bilgisayarına, tablete ve sisteme bağlı personel telefonlarına canlı bildirim ve sesli uyarı olarak düşer.',
+      },
+      {
+        q: 'QR menüyü dükkan logomla birlikte yazdırabilir miyim?',
+        a: 'Evet. Paneldeki QR Menü çıktısı dükkan profil logonuzu karekodun ortasına otomatik yerleştirir ve yazıcıdan doğrudan basıma hazırdır.',
+      },
+    ],
+    relatedProductHref: '/qr-menu',
+    relatedProductLabel: 'Ücretsiz QR Menü & Masa Kartını Oluştur',
+    relatedSlugs: [
+      'qr-menu-nedir-nasil-yapilir',
+      'kafe-restoran-adisyon-programi-nasil-secilir',
+      'kafe-restoran-gun-sonu-kasa-ve-maliyet-takibi',
+    ],
+  },
+  {
+    slug: 'kafe-restoran-gun-sonu-kasa-ve-maliyet-takibi',
+    title: 'Kafe ve Restoranlarda Gün Sonu Kasa, Açık Hesap ve Maliyet Takibi',
+    seoTitle: 'Kafe ve Restoran Gün Sonu Kasa & Maliyet Takibi Rehberi | Dükkanım Yanımda',
+    description: 'Kafe ve restoran işletmelerinde günlük nakit, POS, yemek kartı, tedarikçi giderleri ve ikramların akşam 30 saniyede hatasız kapatılması için pratik rehber.',
+    category: 'Veresiye & Kasa',
+    author: 'Murat Karahan',
+    authorRole: 'Esnaf Operasyon & Finans Editörü',
+    publishedAt: '2026-11-20',
+    updatedAt: '2026-11-20',
+    readTime: '6 dk okuma',
+    ogImage: '/og/gun-sonu-raporu.png',
+    primaryKeyword: 'kafe restoran gün sonu kasa takibi',
+    h1: 'Kafe ve Restoranlarda Gün Sonu Kasa ve Maliyet Takibi Nasıl Yapılır?',
+    lead: 'Bir kafe veya restoranın gün boyu dolu olması her zaman yüksek kâr ettiği anlamına gelmez. Gün içi nakit tedarikçi ödemeleri, personel yemek/avans giderleri, ikramlar ve kredi kartı POS kesintileri aynı ekranda toplanmadığında ay sonunda "bu kadar ciro nereye gitti?" sorusu kaçınılmaz olur.',
+    keyTakeaways: [
+      'Adisyon tahsilatları (Nakit, POS, Havale, Açık Hesap) ayrı kalemlerde toplanmalı, kasadaki fiziksel nakit ile sistem bakiyesi her akşam karşılaştırılmalıdır.',
+      'Sabah manavdan, fırından veya toptancıdan nakit alınan malzemeler anında "Kasa Gideri" olarak işlenmezse akşam kasa açık verir.',
+      'İkram edilen ürünler adisyondan silinmek yerine 0 TL "İkram" olarak kaydedilmelidir; böylece fire ve ikram oranı ölçülür.',
+      '30 saniyelik dijital gün sonu Z raporu arşivi, haftanın hangi günlerinin en kârlı olduğunu ve personel vardiya verimliliğini netleştirir.',
+    ],
+    sections: [
+      {
+        heading: '1. Kasa Açığının En Yaygın 3 Sebebi',
+        paragraphs: [
+          'Kafe ve restoranlarda akşam kasa sayımında fark çıkmasının üç temel nedeni vardır: gün içinde kasadan nakit ödenen ama yazılmayan ufak malzeme alımları (süt, buz, ekmek, kurye), masada nakit yerine yanlışlıkla POS işaretlenen tahsilatlar ve hesabı sonraya bırakılan tanıdık müşterilerin açık hesaplarının unutulması.',
+          'Her harcama yapıldığı anda telefondan 5 saniyede "Para Ver / Gider" olarak girildiğinde ve tanıdık açık hesapları müşteri cari kartına bağlandığında akşam kasa birebir tutar.',
+        ],
+        bullets: [
+          'Nakit kasa, POS cihazı toplamı ve IBAN/havale ayrı kutularda görünür',
+          'Açık bırakılan veya kapatılmamış masalar gün sonu öncesinde uyarılır',
+          'Personel maaş/avans ödemeleri otomatik gider kaydına işlenir',
+        ],
+      },
+      {
+        heading: '2. 30 Saniyede Gün Sonu Kapanışı Nasıl Alınır?',
+        paragraphs: [
+          'Akşam son masa kalktığında çekmecedeki fiili nakit sayılır, POS cihazından gün sonu özet fişi alınır ve Dükkânım Yanımda Gün Sonu ekranında tek tuşla karşılaştırılır. Sistem net günlük ciro, toplam gider, net nakit akışı ve açık alacak özetini tarih damgalı olarak arşive kaydeder.',
+          'Bu sayede muhasebecinizle paylaşacağınız aylık özetler ve kendi kârlılık analizleriniz her zaman cebinizde hazır durur.',
+        ],
+        tip: 'Haftalık trend grafiğinde Salı ve Çarşamba gibi sakin günlerdeki ciroyu görerek yalnızca o günlere özel kahve + tatlı kampanyaları planlayabilirsiniz.',
+      },
+    ],
+    faq: [
+      {
+        q: 'Kapanan masa adisyonları kasaya otomatik ekleniyor mu?',
+        a: 'Evet. Masa hesabı Nakit, POS veya Havale olarak kapatıldığı anda ilgili tutar gün sonu kasa özetine otomatik yansır.',
+      },
+      {
+        q: 'Gün içi toptancı ve malzeme harcamalarını ayrı kategoriyle tutabilir miyim?',
+        a: 'Evet. Para Ver / Gider akışında malzeme, kira, fatura, personel avansı gibi kalemleri tek dokunuşla kasadan düşebilirsiniz.',
+      },
+      {
+        q: 'Geçmiş gün sonu raporlarına sonradan ulaşabilir miyim?',
+        a: 'Evet. Alınan her gün sonu raporu bulut hesabınızda tarih sırasıyla arşivlenir; istediğiniz gün veya ayı tek ekranda karşılaştırabilirsiniz.',
+      },
+    ],
+    relatedProductHref: '/gun-sonu-raporu',
+    relatedProductLabel: 'Gün Sonu & Kasa Sistemini Ücretsiz Dene',
+    relatedSlugs: [
+      'gun-sonu-raporu-nasil-hazirlanir',
+      'kafe-restoran-adisyon-programi-nasil-secilir',
+      'kucuk-isletmeler-icin-kasa-takibi-rehberi',
+    ],
+  },
 ];
 
 export function findBlogArticle(slugOrPath: string): BlogArticle | undefined {

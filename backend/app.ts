@@ -52,6 +52,34 @@ export const TRUSTED_MOBILE_ORIGINS = new Set([
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 const IDEMPOTENCY_PATH_REGEX = /^\/api\/(quick-pos-sale|transactions|tables\/[^/]+\/orders)\/?$/;
 
+/**
+ * Kapatılan sektörler ve /blog veya şehir landing sayfalarıyla çakışan /rehber/:slug
+ * rotaları için kalıcı 301 yönlendirmeleri (PageRank bütünlüğü & topical authority).
+ */
+export const SEO_PERMANENT_REDIRECTS: Record<string, string> = {
+  // Kapatılan sektörler -> ortak kasa veya ana sayfa
+  '/bakkal-market': '/kasa-programi',
+  '/bakkal': '/kasa-programi',
+  '/market': '/kasa-programi',
+  '/pos-sistemi': '/kasa-programi',
+  '/barkod-pos': '/kasa-programi',
+  '/teknik-servis': '/',
+  '/servis': '/',
+  '/hukuk': '/',
+  '/avukat': '/',
+  '/terzi': '/',
+  // Kopya / yamyamlaşan rehber yazıları -> asıl blog veya şehir landing sayfaları
+  '/rehber/berber-no-show-onleme': '/blog/kuafor-musteri-gelmeme-no-show-cozumu',
+  '/rehber/ucretsiz-qr-menu-olusturma': '/blog/qr-menu-nedir-nasil-yapilir',
+  '/rehber/dijital-veresiye-defteri-gecis': '/blog/veresiye-defteri-nasil-tutulur',
+  '/rehber/komisyonsuz-randevu-programi': '/blog/ucretsiz-randevu-uygulamalari-karsilastirmasi-2026',
+  '/rehber/izmit-berber-kuafor-randevu': '/izmit-berber-randevu',
+  '/rehber/zonguldak-berber-kuafor-randevu': '/zonguldak-berber-randevu',
+  '/rehber/istanbul-berber-kuafor': '/berber',
+  '/rehber/ankara-berber-kuafor': '/berber',
+  '/rehber/izmir-kafe-restoran': '/kafe-restoran',
+};
+
 const VALID_PUBLIC_ROUTES = new Set([
   '/',
   '/admin',
@@ -79,40 +107,22 @@ const VALID_PUBLIC_ROUTES = new Set([
   '/restoran',
   '/adisyon',
   '/qr-menu',
-  '/bakkal',
-  '/market',
-  '/bakkal-market',
   '/veresiye-defteri',
-  '/pos-sistemi',
+  '/kasa-programi',
+  '/gun-sonu-raporu',
   '/fiyat',
   '/fiyatlandirma',
   '/kayit',
-  '/teknik-servis',
-  '/servis',
-  '/hukuk',
-  '/avukat',
-  '/terzi',
   '/iletisim',
   '/gizlilik',
   '/gizlilik-politikasi',
   '/rehber',
   '/blog',
-  '/kasa-programi',
-  '/gun-sonu-raporu',
 ]);
 
 const GUIDE_FALLBACK_ROUTES = new Set([
   '/rehber',
-  '/rehber/berber-no-show-onleme',
   '/rehber/kuafor-prim-hesaplama',
-  '/rehber/ucretsiz-qr-menu-olusturma',
-  '/rehber/dijital-veresiye-defteri-gecis',
-  '/rehber/komisyonsuz-randevu-programi',
-  '/rehber/istanbul-berber-kuafor',
-  '/rehber/ankara-berber-kuafor',
-  '/rehber/izmir-kafe-restoran',
-  '/rehber/izmit-berber-kuafor-randevu',
-  '/rehber/zonguldak-berber-kuafor-randevu',
   '/rehber/kocaeli-esnaf-online-randevu',
   '/rehber/instagram-biyografi-randevu-linki',
   '/rehber/pazar-gunu-acik-berber-randevu',
@@ -134,6 +144,7 @@ const RESERVED_CLEAN_BOOKING_PREFIXES = new Set([
 
 export function isPublicRouteValid(pathname: string): boolean {
   const clean = (pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+  if (SEO_PERMANENT_REDIRECTS[clean]) return false;
   if (VALID_PUBLIC_ROUTES.has(clean)) return true;
   if (seoModule.resolveLandingContentKey(clean) !== null) return true;
   if (clean === '/blog' || clean.startsWith('/blog/')) {
@@ -271,13 +282,13 @@ export async function startServer(): Promise<void> {
 
     if (process.env.NODE_ENV === 'production') {
       res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-      const host = req.headers.host || '';
+      const host = (req.headers.host || '').trim();
+      const hostLower = host.toLowerCase().split(':')[0];
       const proto = req.headers['x-forwarded-proto'];
 
-      // 1. www -> non-www 301 yönlendirmesi (Google SEO Canonical Bütünlüğü & PageRank Birleştirme)
-      if (host.toLowerCase().startsWith('www.')) {
-        const cleanHost = host.replace(/^www\./i, '');
-        return res.redirect(301, `https://${cleanHost}${req.url}`);
+      // 1. Türkçe IDN (xn--dkkanmyanmda-dlb06eea.com.tr) veya www. -> tek canonical alan adına 301
+      if (hostLower.startsWith('www.') || hostLower.startsWith('xn--')) {
+        return res.redirect(301, `https://dukkanimyanimda.com.tr${req.url}`);
       }
 
       // 2. HTTP -> HTTPS 301 yönlendirmesi
@@ -500,6 +511,23 @@ export async function startServer(): Promise<void> {
     res.send(getRobotsTxt(req.get('host')));
   });
 
+  // Kalıcı 301 SEO yönlendirmeleri (kapatılan sektörler + çakışan rehber yazıları)
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const cleanPath = (req.path || '').toLowerCase().replace(/\/+$/, '') || '/';
+    const target = SEO_PERMANENT_REDIRECTS[cleanPath];
+    if (target) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.redirect(301, target);
+    }
+    return next();
+  });
+
+  const isRemovedShopPath = (p: string): boolean => {
+    const clean = (p || '').toLowerCase().replace(/\/+$/, '');
+    return /^\/(r|randevu|m|menu)\/.+$/i.test(clean) || /^\/[^/]+\/randevu$/i.test(clean);
+  };
+
   // Vite geliştirme sunucusu yalnızca açıkça development modunda ve dist/index.html yokken çalışır
   const isDev = process.env.NODE_ENV === 'development' || (!process.env.NODE_ENV && !fs.existsSync(path.join(process.cwd(), 'dist', 'index.html')));
   if (isDev) {
@@ -522,6 +550,10 @@ export async function startServer(): Promise<void> {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         if (isNotFound) {
           res.setHeader('Cache-Control', 'no-cache, no-store');
+          if (isRemovedShopPath(req.path)) {
+            res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+            return res.status(410).send(html);
+          }
           return res.status(404).send(html);
         }
         res.send(html);
@@ -590,6 +622,10 @@ export async function startServer(): Promise<void> {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       if (isNotFound) {
         res.setHeader('Cache-Control', 'no-cache, no-store');
+        if (isRemovedShopPath(req.path)) {
+          res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+          return res.status(410).send(html);
+        }
         return res.status(404).send(html);
       }
       res.setHeader('Cache-Control', 'public, max-age=60');

@@ -100,12 +100,15 @@ export const SECTORS: {
   },
 ];
 
+export const ACTIVE_SECTOR_KEYS: BusinessSector[] = ['berber_kuafor', 'kafe_restoran'];
+
 export const SectorSwitcherBar: React.FC<SectorSwitcherBarProps> = ({
   currentSector,
   onSelectSector,
   shopProfile,
 }) => {
   const currentSectorData = SECTORS.find((s) => s.key === currentSector) || SECTORS[0];
+  const visibleSectors = SECTORS.filter((s) => ACTIVE_SECTOR_KEYS.includes(s.key));
 
   return (
     <div className="bg-white/95 dark:bg-stone-900/95 backdrop-blur-xs border-b border-stone-200 dark:border-stone-800 transition-colors shadow-xs">
@@ -129,7 +132,7 @@ export const SectorSwitcherBar: React.FC<SectorSwitcherBarProps> = ({
             <span className="text-[11px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-wider whitespace-nowrap mr-1 flex items-center gap-1">
               ⚡ Meslek Değiştir:
             </span>
-            {SECTORS.map((sec) => {
+            {visibleSectors.map((sec) => {
               const Icon = sec.icon;
               const isActive = currentSector === sec.key;
 

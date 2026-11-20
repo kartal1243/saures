@@ -75,6 +75,7 @@ export interface SeoGuideArticle {
 export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
   {
     slug: 'berber-no-show-onleme',
+    noindex: true,
     title: 'Berberlerde Gelmeyen Müşteri (No-Show) Nasıl Önlenir?',
     seoTitle: 'Berber ve Kuaförlerde No-Show Önleme Rehberi | Dükkanım Yanımda',
     description: 'Randevusuna gelmeyen müşteriler yüzünden boş kalan koltukları doldurmanın 5 pratik yolu: WhatsApp otomatik hatırlatma, kapora ve online sıra yönetimi.',
@@ -135,6 +136,7 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
   },
   {
     slug: 'ucretsiz-qr-menu-olusturma',
+    noindex: true,
     title: 'Kafe ve Restoranlar İçin Ücretsiz QR Menü Nasıl Yapılır?',
     seoTitle: 'Ücretsiz QR Menü Oluşturma ve Masa Sipariş Rehberi | Dükkanım Yanımda',
     description: 'Baskı maliyeti olmadan 2 dakikada karekod QR menü hazırlayın, fiyat güncellemelerini anında yansıtın ve masadan canlı sipariş alın.',
@@ -163,6 +165,7 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
   },
   {
     slug: 'dijital-veresiye-defteri-gecis',
+    noindex: true,
     title: 'Kağıt Veresiye Defterinden Dijitale Geçiş Rehberi',
     seoTitle: 'Esnaf Veresiye Programı: Kağıt Defterden Dijitale Geçiş | Dükkanım Yanımda',
     description: 'Bakkal, market ve mahalle esnafı için kayıp alacakları önleyen dijital veresiye defteri, barkodlu satış ve WhatsApp borç hatırlatma rehberi.',
@@ -186,11 +189,12 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
       { q: '25 müşteriye kadar ücretsiz kullanabilir miyim?', a: 'Evet, Çırak paketi sonsuza dek ücretsizdir ve kredi kartı gerektirmez.' },
       { q: 'Barkod okuyucu almam şart mı?', a: 'Hayır, telefon kameranızla ürün barkodunu okutup sepete ekleyebilirsiniz.' },
     ],
-    ctaHref: '/bakkal-market',
-    ctaLabel: 'Bakkal & Veresiye Modülünü Gör',
+    ctaHref: '/veresiye-defteri',
+    ctaLabel: 'Dijital Veresiye Modülünü Gör',
   },
   {
     slug: 'komisyonsuz-randevu-programi',
+    noindex: true,
     title: 'Komisyonsuz Berber & Güzellik Salonu Randevu Programı Seçimi',
     seoTitle: '%0 Komisyonlu Online Randevu Sistemi Karşılaştırması | Dükkanım Yanımda',
     description: 'Yeni müşteri komisyonu (%20) kesen pazaryeri uygulamalarına karşı dükkanınıza özel %0 komisyonlu online randevu linki kurmanın avantajları.',
@@ -303,6 +307,7 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
   },
   {
     slug: 'izmit-berber-kuafor-randevu',
+    noindex: true,
     title: 'İzmit & Kocaeli Berber ve Kuaför Online Randevu Rehberi',
     seoTitle: 'İzmit Berber ve Kuaför Randevu Sistemi | Kocaeli Online Randevu',
     description: 'İzmit, Gebze, Körfez ve Kocaeli genelindeki berber ile kuaför salonları için online randevu, koltuk sırası ve usta prim takip yazılımı. Sıra beklemeden randevu alın.',
@@ -341,6 +346,7 @@ export const SEO_GUIDE_ARTICLES: SeoGuideArticle[] = [
   },
   {
     slug: 'zonguldak-berber-kuafor-randevu',
+    noindex: true,
     title: 'Zonguldak & Kdz. Ereğli Berber Kuaför Online Randevu Sistemi',
     seoTitle: 'Zonguldak Berber ve Kuaför Randevu Programı | Kdz Ereğli Online Randevu',
     description: 'Zonguldak Gazipaşa, Soğuksu, Kozlu ve Karadeniz Ereğli berber ile kuaförleri için online randevu alma, koltuk takvimi ve WhatsApp hatırlatma rehberi.',
@@ -480,6 +486,14 @@ export function isValidGuideRoute(pathname: string): boolean {
 
 const DEFAULT_HOST = 'dukkanimyanimda.com.tr';
 const DEFAULT_ORIGIN = `https://${DEFAULT_HOST}`;
+
+function normalizeSeoHost(rawHost?: string): string {
+  const h = (rawHost || '').trim().toLowerCase().split(':')[0];
+  if (!h || h.includes('localhost') || h.includes('127.0.0.1') || h.startsWith('www.') || h.startsWith('xn--')) {
+    return DEFAULT_HOST;
+  }
+  return h;
+}
 
 /**
  * Güncel yıl, ay ve mevsimsel esnaf yoğunluğu bağlamını dinamik üretir (Google Freshness).
@@ -756,9 +770,7 @@ function buildSoftwareOffersSchema() {
  * Verilen rota ve host bilgisine göre en zengin SEO ve Open Graph başlıklarını üretir.
  */
 export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata {
-  const host = rawHost && !rawHost.includes('localhost') && !rawHost.includes('127.0.0.1')
-    ? rawHost
-    : DEFAULT_HOST;
+  const host = normalizeSeoHost(rawHost);
   const origin = `https://${host}`;
 
   const clean = pathname.toLowerCase().replace(/\/+$/, '') || '/';
@@ -773,9 +785,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       const ogTitle = `${shop.name} - Kolay Online Randevu`;
       const description = `${shop.name} için sıra beklemeden online randevunuzu hemen oluşturun. Güncel hizmetler, müsait saatler ve anında onay.`;
       const ogDescription = `${shop.name} için sıra beklemeden online randevunuzu hemen oluşturun.`;
-      const canonical = barberPath.isCleanFormat
-        ? `${origin}/${shop.slug}/randevu`
-        : `${origin}/r/${shop.slug}`;
+      const canonical = `${origin}/${shop.slug}/randevu`;
       const shopLogo = shop.logoUrl
         ? (shop.logoUrl.startsWith('http') ? shop.logoUrl : `${origin}${shop.logoUrl}`)
         : `${origin}/og/randevu-sistemi.png`;
@@ -2115,10 +2125,10 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
   const mapShops = getFeaturedMapShops(origin);
 
   return {
-    title: 'Dükkânım Yanımda — Kasa, Veresiye, Randevu ve Gün Sonu Sistemi',
-    ogTitle: 'Dükkânım Yanımda — Esnaf Yönetim Sistemi',
-    description: 'Dükkanının kasa, veresiye defteri, randevu takvimi, QR menüsü ve gün sonu defteri — hepsi tek yerde cebinizde.',
-    ogDescription: 'Dükkanının kasa, veresiye, stok ve gün sonu defteri — hepsi tek yerde.',
+    title: 'Dükkânım Yanımda — Kuaför & Berber Randevu, Kafe QR Menü Adisyon ve Kasa Sistemi',
+    ogTitle: 'Dükkânım Yanımda — Randevu, QR Menü Adisyon ve Kasa Programı',
+    description: 'Berber, kuaför ve güzellik salonları için %0 komisyonlu online randevu & usta prim takibi; kafe ve restoranlar için ücretsiz QR menü, adisyon, kasa ve gün sonu sistemi.',
+    ogDescription: 'Kuaför/berber online randevu, kafe/restoran QR menü adisyon, kasa ve gün sonu raporu tek panelde.',
     ogImage: `${origin}/og/home.png`,
     canonical: `${origin}/`,
     faqJson: SEO_LANDING_PAGES['/'].faq,
@@ -2138,7 +2148,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
             bestRating: '5',
             worstRating: '1',
           },
-          description: 'Esnaf için online randevu, QR menü, kasa, veresiye defteri ve gün sonu takip sistemi.',
+          description: 'Berber, kuaför, güzellik salonu online randevu ve kafe/restoran QR menü, adisyon, kasa ve gün sonu yönetim sistemi.',
         },
         {
           '@type': 'Organization',
@@ -2146,7 +2156,7 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
           url: `${origin}/`,
           logo: `${origin}/icon-512.png`,
           email: 'support@dukkanimyanimda.com.tr',
-          description: 'Esnaf için kasa, veresiye defteri, stok ve gün sonu yönetim paneli.',
+          description: 'Kuaför, berber, güzellik salonu ve kafe/restoran işletmeleri için randevu, QR menü adisyon, kasa ve gün sonu yönetim platformu.',
         },
         {
           '@type': 'ItemList',
@@ -2533,9 +2543,7 @@ function renderLandingContentSsr(content: LandingPageContent, origin: string): s
  * zengin, semantik SSR HTML gövdesi üretir (<div id="root"> içine enjekte edilir).
  */
 export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost?: string): string {
-  const host = rawHost && !rawHost.includes('localhost') && !rawHost.includes('127.0.0.1')
-    ? rawHost
-    : DEFAULT_HOST;
+  const host = normalizeSeoHost(rawHost);
   const origin = `https://${host}`;
   const clean = pathname.toLowerCase().replace(/\/+$/, '') || '/';
   const fresh = getDynamicSeoFreshness();
@@ -2552,13 +2560,13 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
         <a href="/kuafor" style="color:#cbd5e1;text-decoration:none;">Kuaför Salonu</a>
         <a href="/randevu-sistemi" style="color:#cbd5e1;text-decoration:none;">Online Randevu</a>
         <a href="/guzellik-salonu" style="color:#cbd5e1;text-decoration:none;">Güzellik Salonu</a>
-        <a href="/veresiye-defteri" style="color:#cbd5e1;text-decoration:none;">Veresiye Defteri</a>
-        <a href="/kasa-programi" style="color:#cbd5e1;text-decoration:none;">Kasa Programı</a>
-        <a href="/qr-menu" style="color:#cbd5e1;text-decoration:none;">QR Menü</a>
         <a href="/kafe-restoran" style="color:#cbd5e1;text-decoration:none;">Kafe &amp; Adisyon</a>
-        <a href="/bakkal-market" style="color:#cbd5e1;text-decoration:none;">Bakkal &amp; POS</a>
+        <a href="/qr-menu" style="color:#cbd5e1;text-decoration:none;">QR Menü</a>
+        <a href="/kasa-programi" style="color:#cbd5e1;text-decoration:none;">Kasa Programı</a>
+        <a href="/gun-sonu-raporu" style="color:#cbd5e1;text-decoration:none;">Gün Sonu</a>
+        <a href="/veresiye-defteri" style="color:#cbd5e1;text-decoration:none;">Veresiye Defteri</a>
         <a href="/blog" style="color:#cbd5e1;text-decoration:none;">Blog</a>
-        <a href="/rehber" style="color:#cbd5e1;text-decoration:none;">Esnaf Rehberi</a>
+        <a href="/rehber" style="color:#cbd5e1;text-decoration:none;">Ücretsiz Araçlar</a>
         <a href="/fiyat" style="color:#cbd5e1;text-decoration:none;">Fiyatlar</a>
         <a href="/kayit" style="background:#f97316;color:#ffffff;padding:6px 14px;border-radius:8px;text-decoration:none;">Ücretsiz Kayıt</a>
       </nav>
@@ -2606,21 +2614,17 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
         <a href="/" style="color:#cbd5e1;text-decoration:none;">Ana Sayfa</a>
         <a href="/berber" style="color:#cbd5e1;text-decoration:none;">Berber Randevu</a>
         <a href="/kuafor" style="color:#cbd5e1;text-decoration:none;">Kuaför Salonu</a>
-        <a href="/randevu-sistemi" style="color:#cbd5e1;text-decoration:none;">Online Randevu</a>
         <a href="/guzellik-salonu" style="color:#cbd5e1;text-decoration:none;">Güzellik Salonu</a>
-        <a href="/veresiye-defteri" style="color:#cbd5e1;text-decoration:none;">Veresiye Defteri</a>
+        <a href="/randevu-sistemi" style="color:#cbd5e1;text-decoration:none;">Online Randevu</a>
+        <a href="/kafe-restoran" style="color:#cbd5e1;text-decoration:none;">Kafe &amp; Restoran Adisyon</a>
+        <a href="/qr-menu" style="color:#cbd5e1;text-decoration:none;">Ücretsiz QR Menü</a>
         <a href="/kasa-programi" style="color:#cbd5e1;text-decoration:none;">Kasa Programı</a>
         <a href="/gun-sonu-raporu" style="color:#cbd5e1;text-decoration:none;">Gün Sonu Raporu</a>
-        <a href="/qr-menu" style="color:#cbd5e1;text-decoration:none;">QR Menü</a>
-        <a href="/kafe-restoran" style="color:#cbd5e1;text-decoration:none;">Kafe &amp; Restoran</a>
-        <a href="/bakkal-market" style="color:#cbd5e1;text-decoration:none;">Bakkal &amp; Market</a>
+        <a href="/veresiye-defteri" style="color:#cbd5e1;text-decoration:none;">Veresiye Defteri</a>
         <a href="/izmit-berber-randevu" style="color:#cbd5e1;text-decoration:none;">İzmit Berber Randevu</a>
         <a href="/zonguldak-berber-randevu" style="color:#cbd5e1;text-decoration:none;">Zonguldak Berber Randevu</a>
-        <a href="/teknik-servis" style="color:#cbd5e1;text-decoration:none;">Teknik Servis</a>
-        <a href="/hukuk" style="color:#cbd5e1;text-decoration:none;">Hukuk Bürosu</a>
-        <a href="/terzi" style="color:#cbd5e1;text-decoration:none;">Terzi &amp; Kuru Temizleme</a>
         <a href="/blog" style="color:#cbd5e1;text-decoration:none;">Blog</a>
-        <a href="/rehber" style="color:#cbd5e1;text-decoration:none;">Esnaf Rehberi</a>
+        <a href="/rehber" style="color:#cbd5e1;text-decoration:none;">Ücretsiz Araçlar</a>
         <a href="/fiyat" style="color:#cbd5e1;text-decoration:none;">Fiyatlar</a>
         <a href="/iletisim" style="color:#cbd5e1;text-decoration:none;">İletişim</a>
         <a href="/gizlilik" style="color:#cbd5e1;text-decoration:none;">Gizlilik &amp; KVKK</a>
@@ -3442,9 +3446,7 @@ function isExcludedAccount(acc: { id: string; shopName?: string; phone?: string;
  * Sistemdeki tüm kayıtlı dükkanların randevu ve menü sayfalarını Google Bot'a bildirir.
  */
 export function generateSitemapXml(rawHost?: string): string {
-  const host = rawHost && !rawHost.includes('localhost') && !rawHost.includes('127.0.0.1')
-    ? rawHost
-    : DEFAULT_HOST;
+  const host = normalizeSeoHost(rawHost);
   const origin = `https://${host}`;
 
   interface SitemapUrlEntry {
@@ -3457,27 +3459,23 @@ export function generateSitemapXml(rawHost?: string): string {
   }
 
   const staticUrls: SitemapUrlEntry[] = [
-    { loc: `${origin}/`, priority: '1.0', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Dükkânım Yanımda - Esnaf Yönetim Sistemi', img: `${origin}/og/home.png` },
-    { loc: `${origin}/berber`, priority: '1.0', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Berber Randevu & Koltuk Yönetim Sistemi', img: `${origin}/og/berber.png` },
-    { loc: `${origin}/kuafor`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Kuaför Randevu ve Salon Takip Programı', img: `${origin}/og/kuafor.png` },
-    { loc: `${origin}/guzellik-salonu`, priority: '1.0', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi', img: `${origin}/og/guzellik-salonu.png` },
-    { loc: `${origin}/randevu-sistemi`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: '7/24 Online Randevu ve Rezervasyon Sistemi', img: `${origin}/og/randevu-sistemi.png` },
-    { loc: `${origin}/veresiye-defteri`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Veresiye Defteri Uygulaması & Dijital Alacak Takibi', img: `${origin}/og/veresiye-defteri.png` },
-    { loc: `${origin}/kasa-programi`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Esnaf Kasa Takip Programı — Nakit, POS & Gider Yönetimi', img: `${origin}/og/kasa-programi.png` },
-    { loc: `${origin}/gun-sonu-raporu`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Gün Sonu Raporu & Z Raporu Programı', img: `${origin}/og/gun-sonu-raporu.png` },
-    { loc: `${origin}/qr-menu`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Ücretsiz QR Menü Sistemi & Masadan Sipariş', img: `${origin}/og/qr-menu.png` },
+    { loc: `${origin}/`, priority: '1.0', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Dükkânım Yanımda - Kuaför, Berber Randevu & Kafe QR Adisyon Sistemi', img: `${origin}/og/home.png` },
+    { loc: `${origin}/berber`, priority: '1.0', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Berber Randevu & Koltuk Yönetim Sistemi', img: `${origin}/og/berber.png` },
+    { loc: `${origin}/kuafor`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Kuaför Randevu ve Salon Takip Programı', img: `${origin}/og/kuafor.png` },
+    { loc: `${origin}/guzellik-salonu`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Güzellik Salonu ve Merkez Yönetim Sistemi — Seans & Paket Takibi', img: `${origin}/og/guzellik-salonu.png` },
+    { loc: `${origin}/randevu-sistemi`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-20', title: '7/24 Online Randevu ve Rezervasyon Sistemi', img: `${origin}/og/randevu-sistemi.png` },
+    { loc: `${origin}/kafe-restoran`, priority: '1.0', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/og/kafe-restoran.png` },
+    { loc: `${origin}/qr-menu`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Ücretsiz QR Menü Sistemi & Masadan Sipariş', img: `${origin}/og/qr-menu.png` },
+    { loc: `${origin}/kasa-programi`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Esnaf Kasa Takip Programı — Nakit, POS & Gider Yönetimi', img: `${origin}/og/kasa-programi.png` },
+    { loc: `${origin}/gun-sonu-raporu`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Gün Sonu Raporu & Z Raporu Programı', img: `${origin}/og/gun-sonu-raporu.png` },
+    { loc: `${origin}/veresiye-defteri`, priority: '0.85', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Veresiye Defteri Uygulaması & Dijital Alacak Takibi', img: `${origin}/og/veresiye-defteri.png` },
     { loc: `${origin}/izmit-berber-randevu`, priority: '0.92', changefreq: 'weekly', lastmod: '2026-11-19', title: 'İzmit Berber Randevu ve Kuaför Sistemi', img: `${origin}/og/izmit.png` },
     { loc: `${origin}/zonguldak-berber-randevu`, priority: '0.92', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Zonguldak Berber Randevu ve Kuaför Programı', img: `${origin}/og/zonguldak.png` },
-    { loc: `${origin}/kafe-restoran`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Kafe & Restoran Masalar, Adisyon ve QR Menü Yazılımı', img: `${origin}/og/kafe-restoran.png` },
-    { loc: `${origin}/bakkal-market`, priority: '0.95', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Bakkal & Market Hızlı POS Barkodlu Terazi Sistemi', img: `${origin}/og/bakkal-market.png` },
     { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'monthly', lastmod: '2026-11-10', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/og/fiyat.png` },
     { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly', lastmod: '2026-11-10', title: 'Ücretsiz Kayıt - Dükkanını 2 Dakikada Kur', img: `${origin}/og/kayit.png` },
-    { loc: `${origin}/teknik-servis`, priority: '0.8', changefreq: 'monthly', lastmod: '2026-11-16', title: 'Teknik Servis Cihaz Takip ve Tamir Fişi Yazılımı', img: `${origin}/og/teknik-servis.png` },
-    { loc: `${origin}/hukuk`, priority: '0.8', changefreq: 'monthly', lastmod: '2026-11-16', title: 'Avukat ve Hukuk Bürosu Dava Takip ve Masraf Yazılımı', img: `${origin}/og/hukuk.png` },
-    { loc: `${origin}/terzi`, priority: '0.8', changefreq: 'monthly', lastmod: '2026-11-16', title: 'Terzi & Kuru Temizleme Emanet Takip Sistemi', img: `${origin}/og/terzi.png` },
     { loc: `${origin}/iletisim`, priority: '0.6', changefreq: 'yearly', lastmod: '2026-10-15', title: 'İletişim & Destek', img: `${origin}/og/iletisim.png` },
     { loc: `${origin}/gizlilik`, priority: '0.4', changefreq: 'yearly', lastmod: '2026-10-15', title: 'Gizlilik Politikası & KVKK Güvencesi', img: `${origin}/og/gizlilik.png` },
-    { loc: `${origin}/blog`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Esnaf Blogu — Veresiye, Randevu, Kasa ve QR Menü Rehberleri', img: `${origin}/og/blog.png` },
+    { loc: `${origin}/blog`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Esnaf Blogu — Randevu, QR Menü, Adisyon, Kasa ve Gün Sonu Rehberleri', img: `${origin}/og/blog.png` },
     ...BLOG_ARTICLES.map((art) => ({
       loc: `${origin}/blog/${art.slug}`,
       priority: '0.85',
@@ -3486,7 +3484,7 @@ export function generateSitemapXml(rawHost?: string): string {
       title: art.title,
       img: art.ogImage.startsWith('http') ? art.ogImage : `${origin}${art.ogImage}`,
     })),
-    { loc: `${origin}/rehber`, priority: '0.85', changefreq: 'weekly', lastmod: '2026-11-16', title: 'Esnaf Rehberi, Prim Hesaplayıcı & Ücretsiz QR Araçları', img: `${origin}/og/rehber.png` },
+    { loc: `${origin}/rehber`, priority: '0.85', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Ücretsiz Esnaf Araçları: Prim Hesaplayıcı & QR Karekod Oluşturucu', img: `${origin}/og/rehber.png` },
     ...SEO_GUIDE_ARTICLES.filter((art) => !art.noindex).map((art) => ({
       loc: `${origin}/rehber/${art.slug}`,
       priority: '0.8',
@@ -3523,19 +3521,11 @@ export function generateSitemapXml(rawHost?: string): string {
         ? (st.shopProfile.logoUrl.startsWith('http') ? st.shopProfile.logoUrl : `${origin}${st.shopProfile.logoUrl}`)
         : `${origin}/og/randevu-sistemi.png`;
 
-      // Randevu sayfası: Yalnızca berber/kuaför/güzellik veya randevu servisi tanımlanmış dükkanlar
+      // Randevu sayfası: Yalnızca berber/kuaför/güzellik veya randevu servisi tanımlanmış dükkanlar (tek canonical URL)
       if ((isBarberSector && isConfigured) || hasBarberServices) {
         shopUrls.push({
           loc: `${origin}/${slug}/randevu`,
           priority: '0.85',
-          changefreq: 'weekly',
-          lastmod: shopLastmod,
-          title: `${storeName} - Online Randevu Al`,
-          img: shopLogo,
-        });
-        shopUrls.push({
-          loc: `${origin}/r/${slug}`,
-          priority: '0.8',
           changefreq: 'weekly',
           lastmod: shopLastmod,
           title: `${storeName} - Online Randevu Al`,
@@ -3590,9 +3580,7 @@ ${xmlEntries}
  * Temiz ve arama motorları dostu robots.txt içeriği döner.
  */
 export function getRobotsTxt(rawHost?: string): string {
-  const host = rawHost && !rawHost.includes('localhost') && !rawHost.includes('127.0.0.1')
-    ? rawHost
-    : DEFAULT_HOST;
+  const host = normalizeSeoHost(rawHost);
   const origin = `https://${host}`;
 
   return `User-agent: *

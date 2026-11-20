@@ -16,6 +16,7 @@ const {
   BLOG_ARTICLES,
   isValidBlogRoute,
   SEO_LANDING_PAGES,
+  SEO_PERMANENT_REDIRECTS,
   addAccount,
   removeAccount,
   setAccountClosed,
@@ -178,7 +179,7 @@ it('/r/:slug rotası için dükkan adıyla dinamik title, HairSalon şeması ve 
   assert.ok(meta.title.includes('Online Randevu Al | Dükkanım Yanımda'), 'Title randevu içermeli');
   assert.ok(meta.ogTitle.includes('Kolay Online Randevu'), 'og:title randevu içermeli');
   assert.ok(meta.ogDescription.includes('sıra beklemeden online randevunuzu hemen oluşturun'), 'og:description uygun olmalı');
-  assert.ok(meta.canonical.includes(`/r/${barberSlug}`), 'canonical URL gerçek randevu ucu olmalı');
+  assert.ok(meta.canonical.includes(`/${barberSlug}/randevu`), 'canonical URL tekil temiz randevu ucu olmalı');
   assert.ok(meta.ogImage.startsWith('https://'), 'og:image tam URL olmalı');
   assert.ok(meta.schemaJson, 'schema.org JSON-LD verisi olmalı');
   assert.ok(
@@ -283,12 +284,16 @@ it('generateSitemapXml geçerli, demosuz ve sadece açık gerçek dükkanları i
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/</loc>'), 'Ana sayfa loc olmalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/berber</loc>'), 'Berber rotası olmalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/kafe-restoran</loc>'), 'Kafe rotası olmalı');
-  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/bakkal-market</loc>'), 'Bakkal rotası olmalı');
+  assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/bakkal-market</loc>'), 'Kapatılan /bakkal-market sitemapte olmamalı');
+  assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/teknik-servis</loc>'), 'Kapatılan /teknik-servis sitemapte olmamalı');
+  assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/hukuk</loc>'), 'Kapatılan /hukuk sitemapte olmamalı');
+  assert.ok(!xml.includes('<loc>https://dukkanimyanimda.com.tr/terzi</loc>'), 'Kapatılan /terzi sitemapte olmamalı');
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/guzellik-salonu</loc>'), 'Güzellik salonu rotası olmalı');
   assert.ok(xml.includes('sitemap-image'), 'Google image sitemap namespace olmalı');
   assert.ok(!xml.includes('/r/demo'), 'Demo randevu loc kaldırılmış olmalı');
   assert.ok(!xml.includes('/m/demo'), 'Demo menü loc kaldırılmış olmalı');
-  assert.ok(xml.includes(`/r/${barberSlug}`), 'Gerçek açık kuaför sitemape girmeli');
+  assert.ok(xml.includes(`/${barberSlug}/randevu`), 'Gerçek açık kuaför tekil temiz randevu linkiyle sitemape girmeli');
+  assert.ok(!xml.includes(`/r/${barberSlug}`), 'Aynı kuaför için çift /r/ linki sitemapte olmamalı');
   assert.ok(xml.includes(`/m/${cafeSlug}`), 'Gerçek açık restoran sitemape girmeli');
   assert.ok(!xml.includes(closedSlug), 'Kapalı dükkan sitemapte olmamalı');
 
@@ -418,7 +423,8 @@ it('generateSitemapXml sektör eşleşmelerini, demosuz yapıyı ve kapalı dük
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/randevu-sistemi</loc>'));
   assert.ok(!xml.includes('/r/demo'));
   assert.ok(!xml.includes('/m/demo'));
-  assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr/r/${barberSlug}</loc>`));
+  assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr/${barberSlug}/randevu</loc>`));
+  assert.ok(!xml.includes(`<loc>https://dukkanimyanimda.com.tr/r/${barberSlug}</loc>`));
   assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr/m/${cafeSlug}</loc>`));
   assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/rehber</loc>'));
 });
@@ -490,12 +496,18 @@ it('/teknik-servis, /hukuk, /terzi zengin SSR gövdesi sunar ve sahte demo/telef
   assert.ok(!homeJson.includes('Karaköy Kahvecisi'), 'Sahte Karaköy Kahvecisi şemadan kaldırılmış olmalı');
 });
 
-// 20. /rehber & /rehber/:slug İçerik Kümeleri + Doorway Şehir Noindex Koruması + Sitemap
-it('SEO_GUIDE_ARTICLES doorway şehirleri noindex, aktif 10 rehber rotası SSR/Schema/Sitemap içinde eksiksizdir', () => {
+// 20. /rehber & /rehber/:slug İçerik Kümeleri + Çakışma/Doorway Noindex Koruması + Sitemap
+it('SEO_GUIDE_ARTICLES çakışan/doorway 9 rehber noindex, benzersiz 4 aktif rehber SSR/Schema/Sitemap içinde eksiksizdir', () => {
   const noindexSlugs = new Set([
+    'berber-no-show-onleme',
+    'ucretsiz-qr-menu-olusturma',
+    'dijital-veresiye-defteri-gecis',
+    'komisyonsuz-randevu-programi',
     'istanbul-berber-kuafor',
     'ankara-berber-kuafor',
     'izmir-kafe-restoran',
+    'izmit-berber-kuafor-randevu',
+    'zonguldak-berber-kuafor-randevu',
   ]);
   const expectedSlugs = [
     'berber-no-show-onleme',
@@ -527,7 +539,7 @@ it('SEO_GUIDE_ARTICLES doorway şehirleri noindex, aktif 10 rehber rotası SSR/S
     const html = renderSeoHtml(route);
     assert.ok(html.includes('<h1'), `${route} SSR H1 içermeli`);
     if (noindexSlugs.has(slug)) {
-      assert.strictEqual(meta.robots, 'noindex, follow', `${route} doorway koruması için noindex, follow dönmeli`);
+      assert.strictEqual(meta.robots, 'noindex, follow', `${route} çakışma/doorway koruması için noindex, follow dönmeli`);
       assert.ok(!xml.includes(`<loc>https://dukkanimyanimda.com.tr${route}</loc>`), `${route} sitemap dışında tutulmalı`);
     } else {
       activeCount++;
@@ -535,7 +547,7 @@ it('SEO_GUIDE_ARTICLES doorway şehirleri noindex, aktif 10 rehber rotası SSR/S
       assert.ok(xml.includes(`<loc>https://dukkanimyanimda.com.tr${route}</loc>`), `${route} sitemapte olmalı`);
     }
   }
-  assert.strictEqual(activeCount, 10, '10 aktif rehber rotası indekslenebilir ve sitemapte olmalı');
+  assert.strictEqual(activeCount, 4, '4 benzersiz aktif rehber rotası indekslenebilir ve sitemapte olmalı');
 });
 
 // 21. İzmit ve Zonguldak Yerel SEO Landing Sayfaları (LocalBusiness + Service & SSR & GeoCoordinates)
@@ -605,9 +617,9 @@ it('Yeni bağımsız özellik sayfaları özgün canonical, OG görseli, Softwar
   assert.strictEqual(seenOg.size, 4, 'Tüm özellik sayfalarının OG görselleri birbirinden benzersiz olmalı');
 });
 
-// 23. Blog Hub ve 12 Blog Yazısı SSR / Schema / Sitemap
-it('/blog hub ve 12 makale sayfası Article + FAQPage + BreadcrumbList + sitemap entegrasyonuna sahiptir', () => {
-  assert.strictEqual(BLOG_ARTICLES.length, 12, '12 adet blog makalesi tanımlı olmalı');
+// 23. Blog Hub ve 15 Blog Yazısı SSR / Schema / Sitemap
+it('/blog hub ve 15 makale sayfası Article + FAQPage + BreadcrumbList + sitemap entegrasyonuna sahiptir', () => {
+  assert.strictEqual(BLOG_ARTICLES.length, 15, '15 adet blog makalesi tanımlı olmalı');
   const xml = generateSitemapXml('dukkanimyanimda.com.tr');
 
   const hubMeta = getSeoMetadata('/blog');
@@ -670,6 +682,22 @@ it('/r/:slug ve /m/:slug SSR çıktıları Powered by bağlantısı, /iletisim v
   assert.ok(iletisimMeta.ogImage.endsWith('/og/iletisim.png'), '/iletisim özgün OG görseline sahip olmalı');
   const gizlilikMeta = getSeoMetadata('/gizlilik');
   assert.ok(gizlilikMeta.ogImage.endsWith('/og/gizlilik.png'), '/gizlilik özgün OG görseline sahip olmalı');
+});
+
+// 26. 2 Sektör Sadeleştirme 301 Yönlendirmeleri & IDN Domain Canonical Koruması
+it('Kapatılan sektörler + çakışan rehberler 301 haritasında tanımlıdır ve IDN host ana domaine normalize edilir', () => {
+  assert.strictEqual(SEO_PERMANENT_REDIRECTS['/bakkal-market'], '/kasa-programi');
+  assert.strictEqual(SEO_PERMANENT_REDIRECTS['/teknik-servis'], '/');
+  assert.strictEqual(SEO_PERMANENT_REDIRECTS['/hukuk'], '/');
+  assert.strictEqual(SEO_PERMANENT_REDIRECTS['/terzi'], '/');
+  assert.strictEqual(SEO_PERMANENT_REDIRECTS['/rehber/berber-no-show-onleme'], '/blog/kuafor-musteri-gelmeme-no-show-cozumu');
+  assert.strictEqual(SEO_PERMANENT_REDIRECTS['/rehber/izmit-berber-kuafor-randevu'], '/izmit-berber-randevu');
+  assert.strictEqual(SEO_PERMANENT_REDIRECTS['/rehber/zonguldak-berber-kuafor-randevu'], '/zonguldak-berber-randevu');
+
+  const idnMeta = getSeoMetadata('/berber', 'xn--dkkanmyanmda-dlb06eea.com.tr');
+  assert.strictEqual(idnMeta.canonical, 'https://dukkanimyanimda.com.tr/berber', 'IDN host canonical olarak ana domaine dönmeli');
+  const wwwSitemap = generateSitemapXml('www.dukkanimyanimda.com.tr');
+  assert.ok(!wwwSitemap.includes('https://www.dukkanimyanimda.com.tr'), 'www host sitemapte olmamalı');
 });
 
 cleanupSeoFixtures();
