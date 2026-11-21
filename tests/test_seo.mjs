@@ -742,6 +742,21 @@ it('/izmit-kuafor-randevu B2C+B2B hibrit vitrin, HairSalon+ItemList şeması, na
   assert.ok(barberItem && barberItem.item.url.endsWith(`/${barberSlug}/randevu`), 'Harita şeması salonları canonical /:slug/randevu ucuna bağlamalı');
 });
 
+// 28. Sıralama Kaldıraçları: Featured Snippet Fiyat Tablosu, "0 işletme" Yokluğu, Niş Kümeler ve /:slug/randevu Otorite Köprüsü
+it('Şehir sayfaları Featured Snippet <table> fiyat tablosu, niş başlıklar sunar; "0 işletme" göstermez; /r/:slug şehir rehberlerine bağlanır', () => {
+  for (const route of ['/izmit-kuafor-randevu', '/izmit-berber-randevu', '/zonguldak-berber-randevu']) {
+    const html = renderSeoHtml(route);
+    assert.ok(!html.includes('0 işletme'), `${route} SSR çıktısında "0 işletme" yer almamalı`);
+    assert.ok(html.includes('<table') && html.includes('2026'), `${route} HTML fiyat tablosu içermeli`);
+    assert.ok(html.includes('Pazar Günü Açık') || html.includes('Pazar Açık'), `${route} long-tail Pazar açık niş kümesini içermeli`);
+  }
+
+  const bookingHtml = renderSeoHtml(`/r/${barberSlug}`);
+  assert.ok(bookingHtml.includes('/izmit-kuafor-randevu'), '/r/:slug SSR çıktısı /izmit-kuafor-randevu otorite köprüsü içermeli');
+  assert.ok(bookingHtml.includes('/izmit-berber-randevu'), '/r/:slug SSR çıktısı /izmit-berber-randevu otorite köprüsü içermeli');
+  assert.ok(bookingHtml.includes('/zonguldak-berber-randevu'), '/r/:slug SSR çıktısı /zonguldak-berber-randevu otorite köprüsü içermeli');
+});
+
 cleanupSeoFixtures();
 
 console.log(`\n========================================`);

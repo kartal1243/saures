@@ -2436,6 +2436,7 @@ function filterCityMapShops(origin: string, cityKeywords: string[]): SeoMapShop[
 }
 
 function renderLandingContentSsr(content: LandingPageContent, origin: string): string {
+  const fresh = getDynamicSeoFreshness();
   const isHome = content.key === '/';
   const isIzmit = content.key === '/izmit-berber-randevu';
   const isIzmitKuafor = content.key === '/izmit-kuafor-randevu';
@@ -2522,6 +2523,13 @@ function renderLandingContentSsr(content: LandingPageContent, origin: string): s
     const localShops = filterCityMapShops(origin, cityKeywords).filter(
       (ls) => ls.type === 'HairSalon' || ls.type === 'BeautySalon' || !ls.type.includes('Restaurant')
     );
+    const fallbackAllSalons =
+      localShops.length > 0
+        ? localShops
+        : getFeaturedMapShops(origin).filter(
+            (ls) => ls.type === 'HairSalon' || ls.type === 'BeautySalon' || !ls.type.includes('Restaurant')
+          );
+    const showcaseShops = fallbackAllSalons.slice(0, 6);
     const contractTitle = isIzmit
       ? 'İzmit ve Kocaeli Berber Randevu Sistemi — İlçe ve Mahalle Kapsamı'
       : isIzmitKuafor
@@ -2570,17 +2578,66 @@ function renderLandingContentSsr(content: LandingPageContent, origin: string): s
           </div>`
         : '';
 
+    const priceTableHtml =
+      cd.priceTableRows && cd.priceTableRows.length > 0
+        ? `<div style="background:#ffffff;border-radius:14px;padding:18px;border:1px solid #fed7aa;margin-bottom:16px;overflow-x:auto;">
+            <h3 style="font-size:17px;font-weight:900;color:#0f172a;margin:0 0 10px 0;">${escapeHtml(cd.priceTableTitle || `2026 ${cd.city} Kuaför & Berber Ortalama Fiyat ve Süre Tablosu`)}</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left;">
+              <caption style="text-align:left;font-size:12px;color:#64748b;margin-bottom:8px;">${escapeHtml(cd.city)} genelinde kuaför, berber ve güzellik salonları için ortalama işlem süreleri ve piyasa fiyat aralıkları (${fresh.year}).</caption>
+              <thead>
+                <tr style="background:#fff7ed;border-bottom:2px solid #fed7aa;color:#9a3412;">
+                  <th style="padding:8px 10px;font-weight:800;">Hizmet Adı</th>
+                  <th style="padding:8px 10px;font-weight:800;">Kategori</th>
+                  <th style="padding:8px 10px;font-weight:800;">Ortalama Süre</th>
+                  <th style="padding:8px 10px;font-weight:800;">2026 Fiyat Aralığı</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${cd.priceTableRows
+                  .map(
+                    (row) => `
+                  <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:8px 10px;font-weight:700;color:#0f172a;">${escapeHtml(row.service)}</td>
+                    <td style="padding:8px 10px;color:#475569;">${escapeHtml(row.category)}</td>
+                    <td style="padding:8px 10px;color:#475569;">${row.durationMinutes} dk</td>
+                    <td style="padding:8px 10px;font-weight:800;color:#ea580c;">${escapeHtml(row.avgPriceRange)}</td>
+                  </tr>`
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>`
+        : '';
+
+    const longTailNichesHtml =
+      cd.longTailNiches && cd.longTailNiches.length > 0
+        ? `<div style="margin-bottom:16px;">
+            <h2 style="font-size:18px;font-weight:900;color:#0f172a;margin:0 0 10px 0;">${escapeHtml(cd.city)} Semt, Pazar Açık &amp; Özel Gün Kuaför Rehberi</h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:10px;">
+              ${cd.longTailNiches
+                .map(
+                  (niche) => `
+                <article style="background:#ffffff;border-radius:12px;padding:12px;border:1px solid #fed7aa;">
+                  <span style="font-size:11px;font-weight:800;color:#ea580c;display:block;margin-bottom:4px;">${escapeHtml(niche.badge)}</span>
+                  <h3 style="font-size:15px;font-weight:800;color:#0f172a;margin:0 0 6px 0;">${escapeHtml(niche.title)}</h3>
+                  <p style="font-size:12px;color:#475569;margin:0;line-height:1.5;">${escapeHtml(niche.description)}</p>
+                </article>`
+                )
+                .join('')}
+            </div>
+          </div>`
+        : '';
+
     citySectionHtml = `
     <section aria-label="${escapeHtml(cd.city)} Yerel Hizmet Bölgesi ve Canlı Salon Vitrini" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:24px;margin:28px 0;">
       <h2 style="font-size:21px;font-weight:900;color:#9a3412;margin:0 0 12px 0;">${escapeHtml(contractTitle)}</h2>
       <p style="font-size:14px;color:#7c2d12;margin:0 0 14px 0;">
-        <strong>Aktif Kayıtlı Açık Salon Sayısı:</strong> ${localShops.length} işletme · <strong>Bölge:</strong> ${escapeHtml(cd.region)}
+        <strong>Kapsam:</strong> ${cd.districts.length}+ İlçe &amp; Semt · 7/24 Online Randevu Rehberi (%0 Komisyon) · <strong>Bölge:</strong> ${escapeHtml(cd.region)}
       </p>
       ${
-        localShops.length > 0
+        showcaseShops.length > 0
           ? `<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px;margin-bottom:16px;">
-              ${localShops
-                .slice(0, 6)
+              ${showcaseShops
                 .map(
                   (ls) => `
                 <a href="${escapeHtml(ls.url)}" style="background:#ffffff;border:1px solid #fed7aa;border-radius:10px;padding:12px;text-decoration:none;display:block;">
@@ -2599,6 +2656,8 @@ function renderLandingContentSsr(content: LandingPageContent, origin: string): s
       }
       ${districtDirHtml}
       ${categoriesHtml}
+      ${priceTableHtml}
+      ${longTailNichesHtml}
       <div style="background:#0f172a;color:#ffffff;border-radius:12px;padding:14px;margin-bottom:16px;">
         <strong style="font-size:14px;display:block;margin-bottom:4px;">Google Haritalar &amp; Instagram Sıralama Çarpanı</strong>
         <p style="font-size:12px;color:#cbd5e1;margin:0 0 8px 0;">${escapeHtml(cd.city)} içinde “kuaför ${escapeHtml(cd.city.toLowerCase())}” aramalarında öne çıkmak için Google İşletme Profilinizdeki Randevu Linki alanına kendi dükkan adresinizi (https://dukkanimyanimda.com.tr/salon-adiniz/randevu) bağlayın.</p>
@@ -2925,6 +2984,12 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
           <a href="${barberPath.isCleanFormat ? `/${escapeHtml(shop.slug)}/randevu` : `/r/${escapeHtml(shop.slug)}`}" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:14px;font-weight:800;padding:10px 24px;border-radius:10px;text-decoration:none;box-shadow:0 4px 12px rgba(234,88,12,0.25);">Randevu Saatini Seç</a>
         </div>
         <p style="margin-top:18px;text-align:center;font-size:12px;color:#64748b;"><a href="${origin}/berber" style="color:#ea580c;font-weight:700;text-decoration:none;">Powered by Dükkanım Yanımda — Online Randevu Sistemi</a></p>
+        <nav aria-label="Bölgesel Kuaför ve Berber Randevu Rehberleri" style="margin-top:10px;text-align:center;font-size:12px;color:#64748b;display:flex;flex-wrap:wrap;justify-content:center;gap:12px;">
+          <a href="${origin}/izmit-kuafor-randevu" style="color:#475569;font-weight:700;text-decoration:none;">📍 Kuaför İzmit Randevu Rehberi</a>
+          <a href="${origin}/izmit-berber-randevu" style="color:#475569;font-weight:700;text-decoration:none;">💈 İzmit Berber Randevu</a>
+          <a href="${origin}/zonguldak-berber-randevu" style="color:#475569;font-weight:700;text-decoration:none;">💈 Zonguldak Berber Randevu</a>
+          <a href="${origin}/kuafor" style="color:#475569;font-weight:700;text-decoration:none;">✂️ Kuaför Randevu Sistemi</a>
+        </nav>
       </article>`;
     } else {
       mainBodyContent = `

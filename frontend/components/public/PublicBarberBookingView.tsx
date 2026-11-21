@@ -1991,9 +1991,9 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
           )}
         </section>
 
-        {/* Viral Branding Footer */}
+        {/* Viral Branding & Bölgesel Rehber İç Link Köprüsü */}
         {(data.shop as any)?.brandingRequired !== false && (
-          <div className="py-6 text-center">
+          <div className="py-6 text-center space-y-2.5">
             <a
               href="https://dukkanimyanimda.com.tr/berber"
               target="_blank"
@@ -2002,6 +2002,26 @@ export const PublicBarberBookingView: React.FC<{ identifier: string }> = ({ iden
             >
               <span>⚡ Powered by Dükkanım Yanımda — Berber Online Randevu Sistemi</span>
             </a>
+            <nav
+              aria-label="Bölgesel Kuaför ve Berber Randevu Rehberleri"
+              className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-semibold text-stone-400"
+            >
+              <a href="/izmit-kuafor-randevu" className="hover:text-amber-400 transition-colors">
+                📍 İzmit Kuaför Rehberi
+              </a>
+              <span aria-hidden="true">·</span>
+              <a href="/izmit-berber-randevu" className="hover:text-amber-400 transition-colors">
+                💈 İzmit Berber Randevu
+              </a>
+              <span aria-hidden="true">·</span>
+              <a href="/zonguldak-berber-randevu" className="hover:text-amber-400 transition-colors">
+                💈 Zonguldak Berber Randevu
+              </a>
+              <span aria-hidden="true">·</span>
+              <a href="/kuafor" className="hover:text-amber-400 transition-colors">
+                ✂️ Kuaför Randevu Sistemi
+              </a>
+            </nav>
           </div>
         )}
       </main>

@@ -1587,8 +1587,17 @@ function DeepLandingPage({
   >([]);
   const [mapsSlugPreview, setMapsSlugPreview] = useState<string>('salon-adiniz');
   const [mapsLinkCopied, setMapsLinkCopied] = useState<boolean>(false);
+  const [selectedCalcServices, setSelectedCalcServices] = useState<string[]>(() =>
+    (content.cityDetails?.priceTableRows || []).slice(0, 2).map((r) => r.service)
+  );
 
   const isKuaforCityPage = content.key === '/izmit-kuafor-randevu';
+
+  useEffect(() => {
+    setSelectedCalcServices(
+      (content.cityDetails?.priceTableRows || []).slice(0, 2).map((r) => r.service)
+    );
+  }, [content.key]);
 
   useEffect(() => {
     if (!content.cityDetails || typeof fetch === 'undefined') {
@@ -1623,7 +1632,14 @@ function DeepLandingPage({
           const hay = normTr(`${s.city || ''} ${s.district || ''} ${s.address || ''}`);
           return cityTerms.some((t) => hay.includes(t));
         });
-        setLiveLocalSalons(matched.slice(0, 6));
+        const combined =
+          matched.length >= 3
+            ? matched
+            : [
+                ...matched,
+                ...salonShops.filter((s: any) => !matched.some((m: any) => m.id === s.id)),
+              ];
+        setLiveLocalSalons(combined.slice(0, 6));
       })
       .catch(() => {
         // Offline veya ağ hatasında sessiz kal
@@ -1633,6 +1649,26 @@ function DeepLandingPage({
       cancelled = true;
     };
   }, [content.key, Boolean(content.cityDetails)]);
+
+  const priceRows = content.cityDetails?.priceTableRows || [];
+  const calcTotals = priceRows
+    .filter((r) => selectedCalcServices.includes(r.service))
+    .reduce(
+      (acc, r) => ({
+        minutes: acc.minutes + r.durationMinutes,
+        minPrice: acc.minPrice + r.minPrice,
+        maxPrice: acc.maxPrice + r.maxPrice,
+        count: acc.count + 1,
+      }),
+      { minutes: 0, minPrice: 0, maxPrice: 0, count: 0 }
+    );
+  const toggleCalcService = (serviceName: string) => {
+    setSelectedCalcServices((prev) =>
+      prev.includes(serviceName)
+        ? prev.filter((item) => item !== serviceName)
+        : [...prev, serviceName]
+    );
+  };
 
   const breadcrumbs: BreadcrumbItem[] = content.cityDetails
     ? isKuaforCityPage
@@ -1865,7 +1901,136 @@ function DeepLandingPage({
             )}
           </div>
 
-          {/* 3. Google Haritalar & Instagram Sıralama Çarpanı Rehberi (B2B Esnaf Dönüşüm & Backlink Motoru) */}
+          {/* 3. 2026 Ortalama Fiyat Tablosu + İnteraktif İşlem Süresi & Bütçe Hesaplayıcı (Featured Snippet & Dwell Time Kaldıracı) */}
+          {priceRows.length > 0 && (
+            <div className="rounded-3xl bg-white border border-stone-200 p-6 sm:p-7 space-y-5 shadow-xs">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-[11px] font-black uppercase tracking-wider">
+                    <Calculator className="w-3.5 h-3.5" />
+                    2026 Güncel Piyasa Tarifesi &amp; Süre Hesaplayıcı
+                  </span>
+                  <h2 className="mt-2 text-xl sm:text-2xl font-black text-stone-900">
+                    {content.cityDetails.priceTableTitle || `2026 ${content.cityDetails.city} Kuaför & Berber Ortalama Fiyat ve Süre Tablosu`}
+                  </h2>
+                  <p className="mt-1 text-xs sm:text-sm text-stone-600 font-medium">
+                    Tablodaki işlemlerden bir veya birkaçını seçerek koltukta geçecek tahmini süreyi ve bütçe aralığını anında hesaplayın.
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-stone-900 text-white px-4 py-3 shrink-0 flex items-center gap-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-stone-400">Seçilen ({calcTotals.count}) İşlem Süresi</p>
+                    <p className="text-base sm:text-lg font-black text-amber-400">
+                      {calcTotals.minutes} dk
+                      {calcTotals.minutes >= 60
+                        ? ` (${Math.floor(calcTotals.minutes / 60)} sa${calcTotals.minutes % 60 ? ` ${calcTotals.minutes % 60} dk` : ''})`
+                        : ''}
+                    </p>
+                  </div>
+                  <div className="h-8 w-px bg-white/15" />
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-stone-400">Tahmini Bütçe</p>
+                    <p className="text-base sm:text-lg font-black text-emerald-400">
+                      ₺{calcTotals.minPrice.toLocaleString('tr-TR')} – ₺{calcTotals.maxPrice.toLocaleString('tr-TR')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {priceRows.map((row) => {
+                  const selected = selectedCalcServices.includes(row.service);
+                  return (
+                    <button
+                      key={row.service}
+                      type="button"
+                      onClick={() => toggleCalcService(row.service)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                        selected
+                          ? 'bg-orange-500 text-white border-orange-500 shadow-xs'
+                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:border-orange-300'
+                      }`}
+                    >
+                      <Check className={`w-3.5 h-3.5 ${selected ? 'opacity-100' : 'opacity-30'}`} />
+                      <span>{row.service}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-stone-200">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <caption className="sr-only">
+                    {content.cityDetails.priceTableTitle || `2026 ${content.cityDetails.city} Kuaför ve Berber Fiyat Tablosu`}
+                  </caption>
+                  <thead className="bg-stone-50 border-b border-stone-200 text-stone-700">
+                    <tr>
+                      <th className="p-3 sm:p-3.5 font-black">Seç</th>
+                      <th className="p-3 sm:p-3.5 font-black">Hizmet Adı</th>
+                      <th className="p-3 sm:p-3.5 font-black">Kategori</th>
+                      <th className="p-3 sm:p-3.5 font-black">Ortalama Süre</th>
+                      <th className="p-3 sm:p-3.5 font-black text-orange-700">2026 Fiyat Aralığı</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100 font-medium">
+                    {priceRows.map((row) => {
+                      const selected = selectedCalcServices.includes(row.service);
+                      return (
+                        <tr
+                          key={row.service}
+                          onClick={() => toggleCalcService(row.service)}
+                          className={`cursor-pointer transition-colors ${
+                            selected ? 'bg-orange-50/70' : 'hover:bg-stone-50'
+                          }`}
+                        >
+                          <td className="p-3 sm:p-3.5">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => {}}
+                              aria-label={`${row.service} hesaplayıcıya ekle`}
+                              className="w-4 h-4 accent-orange-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="p-3 sm:p-3.5 font-bold text-stone-900">{row.service}</td>
+                          <td className="p-3 sm:p-3.5 text-stone-600">{row.category}</td>
+                          <td className="p-3 sm:p-3.5 text-stone-700">{row.durationMinutes} dk</td>
+                          <td className="p-3 sm:p-3.5 font-black text-orange-700">{row.avgPriceRange}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 4. Long-Tail Niş Kümeler (Pazar Açık Berber, Semt Kuaförleri & Gelin Başı) */}
+          {content.cityDetails.longTailNiches && content.cityDetails.longTailNiches.length > 0 && (
+            <div className="rounded-3xl bg-white border border-stone-200 p-6 sm:p-7 space-y-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-orange-600">
+                  Semt ve İhtiyaca Özel Randevu Rehberi
+                </p>
+                <h2 className="mt-1 text-xl font-black text-stone-900">
+                  {content.cityDetails.city} Semt, Pazar Açık &amp; Özel Gün Kuaför Rehberi
+                </h2>
+              </div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {content.cityDetails.longTailNiches.map((niche) => (
+                  <div key={niche.keyword} className="rounded-2xl border border-stone-200 bg-stone-50/60 p-4 space-y-1.5">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 text-[10px] font-black">
+                      {niche.badge}
+                    </span>
+                    <h3 className="text-sm font-black text-stone-900 leading-snug">{niche.title}</h3>
+                    <p className="text-xs text-stone-600 font-medium leading-relaxed">{niche.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 5. Google Haritalar & Instagram Sıralama Çarpanı Rehberi (B2B Esnaf Dönüşüm & Backlink Motoru) */}
           <div className="rounded-3xl bg-stone-900 text-white p-6 sm:p-7 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1.5 max-w-2xl">

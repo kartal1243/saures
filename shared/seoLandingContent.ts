@@ -14,6 +14,22 @@ export type LandingPageKey =
   | '/izmit-kuafor-randevu'
   | '/zonguldak-berber-randevu';
 
+export interface CityPriceRow {
+  service: string;
+  category: string;
+  durationMinutes: number;
+  avgPriceRange: string;
+  minPrice: number;
+  maxPrice: number;
+}
+
+export interface CityLongTailNiche {
+  title: string;
+  keyword: string;
+  description: string;
+  badge: string;
+}
+
 export interface LandingPageContent {
   key: LandingPageKey;
   primaryKeyword: string;
@@ -38,8 +54,103 @@ export interface LandingPageContent {
     localStats: { label: string; value: string }[];
     b2cCategories?: { title: string; services: string[]; badge: string }[];
     districtDirectory?: { name: string; highlight: string; searchIntent: string }[];
+    priceTableTitle?: string;
+    priceTableRows?: CityPriceRow[];
+    longTailNiches?: CityLongTailNiche[];
   };
 }
+
+const IZMIT_PRICE_TABLE_ROWS: CityPriceRow[] = [
+  { service: 'Kadın Saç Kesimi & Fön', category: 'Kadın Kuaförü', durationMinutes: 45, avgPriceRange: '₺500 – ₺900', minPrice: 500, maxPrice: 900 },
+  { service: 'Dip Boya & Saç Bakımı', category: 'Kadın Kuaförü', durationMinutes: 90, avgPriceRange: '₺900 – ₺1.600', minPrice: 900, maxPrice: 1600 },
+  { service: 'Ombre / Balyaj / Röfle', category: 'Kadın Kuaförü', durationMinutes: 180, avgPriceRange: '₺2.500 – ₺5.500', minPrice: 2500, maxPrice: 5500 },
+  { service: 'Keratin Bakım & Brezilya Fönü', category: 'Kadın Kuaförü', durationMinutes: 120, avgPriceRange: '₺1.800 – ₺3.500', minPrice: 1800, maxPrice: 3500 },
+  { service: 'Gelin Başı & Nişan Saçı', category: 'Özel Gün', durationMinutes: 150, avgPriceRange: '₺4.500 – ₺9.500', minPrice: 4500, maxPrice: 9500 },
+  { service: 'Erkek Saç Kesimi', category: 'Erkek Berberi', durationMinutes: 30, avgPriceRange: '₺250 – ₺450', minPrice: 250, maxPrice: 450 },
+  { service: 'Erkek Saç + Sakal + Yıkama', category: 'Erkek Berberi', durationMinutes: 45, avgPriceRange: '₺400 – ₺650', minPrice: 400, maxPrice: 650 },
+  { service: 'Damat Tıraşı & VIP Bakım', category: 'Özel Gün', durationMinutes: 90, avgPriceRange: '₺1.500 – ₺3.000', minPrice: 1500, maxPrice: 3000 },
+  { service: 'Protez Tırnak & Kalıcı Oje', category: 'Güzellik Salonu', durationMinutes: 75, avgPriceRange: '₺650 – ₺1.200', minPrice: 650, maxPrice: 1200 },
+  { service: 'Lazer Epilasyon / Cilt Bakımı Seansı', category: 'Güzellik Salonu', durationMinutes: 45, avgPriceRange: '₺700 – ₺1.500', minPrice: 700, maxPrice: 1500 },
+];
+
+const IZMIT_LONG_TAIL_NICHES: CityLongTailNiche[] = [
+  {
+    title: 'İzmit Pazar Günü Açık Berber & Nöbetçi Kuaför Randevusu',
+    keyword: 'izmit pazar günü açık berber',
+    badge: 'Pazar Açık · Sıfır Bekleme',
+    description: 'Pazar günü açık İzmit ve Kocaeli berber/kuaförlerinde kapı önünde kalabalığa takılmadan çalışma saatlerine göre anında koltuk ayırtın.',
+  },
+  {
+    title: 'Yahya Kaptan & Yenişehir Kadın Kuaförü — Ombre, Boya ve Fön',
+    keyword: 'yahya kaptan kuaför randevu',
+    badge: 'Yahya Kaptan & Yenişehir',
+    description: 'Dip boya, ombre, röfle ve fön işlemleri için süre bazlı çakışmasız online randevu ve boya formülü kartı arşivi.',
+  },
+  {
+    title: 'Fethiye Caddesi & Yürüyüş Yolu Erkek Kuaförü — Sıra Beklemeden Kesim',
+    keyword: 'fethiye caddesi berber randevu',
+    badge: 'İzmit Merkez · Çarşı',
+    description: 'Öğle arası ve iş çıkışı Fethiye Caddesi çevresindeki yoğun salonlarda favori ustanızı seçip 15 saniyede randevu alın.',
+  },
+  {
+    title: 'İzmit Gelin Başı, Nişan Saçı ve Türban Tasarım Rezervasyonu',
+    keyword: 'izmit gelin başı kuaför fiyatları',
+    badge: 'Gelin Başı & Kapora Takibi',
+    description: 'Düğün, nişan ve kına gününüz için aylar öncesinden kaporalı ve ekibi kapsayan garantili kuaför rezervasyonu oluşturun.',
+  },
+  {
+    title: 'Umuttepe, Alikahya & KOÜ Öğrenci Kuaför ve Berber Randevusu',
+    keyword: 'umuttepe alikahya berber kuaför',
+    badge: 'Öğrenci & Vardiya Dostu',
+    description: 'Kocaeli Üniversitesi öğrencileri ve Alikahya vardiya çalışanları için akşam ve hafta içi sakin saatlere özel hızlı online randevu.',
+  },
+  {
+    title: 'Başiskele, Kartepe, Gölcük & Gebze Güzellik Salonu ve Lazer Seans Takibi',
+    keyword: 'izmit güzellik salonu randevu',
+    badge: '6–10 Seans Dijital Takip',
+    description: 'Lazer epilasyon, Hydrafacial cilt bakımı ve protez tırnak seanslarınızı kabin ve cihaz çakışması olmadan planlayın.',
+  },
+];
+
+const ZONGULDAK_PRICE_TABLE_ROWS: CityPriceRow[] = [
+  { service: 'Kadın Saç Kesimi & Fön', category: 'Kadın Kuaförü', durationMinutes: 45, avgPriceRange: '₺450 – ₺800', minPrice: 450, maxPrice: 800 },
+  { service: 'Dip Boya & Saç Bakımı', category: 'Kadın Kuaförü', durationMinutes: 90, avgPriceRange: '₺800 – ₺1.450', minPrice: 800, maxPrice: 1450 },
+  { service: 'Ombre / Balyaj / Röfle', category: 'Kadın Kuaförü', durationMinutes: 180, avgPriceRange: '₺2.200 – ₺4.800', minPrice: 2200, maxPrice: 4800 },
+  { service: 'Keratin Bakım & Brezilya Fönü', category: 'Kadın Kuaförü', durationMinutes: 120, avgPriceRange: '₺1.600 – ₺3.200', minPrice: 1600, maxPrice: 3200 },
+  { service: 'Gelin Başı & Nişan Saçı', category: 'Özel Gün', durationMinutes: 150, avgPriceRange: '₺4.000 – ₺8.500', minPrice: 4000, maxPrice: 8500 },
+  { service: 'Erkek Saç Kesimi', category: 'Erkek Berberi', durationMinutes: 30, avgPriceRange: '₺220 – ₺400', minPrice: 220, maxPrice: 400 },
+  { service: 'Erkek Saç + Sakal + Yıkama', category: 'Erkek Berberi', durationMinutes: 45, avgPriceRange: '₺350 – ₺600', minPrice: 350, maxPrice: 600 },
+  { service: 'Damat Tıraşı & VIP Bakım', category: 'Özel Gün', durationMinutes: 90, avgPriceRange: '₺1.300 – ₺2.600', minPrice: 1300, maxPrice: 2600 },
+  { service: 'Protez Tırnak & Kalıcı Oje', category: 'Güzellik Salonu', durationMinutes: 75, avgPriceRange: '₺600 – ₺1.100', minPrice: 600, maxPrice: 1100 },
+  { service: 'Lazer Epilasyon / Cilt Bakımı Seansı', category: 'Güzellik Salonu', durationMinutes: 45, avgPriceRange: '₺650 – ₺1.350', minPrice: 650, maxPrice: 1350 },
+];
+
+const ZONGULDAK_LONG_TAIL_NICHES: CityLongTailNiche[] = [
+  {
+    title: 'Zonguldak & Kdz. Ereğli Pazar Açık Berber Randevusu',
+    keyword: 'zonguldak pazar günü açık berber',
+    badge: 'Pazar & Vardiya',
+    description: 'Erdemir ve maden vardiyalarına göre açık berberlerde yağmurda sıra beklemeden telefonunuzdan koltuğunuzu ayırtın.',
+  },
+  {
+    title: 'Gazipaşa Caddesi & Soğuksu Kuaför ve Berberleri',
+    keyword: 'gazipaşa caddesi berber kuaför',
+    badge: 'Merkez Çarşı',
+    description: 'Park stresi ve bekleme yaşamadan tam randevu saatinizde merkeze gelip işleminizi tamamlayın.',
+  },
+  {
+    title: 'İncivez & Kozlu BEÜN Öğrenci Online Randevu',
+    keyword: 'incivez kozlu kuaför berber randevu',
+    badge: 'Öğrenci Bölgesi',
+    description: 'Instagram biyografisi ve randevu linkinden gece bile ertesi güne hızlı saç kesimi veya fön saati seçin.',
+  },
+  {
+    title: 'Çaycuma, Devrek & Alaplı Gelin Başı ve Seans Takibi',
+    keyword: 'kdz ereğli çaycuma kuaför randevu',
+    badge: 'Özel Gün & Paketler',
+    description: 'Özel gün rezervasyonu, kapora takibi ve lazer/bakım seanslarını tek ekranda netleştirin.',
+  },
+];
 
 export const SEO_LANDING_PAGES: Record<LandingPageKey, LandingPageContent> = {
   '/': {
@@ -2601,6 +2712,9 @@ export const SEO_LANDING_PAGES: Record<LandingPageKey, LandingPageContent> = {
           searchIntent: 'Usta seçimi ve vardiya çıkışına göre müsait saat sorgulama.',
         },
       ],
+      priceTableTitle: '2026 İzmit Kuaför & Berber Ortalama Fiyat ve İşlem Süresi Tablosu',
+      priceTableRows: IZMIT_PRICE_TABLE_ROWS,
+      longTailNiches: IZMIT_LONG_TAIL_NICHES,
     },
   },
 
@@ -2867,6 +2981,9 @@ export const SEO_LANDING_PAGES: Record<LandingPageKey, LandingPageContent> = {
           searchIntent: 'Çalışan ve öğrenci saatlerine uygun 7/24 randevu seçimi.',
         },
       ],
+      priceTableTitle: '2026 İzmit Kuaför & Berber Ortalama Fiyat ve İşlem Süresi Tablosu',
+      priceTableRows: IZMIT_PRICE_TABLE_ROWS,
+      longTailNiches: IZMIT_LONG_TAIL_NICHES,
     },
   },
 
@@ -3128,6 +3245,9 @@ export const SEO_LANDING_PAGES: Record<LandingPageKey, LandingPageContent> = {
           searchIntent: 'Tanıdık usta seçimi ve hafta sonu sıra beklememe.',
         },
       ],
+      priceTableTitle: '2026 Zonguldak & Kdz. Ereğli Kuaför ve Berber Ortalama Fiyat Tablosu',
+      priceTableRows: ZONGULDAK_PRICE_TABLE_ROWS,
+      longTailNiches: ZONGULDAK_LONG_TAIL_NICHES,
     },
   },
 };
