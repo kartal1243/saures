@@ -685,9 +685,11 @@ export function getFeaturedMapShops(origin: string = DEFAULT_ORIGIN): SeoMapShop
       if (sectorKey.includes('berber') || sectorKey.includes('kuafor')) {
         type = 'HairSalon';
         sectorName = 'Kuaför & Berber';
+        url = `${origin}/${slug}/randevu`;
       } else if (sectorKey.includes('guzellik')) {
         type = 'BeautySalon';
         sectorName = 'Güzellik Salonu';
+        url = `${origin}/${slug}/randevu`;
       } else if (sectorKey.includes('kafe') || sectorKey.includes('restoran')) {
         type = 'Restaurant';
         sectorName = 'Kafe & Restoran';
@@ -749,6 +751,64 @@ export function extractBarberSlugFromPath(cleanPath: string): { slug: string; is
     return { slug: safeDecode(m[1]), isCleanFormat: true };
   }
   return null;
+}
+
+function buildCitySalonItemListSchema(
+  origin: string,
+  listName: string,
+  cityKeywords: string[],
+  fallbackKey: '/izmit-berber-randevu' | '/izmit-kuafor-randevu' | '/zonguldak-berber-randevu'
+) {
+  const canonicalUrl = `${origin}${fallbackKey}`;
+  const localSalons = filterCityMapShops(origin, cityKeywords).filter(
+    (s) => s.type === 'HairSalon' || s.type === 'BeautySalon' || !s.type.includes('Restaurant')
+  );
+
+  if (localSalons.length > 0) {
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: listName,
+      url: canonicalUrl,
+      numberOfItems: localSalons.length,
+      itemListElement: localSalons.map((s, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        name: s.name,
+        url: s.url,
+        item: {
+          '@type': s.type,
+          name: s.name,
+          url: s.url,
+          address: {
+            '@type': 'PostalAddress',
+            addressLocality: s.cityDistrict,
+            addressCountry: 'TR',
+          },
+          geo: {
+            '@type': 'GeoCoordinates',
+            latitude: s.latitude,
+            longitude: s.longitude,
+          },
+        },
+      })),
+    };
+  }
+
+  const districtDir = SEO_LANDING_PAGES[fallbackKey]?.cityDetails?.districtDirectory || [];
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: listName,
+    url: canonicalUrl,
+    numberOfItems: districtDir.length,
+    itemListElement: districtDir.map((dir, idx) => ({
+      '@type': 'ListItem',
+      position: idx + 1,
+      name: `${dir.name} — ${dir.highlight}`,
+      url: `${canonicalUrl}#semt-${idx + 1}`,
+    })),
+  };
 }
 
 function buildSoftwareOffersSchema() {
@@ -1178,7 +1238,14 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       },
     };
 
+    const izmitKeywords = ['izmit', 'kocaeli', 'gebze', 'körfez', 'gölcük', 'kartepe', 'darıca', 'başiskele', 'derince'];
     const extraSchemas = [
+      buildCitySalonItemListSchema(
+        origin,
+        'İzmit & Kocaeli Online Randevu Alan Berber ve Kuaför Salonları Rehberi',
+        izmitKeywords,
+        '/izmit-berber-randevu'
+      ),
       {
         '@context': 'https://schema.org',
         '@type': 'Service',
@@ -1205,6 +1272,100 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
     ];
 
     const faqJson = SEO_LANDING_PAGES['/izmit-berber-randevu'].faq;
+
+    return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, extraSchemas, breadcrumbs, faqJson };
+  }
+
+  // 4.1.b. Kuaför İzmit & Kocaeli Online Kuaför Randevu Rehberi (/izmit-kuafor-randevu)
+  if (
+    clean === '/izmit-kuafor-randevu' ||
+    clean === '/izmit-kuafor' ||
+    clean === '/kocaeli-kuafor' ||
+    clean === '/kocaeli-kuafor-randevu' ||
+    clean === '/izmit-guzellik-salonu'
+  ) {
+    const canonical = `${origin}/izmit-kuafor-randevu`;
+    const title = `Kuaför İzmit & İzmit Kuaför Randevu Rehberi (${fresh.year}) | Kocaeli Online Randevu`;
+    const ogTitle = `Kuaför İzmit — Online Randevu Alan Kuaför ve Güzellik Salonları (${fresh.year})`;
+    const description = `Kuaför İzmit aramalarında sıra beklemeden 7/24 online randevu alın! Yahya Kaptan, Yürüyüş Yolu, Fethiye Cd., Yenişehir ve Gebze kadın/erkek kuaför ve güzellik salonları randevu rehberi.`;
+    const ogDescription = 'İzmit ve Kocaeli kadın/erkek kuaförlerinden 15 saniyede %0 komisyonla online randevu alın veya salonunuzu vitrine ekleyin.';
+    const ogImage = `${origin}/og/kuafor.png`;
+
+    const areaServed = [
+      { '@type': 'City', name: 'İzmit' },
+      { '@type': 'AdministrativeArea', name: 'Kocaeli' },
+      { '@type': 'City', name: 'Gebze' },
+      { '@type': 'City', name: 'Körfez' },
+      { '@type': 'City', name: 'Gölcük' },
+      { '@type': 'City', name: 'Başiskele' },
+      { '@type': 'City', name: 'Kartepe' },
+    ];
+
+    const izmitKeywords = ['izmit', 'kocaeli', 'gebze', 'körfez', 'gölcük', 'kartepe', 'darıca', 'başiskele', 'derince'];
+
+    const schemaJson = {
+      '@context': 'https://schema.org',
+      '@type': 'HairSalon',
+      name: 'Dükkanım Yanımda — Kuaför İzmit & Kocaeli Online Kuaför Randevu Rehberi',
+      description: 'İzmit Yahya Kaptan, Yürüyüş Yolu, Fethiye Caddesi ve Kocaeli genelindeki kuaför ve güzellik salonları için online randevu vitrini ve salon yönetim sistemi.',
+      url: canonical,
+      image: ogImage,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'İzmit',
+        addressRegion: 'Kocaeli',
+        addressCountry: 'TR',
+      },
+      geo: {
+        '@type': 'GeoCoordinates',
+        latitude: 40.7654,
+        longitude: 29.9408,
+      },
+      areaServed,
+      priceRange: '₺₺',
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        reviewCount: '640',
+        bestRating: '5',
+        worstRating: '1',
+      },
+    };
+
+    const extraSchemas = [
+      buildCitySalonItemListSchema(
+        origin,
+        'Kuaför İzmit: Online Randevu Alan Kuaför ve Güzellik Salonları Listesi',
+        izmitKeywords,
+        '/izmit-kuafor-randevu'
+      ),
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Service',
+        name: 'İzmit & Kocaeli Online Kuaför ve Güzellik Salonu Randevu Sistemi',
+        serviceType: 'Online Kuaför Randevu ve Salon Yönetim Yazılımı',
+        provider: {
+          '@type': 'Organization',
+          name: 'Dükkanım Yanımda',
+          url: `${origin}/`,
+        },
+        areaServed,
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'TRY',
+          availability: 'https://schema.org/InStock',
+        },
+      },
+    ];
+
+    const breadcrumbs = [
+      { name: 'Ana Sayfa', url: origin },
+      { name: 'Kuaför Randevu Programı', url: `${origin}/kuafor` },
+      { name: 'Kuaför İzmit & Online Randevu Rehberi', url: canonical },
+    ];
+
+    const faqJson = SEO_LANDING_PAGES['/izmit-kuafor-randevu'].faq;
 
     return { title, ogTitle, description, ogDescription, ogImage, canonical, schemaJson, extraSchemas, breadcrumbs, faqJson };
   }
@@ -1261,7 +1422,14 @@ export function getSeoMetadata(pathname: string, rawHost?: string): SeoMetadata 
       },
     };
 
+    const zonguldakKeywords = ['zonguldak', 'ereğli', 'kozlu', 'çaycuma', 'devrek', 'kilimli', 'alaplı', 'gökçebey'];
     const extraSchemas = [
+      buildCitySalonItemListSchema(
+        origin,
+        'Zonguldak & Kdz. Ereğli Online Randevu Alan Berber ve Kuaför Salonları',
+        zonguldakKeywords,
+        '/zonguldak-berber-randevu'
+      ),
       {
         '@context': 'https://schema.org',
         '@type': 'Service',
@@ -2270,6 +2438,7 @@ function filterCityMapShops(origin: string, cityKeywords: string[]): SeoMapShop[
 function renderLandingContentSsr(content: LandingPageContent, origin: string): string {
   const isHome = content.key === '/';
   const isIzmit = content.key === '/izmit-berber-randevu';
+  const isIzmitKuafor = content.key === '/izmit-kuafor-randevu';
   const isZonguldak = content.key === '/zonguldak-berber-randevu';
 
   const heroHeadingHtml = isHome
@@ -2346,18 +2515,63 @@ function renderLandingContentSsr(content: LandingPageContent, origin: string): s
   let citySectionHtml = '';
   if (content.cityDetails) {
     const cd = content.cityDetails;
-    const cityKeywords = isIzmit
-      ? ['izmit', 'kocaeli', 'gebze', 'körfez', 'gölcük', 'kartepe', 'darıca', 'başiskele', 'derince']
-      : ['zonguldak', 'ereğli', 'kozlu', 'çaycuma', 'devrek', 'kilimli', 'alaplı', 'gökçebey'];
-    const localShops = filterCityMapShops(origin, cityKeywords);
+    const cityKeywords =
+      isIzmit || isIzmitKuafor
+        ? ['izmit', 'kocaeli', 'gebze', 'körfez', 'gölcük', 'kartepe', 'darıca', 'başiskele', 'derince']
+        : ['zonguldak', 'ereğli', 'kozlu', 'çaycuma', 'devrek', 'kilimli', 'alaplı', 'gökçebey'];
+    const localShops = filterCityMapShops(origin, cityKeywords).filter(
+      (ls) => ls.type === 'HairSalon' || ls.type === 'BeautySalon' || !ls.type.includes('Restaurant')
+    );
     const contractTitle = isIzmit
       ? 'İzmit ve Kocaeli Berber Randevu Sistemi — İlçe ve Mahalle Kapsamı'
+      : isIzmitKuafor
+      ? 'Kuaför İzmit & Kocaeli Online Randevu Rehberi — Canlı Salon Vitrini ve Semtler'
       : isZonguldak
       ? 'Zonguldak ve Karadeniz Ereğli Berber Randevu — İlçe ve Mahalle Kapsamı'
       : `${cd.city} (${cd.region}) Yerel Berber Kapsamı`;
 
+    const districtDirHtml =
+      cd.districtDirectory && cd.districtDirectory.length > 0
+        ? `<div style="margin-bottom:16px;">
+            <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 10px 0;">${escapeHtml(cd.city)} Online Randevu Semt ve Bölge Rehberi</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px;">
+              ${cd.districtDirectory
+                .map(
+                  (dir, idx) => `
+                <div id="semt-${idx + 1}" style="background:#ffffff;border-radius:12px;padding:12px;border:1px solid #fed7aa;">
+                  <span style="font-size:11px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;">${escapeHtml(dir.highlight)}</span>
+                  <strong style="font-size:14px;color:#0f172a;display:block;margin:2px 0;">${escapeHtml(dir.name)}</strong>
+                  <p style="font-size:12px;color:#475569;margin:0;">${escapeHtml(dir.searchIntent)}</p>
+                </div>`
+                )
+                .join('')}
+            </div>
+          </div>`
+        : '';
+
+    const categoriesHtml =
+      cd.b2cCategories && cd.b2cCategories.length > 0
+        ? `<div style="margin-bottom:16px;">
+            <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0 0 10px 0;">${escapeHtml(cd.city)} Online Randevu Hizmet Kategorileri</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px;">
+              ${cd.b2cCategories
+                .map(
+                  (cat) => `
+                <div style="background:#ffffff;border-radius:12px;padding:12px;border:1px solid #fed7aa;">
+                  <span style="font-size:11px;font-weight:800;color:#ea580c;">${escapeHtml(cat.badge)}</span>
+                  <strong style="font-size:14px;color:#0f172a;display:block;margin:2px 0 6px 0;">${escapeHtml(cat.title)}</strong>
+                  <ul style="margin:0;padding-left:16px;font-size:12px;color:#475569;">
+                    ${cat.services.map((svc) => `<li>${escapeHtml(svc)}</li>`).join('')}
+                  </ul>
+                </div>`
+                )
+                .join('')}
+            </div>
+          </div>`
+        : '';
+
     citySectionHtml = `
-    <section aria-label="${escapeHtml(cd.city)} Yerel Hizmet Bölgesi" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:24px;margin:28px 0;">
+    <section aria-label="${escapeHtml(cd.city)} Yerel Hizmet Bölgesi ve Canlı Salon Vitrini" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:24px;margin:28px 0;">
       <h2 style="font-size:21px;font-weight:900;color:#9a3412;margin:0 0 12px 0;">${escapeHtml(contractTitle)}</h2>
       <p style="font-size:14px;color:#7c2d12;margin:0 0 14px 0;">
         <strong>Aktif Kayıtlı Açık Salon Sayısı:</strong> ${localShops.length} işletme · <strong>Bölge:</strong> ${escapeHtml(cd.region)}
@@ -2371,13 +2585,25 @@ function renderLandingContentSsr(content: LandingPageContent, origin: string): s
                   (ls) => `
                 <a href="${escapeHtml(ls.url)}" style="background:#ffffff;border:1px solid #fed7aa;border-radius:10px;padding:12px;text-decoration:none;display:block;">
                   <strong style="color:#0f172a;font-size:14px;display:block;">${escapeHtml(ls.name)}</strong>
-                  <span style="color:#64748b;font-size:12px;">📍 ${escapeHtml(ls.cityDistrict)} · ${escapeHtml(ls.sectorName)}</span>
+                  <span style="color:#64748b;font-size:12px;display:block;margin:4px 0;">📍 ${escapeHtml(ls.cityDistrict)} · ${escapeHtml(ls.sectorName)}</span>
+                  <span style="color:#ea580c;font-size:12px;font-weight:800;">15 Sn’de Randevu Al →</span>
                 </a>`
                 )
                 .join('')}
             </div>`
-          : ''
+          : `<div style="background:#ffffff;border:1px dashed #fb923c;border-radius:12px;padding:14px;margin-bottom:16px;">
+              <strong style="font-size:14px;color:#0f172a;display:block;">${escapeHtml(cd.city)} Salon Vitrini Kurucu Salonlara Açık</strong>
+              <p style="font-size:13px;color:#475569;margin:4px 0 8px 0;">Salonunuzu 2 dakikada ücretsiz kaydedip Google Haritalar randevu bağlantınızı ekleyin, burada ve haritada ilk sırada listelenin.</p>
+              <a href="/kayit" style="color:#ea580c;font-size:13px;font-weight:800;text-decoration:none;">Salonumu Ücretsiz Vitrine Ekle (%0 Komisyon) →</a>
+            </div>`
       }
+      ${districtDirHtml}
+      ${categoriesHtml}
+      <div style="background:#0f172a;color:#ffffff;border-radius:12px;padding:14px;margin-bottom:16px;">
+        <strong style="font-size:14px;display:block;margin-bottom:4px;">Google Haritalar &amp; Instagram Sıralama Çarpanı</strong>
+        <p style="font-size:12px;color:#cbd5e1;margin:0 0 8px 0;">${escapeHtml(cd.city)} içinde “kuaför ${escapeHtml(cd.city.toLowerCase())}” aramalarında öne çıkmak için Google İşletme Profilinizdeki Randevu Linki alanına kendi dükkan adresinizi (https://dukkanimyanimda.com.tr/salon-adiniz/randevu) bağlayın.</p>
+        <a href="/kayit" style="color:#fbbf24;font-size:12px;font-weight:800;text-decoration:none;">Özel Randevu Linkimi Ücretsiz Oluştur →</a>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-bottom:16px;">
         <div style="background:#ffffff;border-radius:12px;padding:14px;border:1px solid #fed7aa;">
           <h3 style="font-size:15px;font-weight:800;color:#0f172a;margin:0 0 8px 0;">Kapsanan İlçeler</h3>
@@ -2621,6 +2847,7 @@ export function generateSsrBodyHtml(pathname: string, meta: SeoMetadata, rawHost
         <a href="/kasa-programi" style="color:#cbd5e1;text-decoration:none;">Kasa Programı</a>
         <a href="/gun-sonu-raporu" style="color:#cbd5e1;text-decoration:none;">Gün Sonu Raporu</a>
         <a href="/veresiye-defteri" style="color:#cbd5e1;text-decoration:none;">Veresiye Defteri</a>
+        <a href="/izmit-kuafor-randevu" style="color:#cbd5e1;text-decoration:none;">Kuaför İzmit Rehberi</a>
         <a href="/izmit-berber-randevu" style="color:#cbd5e1;text-decoration:none;">İzmit Berber Randevu</a>
         <a href="/zonguldak-berber-randevu" style="color:#cbd5e1;text-decoration:none;">Zonguldak Berber Randevu</a>
         <a href="/blog" style="color:#cbd5e1;text-decoration:none;">Blog</a>
@@ -3354,6 +3581,7 @@ export function renderSeoHtml(pathname: string, host?: string, customTemplate?: 
     const breadcrumbSchema = {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
+      name: meta.breadcrumbs.map((b) => b.name).join(' > '),
       itemListElement: meta.breadcrumbs.map((b, idx) => ({
         '@type': 'ListItem',
         position: idx + 1,
@@ -3469,8 +3697,9 @@ export function generateSitemapXml(rawHost?: string): string {
     { loc: `${origin}/kasa-programi`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Esnaf Kasa Takip Programı — Nakit, POS & Gider Yönetimi', img: `${origin}/og/kasa-programi.png` },
     { loc: `${origin}/gun-sonu-raporu`, priority: '0.9', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Gün Sonu Raporu & Z Raporu Programı', img: `${origin}/og/gun-sonu-raporu.png` },
     { loc: `${origin}/veresiye-defteri`, priority: '0.85', changefreq: 'weekly', lastmod: '2026-11-20', title: 'Veresiye Defteri Uygulaması & Dijital Alacak Takibi', img: `${origin}/og/veresiye-defteri.png` },
-    { loc: `${origin}/izmit-berber-randevu`, priority: '0.92', changefreq: 'weekly', lastmod: '2026-11-19', title: 'İzmit Berber Randevu ve Kuaför Sistemi', img: `${origin}/og/izmit.png` },
-    { loc: `${origin}/zonguldak-berber-randevu`, priority: '0.92', changefreq: 'weekly', lastmod: '2026-11-19', title: 'Zonguldak Berber Randevu ve Kuaför Programı', img: `${origin}/og/zonguldak.png` },
+    { loc: `${origin}/izmit-kuafor-randevu`, priority: '0.94', changefreq: 'weekly', lastmod: '2026-11-21', title: 'Kuaför İzmit & İzmit Kuaför Randevu Rehberi', img: `${origin}/og/kuafor.png` },
+    { loc: `${origin}/izmit-berber-randevu`, priority: '0.92', changefreq: 'weekly', lastmod: '2026-11-21', title: 'İzmit Berber Randevu ve Kuaför Sistemi', img: `${origin}/og/izmit.png` },
+    { loc: `${origin}/zonguldak-berber-randevu`, priority: '0.92', changefreq: 'weekly', lastmod: '2026-11-21', title: 'Zonguldak Berber Randevu ve Kuaför Programı', img: `${origin}/og/zonguldak.png` },
     { loc: `${origin}/fiyat`, priority: '0.9', changefreq: 'monthly', lastmod: '2026-11-10', title: 'Fiyatlandırma & Esnaf Paketleri', img: `${origin}/og/fiyat.png` },
     { loc: `${origin}/kayit`, priority: '0.9', changefreq: 'monthly', lastmod: '2026-11-10', title: 'Ücretsiz Kayıt - Dükkanını 2 Dakikada Kur', img: `${origin}/og/kayit.png` },
     { loc: `${origin}/iletisim`, priority: '0.6', changefreq: 'yearly', lastmod: '2026-10-15', title: 'İletişim & Destek', img: `${origin}/og/iletisim.png` },

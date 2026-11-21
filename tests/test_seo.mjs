@@ -700,6 +700,48 @@ it('Kapatılan sektörler + çakışan rehberler 301 haritasında tanımlıdır 
   assert.ok(!wwwSitemap.includes('https://www.dukkanimyanimda.com.tr'), 'www host sitemapte olmamalı');
 });
 
+// 27. Kuaför İzmit Hibrit Sayfası (/izmit-kuafor-randevu), Yerel ItemList ve BreadcrumbList.name Koruması
+it('/izmit-kuafor-randevu B2C+B2B hibrit vitrin, HairSalon+ItemList şeması, named BreadcrumbList ve sitemap kaydı içerir', () => {
+  const kuaforIzmitMeta = getSeoMetadata('/izmit-kuafor-randevu');
+  assert.strictEqual(kuaforIzmitMeta.canonical, 'https://dukkanimyanimda.com.tr/izmit-kuafor-randevu');
+  assert.ok(kuaforIzmitMeta.title.includes('Kuaför İzmit'), 'Başlık Kuaför İzmit anahtar kelimesini taşımalı');
+  assert.strictEqual(kuaforIzmitMeta.schemaJson['@type'], 'HairSalon');
+  assert.strictEqual(kuaforIzmitMeta.schemaJson.geo.latitude, 40.7654);
+  assert.ok(
+    Array.isArray(kuaforIzmitMeta.extraSchemas) &&
+      kuaforIzmitMeta.extraSchemas.some((s) => s['@type'] === 'ItemList' && s.numberOfItems > 0) &&
+      kuaforIzmitMeta.extraSchemas.some((s) => s['@type'] === 'Service'),
+    '/izmit-kuafor-randevu hem ItemList hem Service şeması içermeli'
+  );
+  assert.ok(kuaforIzmitMeta.faqJson && kuaforIzmitMeta.faqJson.length >= 8);
+
+  const izmitBerberMeta = getSeoMetadata('/izmit-berber-randevu');
+  assert.ok(
+    Array.isArray(izmitBerberMeta.extraSchemas) && izmitBerberMeta.extraSchemas.some((s) => s['@type'] === 'ItemList'),
+    '/izmit-berber-randevu da B2C ItemList şeması içermeli'
+  );
+
+  const html = renderSeoHtml('/izmit-kuafor-randevu');
+  assert.ok(html.includes('Kuaför İzmit'), 'SSR gövdesinde Kuaför İzmit H1 bulunmalı');
+  assert.ok(html.includes('Google Haritalar'), 'SSR gövdesinde Google Haritalar çarpanı bölümü bulunmalı');
+
+  const ldJsonBlocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+  const breadcrumbParsed = ldJsonBlocks.find((b) => b['@type'] === 'BreadcrumbList');
+  assert.ok(breadcrumbParsed, 'BreadcrumbList JSON-LD enjekte edilmeli');
+  assert.ok(
+    typeof breadcrumbParsed.name === 'string' && breadcrumbParsed.name.includes('Ana Sayfa >'),
+    `BreadcrumbList üst seviye name alanı tanımlı olmalı (Adsız öğe olmamalı), gelen: ${breadcrumbParsed.name}`
+  );
+
+  const xml = generateSitemapXml('dukkanimyanimda.com.tr');
+  assert.ok(xml.includes('<loc>https://dukkanimyanimda.com.tr/izmit-kuafor-randevu</loc>'), 'Sitemap /izmit-kuafor-randevu içermeli');
+
+  const homeMeta = getSeoMetadata('/');
+  const homeItemList = homeMeta.schemaJson['@graph'].find((g) => g['@type'] === 'ItemList');
+  const barberItem = homeItemList.itemListElement.find((el) => el.item && el.item.url && el.item.url.includes(barberSlug));
+  assert.ok(barberItem && barberItem.item.url.endsWith(`/${barberSlug}/randevu`), 'Harita şeması salonları canonical /:slug/randevu ucuna bağlamalı');
+});
+
 cleanupSeoFixtures();
 
 console.log(`\n========================================`);

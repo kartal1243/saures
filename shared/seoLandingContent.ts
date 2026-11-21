@@ -11,6 +11,7 @@ export type LandingPageKey =
   | '/kafe-restoran'
   | '/bakkal-market'
   | '/izmit-berber-randevu'
+  | '/izmit-kuafor-randevu'
   | '/zonguldak-berber-randevu';
 
 export interface LandingPageContent {
@@ -35,6 +36,8 @@ export interface LandingPageContent {
     caseStudyTitle: string;
     caseStudySummary: string;
     localStats: { label: string; value: string }[];
+    b2cCategories?: { title: string; services: string[]; badge: string }[];
+    districtDirectory?: { name: string; highlight: string; searchIntent: string }[];
   };
 }
 
@@ -648,6 +651,11 @@ export const SEO_LANDING_PAGES: Record<LandingPageKey, LandingPageContent> = {
       },
     ],
     relatedLinks: [
+      {
+        label: 'Kuaför İzmit & Kocaeli Randevu Rehberi',
+        href: '/izmit-kuafor-randevu',
+        description: 'İzmit, Yahya Kaptan ve Gebze kadın & erkek kuaförleri için online randevu vitrini ve Google Haritalar kurulumu.',
+      },
       {
         label: 'Kuaförde Müşteri Gelmeme (No-Show) Çözümü (Blog)',
         href: '/blog/kuafor-musteri-gelmeme-no-show-cozumu',
@@ -2328,10 +2336,10 @@ export const SEO_LANDING_PAGES: Record<LandingPageKey, LandingPageContent> = {
   '/izmit-berber-randevu': {
     key: '/izmit-berber-randevu',
     primaryKeyword: 'izmit berber randevu',
-    badge: 'İzmit & Kocaeli Yerel Berber Çözümü',
+    badge: 'İzmit & Kocaeli Canlı Salon Vitrini ve Randevu Sistemi',
     h1: 'İzmit Berber Randevu Sistemi: Fethiye Caddesi’nden Gebze’ye Sıra Beklemeden Randevu',
     subtitle:
-      'Kocaeli ve İzmit’teki berber ve kuaför salonları için 7/24 komisyonsuz online randevu, vardiya dostu saat yönetimi ve usta prim takibi. Müşterileriniz 15 saniyede yerini ayırtsın.',
+      'İzmit Fethiye Caddesi, Yahya Kaptan, Yenişehir, Bekirdere ve Gebze’de online randevu alan açık berber ve erkek kuaförlerinden 15 saniyede yerinizi ayırtın — ya da salonunuzu %0 komisyonla ücretsiz vitrine ekleyin.',
     ogImage: '/og/izmit.png',
     introParagraphs: [
       'Kocaeli, hem yoğun sanayi vardiyalarının hem de Kocaeli Üniversitesi öğrencilerinin ve kalabalık memur/esnaf nüfusunun bir arada yaşadığı dinamik bir şehirdir. İzmit Fethiye Caddesi, Yürüyüş Yolu, Yahya Kaptan, Bekirdere veya Gebze çarşısındaki berber salonlarında özellikle iş çıkışı 17:30 sonrası ve Cumartesi günleri kapı önünde uzun bekleme kuyrukları oluşur.',
@@ -2506,6 +2514,11 @@ export const SEO_LANDING_PAGES: Record<LandingPageKey, LandingPageContent> = {
     ],
     relatedLinks: [
       {
+        label: 'Kuaför İzmit: Kadın & Unisex Kuaför Randevu Rehberi',
+        href: '/izmit-kuafor-randevu',
+        description: 'Yahya Kaptan, Yürüyüş Yolu ve Gebze kuaför salonları online randevu vitrini.',
+      },
+      {
         label: 'Berber Randevu Sistemi (Genel Özellikler)',
         href: '/berber',
         description: 'Koltuk sırası, sadakat kartı, usta prim hesabı ve kasa detayları.',
@@ -2548,6 +2561,311 @@ export const SEO_LANDING_PAGES: Record<LandingPageKey, LandingPageContent> = {
         { label: 'Ortalama Randevu Alma Süresi', value: '15 Saniye' },
         { label: 'Randevu Başına Komisyon', value: '%0' },
         { label: 'No-Show Azalış Hedefi', value: '%70’e Kadar' },
+      ],
+      b2cCategories: [
+        {
+          title: 'Erkek Berberi & Modern Kesim',
+          badge: 'En Çok Aranan',
+          services: ['Saç Kesimi (30 dk)', 'Sakal Tıraşı & Şekillendirme', 'Saç + Sakal + Yıkama', 'Damat Tıraşı & VIP Bakım'],
+        },
+        {
+          title: 'Kadın & Unisex Kuaför',
+          badge: 'İzmit Merkez & Yahya Kaptan',
+          services: ['Saç Kesimi & Fön', 'Dip Boya & Ombre / Röfle', 'Keratin & Brezilya Fönü', 'Gelin Başı & Özel Gün'],
+        },
+        {
+          title: 'Güzellik & Kişisel Bakım',
+          badge: 'Online Takvim',
+          services: ['Cilt Bakımı & Buhar Terapisi', 'Kaş Tasarım & Ağda', 'Lazer Epilasyon Seansları', 'Protez Tırnak & Manikür'],
+        },
+      ],
+      districtDirectory: [
+        {
+          name: 'Fethiye Caddesi & Yürüyüş Yolu',
+          highlight: 'Çarşı Merkez · Hızlı Kesim & VIP',
+          searchIntent: 'İş çıkışı ve öğle arası sıra beklemeden online koltuk seçimi.',
+        },
+        {
+          name: 'Yahya Kaptan & Yenişehir',
+          highlight: 'Aile & Modern Erkek/Kadın Kuaförleri',
+          searchIntent: 'Akşam 18:00–21:30 arası vardiya ve site sakinleri için 7/24 rezervasyon.',
+        },
+        {
+          name: 'Alikahya, Bekirdere & Umuttepe',
+          highlight: 'Üniversite & Sanayi Bölgesi',
+          searchIntent: 'Pazar günü açık nöbetçi kuaför ve uygun fiyatlı öğrenci randevuları.',
+        },
+        {
+          name: 'Gebze, Körfez, Derince & Başiskele',
+          highlight: 'Kocaeli Geneli Çok Koltuklu Salonlar',
+          searchIntent: 'Usta seçimi ve vardiya çıkışına göre müsait saat sorgulama.',
+        },
+      ],
+    },
+  },
+
+  '/izmit-kuafor-randevu': {
+    key: '/izmit-kuafor-randevu',
+    primaryKeyword: 'kuaför izmit',
+    badge: 'İzmit & Kocaeli Online Kuaför Randevu Rehberi',
+    h1: 'Kuaför İzmit: Online Randevu Alan Kadın & Erkek Kuaförleri ve Güzellik Salonları',
+    subtitle:
+      'İzmit Yahya Kaptan, Yürüyüş Yolu, Fethiye Caddesi, Yenişehir, Alikahya ve Gebze’deki kuaför ile güzellik salonlarından sıra beklemeden 7/24 online randevu alın veya salonunuzu %0 komisyonla ücretsiz vitrine ekleyin.',
+    ogImage: '/og/kuafor.png',
+    introParagraphs: [
+      'İzmit’te iyi bir kadın kuaförü, modern erkek kuaförü ya da güvenilir bir güzellik merkezi bulup tam istediğin saate yer ayırtmak çoğu zaman mesaj trafiğine takılır. Yahya Kaptan’dan Yürüyüş Yolu’na, Yenişehir’den Fethiye Caddesi’ne kadar pek çok müşteri saç kesimi, fön, ombre, dip boya veya gelin başı için DM’den “Yarın yer var mı?” yazıp saatlerce cevap beklemek yerine doğrudan boş saatleri görüp 15 saniyede randevu almak istiyor.',
+      'Dükkânım Yanımda Kuaför İzmit Rehberi, Kocaeli genelinde dijital randevuya geçmiş aktif kuaför ve berber salonlarını tek vitrinde buluşturur. Müşteriler hiçbir uygulama indirmeden salonların güncel fiyat tarifesini ve müsait saatlerini görerek doğrudan dükkanın kendi randevu sayfasından yerini ayırtır; araya pazaryeri reklamı veya komisyon girmez.',
+      'İzmit, Başiskele, Kartepe, Gölcük, Körfez veya Gebze’de kuaför veya güzellik salonu işletiyorsanız, salonunuzu 2 dakikada ücretsiz kaydedip kendi özel randevu linkinizi (dukkanimyanimda.com.tr/salon-adiniz/randevu) hemen Google Haritalar ve Instagram biyografinize bağlayabilirsiniz. Böylece hem bu İzmit vitrininde yer alır hem de “kuaför izmit” ve “izmit kuaför randevu” aramalarında doğrudan kendi markanızla öne çıkarsınız.',
+    ],
+    howItWorks: [
+      {
+        step: '1',
+        title: 'Müşteriysen: Semtini ve Salonunu Seç',
+        description:
+          'İzmit merkez, Yahya Kaptan, Yenişehir veya Gebze’deki aktif salon kartlarından birini seç; hizmet tarifesini ve boş saatleri anında gör.',
+      },
+      {
+        step: '2',
+        title: 'Ustanı ve İşlem Süreni Belirle',
+        description:
+          'Kesim, fön, dip boya, ombre, keratin ya da lazer seansı için tercih ettiğin uzmanı ve uygun saati uygulama indirmeden 15 saniyede onayla.',
+      },
+      {
+        step: '3',
+        title: 'Salon Sahibiysen: Google Haritalar & Vitrine Katıl',
+        description:
+          '2 dakikada ücretsiz kaydol, randevu linkini Google İşletme Profiline ve Instagram bio’na ekle; her randevudan %0 komisyonla koltuklarını doldur.',
+      },
+    ],
+    featureSections: [
+      {
+        heading: 'Yahya Kaptan, Yürüyüş Yolu ve Yenişehir Kadın Kuaförlerinde Çakışmasız Planlama',
+        paragraphs: [
+          'Kadın kuaförlerinde ve unisex saç tasarım merkezlerinde 30 dakikalık bir fön ile 180 dakikalık ombre veya balyaj işlemi aynı takvim düzeniyle yürütülemez. İzmit merkezdeki yoğun salonlarda özellikle Cuma–Cumartesi günleri süresiz yazılan randevular tüm öğleden sonranın aksamasına neden olur.',
+          'Dükkânım Yanımda altyapısını kullanan İzmit kuaförleri her işlem için gerçek dakikasını tanımlar. Müşteri online randevuda boya + kesim + fön seçtiğinde toplam süre otomatik toplanır ve yalnızca o uzunluktaki kesintisiz boş aralıklar gösterilir.',
+        ],
+        bullets: [
+          'Fön (30 dk), saç kesimi (45 dk), dip boya (90 dk) ve ombre (180 dk) için otomatik süre blokajı',
+          'Yahya Kaptan, Yenişehir, Plajyolu ve Çarşı salonlarında 7/24 telefon bekletmeden randevu',
+          'Çoklu hizmet seçiminde tahmini toplam tutar ve sürenin müşteriye şeffaf gösterimi',
+          'Müşterinin favori saç tasarımcısını veya boya uzmanını seçebilmesi',
+        ],
+      },
+      {
+        heading: 'Gelin Başı, Nişan Saçı ve Özel Gün Kaporası Yönetimi',
+        paragraphs: [
+          'Kocaeli ve İzmit’te yaz düğün sezonu, mezuniyetler ve nişan organizasyonları aylar öncesinden planlanır. Gelin başı, türban tasarım, profesyonel makyaj ve gelin ekibi randevularının kağıt ajanda köşelerine yazılması düğün sabahı kapora ve saat karışıklığı riski doğurur.',
+          'Online sisteme geçen İzmit kuaförleri aylar öncesinden özel gün rezervasyonu açar; nakit, POS veya FAST/IBAN üzerinden alınan kaporayı doğrudan müşteri kartına ve kasaya işler. Düğün günü sadece kalan bakiye ekranda net olarak görünür.',
+        ],
+        bullets: [
+          'Gelin saçı, porselen makyaj ve prova randevularını aylar öncesinden takvime kilitleme',
+          'Alınan kapora ödemelerini müşteri bakiyesinden ve akşam kasa kapanışından otomatik düşme',
+          'Gelin yakını (anne, kız kardeş, nedime) fön ve topuz saatlerini paralel organize etme',
+          'Renk formülü ve saç geçmişini müşteri kartında kalıcı olarak saklama',
+        ],
+      },
+      {
+        heading: 'Google Haritalar & Instagram Çarpanı: Salonunu "Kuaför İzmit" Aramalarında Üste Taşı',
+        paragraphs: [
+          'İzmit’te yeni müşteri kazanmanın en hızlı yolu Google Haritalar’da (Google İşletme Profili) dükkanınızı arayan kişiye tıklanabilir bir randevu linki sunmaktır. Profilinde yalnızca adres yazan rakiplerinize kıyasla, "Web Sitesi" veya "Randevu Bağlantısı" alanında dukkanimyanimda.com.tr/salon-adiniz/randevu adresine yer veren salonlar çok daha yüksek randevu dönüşümü alır.',
+          'Aynı linki Instagram biyografinize ve Story bağlantı çıkartmalarınıza eklediğinizde, boya veya kesim videosunu görüp DM atan müşteriler saat beklemeden gecenin bir yarısı bile takviminize randevu bırakır.',
+        ],
+        bullets: [
+          'Google İşletme Profili → Randevu Linki alanına %100 uyumlu özel salon bağlantısı',
+          'İzmit yerel SEO için HairSalon, AggregateRating ve ReserveAction Schema.org verileri',
+          'Google’dan gelen organik müşterilerden %0 komisyon — aracısız doğrudan kazanç',
+          'Her kayıtlı İzmit salonunun ilçe ve şehir bazlı açık haritada otomatik listelenmesi',
+        ],
+      },
+      {
+        heading: 'Uzman Prim Hesabı, Boya/Bakım Ürünü Stoğu ve Gün Sonu Kasası',
+        paragraphs: [
+          'Çok koltuklu kuaför ve güzellik salonlarında akşam kasa kapatırken hangi uzmanın kaç fön, kesim veya boya yaptığını hesaplamak yöneticilerin en çok vaktini alan iştir. Dükkânım Yanımda her işlem tamamlandığında ustanın/uzmanın primini otomatik hesaplar.',
+          'Salonda satılan profesyonel şampuan, keratin bakım serumu ve güneş kremi gibi perakende ürünlerin stokları da her satışta otomatik düşer; akşam gün sonu raporu nakit, kredi kartı POS ve IBAN toplamlarını 30 saniyede önünüze getirir.',
+        ],
+        bullets: [
+          'Her kuaför uzmanı, manikürcü ve kalfa için ayrı prim yüzdesi (%35–%50 vb.) tanımlama',
+          'Perakende bakım ürünleri ve boya stokları için kritik azalma uyarıları',
+          'Güzellik salonu bölümü olan merkezler için 6–8–10 seanslık dijital paket sayacı',
+          'No-show (gelmeyen müşteri) kayıplarını azaltan 2 saat kala WhatsApp hatırlatma şablonları',
+        ],
+      },
+      {
+        heading: 'Neden İzmit Esnafı Dükkânım Yanımda’yı Tercih Ediyor? (%0 Komisyon & Esnek Paketler)',
+        paragraphs: [
+          'Büyük şehir pazaryeri uygulamaları yeni gelen her müşteriden %15–%20 komisyon keserken, müşterinizi randevu alırken yan sokaktaki rakip salonlarla aynı sayfada gösterir. Dükkânım Yanımda ise size tamamen kendi logonuz ve fiyat listenizle açılan bağımsız bir randevu vitrini verir.',
+          'Tek koltuk çalışan kuaförlerden 8 koltuklu Kocaeli güzellik merkezlerine kadar bütçeniz korunur: Çırak paketi ₺0 ile başlar; Usta paketi aylık ₺249, çoklu uzman primi ve sınırsız randevu sunan Patron VIP paketi ise taahhütsüz aylık ₺499’dur.',
+        ],
+        bullets: [
+          'Randevulardan %0 komisyon — kazancınızın tamamı kendi salonunuzda kalır',
+          'Çırak paketi (₺0) ile kredi kartı bilgisi vermeden aynı gün yayına alma',
+          'Fotoğraftan AI tarife okuyucu ile salon fiyat panonuzu saniyeler içinde aktarma',
+          'Telefon, tablet ve bilgisayardan kurulumsuz tarayıcı erişimi ve gece otomatik yedekleme',
+        ],
+      },
+    ],
+    comparisonPoints: [
+      {
+        title: 'Müşteri İçin Randevu Deneyimi',
+        oldWay: 'DM’den veya telefondan “Saat kaç boş, fiyat ne kadar?” diye sorup saatlerce yanıt beklemek',
+        newWay: 'İzmit salon vitrininden fiyatları görüp 15 saniyede %100 şeffaf online randevu almak',
+      },
+      {
+        title: 'Kuaför İçin Komisyon Yükü',
+        oldWay: 'Pazaryerlerinde yeni müşteri başına %20 komisyon ve SMS kontör masrafları',
+        newWay: '%0 komisyon; kendi /salon-adiniz/randevu linkinle müşterinin sadece senin olması',
+      },
+      {
+        title: 'Uzun İşlemlerde Takvim Yönetimi',
+        oldWay: 'Kağıt ajandada boya ve fön sürelerinin taşması, koltukta bekleyen müşteriler',
+        newWay: '30 dk fön ile 180 dk ombre sürelerinin takvimde otomatik ve çakışmasız bloklanması',
+      },
+      {
+        title: 'Google Haritalar Görünürlüğü',
+        oldWay: 'Google’da randevu linki olmadığı için arayan müşterinin rakip salona tıklaması',
+        newWay: 'Google İşletme Profili randevu bağlantısı + yerel HairSalon Schema ile yüksek dönüşüm',
+      },
+    ],
+    testimonials: [
+      {
+        name: 'Selin Y.',
+        shopAndCity: 'Kadın Kuaförü & Saç Tasarım · Yahya Kaptan / İzmit',
+        quote:
+          'Yahya Kaptan’daki çalışan kadın müşterilerimizin çoğu akşam 21:00’den sonra Instagram linkimizden ertesi güne fön ve bakım randevusu alıyor. Sabah telefonu elimize aldığımızda günümüz planlı oluyor.',
+        rating: '5.0',
+      },
+      {
+        name: 'Tuğba M.',
+        shopAndCity: 'Güzellik & Saç Stüdyosu · Yenişehir / İzmit',
+        quote:
+          'Hem protez tırnak hem saç boyama yapıyoruz; işlem sürelerini girince kabin çakışmaları tamamen bitti. Kendi Google Haritalar profilimize randevu linkimizi koyduğumuzdan beri yeni müşteri aramaları arttı.',
+        rating: '5.0',
+      },
+      {
+        name: 'Volkan A.',
+        shopAndCity: 'Erkek Kuaförü (3 Koltuk) · Fethiye Cd. / İzmit',
+        quote:
+          'Hafta sonu sıra bekleme yüzünden kaçan müşterileri online randevu ile geri kazandık. Akşam kalfaların primlerini kapatmak 30 saniye sürüyor.',
+        rating: '4.9',
+      },
+    ],
+    faq: [
+      {
+        q: 'İzmit’te online kuaför randevusu almak için uygulama indirmem gerekiyor mu?',
+        a: 'Hayır. Yukarıdaki aktif salon kartlarından veya dükkanın paylaştığı randevu linkinden doğrudan telefon tarayıcısı üzerinden saniyeler içinde ücretsiz randevu alabilirsiniz.',
+      },
+      {
+        q: 'Kuaför İzmit vitrinine kendi salonumuzu nasıl ücretsiz ekleriz?',
+        a: 'Ücretsiz Kayıt butonundan 2 dakikada hesabınızı açıp şehir/ilçe bilginizi "Kocaeli / İzmit" olarak seçmeniz ve hizmetlerinizi eklemeniz yeterlidir; harita ve vitrin görünürlüğü açıksa salonunuz otomatik listelenir.',
+      },
+      {
+        q: 'Kadın kuaförü boya, ombre, röfle ve gelin başı gibi uzun işlemler destekleniyor mu?',
+        a: 'Evet. Her hizmet için ayrı süre (30 dk, 90 dk, 180 dk vb.) tanımlanır; müşteri randevu alırken toplam işlem süresine göre sadece kesintisiz müsait saatler gösterilir.',
+      },
+      {
+        q: 'Google Haritalar profilimize bu randevu linkini ekleyebilir miyiz?',
+        a: 'Evet! Google İşletme Profilinizdeki Web Sitesi veya Randevu Bağlantısı kısmına https://dukkanimyanimda.com.tr/salon-adiniz/randevu adresini eklemeniz hem dönüşümü artırır hem de yerel sıralamanızı güçlendirir.',
+      },
+      {
+        q: 'Randevulardan herhangi bir komisyon kesiliyor mu?',
+        a: 'Kesinlikle hayır. Tüm Dükkânım Yanımda paketlerinde online randevu komisyonu %0’dır.',
+      },
+      {
+        q: 'Salonumuz hem erkek berberi hem kadın kuaförü / güzellik salonu hizmeti veriyorsa kullanabilir mi?',
+        a: 'Evet. Tek panelde farklı koltuk, kabin ve uzmanlar açarak kadın, erkek ve güzellik bakımı kategorilerini bir arada yönetebilirsiniz.',
+      },
+      {
+        q: 'No-show (randevusuna gelmeyen müşteri) sorununu nasıl azaltıyoruz?',
+        a: 'Randevudan 2 saat önce hazır WhatsApp teyit mesajı göndererek onay alabilir, özel gün ve gelin başı işlemlerinde alınan kaporaları müşteri kartında takip edebilirsiniz.',
+      },
+      {
+        q: 'İzmit dışında Başiskele, Kartepe, Körfez, Derince ve Gebze salonları da katılabilir mi?',
+        a: 'Evet. Kocaeli’nin tüm ilçelerindeki kuaför, berber ve güzellik salonları sistemi aynı şekilde kullanabilir ve yerel dizinde yer alabilir.',
+      },
+    ],
+    relatedLinks: [
+      {
+        label: 'İzmit & Kocaeli Berber Randevu Sistemi',
+        href: '/izmit-berber-randevu',
+        description: 'Fethiye Cd., Yahya Kaptan ve Gebze erkek kuaförleri için yerel randevu rehberi.',
+      },
+      {
+        label: 'Kuaför Randevu ve Salon Programı',
+        href: '/kuafor',
+        description: 'Boya, kesim, gelin başı kaporası ve personel prim takip detayları.',
+      },
+      {
+        label: 'Güzellik Salonu & Seans Takibi',
+        href: '/guzellik-salonu',
+        description: 'Lazer epilasyon, cilt bakımı ve tırnak salonları için seans sayacı.',
+      },
+      {
+        label: 'Instagram Biyografi Randevu Linki Rehberi',
+        href: '/rehber/instagram-biyografi-randevu-linki',
+        description: 'Instagram ve Google Haritalar’dan komisyonsuz müşteri toplama kılavuzu.',
+      },
+    ],
+    cityDetails: {
+      city: 'İzmit',
+      region: 'Kocaeli',
+      districts: ['İzmit', 'Yahya Kaptan', 'Gebze', 'Körfez', 'Gölcük', 'Kartepe', 'Başiskele', 'Derince'],
+      neighborhoods: [
+        'Yürüyüş Yolu',
+        'Fethiye Caddesi',
+        'Yahya Kaptan',
+        'Yenişehir',
+        'Alikahya',
+        'Bekirdere',
+        'Plajyolu',
+        'Kuruçeşme',
+      ],
+      caseStudyTitle: 'İzmit’te Kuaför Salonu Büyüme Modeli: Instagram Bio + Google Haritalar Randevu Linki',
+      caseStudySummary:
+        'İzmit Yahya Kaptan ve Yürüyüş Yolu bölgesindeki kadın kuaförleri ile erkek berberleri, haftalık boya/kesim görsellerinin altına randevu linklerini ve Google Haritalar işletme profillerine doğrudan online rezervasyon adreslerini eklediğinde; DM yanıt beklemeden gelen randevu oranı ilk ayda 3 katına çıkarken telefon kesintileri %70 azalır.',
+      localStats: [
+        { label: 'Kocaeli Kapsama Alanı', value: '8+ İlçe' },
+        { label: 'Ortalama Rezervasyon', value: '15 Saniye' },
+        { label: 'Randevu Komisyonu', value: '%0' },
+        { label: 'Gelin Başı & Seans Modülü', value: 'Dahil' },
+      ],
+      b2cCategories: [
+        {
+          title: 'Kadın Kuaförü & Saç Tasarım',
+          badge: 'En Çok Aranan',
+          services: ['Saç Kesimi & Fön (45 dk)', 'Dip Boya & Ombre / Balyaj', 'Keratin Bakım & Brezilya Fönü', 'Gelin Başı & Nişan Tasarımı'],
+        },
+        {
+          title: 'Erkek Kuaförü & Berber',
+          badge: 'Hızlı Slotlar',
+          services: ['Modern Saç Kesimi (30 dk)', 'Sakal Şekillendirme & Bakım', 'Damat Tıraşı & Cilt Bakımı', 'Pazar Açık Nöbetçi Salonlar'],
+        },
+        {
+          title: 'Güzellik & Estetik Merkezleri',
+          badge: 'Paket & Seans Takibi',
+          services: ['Lazer Epilasyon (6–10 Seans)', 'Hydrafacial Cilt Bakımı', 'Protez Tırnak & Kalıcı Oje', 'İpek Kirpik & Kaş Laminasyon'],
+        },
+      ],
+      districtDirectory: [
+        {
+          name: 'Yahya Kaptan & Yenişehir',
+          highlight: 'Kadın Kuaförleri & Saç Tasarım Stüdyoları',
+          searchIntent: 'Boya, ombre, fön ve akşam çıkışı bakım randevuları.',
+        },
+        {
+          name: 'Yürüyüş Yolu & Fethiye Caddesi',
+          highlight: 'İzmit Merkez · Çarşı Kuaför & Berberleri',
+          searchIntent: 'Gündüz ve hafta sonu sıra beklemeden online koltuk ayırtma.',
+        },
+        {
+          name: 'Alikahya, Başiskele & Kartepe',
+          highlight: 'Yeni Konut & Gelin Hazırlık Merkezleri',
+          searchIntent: 'Gelin başı, özel gün saçı ve güzellik paketi randevuları.',
+        },
+        {
+          name: 'Gebze, Körfez, Derince & Gölcük',
+          highlight: 'Tüm Kocaeli Online Kuaför Ağı',
+          searchIntent: 'Çalışan ve öğrenci saatlerine uygun 7/24 randevu seçimi.',
+        },
       ],
     },
   },
@@ -2776,6 +3094,40 @@ export const SEO_LANDING_PAGES: Record<LandingPageKey, LandingPageContent> = {
         { label: 'Komisyon Oranı', value: '%0' },
         { label: 'Akşam Kasa & Prim Kapanışı', value: '30 Saniye' },
       ],
+      b2cCategories: [
+        {
+          title: 'Erkek Berberi & Modern Tıraş',
+          badge: 'En Çok Aranan',
+          services: ['Saç Kesimi (30 dk)', 'Sakal Tıraşı & Buhar', 'Saç + Sakal + Bakım', 'Damat Tıraşı Rezervasyonu'],
+        },
+        {
+          title: 'Kadın Kuaförü & Saç Bakım',
+          badge: 'Gazipaşa & Ereğli',
+          services: ['Kesim & Fön', 'Dip Boya & Ombre', 'Keratin Bakım', 'Gelin Başı & Özel Gün'],
+        },
+      ],
+      districtDirectory: [
+        {
+          name: 'Gazipaşa Caddesi & Soğuksu',
+          highlight: 'Zonguldak Merkez Çarşı Salonları',
+          searchIntent: 'Park stresi yaşamadan tam saatinde koltuğa oturma.',
+        },
+        {
+          name: 'Kdz. Ereğli Sahil, Müftü & Bağlık',
+          highlight: 'Erdemir Vardiya & Sahil Kuaförleri',
+          searchIntent: 'Vardiya çıkışlarına uygun 7/24 online koltuk ayırtma.',
+        },
+        {
+          name: 'Kozlu Sahil & İncivez',
+          highlight: 'BEÜN Öğrenci & Genç Kesim',
+          searchIntent: 'Telefon açmadan Instagram linkiyle 15 saniyede randevu.',
+        },
+        {
+          name: 'Çaycuma, Devrek & Alaplı',
+          highlight: 'İlçe Esnaf & Komisyonsuz Vitrin',
+          searchIntent: 'Tanıdık usta seçimi ve hafta sonu sıra beklememe.',
+        },
+      ],
     },
   },
 };
@@ -2826,6 +3178,11 @@ const LANDING_ROUTE_ALIASES: Record<string, LandingPageKey> = {
   '/izmit-berber': '/izmit-berber-randevu',
   '/kocaeli-berber': '/izmit-berber-randevu',
   '/kocaeli-berber-randevu': '/izmit-berber-randevu',
+  '/izmit-kuafor-randevu': '/izmit-kuafor-randevu',
+  '/izmit-kuafor': '/izmit-kuafor-randevu',
+  '/kocaeli-kuafor': '/izmit-kuafor-randevu',
+  '/kocaeli-kuafor-randevu': '/izmit-kuafor-randevu',
+  '/izmit-guzellik-salonu': '/izmit-kuafor-randevu',
   '/zonguldak-berber-randevu': '/zonguldak-berber-randevu',
   '/zonguldak-berber': '/zonguldak-berber-randevu',
   '/eregli-berber': '/zonguldak-berber-randevu',

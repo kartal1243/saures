@@ -102,6 +102,11 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
     case 'izmit-berber':
     case 'kocaeli-berber':
     case 'kocaeli-berber-randevu':
+    case 'izmit-kuafor-randevu':
+    case 'izmit-kuafor':
+    case 'kocaeli-kuafor':
+    case 'kocaeli-kuafor-randevu':
+    case 'izmit-guzellik-salonu':
     case 'zonguldak-berber-randevu':
     case 'zonguldak-berber':
     case 'eregli-berber':
@@ -210,6 +215,7 @@ const FOOTER_HUB_GROUPS: { heading: string; links: { href: string; label: string
   {
     heading: 'Yerel & Bilgi Merkezi',
     links: [
+      { href: '/izmit-kuafor-randevu', label: 'Kuaför İzmit & Randevu Rehberi' },
       { href: '/izmit-berber-randevu', label: 'İzmit Berber Randevu' },
       { href: '/zonguldak-berber-randevu', label: 'Zonguldak Berber Randevu' },
       { href: '/blog', label: 'Esnaf Blogu (15 Rehber)' },
@@ -1566,17 +1572,87 @@ function DeepLandingPage({
 
   const content = SEO_LANDING_PAGES[contentKey] || SEO_LANDING_PAGES['/berber'];
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
+  const [liveLocalSalons, setLiveLocalSalons] = useState<
+    Array<{
+      id: string;
+      name: string;
+      slug: string;
+      city: string;
+      district: string;
+      address?: string;
+      rating?: number;
+      servicesCount?: number;
+      sectorKey?: string;
+    }>
+  >([]);
+  const [mapsSlugPreview, setMapsSlugPreview] = useState<string>('salon-adiniz');
+  const [mapsLinkCopied, setMapsLinkCopied] = useState<boolean>(false);
+
+  const isKuaforCityPage = content.key === '/izmit-kuafor-randevu';
+
+  useEffect(() => {
+    if (!content.cityDetails || typeof fetch === 'undefined') {
+      setLiveLocalSalons([]);
+      return;
+    }
+    let cancelled = false;
+    const normTr = (v: string) =>
+      (v || '')
+        .toLowerCase()
+        .replace(/ı/g, 'i')
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c');
+
+    const cityTerms =
+      content.key === '/zonguldak-berber-randevu'
+        ? ['zonguldak', 'eregli', 'kozlu', 'caycuma', 'devrek', 'kilimli', 'alapli']
+        : ['izmit', 'kocaeli', 'gebze', 'korfez', 'golcuk', 'kartepe', 'darica', 'basiskele', 'derince'];
+
+    fetch('/api/public/shops-map')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data || !Array.isArray(data.shops)) return;
+        const salonShops = data.shops.filter((s: any) => {
+          const sk = normTr(s.sectorKey || '');
+          return !sk.includes('kafe') && !sk.includes('restoran');
+        });
+        const matched = salonShops.filter((s: any) => {
+          const hay = normTr(`${s.city || ''} ${s.district || ''} ${s.address || ''}`);
+          return cityTerms.some((t) => hay.includes(t));
+        });
+        setLiveLocalSalons(matched.slice(0, 6));
+      })
+      .catch(() => {
+        // Offline veya ağ hatasında sessiz kal
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [content.key, Boolean(content.cityDetails)]);
 
   const breadcrumbs: BreadcrumbItem[] = content.cityDetails
-    ? [
-        { label: 'Ana Sayfa', href: '/' },
-        { label: 'Berber Randevu', href: '/berber' },
-        { label: `${content.cityDetails.city} Berber Randevu` },
-      ]
+    ? isKuaforCityPage
+      ? [
+          { label: 'Ana Sayfa', href: '/' },
+          { label: 'Kuaför Programı', href: '/kuafor' },
+          { label: `${content.cityDetails.city} Kuaför Randevu Rehberi` },
+        ]
+      : [
+          { label: 'Ana Sayfa', href: '/' },
+          { label: 'Berber Randevu', href: '/berber' },
+          { label: `${content.cityDetails.city} Berber Randevu` },
+        ]
     : [
         { label: 'Ana Sayfa', href: '/' },
         { label: content.badge },
       ];
+
+  const mapsLinkSlug = slugifyTurkishText(mapsSlugPreview || 'salon-adiniz');
+  const fullMapsBookingUrl = `https://dukkanimyanimda.com.tr/${mapsLinkSlug}/randevu`;
 
   return (
     <Shell
@@ -1646,7 +1722,7 @@ function DeepLandingPage({
         </div>
       </section>
 
-      {/* Şehir × Yerel SEO Kutusu (İzmit & Zonguldak vb.) */}
+      {/* Şehir × Yerel SEO Kutusu: Canlı B2C Salon Vitrini + B2B Google Haritalar Çarpanı */}
       {content.cityDetails && (
         <section className="mt-8 space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1656,6 +1732,191 @@ function DeepLandingPage({
                 <p className="mt-1 text-[11px] font-bold text-stone-500">{st.label}</p>
               </div>
             ))}
+          </div>
+
+          {/* 1. Canlı Online Randevu Alan Salonlar Vitrini (B2C Müşteri Arama Niyeti) */}
+          <div className="rounded-3xl bg-white border-2 border-orange-200 p-6 sm:p-7 space-y-5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-100">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-wider">
+                  <Calendar className="w-3.5 h-3.5" />
+                  7/24 Online Randevu Vitrini · %0 Komisyon
+                </div>
+                <h2 className="mt-2 text-xl sm:text-2xl font-black text-stone-900">
+                  {content.cityDetails.city} Online Randevu Alan Kuaför &amp; Berber Salonları
+                </h2>
+                <p className="mt-1 text-xs sm:text-sm text-stone-600 font-medium">
+                  Müşteriyseniz doğrudan salon seçip 15 saniyede randevu alın; salon sahibiyseniz vitrine ücretsiz katılın.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  trackCtaClick(`Vitrine Salon Ekle: ${content.cityDetails?.city}`, `landing_vitrin_${content.key}`);
+                  onRegister();
+                }}
+                className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black shadow-sm cursor-pointer transition-colors"
+              >
+                <span>Salonumu Ücretsiz Ekle</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {liveLocalSalons.length > 0 ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {liveLocalSalons.map((salon) => (
+                  <a
+                    key={salon.id}
+                    href={`/${salon.slug}/randevu`}
+                    onClick={() => trackCtaClick(`Canlı Salon Randevu: ${salon.name}`, `city_showcase_${content.key}`)}
+                    className="group rounded-2xl border border-stone-200 hover:border-orange-400 bg-stone-50/70 hover:bg-orange-50/40 p-4 transition-all flex flex-col justify-between gap-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">
+                          Randevu Açık
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-xs font-black text-amber-600">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          {(salon.rating || 5.0).toFixed(1)}
+                        </span>
+                      </div>
+                      <h3 className="mt-2 text-base font-black text-stone-900 group-hover:text-orange-600 transition-colors">
+                        {salon.name}
+                      </h3>
+                      <p className="mt-1 text-xs text-stone-500 font-semibold flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                        <span>{salon.district ? `${salon.district}, ` : ''}{salon.city}</span>
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-stone-200/70 flex items-center justify-between text-xs font-black text-orange-600">
+                      <span>15 Sn&apos;de Randevu Al</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-amber-50/60 border border-amber-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-stone-900">
+                    {content.cityDetails.city} &amp; {content.cityDetails.region} Salon Vitrini Kurucu Salonlara Açık
+                  </p>
+                  <p className="mt-1 text-xs text-stone-600 font-medium">
+                    Salonunuzu 2 dakikada ücretsiz kaydedip ilçe bilginizi &ldquo;{content.cityDetails.city}&rdquo; seçtiğinizde burada ve haritada otomatik listelenirsiniz.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    trackCtaClick('Kurucu Salon Kayıt', `city_empty_${content.key}`);
+                    onRegister();
+                  }}
+                  className="shrink-0 px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-black cursor-pointer"
+                >
+                  İlk Sırayı Kap (₺0)
+                </button>
+              </div>
+            )}
+
+            {/* Semtlere Göre Randevu Rehberi Kartları */}
+            {content.cityDetails.districtDirectory && content.cityDetails.districtDirectory.length > 0 && (
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-stone-500 mb-3">
+                  {content.cityDetails.city} Semt ve Bölge Rehberi
+                </h3>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {content.cityDetails.districtDirectory.map((dir) => (
+                    <div key={dir.name} className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+                      <p className="text-[11px] font-black text-orange-700 uppercase">{dir.highlight}</p>
+                      <h4 className="mt-0.5 text-sm font-black text-stone-900">{dir.name}</h4>
+                      <p className="mt-1 text-xs text-stone-600 font-medium leading-relaxed">{dir.searchIntent}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2. Hizmet Kategorisi Rehberi */}
+            {content.cityDetails.b2cCategories && content.cityDetails.b2cCategories.length > 0 && (
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-stone-500 mb-3">
+                  {content.cityDetails.city} Online Randevu Hizmet Kategorileri
+                </h3>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  {content.cityDetails.b2cCategories.map((cat) => (
+                    <div key={cat.title} className="rounded-2xl border border-stone-200 bg-white p-4">
+                      <span className="inline-block px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 text-[10px] font-black">
+                        {cat.badge}
+                      </span>
+                      <h4 className="mt-1.5 text-sm font-black text-stone-900">{cat.title}</h4>
+                      <ul className="mt-2 space-y-1 text-xs text-stone-600 font-semibold">
+                        {cat.services.map((svc) => (
+                          <li key={svc} className="flex items-center gap-1.5">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>{svc}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 3. Google Haritalar & Instagram Sıralama Çarpanı Rehberi (B2B Esnaf Dönüşüm & Backlink Motoru) */}
+          <div className="rounded-3xl bg-stone-900 text-white p-6 sm:p-7 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5 max-w-2xl">
+                <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-black uppercase tracking-wider">
+                  Salon Sahipleri İçin Google Haritalar Sıralama Çarpanı
+                </span>
+                <h3 className="text-lg sm:text-xl font-black">
+                  Google İşletme Profilinize ve Instagram Bio&apos;ya Özel Randevu Linkinizi Bağlayın
+                </h3>
+                <p className="text-xs sm:text-sm text-stone-300 font-medium leading-relaxed">
+                  {content.cityDetails.city} içinde &ldquo;kuaför {content.cityDetails.city.toLowerCase()}&rdquo; arayan müşteriler Google Haritalar&apos;da randevu bağlantısı olan salonları tercih eder. İşletme adınızı yazıp randevu adresinizi görün ve 2 dakikada ücretsiz aktifleştirin:
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  trackCtaClick('Google Haritalar Linkini Al', `maps_multiplier_${content.key}`);
+                  onRegister();
+                }}
+                className="shrink-0 px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs sm:text-sm font-black cursor-pointer transition-colors"
+              >
+                Salonumu Vitrine Ekle (%0 Komisyon)
+              </button>
+            </div>
+            <div className="rounded-2xl bg-white/10 border border-white/15 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <input
+                type="text"
+                aria-label="Salon Adınız"
+                value={mapsSlugPreview}
+                onChange={(e) => setMapsSlugPreview(e.target.value)}
+                placeholder="Örn. Altın Makas Kuaför"
+                className="sm:w-56 rounded-xl bg-stone-950/70 border border-white/20 px-3 py-2 text-xs font-bold text-white placeholder:text-stone-400"
+              />
+              <div className="flex-1 min-w-0 text-xs font-mono text-amber-300 break-all">
+                {fullMapsBookingUrl}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    navigator.clipboard.writeText(fullMapsBookingUrl).catch(() => {});
+                  }
+                  setMapsLinkCopied(true);
+                  setTimeout(() => setMapsLinkCopied(false), 1800);
+                }}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-stone-900 text-xs font-black cursor-pointer hover:bg-amber-100 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {mapsLinkCopied ? 'Kopyalandı!' : 'Örnek Linki Kopyala'}
+              </button>
+            </div>
           </div>
 
           <div className="rounded-3xl bg-white border border-stone-200 p-6 sm:p-7 space-y-5">
@@ -2332,6 +2593,7 @@ function BlogPage(props: PageProps) {
             { href: '/kuafor', label: 'Kuaför Programı' },
             { href: '/guzellik-salonu', label: 'Güzellik Salonu' },
             { href: '/randevu-sistemi', label: 'Online Randevu Sistemi' },
+            { href: '/izmit-kuafor-randevu', label: 'Kuaför İzmit Rehberi' },
             { href: '/izmit-berber-randevu', label: 'İzmit Berber Randevu' },
             { href: '/zonguldak-berber-randevu', label: 'Zonguldak Berber Randevu' },
             { href: '/rehber', label: 'Prim & QR Araçları' },

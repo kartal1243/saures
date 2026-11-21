@@ -53,6 +53,11 @@ export function matchPublicRoute(pathname: string): PublicRouteKey | null {
     case 'izmit-berber':
     case 'kocaeli-berber':
     case 'kocaeli-berber-randevu':
+    case 'izmit-kuafor-randevu':
+    case 'izmit-kuafor':
+    case 'kocaeli-kuafor':
+    case 'kocaeli-kuafor-randevu':
+    case 'izmit-guzellik-salonu':
     case 'zonguldak-berber-randevu':
     case 'zonguldak-berber':
     case 'eregli-berber':
